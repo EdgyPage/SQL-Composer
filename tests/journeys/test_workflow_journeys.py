@@ -70,9 +70,12 @@ KNOWN_FIDDLING = {
 # lowers, one ticket at a time (its ticket 01). A journey taking more fails; one taking fewer
 # asks for its number to be lowered here.
 KNOWN_ACTIONS: dict[str, int] = {
-    "test_promote_a_seeded_table_limiting_its_prod_seed": 35,
+    "test_promote_a_seeded_table_limiting_its_prod_seed": 20,
     "test_convert_the_users_batch_with_run_values_through_the_runner": 14,
 }
+# What a cell that runs the Workflow for the user holds: the intended path's two run cells
+# (8.5), or a notebook's last cell.
+RUNS_THE_WORKFLOW = "project.run_workflow("
 # A Workflow's step heading in its notebook, such as "## 3. Create each table in dev".
 STEP_HEADING = re.compile(r"^## (\d+)\. ")
 
@@ -133,7 +136,8 @@ class Journey:
     def run_to(self, step: int | None = None, again: tuple[int, ...] = ()) -> None:
         """Run each code cell not yet run, up to and including step `step`'s, or to the end;
         and each cell of the steps `again` names once more, though run before, as the user
-        runs a step's cell again after changing what it reads."""
+        runs a step's cell again after changing what it reads. Going step by step, the user
+        runs no cell that runs the Workflow for them, as run_workflow does."""
         self.started.monkeypatch.chdir(self.folder)
         current = 0
         for number, (kind, text) in enumerate(notebooks.read_cells(self.notebook), 1):
@@ -142,6 +146,8 @@ class Journey:
                 current = int(heading.group(1))
             if step is not None and current > step:
                 return
+            if kind == "code" and RUNS_THE_WORKFLOW in text:
+                continue
             if kind == "code" and (number > self.cells_run or current in again):
                 self.took("ran", f"cell {number}")
                 exec(text, self.scope)
@@ -189,11 +195,12 @@ class Journey:
 
     def run_workflow(self, **given: object) -> str:
         """Run the cells before step 1, the paths, names and decisions, then the Workflow, as
-        the notebook's last cell runs it: what it reports."""
+        the notebook's run cells run it, the intended path's or the last: what it reports."""
         self.run_to(0)
-        assert notebooks.read_cells(self.notebook)[-1][1].endswith(
-            f'project.run_workflow("{self.workflow}"'
-            + "".join(f", {name}={name}" for name in self._run_with()) + ")")
+        call = (f'project.run_workflow("{self.workflow}"'
+                + "".join(f", {name}={name}" for name in self._run_with()) + ")")
+        assert any(text.endswith(call) for kind, text in notebooks.read_cells(self.notebook)
+                   if kind == "code"), f"{self.notebook} has no cell running {call}"
         calls = {name: self.scope[name] for name in self._run_with() if name in self.scope}
         self.took("ran", "the run_workflow cell")
         return repr(project.run_workflow(self.workflow, **{**calls, **given}))
@@ -834,17 +841,17 @@ def test_convert_a_batch_whose_partition_is_a_tag_answered_by_a_run_value(
 
 def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None:
     # Toolbox 8.4, ticket 14: a prod copy's seed is promote's own answer, given in promote's
-    # decisions cell.
-    test_convert_the_users_batch_with_run_values(started)
+    # decisions cell. Toolbox 8.5, ticket 02: the user's batch, each notebook read top to
+    # bottom: convert through its two run cells, then promote's names and decisions, the seed
+    # limited for every table under "all_tables", and its run cell.
+    test_convert_the_users_batch_with_run_values_through_the_runner(started)
     log = "mart_dev.team_log_mart"
     journey = started.journey("promote")
     # team_log reads job_teams, which is promoted with it.
-    journey.type_names(TABLES=["mart_dev.job_teams_mart", log])
-    journey.run_to(1)
+    journey.type_names(TABLES=["mart_dev.job_teams_mart", log],
+                       DECISIONS={"all_tables": {"seed": {"dt": "2026-09-24"}}})
+    assert "promote: every step is done." in journey.run_workflow()
     prod = project.promoted_tables([log])[0]
-    assert "SEED = {}" in _reference(started.root, prod).read_text(encoding="utf-8")
-    journey.type_names(DECISIONS={prod: {"seed": {"dt": "2026-09-24"}}})
-    journey.run_to()
     seeds = [hive for hive in started.warehouse.executed
              if hive.startswith(f"INSERT OVERWRITE TABLE {prod}")]
     assert len(seeds) == 1 and seeds[0].endswith("WHERE dt >= '2026-09-24'")

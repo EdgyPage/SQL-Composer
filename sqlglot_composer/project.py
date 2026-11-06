@@ -1597,12 +1597,14 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         Wrote references/reference_sheet.csv: 5 rows, 1 table.
       references: every step is done.
 
-    Its notebook's last cell runs it, with your query and execute, in place of each step's
-    cell. It reads the notebook as you last saved it: fill in its names cell, and its decisions
-    cell if you know the answers already, as above, and save it first. It runs each step the
-    Project's files don't say is done, in order, as the step's own cell runs it, its calls to
-    the warehouse too, and reports each, a step done already as skipped. A step that only
-    reads, such as new_table's preview, it runs, printing what it reads, and goes on.
+    Its notebook's run cells run it, with your query and execute, in place of each step's
+    cell: in convert's, promote's, new_table's and references', the two under the names cell,
+    "Run up to your Decisions", then, under the decisions cell, "Run the rest"; in the others',
+    the last cell. It reads the notebook as you last saved it: fill in its names cell, and its
+    decisions cell if you know the answers already, as above, and save it first. It runs each
+    step the Project's files don't say is done, in order, as the step's own cell runs it, its
+    calls to the warehouse too, and reports each, a step done already as skipped. A step that
+    only reads, such as new_table's preview, it runs, printing what it reads, and goes on.
 
     It stops at the first step only you can do, and the steps after it don't run:
 
@@ -1613,11 +1615,11 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     - a refusal or the warehouse's error, written in full: mend what it says;
     - a step that ran and isn't done, such as a compare that failed: mend what it says.
 
-    Then save the notebook and run its last cell again: each step done is skipped, so it goes
-    on where it stopped. `workflow` is one Workflow's name, such as "convert". The convert
-    Workflow runs the batch its names cell's NAME names, or, when NAME is a list, each batch it
-    names in turn, each converted already: a stop in one stops the rest. It never runs a batch
-    you didn't name.
+    Then save the notebook and run it again, from "Run the rest" or the last cell: each step
+    done is skipped, so it goes on where it stopped. `workflow` is one Workflow's name, such as
+    "convert". The convert Workflow runs the batch its names cell's NAME names, or, when NAME
+    is a list, each batch it names in turn, each converted already: a stop in one stops the
+    rest. It never runs a batch you didn't name.
 
     With dry_run=True it sends nothing through your execute. Each step that would send says
     the Hive it would send, "would send: ...", and a preview or a compare says what it would
@@ -1653,6 +1655,9 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
              "skipped.")
+    if workflows.reads_straight_down(found):
+        again = (f'    Then save the notebook, and run "{workflows.RUN_THE_REST}", the cell '
+                 "under the decisions cell: each step done is skipped.")
     lines = []
     if dry_run:
         lines.append("A dry run: nothing is sent through your execute.")
@@ -3634,7 +3639,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
         path = REFERENCE.path(root, stem)
         before[table] = path.read_text(encoding="utf-8")
         answer = decisions.table_answer(answers, table, before[table])
-        answer = _seed_answer(answers, table, before[table], answer)
+        answer = decisions.seed_answer(answers, table, before[table], answer)
         answered = decisions.answered_text(before[table], answer, REFERENCE.shown(stem))
         written[table] = answered.written
         keys_written = keys_written or decisions.ANSWERS[decisions.KEY] in answered.written
@@ -3667,24 +3672,6 @@ def _answered_lines(root: Path, table: str, answer: dict[str, object],
     if not still_open:
         lines.append(f"Each Decision of {table} is made.")
     return lines
-
-
-def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
-                 answer: dict[str, object]) -> dict[str, object]:
-    """One table's answer with its seed limits as they apply to it: its own as given, which
-    the refusals check first; all_tables' for the partition columns it has; none for a table
-    that doesn't read itself, which has no seed."""
-    if not isinstance(answer.get(decisions.SEED), dict):
-        return answer
-    partitions = decisions.seed_partitions(text)
-    own = answers.get(table)
-    if partitions is None:
-        return {kind: value for kind, value in answer.items() if kind != decisions.SEED}
-    if isinstance(own, dict) and decisions.SEED in own:
-        return answer
-    limits = {column: limit for column, limit in answer[decisions.SEED].items()
-              if column in partitions}
-    return {**answer, decisions.SEED: limits}
 
 
 def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict[str, str],

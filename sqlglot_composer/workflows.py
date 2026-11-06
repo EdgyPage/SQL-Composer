@@ -274,11 +274,32 @@ def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ..
     return True
 
 
-def _every_decision_made(root: Path, tables: list[str], kinds: tuple[str, ...]) -> bool:
-    """Whether the tables' Table references leave no Decision of `kinds` open."""
+def _every_decision_made(root: Path, tables: list[str], kinds: tuple[str, ...],
+                         inputs: dict[str, object] | None = None) -> bool:
+    """Whether the tables' Table references leave no Decision of `kinds` open, and hold each
+    seed limit the decisions cell of `inputs` gives, which no Decision asks for: a "seed"
+    answer typed once the rest are written is written too."""
     if not tables or not all(reference_path(root, table).is_file() for table in tables):
         return False
-    return not open_decisions_of(root, tables, kinds)
+    if open_decisions_of(root, tables, kinds):
+        return False
+    answers = (inputs or {}).get(DECISIONS)
+    if not isinstance(answers, dict):
+        return True
+    return all(_seed_written(answers, table, file_text(reference_path(root, table)))
+               for table in tables)
+
+
+def _seed_written(answers: dict[str, object], table: str, text: str) -> bool:
+    """Whether a table's Table reference, `text`, holds the seed limits the decisions cell's
+    `answers` give it, all_tables' among them: true when they give none, or it has no SEED."""
+    answer = decisions.seed_answer(answers, table, text,
+                                   decisions.table_answer(answers, table, text))
+    limits = answer.get(decisions.SEED)
+    written = decisions.seed_line(text)
+    if not isinstance(limits, dict) or written is None:
+        return True
+    return written == decisions.SEED_START.removesuffix("{") + decisions.seed_python(limits)
 
 
 def every_dev_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
@@ -288,9 +309,10 @@ def every_dev_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def every_dev_decision_made(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the batch's tables' Table references leave no Decision open."""
+    """Whether the batch's tables' Table references leave no Decision open, and hold the
+    decisions cell's seed limits."""
     return every_batch_converted(root, inputs) and _every_decision_made(
-        root, names_in(inputs, "TABLES"), DEV_DECISIONS)
+        root, names_in(inputs, "TABLES"), DEV_DECISIONS, inputs)
 
 
 def every_prod_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
@@ -300,9 +322,10 @@ def every_prod_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def every_prod_decision_made(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the prod copies' Table references leave no Decision open."""
+    """Whether the prod copies' Table references leave no Decision open, and hold the
+    decisions cell's seed limits."""
     return _every_decision_made(root, names_in(prod_inputs(root, inputs), "TABLES"),
-                                PROD_DECISIONS)
+                                PROD_DECISIONS, inputs)
 
 
 def every_source_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
@@ -1617,6 +1640,8 @@ def terms_cell_lines(workflow: Workflow, text: str) -> list[str]:
 def about_cell(workflow: Workflow) -> str:
     """A Workflow notebook's first cell: what it is for, its Terms, what to do before step 1,
     which cells to run, and its Self-check."""
+    if reads_straight_down(workflow):
+        return _about_straight_down(workflow)
     rules = ["- If you run the steps yourself, run each step's cell in turn, in order.",
              "- If you want them run for you, run the last cell, `project.run_workflow(...)`, "
              "in place of their cells. It runs every step left in turn, up to the first only "
@@ -1630,6 +1655,12 @@ def about_cell(workflow: Workflow) -> str:
                   "Fill in the names cell below and save the notebook: each call reads it, and "
                   "so do `project.check()`, which names the next step, and "
                   "`project.do_next()`, the cell before the last.", ""]
+    return _about_text(workflow, rules, before)
+
+
+def _about_text(workflow: Workflow, rules: list[str], before: list[str]) -> str:
+    """A Workflow notebook's first cell, its Decision rules `rules` and what to do before its
+    steps `before`: what it is for, its Terms, those, and its Self-check."""
     steps = "\n".join(step_cell(number, workflow, step)
                       for number, step in enumerate(workflow.steps, 1))
     head = [f"# {workflow.name}", "", workflow.about, ""]
@@ -1638,6 +1669,24 @@ def about_cell(workflow: Workflow) -> str:
         "", *before, "## Decision rules", "", *rules, "", "## Self-check", "",
         "Once the last step is done, each of these holds:", "",
         *[f"- {check}" for check in workflow.checks]])
+
+
+def _about_straight_down(workflow: Workflow) -> str:
+    """The first cell of a notebook that reads straight down: what it is for, its Terms, its
+    intended path, top to bottom, and its Self-check."""
+    rules = [
+        "- If you want the steps run for you, as most do: fill in the names cell and save the "
+        f'notebook, run "{RUN_UP_TO_DECISIONS}", paste what it prints into the decisions cell '
+        f'under it, fill it in and save, then run "{RUN_THE_REST}". Each runs every step left '
+        "in turn, up to the first only you can do, and says where it stopped.",
+        f'- If you run the steps yourself, run each step\'s cell under "{STEP_BY_STEP}", in '
+        "turn, in order.",
+        "- If you want only the steps that change files run for you, run "
+        "`project.do_next()`, the last cell. It runs them up to the first it can't."]
+    before = ["## Before you start", "",
+              "Fill in the names cell below and save the notebook: each call reads it, and so "
+              "does `project.check()`, which names the next step.", ""]
+    return _about_text(workflow, rules, before)
 
 
 def step_name_of(cell: str) -> str | None:
@@ -1653,13 +1702,51 @@ def step_name_of(cell: str) -> str | None:
 DECISIONS_TO_ANSWER_CELL = "project.check()"
 
 
+def reads_straight_down(workflow: Workflow) -> bool:
+    """Whether a Workflow's notebook opens with its intended path, read top to bottom (Toolbox
+    8.5): a Workflow with a names cell and a step that waits on Decisions. Its names cell, a
+    cell running every step up to the Decisions, the decisions cell, and a cell running the
+    rest come first; each step's own cell below, under Step by step."""
+    return bool(workflow.inputs) and any(step.decides for step in workflow.steps)
+
+
+# The headings of the intended path's two run cells, and of the steps' own cells below them.
+RUN_UP_TO_DECISIONS = "Run up to your Decisions"
+RUN_THE_REST = "Run the rest"
+STEP_BY_STEP = "Step by step"
+
+
+def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
+    """A notebook's intended path, after its names cell, as (kind, text) cells: a run of every
+    step up to the first Decision, which prints the DECISIONS to paste; the decisions cell,
+    directly below; and a run of the rest. Then the heading of the steps' own cells."""
+    return [
+        ("markdown", f"## {RUN_UP_TO_DECISIONS}\n\nRun the cell below: it runs every step "
+         "left, up to the first only you can do, and says where it stopped. At a Decision, "
+         "it prints a whole DECISIONS: paste it into the decisions cell under it, fill in "
+         f"each {decisions.FILL_IN}, and save the notebook."),
+        ("code", run_cell_text(workflow, RUN_UP_TO_DECISIONS)),
+        ("code", DECISIONS_CELL),
+        ("markdown", f"## {RUN_THE_REST}\n\nRun the cell below once the decisions cell above "
+         "is filled in and saved: it goes on from where the cell before stopped. If an answer "
+         "was wrong, mend it in the decisions cell, save, and run this cell again."),
+        ("code", run_cell_text(workflow, RUN_THE_REST)),
+        ("markdown", f"# {STEP_BY_STEP}\n\nEach step's own cell, to run or run again one step "
+         "on purpose; the cells above run them all for you."),
+    ]
+
+
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
-    Project, its inputs, then each step and its call, and the cell that runs what is next."""
+    Project, its inputs, then each step and its call, and the cell that runs what is next. One
+    that reads straight down opens with its intended path, each step's cell below it."""
     cells = [("markdown", about_cell(workflow)), ("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
-    if any(step.decides for step in workflow.steps):
+    straight_down = reads_straight_down(workflow)
+    if straight_down:
+        cells += intended_path_cells(workflow)
+    elif any(step.decides for step in workflow.steps):
         cells.append(("code", DECISIONS_CELL))
     for number, step in enumerate(workflow.steps, 1):
         cells.append(("markdown", step_cell(number, workflow, step)))
@@ -1669,16 +1756,20 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
             cells.append(("code", DECISIONS_TO_ANSWER_CELL))
     if workflow.inputs:
         cells.append(("code", "project.do_next()"))
-    cells.append(("code", run_cell_text(workflow)))
+    if not straight_down:
+        cells.append(("code", run_cell_text(workflow)))
     return cells
 
 
-def run_cell_text(workflow: Workflow) -> str:
-    """A Workflow notebook's last cell: project.run_workflow, which runs every step left."""
+def run_cell_text(workflow: Workflow, heading: str = "") -> str:
+    """A cell running project.run_workflow, which runs every step left: a notebook's last
+    cell, or, under `heading`, one of its intended path's two run cells."""
     given = "".join(f", {name}={name}" for name in workflow.run_with)
-    return ("# Every step left, in place of their cells, up to the first only you can do.\n"
-            "# Add dry_run=True to see the Hive it would send, sending nothing through your\n"
-            "# execute: help(project.run_workflow) says the steps it still runs:\n"
+    first = "# Every step left, in place of their cells, up to the first only you can do.\n"
+    if heading:
+        first = f"# {heading}: every step left, up to the first only you can do.\n"
+    return (first + "# Add dry_run=True to see the Hive it would send, sending nothing through "
+            "your\n# execute: help(project.run_workflow) says the steps it still runs:\n"
             f'project.run_workflow("{workflow.name}"{given})')
 
 

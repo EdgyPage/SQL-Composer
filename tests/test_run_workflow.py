@@ -18,6 +18,7 @@ from conftest import forget_the_projects_modules, toolbox_module
 from sqlglot_composer import example_database, project
 
 notebooks = toolbox_module("notebooks")
+workflows = toolbox_module("workflows")
 DEV = "mart_dev"
 QUERY = "SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'"
 
@@ -89,7 +90,7 @@ def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
     stopped = run("convert")
     assert "convert, spare: 7. Compare each table with its original" in stopped
     assert "Stopped: it ran, and isn't done, as it says above" in stopped
-    assert "Then save the notebook, and run its last cell again" in stopped
+    assert 'Then save the notebook, and run "Run the rest", the cell under' in stopped
 
 
 def test_rename_in_the_names_cell_names_a_copy_in_dev(started: Path) -> None:
@@ -157,10 +158,17 @@ def test_change_a_saved_table_with_no_change_given_says_to_pass_it(started: Path
     assert "change=change" in stopped
 
 
-def test_each_workflow_notebook_ends_with_its_run_cell(started: Path) -> None:
+def test_each_workflow_notebook_has_its_run_cell(started: Path) -> None:
+    # One that reads straight down (Toolbox 8.5) runs it from its intended path, under its
+    # names cell; any other from its last cell.
+    straight_down = {each.name for each in workflows.WORKFLOWS
+                     if workflows.reads_straight_down(each)}
     for notebook in sorted((started / "admin" / "workflows").glob("*/*.ipynb")):
-        last = notebooks.read_cells(notebook)[-1][1]
-        assert last.split(chr(10))[-1].startswith(f'project.run_workflow("{notebook.stem}"')
+        code = [text for kind, text in notebooks.read_cells(notebook) if kind == "code"]
+        runs = code[2:5:2] if notebook.stem in straight_down else code[-1:]
+        assert runs, notebook.stem
+        for each in runs:
+            assert each.split(chr(10))[-1].startswith(f'project.run_workflow("{notebook.stem}"')
 
 
 def test_a_promote_named_in_a_project_with_a_reference_sheet_starts_at_its_first_step(
