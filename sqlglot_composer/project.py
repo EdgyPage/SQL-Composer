@@ -103,7 +103,8 @@ from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, 
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
-from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
+from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells,
+                        read_cells_if_readable, template_cells, write_cell_text,
                         write_notebook)
 from .project_files import (
     BUILDING_BLOCK,
@@ -124,12 +125,12 @@ from .project_files import (
 )
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
-from .refusals import (GuardRefused, LoadRefused, callers_frame,
+from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
-from .shared import (counted, in_words, python_literal, singular_or_plural,
+from .shared import (counted, escaped_literal, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
@@ -1778,25 +1779,31 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.3.
+    Upgraded the Project from 7.1 to 8.4.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+    8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
+    Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
+        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and
+        admin/upgrade_8.4.md.
 
-    Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
-    cell of admin/check_project.ipynb, which imports project already, or of
-    admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which start()
-    writes and an Upgrade adds. It reads the version that last wrote the Project from
+    Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
+    cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
+    start() writes and an Upgrade adds; a Project made before 8.0, which has no such notebook
+    until its first Upgrade, runs it in admin/check_project.ipynb, which imports project
+    already. It reads the version that last wrote the Project from
     admin/project_version.txt, and runs each version's step from there to this Toolbox's, in
-    order. A step makes the changes that need no judgement, keeping each file it changes, as it
-    was, in admin/removed/, and marks each change that needs you with a
+    order, so you may skip versions: copy in the newest, and every step between runs. A step
+    makes the changes that need no judgement, keeping each file it changes, as it was, in its
+    own folder of admin/removed/, and marks each change that needs you with a
     `# UPGRADE <version>: <what to change>` comment at the line. admin/upgrade_<version>.md
-    lists what each step did, and a box for each mark; project.check() lists the marks left.
-    It changes only files, never the warehouse, and logs what it did in the Admin log. Run
-    again, it does nothing.
+    lists what each step did, and a box for each mark: its checklist, which the last line names,
+    in order, and project.check() lists the marks left. It changes only files, never the
+    warehouse, and logs what it did in the Admin log. Run again, it does nothing.
 
     A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made
     by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it
@@ -1814,6 +1821,7 @@ def upgrade() -> ProjectReport:
                               "nothing to upgrade."])
     when = unchecked.now()
     lines = [f"Upgraded the Project from {start_from} to {toolbox}."]
+    reports: list[str] = []
     for upgraded_from, version in zip([start_from, *versions], versions):
         archive = root / "admin" / "removed" / (
             f"{when.strftime(unchecked.TIME_IN_A_NAME)}-upgrade_{version}")
@@ -1826,7 +1834,16 @@ def upgrade() -> ProjectReport:
                               f"wrote {step.checklist_path}",
                               f"wrote {upgrades.PROJECT_VERSION.as_posix()}: {version}"], frame)
         lines.append(step.report_line())
+        reports.append(step.checklist_path)
+    lines.append(_checklists_line(reports))
     return ProjectReport(lines)
+
+
+def _checklists_line(reports: list[str]) -> str:
+    """project.upgrade()'s last line: each step's admin/upgrade_<version>.md, in order."""
+    if len(reports) == 1:
+        return f"Read the step's checklist: {reports[0]}."
+    return f"Read each step's checklist, in order: {in_words(reports)}."
 
 
 def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
@@ -1878,8 +1895,9 @@ def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
 # Where to run project.upgrade(): a Project an older Toolbox made has no
 # admin/workflows/upgrade/upgrade.ipynb until an Upgrade adds one, and every admin notebook
 # imports project already.
-RUN_UPGRADE = ("run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-               "admin/workflows/upgrade/upgrade.ipynb once the Project has one")
+RUN_UPGRADE = ("run step 1's cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); "
+               "a Project made before 8.0 has no such notebook until its first Upgrade, so "
+               "there project.upgrade() goes in admin/check_project.ipynb")
 
 
 def _recorded_version(root: Path) -> str | None:
@@ -2619,25 +2637,31 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
                            _guessed(columns), proposed=proposed,
                            tag_is_quoted=hive_read.tag_is_quoted,
-                           tag_places=_first_place_of_each_tag(pieces))
-    seed_hive = None
+                           tag_places=_first_place_of_each_tag(pieces), seeded=seeded)
     if seeded:
-        seed_hive = _seed_hive(table, dev, partitions)
         files.seeded.append(dev)
     whole_hive = None
     if hive_read.kept_whole:
         whole_hive = write_hive
-    _write_table_files(files, dev, batch, hive_read, logic, seed_hive, whole_hive)
+    _write_table_files(files, dev, batch, hive_read, logic, table if seeded else None,
+                       whole_hive)
     scan = _batch_scan_lines(text, hive_read, pieces, ordered, list(opt_outs))
     scan += _hive_compared(built, text, stopped)
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
-        items.append("Its write reads its own table, which in dev starts empty, so the "
-                     "convert Workflow's seed step, after it creates the table, copies every "
-                     "Partition of the original's rows into it once, with its seed().")
+        items.append(SEED_NOTE)
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
+
+
+# The checklist's note of a table that reads itself, which the seed step fills once.
+SEED_NOTE = ("Its write reads its own table, which in dev starts empty. So the convert "
+             "Workflow's seed step, after it creates the table, copies the original's rows "
+             "into it once, with its seed(). It copies every Partition unless SEED, in its "
+             "Table reference, limits them. To copy only those you need, answer \"seed\" in "
+             "the decisions cell, such as {\"dt\": {\"from\": \"2026-01-01\"}}. A table with "
+             "no Partitions copies every row. The seed step's line shows the WHERE it sends.")
 
 
 def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
@@ -2693,16 +2717,16 @@ def _first_place_of_each_tag(pieces: list[converting.BatchStatement]) -> dict[st
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
                        hive_read: converting.ConvertedQuery, logic: str,
-                       seed_hive: str | None, whole_hive: str | None) -> None:
-    """Write a dev table's notebook, its logic a Saved table's, with seed() running
-    `seed_hive` when it reads itself, and write() kept as Hive, `whole_hive`, when its query
-    is; and its lineage/ folder."""
+                       seeded_from: str | None, whole_hive: str | None) -> None:
+    """Write a dev table's notebook, its logic a Saved table's, with seed() copying the rows
+    of `seeded_from`, its original, when it reads itself, and write() kept as Hive,
+    `whole_hive`, when its query is; and its lineage/ folder."""
     stem = TABLE_FOLDER.stem(dev)
     short = split_table_name(dev)[1]
     table_logic = converting.saved_table_logic(logic, dev, short, hive_read.write,
                                                hive_read.static_partition, whole_hive)
-    if seed_hive is not None:
-        table_logic = converting.with_seed(table_logic, seed_hive)
+    if seeded_from is not None:
+        table_logic = converting.with_seed(table_logic, short, seeded_from)
     files.write_notebook(table_notebook(stem),
                          _converted_table_cells(dev, batch, table_logic, hive_read,
                                                 files.made_for))
@@ -2789,17 +2813,22 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            guessed: tuple[str, ...],
                            proposed: tuple[list[str], ...] = (),
                            tag_is_quoted: dict[str, bool] | None = None,
-                           tag_places: dict[str, str] | None = None) -> None:
+                           tag_places: dict[str, str] | None = None,
+                           seeded: bool = False) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
-    as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
-    its Aliases; then the Database modules, which the next table's logic imports it
-    through."""
+    as a Decision, TAGS, what each of its Script tags stands for, when it has any, and SEED,
+    its seed's limits, when it reads itself, before its Aliases; then the Database modules,
+    which the next table's logic imports it through."""
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
+    blocks = []
     if tag_is_quoted:
+        blocks.append(converting.tags_block(tag_is_quoted, tag_places))
+    if seeded:
+        blocks.append([*decisions.SEED_COMMENT, decisions.SEED_START + "}"])
+    for block in blocks:
         at = text.index(ALIASES_HEADING)
-        block = converting.tags_block(tag_is_quoted, tag_places)
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
@@ -2814,6 +2843,10 @@ def _register_table(root: Path, dev: str, folder: bool) -> None:
     registry.add(new, unchecked.now())
 
 
+# What follows an opt-out's name in its checklist note: where it is.
+OPT_OUT_NOTE_PLACE = ", in the logic cell"
+
+
 def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQuery,
                      stopped: str | None, proposed: tuple[list[str], ...]) -> list[str]:
     """What a converted table's checklist notes, which blocks nothing: each mark, with what
@@ -2823,7 +2856,7 @@ def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQu
     for opt_out, refused in opt_outs.items():
         # An opt-out is written as FROM(job_runs, reads_all_partitions=True): its keyword last.
         keyword = opt_out.rsplit(", ", 1)[-1].removesuffix(")")
-        notes.append(f"{opt_out}, in the logic cell, keeps what the original did, as its "
+        notes.append(f"{opt_out}{OPT_OUT_NOTE_PLACE}, keeps what the original did, as its "
                      f"`# CONVERSION:` mark says until you delete it. Without {keyword} the "
                      f"Toolbox refuses the logic, saying: {refused.rstrip('.')}. If you want "
                      "to, change what made it needed, such as a WHERE on the partition "
@@ -2838,6 +2871,119 @@ def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQu
                      'query: if it is wrong, answer "key" in the decisions cell, such as '
                      '"key": ["a", "b"], or "key": None when no columns name one row.')
     return notes
+
+
+# --- Step 3 takes out the needless many_matches=True (Toolbox 8.4, ticket 10) ---------------
+# Step 1 builds each table's logic before step 3 writes the Keys, so a join on a table whose Key
+# is still open takes many_matches=True, marked. Once a Key is written, the join may need it no
+# more.
+
+_MANY_MATCHES = "many_matches"
+
+
+def _take_out_needless_many_matches(root: Path) -> list[str]:
+    """Take each many_matches=True a Conversion added, with its `# CONVERSION:` mark, out of
+    each Table folder's logic cell where its Repeated-rows Warning no longer fires, as once
+    step 3 writes the Keys, and its note out of the table's checklist.md and batch.md: a line
+    for each taken out. One whose Warning still fires stays, as do yours and every other
+    mark."""
+    lines = []
+    for stem in TABLE_FOLDER.found(root):
+        notebook = TABLE_FOLDER.path(root, stem) / f"{stem}.ipynb"
+        found = _logic_cell_of(notebook)
+        if found is None:
+            continue
+        number, logic = found
+        if not converting.marked_opt_outs(logic, _MANY_MATCHES):
+            continue
+        table = TABLE_FOLDER.name_of(stem)
+        logic, taken = _logic_without_needless_many_matches(root, table, logic)
+        if not taken:
+            continue
+        write_cell_text(notebook, number, logic)
+        # A note stays while a mark it notes is left, as when one table is joined twice.
+        left = converting.marked_opt_outs(logic, _MANY_MATCHES)
+        _take_out_notes(root, table, set(taken) - {opt_out for opt_out, _ in left})
+        lines += [f"{table}: took {opt_out} out of {table_notebook(stem)}, with its "
+                  "# CONVERSION: mark and its checklist note: with the Keys written, the join "
+                  "no longer repeats rows." for opt_out in dict.fromkeys(taken)]
+    return lines
+
+
+def _logic_cell_of(notebook: Path) -> tuple[int, str] | None:
+    """A Table notebook's logic cell: its number, counted from 1, every cell counted, and its
+    text; None when the notebook isn't there, Jupyter couldn't open it, or it has no logic
+    cell."""
+    cells = None
+    if notebook.is_file():
+        cells = read_cells_if_readable(notebook)
+    for number, (kind, text) in enumerate(cells or [], 1):
+        if kind == "code" and text.strip().splitlines()[:1] == [LOGIC]:
+            return number, text
+    return None
+
+
+def _logic_without_needless_many_matches(root: Path, table: str,
+                                         logic: str) -> tuple[str, list[str]]:
+    """A table's logic cell, each many_matches=True a Conversion added taken out, with its
+    mark, where building it without shows no Repeated-rows Warning more than with it; and
+    each taken out. Logic that doesn't build, as yours may not yet, is kept as it is."""
+    warning_count = _repeated_rows_warning_count(root, table, logic)
+    if warning_count is None:
+        return logic, []
+    taken: list[str] = []
+    next_to_try = 0
+    marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
+    while next_to_try < len(marked):
+        opt_out, without = marked[next_to_try]
+        if _repeated_rows_warning_count(root, table, without) == warning_count:
+            logic = without
+            taken.append(opt_out)
+        else:
+            next_to_try += 1  # it is still needed: the next one is tried
+        marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
+    return logic, taken
+
+
+def _repeated_rows_warning_count(root: Path, table: str, logic: str) -> int | None:
+    """How many Repeated-rows Warnings building a converted table's preview() shows, the query
+    its write() saves, which builds before its location= is answered; None when it doesn't
+    build."""
+    with warnings.catch_warnings(record=True) as shown:
+        warnings.simplefilter("always")
+        try:
+            run_logic(root, logic, f"{LOGIC_OF}{table}")["preview"]()
+        # Whatever stops it building, its logic is left as it is.
+        except Exception:  # noqa: BLE001
+            return None
+    return len([each for each in shown if issubclass(each.category, RepeatedRowsWarning)])
+
+
+def _take_out_notes(root: Path, table: str, opt_outs: set[str]) -> None:
+    """Take each opt-out's note out of a converted table's checklist.md, and its line out of
+    the batch.md that lists it under the table, its batch's or a finished one's."""
+    checklist = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / CHECKLIST
+    if checklist.is_file():
+        text = checklist.read_text(encoding="utf-8")
+        notes = [note for note in _notes_of(text)
+                 if note.split(OPT_OUT_NOTE_PLACE, 1)[0] not in opt_outs]
+        checklist.write_text(_checklist_text(root, table, notes, _decisions_notebook_of(text)),
+                             encoding="utf-8")
+    mark_lines = {_batch_md_mark_line(opt_out) for opt_out in opt_outs}
+    batch_lists = [*(root / BATCHES).glob(f"*/{BATCH_LIST}"),
+                   *(root / BATCHES / FINISHED).glob(f"*/{BATCH_LIST}")]
+    for batch_list in batch_lists:
+        text = batch_list.read_text(encoding="utf-8")
+        lines, entry = [], ""
+        for line in text.split("\n"):
+            if line.startswith("- "):
+                entry = line
+            # A table's entry names its copy in dev, after its original or first.
+            is_the_tables = entry.startswith(f"- {table}, ") or f": {table}, " in entry
+            if not (is_the_tables and line in mark_lines):
+                lines.append(line)
+        if "\n".join(lines) != text:
+            batch_list.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _decisions_notebook(made_for: str = "") -> str:
@@ -3069,14 +3215,6 @@ def _untyped_as_string(columns: dict[str, str]) -> dict[str, str]:
     return typed
 
 
-def _seed_hive(table: str, dev: str, partitions: list[str]) -> str:
-    """The Hive that copies the original's rows into its dev copy, every column as it is."""
-    partition = ""
-    if partitions:
-        partition = f" PARTITION ({', '.join(partitions)})"
-    return f"INSERT OVERWRITE TABLE {dev}{partition} SELECT * FROM {table}"
-
-
 def _write_reference_of_a_create_alone(files: _BatchFiles, table: str,
                                        ordered: list[converting.BatchStatement],
                                        names: dict[str, str]) -> None:
@@ -3177,13 +3315,18 @@ def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchS
         made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
     elif copy not in made:
         made_as = "not made: convert's report says why"
-    notes = [f"  - # CONVERSION: {opt_out}, a note on its checklist"
-             for opt_out in files.marks.get(copy, [])]
+    notes = [_batch_md_mark_line(opt_out) for opt_out in files.marks.get(copy, [])]
     writes = _writes_to(ordered, table)
     if writes and all(each.kind == converting.QUERY for each in writes):
         # Its query names no table to write: the name it was given is only the batch's.
         return [f"- {copy}, from its query: {made_as}", *notes]
     return [f"- {table}: {copy}, {made_as}", *notes]
+
+
+def _batch_md_mark_line(opt_out: str) -> str:
+    """batch.md's line for a `# CONVERSION:` mark, under its table's: the opt-out added, such
+    as JOIN(t, many_matches=True)."""
+    return f"  - # CONVERSION: {opt_out}, a note on its checklist"
 
 
 def _batch_report(name: str, scripts: list[tuple[str, str]],
@@ -3406,7 +3549,8 @@ def _tables_compared(call: str, tables: str | list[str] | None,
     return list(tables)
 
 
-def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
+def write_decisions(answers: dict[str, dict[str, object]],
+                    tables: str | list[str] | None = None) -> ProjectReport:
     """Write each answer of a decisions cell into its table's Table reference.
 
     >>> from sqlglot_composer import example_database, project
@@ -3435,50 +3579,199 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
     "'2026-10-31'"}}}. Each answer is written into the open line it answers. A tag's answer
-    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes;
-    answering it again writes the new value over the old. An answer left <FILL IN>, as
+    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes,
+    or a Run value's function, imported in the decisions cell from a file of your Project's,
+    which is written into TAGS with its import; answering it again writes the new value over
+    the old. An answer left <FILL IN>, as
     check() prints it to paste, is no answer: nothing is written for it, and the report names
     it. Any other Decision made already,
     as yours is once you change its line, is kept, and an answer that differs from it is
     named; so is a type for a column the table has whose type the Toolbox didn't guess. A
     converted table's conversion/checklist.md, which lists its open Decisions, is written
-    again. Its Workflow's next step names each Decision still open.
+    again. Once a Key is written, each many_matches=True a Conversion added to a join, marked
+    `# CONVERSION:`, is taken out, with its mark and its checklist note, wherever the join
+    no longer repeats rows without it, and the report names each one; one still needed stays.
+    Its Workflow's next step names each Decision still open.
 
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
-    kind other than location, key, types and tags, a "types" or "tags" that isn't a dict, a
+    kind other than location, key, types, tags and seed, a "types", "tags" or "seed" that
+    isn't a dict, a seed limit on a column that isn't a partition column, a
     column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
+
+    DECISIONS["all_tables"] answers for every table the Workflow's notebook names, which
+    `tables` gives, as each Workflow's step cell does: project.batch_tables(NAME) in convert's
+    notebook, project.promoted_tables(TABLES) in promote's, and TABLES in the others. It takes
+    "location_root", the folder each table's own goes under, which gives a table whose
+    location is still open "<root>/<db>.db/<table>": "/data/team" gives mart_dev.weekly_ops
+    "/data/team/mart_dev.db/weekly_ops"; "tags", each written into each table that holds it;
+    and "seed", the limits of the seed's copy. It loads first, and a table's own answer
+    overwrites it, kind by kind and, for tags, tag by tag: {"all_tables": {"location_root":
+    "/data/team", "tags": {"PERIOD_END": "'2026-10-31'"}}, "mart_dev.weekly_ops": {"tags":
+    {"PERIOD_END": "'2026-10-25'"}}}. The report says which tables each of its answers was
+    written into. A Key or a type is each table's own: under all_tables it is refused, naming
+    the tables to answer it for; so is a tag no table of `tables` holds, and all_tables with
+    no `tables`.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
     root = _project_root(call)
     _refuse_answers_not_by_table(call, answers)
-    _refuse_answers_matching_nothing(call, root, answers)
+    if isinstance(tables, str):
+        tables = [tables]
+    _refuse_all_tables_with_no_tables(call, answers, tables)
+    tables = tables or []
+    _refuse_answers_matching_nothing(call, root, answers, tables)
+    named = [table for table in answers if table != decisions.ALL_TABLES]
+    if decisions.ALL_TABLES in answers:
+        named = list(dict.fromkeys([*tables, *named]))
     lines, files = [], []
-    for table, answer in answers.items():
+    before, written = {}, {}
+    keys_written = False
+    for table in named:
         stem = table_stem(table)
         path = REFERENCE.path(root, stem)
-        answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
-                                           REFERENCE.shown(stem))
+        before[table] = path.read_text(encoding="utf-8")
+        answer = decisions.table_answer(answers, table, before[table])
+        answer = _seed_answer(answers, table, before[table], answer)
+        answered = decisions.answered_text(before[table], answer, REFERENCE.shown(stem))
+        written[table] = answered.written
+        keys_written = keys_written or decisions.ANSWERS[decisions.KEY] in answered.written
         if answered.written:
             path.write_text(answered.text, encoding="utf-8")
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
-        lines += [f"{table}: {each}: if the table is written already, write it and compare it "
-                  "again."
-                  for each in answered.changed]
-        lines += [f"{table}: {each}." for each in answered.unwritten]
-        lines += _hivevar_notes(root, table, answer)
-        _write_checklist_again(root, table)
-        still_open = decisions.open_decisions(answered.text, table)
-        lines += _todo_lines_report(table, answered.text)
-        lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
-        if not still_open:
-            lines.append(f"Each Decision of {table} is made.")
-    _log(root, call, list(answers), files, frame)
+        lines += _answered_lines(root, table, answer, answered)
+    lines += _all_tables_report_lines(answers, before, written)
+    if keys_written:
+        lines += _take_out_needless_many_matches(root)
+    _log(root, call, named, files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
+
+
+def _answered_lines(root: Path, table: str, answer: dict[str, object],
+                     answered: decisions.Answered) -> list[str]:
+    """What write_decisions says of one table once its answers are written, its checklist
+    written again: each answer that changed one before, each left unwritten, each Hive
+    variable's note, each TODO line left, and each Decision still open."""
+    lines = [f"{table}: {each}: if the table is written already, write it and compare it "
+             "again." for each in answered.changed]
+    lines += [f"{table}: {each}." for each in answered.unwritten]
+    lines += _hivevar_notes(root, table, answer)
+    _write_checklist_again(root, table)
+    still_open = decisions.open_decisions(answered.text, table)
+    lines += _todo_lines_report(table, answered.text)
+    lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
+    if not still_open:
+        lines.append(f"Each Decision of {table} is made.")
+    return lines
+
+
+def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
+                 answer: dict[str, object]) -> dict[str, object]:
+    """One table's answer with its seed limits as they apply to it: its own as given, which
+    the refusals check first; all_tables' for the partition columns it has; none for a table
+    that doesn't read itself, which has no seed."""
+    if not isinstance(answer.get(decisions.SEED), dict):
+        return answer
+    partitions = decisions.seed_partitions(text)
+    own = answers.get(table)
+    if partitions is None:
+        return {kind: value for kind, value in answer.items() if kind != decisions.SEED}
+    if isinstance(own, dict) and decisions.SEED in own:
+        return answer
+    limits = {column: limit for column, limit in answer[decisions.SEED].items()
+              if column in partitions}
+    return {**answer, decisions.SEED: limits}
+
+
+def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict[str, str],
+                       written: dict[str, list[str]]) -> list[str]:
+    """What write_decisions says of each answer of DECISIONS["all_tables"]: which tables it
+    was written into, and which kept their own; `before` holding each table's Table reference
+    as it was, and `written` the name of each answer written into it."""
+    every = answers.get(decisions.ALL_TABLES)
+    if not isinstance(every, dict):
+        return []
+    lines = []
+    if decisions.LOCATION_ROOT in every:
+        lines.append(_location_root_line(answers, before, written))
+    for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
+        lines.append(_all_tables_tag_line(name, answers, before, written))
+    if decisions.SEED in every:
+        lines.append(_all_tables_seed_line(answers, written))
+    return lines
+
+
+def _all_tables_seed_line(answers: dict[str, dict[str, object]],
+                          written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s seed limits: each table they
+    were written into, for the partition columns it has, and each that keeps its own."""
+    into = [table for table, names in written.items()
+            if decisions.SEED in names and decisions.SEED not in answers.get(table, {})]
+    own = [table for table in written if decisions.SEED in answers.get(table, {})]
+    said = (f"all_tables: seed: written into {in_words(into) or 'no table'}, each for the "
+            "partition columns it has; a table that doesn't read itself has no seed")
+    if own:
+        said += f". {in_words(own)} {'keeps' if len(own) == 1 else 'keep'} its own"
+    return said + "."
+
+
+def _all_tables_tag_line(name: str, answers: dict[str, dict[str, object]],
+                           before: dict[str, str], written: dict[str, list[str]]) -> str:
+    """What write_decisions says of one tag of DECISIONS["all_tables"], by its NAME: each table
+    it was written into, each that keeps its own answer, and each that holds no such tag."""
+    if decisions.is_left_to_fill_in(answers[decisions.ALL_TABLES]["tags"][name]):
+        return f"all_tables: tags: {name} {decisions.still_to_fill_in('its answer')}."
+    own = [table for table in written if name in _own_tags(answers, table)]
+    into = [table for table in written
+            if f"tags: {name}" in written[table] and table not in own]
+    missing = [table for table in written if name not in decisions.tag_names(before[table])]
+    said = (f"all_tables: tags: {name}: written into {in_words(into) or 'no table'}."
+            f"{_kept_their_own_text(own, 'answer')}")
+    if missing:
+        said += (f" {in_words(missing)} {singular_or_plural(len(missing), 'holds', 'hold')}"
+                 f" no {name}, so {singular_or_plural(len(missing), 'is', 'are')} passed "
+                 "over.")
+    return said
+
+
+def _kept_their_own_text(tables: list[str], what: str) -> str:
+    """" a and b keep their own location.", naming the tables that keep their own `what`, or ""
+    when none does."""
+    if not tables:
+        return ""
+    keep = singular_or_plural(len(tables), "keeps its", "keep their")
+    return f" {in_words(tables)} {keep} own {what}."
+
+
+def _location_root_line(answers: dict[str, dict[str, object]], before: dict[str, str],
+                          written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s location_root: each table it
+    gave a location, under it, and each that keeps its own."""
+    root = answers[decisions.ALL_TABLES][decisions.LOCATION_ROOT]
+    if decisions.is_left_to_fill_in(root):
+        return (f"all_tables: {decisions.LOCATION_ROOT} "
+                f"{decisions.still_to_fill_in('its answer')}.")
+    location = decisions.ANSWERS[decisions.LOCATION]
+    own = [table for table in written
+           if location in answers.get(table, {})
+           or not decisions.open_decisions(before[table], table, (decisions.LOCATION,))]
+    into = [table for table in written if location in written[table] and table not in own]
+    said = (f"all_tables: {decisions.LOCATION_ROOT} {escaped_literal(root)}: written into "
+            f"{in_words(into) or 'no table'}")
+    if into:
+        each = singular_or_plural(len(into), "in its", "each in its")
+        said += f", {each} own folder under it"
+    return f"{said}.{_kept_their_own_text(own, 'location')}"
+
+
+def _own_tags(answers: dict[str, dict[str, object]], table: str) -> dict[str, object]:
+    """The tags a table's own answer in the decisions cell gives, by their NAME."""
+    tags = answers.get(table, {}).get(decisions.ANSWERS[decisions.TAG])
+    return tags if isinstance(tags, dict) else {}
 
 
 def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[str]:
@@ -3537,25 +3830,58 @@ def _refuse_answers_not_by_table(call: str, answers: object) -> None:
     )
 
 
+def _refuse_all_tables_with_no_tables(call: str, answers: dict[str, dict[str, object]],
+                                      tables: list[str] | None) -> None:
+    """Refuse DECISIONS["all_tables"] when write_decisions isn't given the tables it answers
+    for."""
+    if decisions.ALL_TABLES not in answers or tables:
+        return
+    refuse(
+        what=f"{call}: all_tables answers for every table the notebook names, but tables= "
+        "names none.",
+        why="The decisions cell alone doesn't say which tables its Workflow's notebook names, "
+        "so write_decisions can't tell which tables all_tables' answers go into.",
+        fix="Run it as the Workflow's step cell does: project.write_decisions(DECISIONS, "
+        "tables=project.batch_tables(NAME)) in convert's notebook, "
+        "tables=project.promoted_tables(TABLES) in promote's, and tables=TABLES in the others.",
+        error=ValueError,
+    )
+
+
 def _refuse_answers_matching_nothing(call: str, root: Path,
-                                     answers: dict[str, dict[str, object]]) -> None:
+                                     answers: dict[str, dict[str, object]],
+                                     tables: list[str]) -> None:
     """Refuse, before anything is written, a decisions cell holding an answer that matches no
-    Decision of the Project's tables: a table with no Table reference, a kind of answer the
-    cell doesn't take, a column the table doesn't have, or a tag it doesn't hold; each named,
-    with the nearest name where there is one."""
+    Decision of the Project's tables: a table with no Table reference, among them one of
+    `tables`, a kind of answer the cell doesn't take, a column the table doesn't have, or a tag
+    it doesn't hold, or, under "all_tables", that no table of `tables` holds; each named, with
+    the nearest name where there is one."""
     problems = []
     references = {path.stem: path for path in table_references(root)}
+    names = [REFERENCE.name_of(stem) for stem in references]
     # Each table's columns by its Table reference's file name, as `references` is keyed.
     types_by_stem = {table_stem(name): types for name, types in _reference_types(root).items()}
+    texts = {}
+    for table in tables:
+        if table_stem(table) not in references:
+            problems.append(f"tables: {table}: no table of the Project has that name"
+                            f"{_nearest(table, names)}")
     for table, answer in answers.items():
+        if table == decisions.ALL_TABLES:
+            continue
         path = references.get(table_stem(table))
         if path is None:
-            names = [REFERENCE.name_of(stem) for stem in references]
             problems.append(f"{table}: no table of the Project has that name"
                             f"{_nearest(table, names)}")
             continue
-        problems += _unmatched_answers(table, answer, path.read_text(encoding="utf-8"),
+        texts[table] = path.read_text(encoding="utf-8")
+        problems += _unmatched_answers(table, answer, texts[table],
                                        types_by_stem.get(path.stem, {}))
+    if decisions.ALL_TABLES in answers:
+        for table in tables:
+            if table_stem(table) in references:
+                texts[table] = references[table_stem(table)].read_text(encoding="utf-8")
+        problems += _unmatched_all_tables(answers[decisions.ALL_TABLES], texts)
     if not problems:
         return
     refuse(
@@ -3565,7 +3891,7 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
         why="An answer that matches nothing would sit in the decisions cell unused, while "
         "the Decision it was meant for stays open.",
         fix="Correct each in DECISIONS, by the name each line says it meant where it says "
-        "one, then run project.write_decisions(DECISIONS) again.",
+        "one, then run the step's cell that writes the answers again.",
         error=ValueError,
     )
 
@@ -3585,23 +3911,123 @@ def _unmatched_answers(table: str, answer: dict[str, object], reference_text: st
                      for column in types if column not in columns]
     if isinstance(tags, dict):
         problems += _unmatched_tags(table, list(tags), decisions.tag_names(reference_text))
+    seed = answer.get(decisions.SEED)
+    if isinstance(seed, dict):
+        partitions = decisions.seed_partitions(reference_text)
+        problems += _unmatched_seed(table, list(seed), partitions)
     return problems
 
 
+def _unmatched_seed(table: str, named: list[str], partitions: list[str] | None) -> list[str]:
+    """A line naming each column a table's own seed limits name that isn't one of its
+    partition columns, or the whole of them when its Table reference has no SEED, as one that
+    doesn't read itself, or was converted before 8.4, has none: a limit on another column would
+    still read every Partition."""
+    if partitions is None:
+        return [f"{table}: seed: {table}'s Table reference has no SEED to limit: a table "
+                "that doesn't read itself has no seed, and one converted before 8.4 keeps its "
+                "seed() copying everything; convert it again to limit it"]
+    return [f"{table}: seed: {column} is no partition column of {table}"
+            f"{_nearest_or_all(column, partitions, 'partition columns')}"
+            for column in named if column not in partitions]
+
+
 def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
-    """A line naming each kind of answer the decisions cell doesn't take, and each "types" or
-    "tags" that isn't a dict, in one table's answer."""
-    kinds = list(decisions.ANSWERS.values())
+    """A line naming each kind of answer the decisions cell doesn't take, and each "types",
+    "tags" or "seed" that isn't a dict, in one table's answer."""
+    kinds = [*decisions.ANSWERS.values(), decisions.SEED]
     problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
                 f"{in_words(kinds)}{_nearest(name, kinds)}"
                 for name in answer if name not in kinds]
     types, tags = decisions.ANSWERS[decisions.GUESSED_TYPE], decisions.ANSWERS[decisions.TAG]
     for kind, example in ((types, '{"fails": "bigint"}'),
-                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}')):
+                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
+                          (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in answer and not isinstance(answer[kind], dict):
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
                             f"as {example}, not {answer[kind]!r}")
     return problems
+
+
+def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> list[str]:
+    """A line naming each part of DECISIONS["all_tables"], `every`, that matches no Decision
+    of the tables it answers for, `texts` holding each one's Table reference by its name: a
+    Key or a type, which are each table's own, any other kind it doesn't take, a location_root
+    that isn't text, a "tags" or "seed" that isn't a dict, or a tag no table holds."""
+    kinds = list(decisions.ALL_TABLES_ANSWERS)
+    tags = decisions.ANSWERS[decisions.TAG]
+    # A Key and a type, which each table answers itself.
+    each_tables_own = (decisions.ANSWERS[decisions.KEY],
+                       decisions.ANSWERS[decisions.GUESSED_TYPE])
+    problems = []
+    for name in every:
+        if name in each_tables_own:
+            tables = in_words(_tables_to_answer(name, texts))
+            problems.append(f"all_tables: {name} is each table's own: answer it under the name "
+                            f"of each table it is for, {tables}")
+        elif name not in kinds:
+            problems.append(f"all_tables: {name!r} is no kind of answer for every table; "
+                            f"all_tables answers {in_words(kinds)}{_nearest(name, kinds)}")
+    root = every.get(decisions.LOCATION_ROOT)
+    if decisions.LOCATION_ROOT in every and not isinstance(root, str):
+        problems.append(f"all_tables: {decisions.LOCATION_ROOT}: give the folder as text, such "
+                        f"as \"/data/your_team\", not {root!r}")
+    for kind, example in ((tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
+                          (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
+        if kind in every and not isinstance(every[kind], dict):
+            problems.append(f"all_tables: {kind}: give a dict of each answer by its name, such "
+                            f"as {example}, not {every[kind]!r}")
+    if isinstance(every.get(tags), dict):
+        problems += _tags_no_table_holds(list(every[tags]), texts)
+    if isinstance(every.get(decisions.SEED), dict):
+        problems += _seed_columns_no_table_has(list(every[decisions.SEED]), texts)
+    return problems
+
+
+def _seed_columns_no_table_has(named: list[str], texts: dict[str, str]) -> list[str]:
+    """A line naming each partition column a seed limit under all_tables names that no table
+    with a seed has, `texts` holding each one's Table reference by its name."""
+    partitions: list[str] = []
+    for text in texts.values():
+        partitions += decisions.seed_partitions(text) or []
+    partitions = list(dict.fromkeys(partitions))
+    if not partitions:
+        return ["all_tables: seed: no table it answers for has a SEED with a partition column "
+                "to limit: one that doesn't read itself has no seed, one with no Partitions "
+                "copies every row, and one converted before 8.4 keeps its seed() copying "
+                "everything"]
+    return [f"all_tables: seed: {column} is no partition column of any table with a seed"
+            f"{_nearest_or_all(column, partitions, 'partition columns')}"
+            for column in named if column not in partitions]
+
+
+def _tags_no_table_holds(named: list[str], texts: dict[str, str]) -> list[str]:
+    """A line naming each tag `named` under all_tables that no table it answers for holds,
+    `texts` holding each one's Table reference by its name."""
+    held: list[str] = []
+    for text in texts.values():
+        held += decisions.tag_names(text)
+    held = list(dict.fromkeys(held))
+    return [f"all_tables: tags: {name} is no Script tag of any table it answers for"
+            f"{_nearest(name, held) or _their_tags(held)}"
+            for name in named if name not in held]
+
+
+def _tables_to_answer(name: str, texts: dict[str, str]) -> list[str]:
+    """The tables a Key or a type given under all_tables is for, by `name`, "key" or "types":
+    each of `texts`' tables that leaves one open, or every one of them when none does."""
+    kind = decisions.KEY if name == decisions.ANSWERS[decisions.KEY] else decisions.GUESSED_TYPE
+    still_open = [table for table, text in texts.items()
+                  if decisions.open_decisions(text, table, (kind,))]
+    return still_open or list(texts)
+
+
+def _their_tags(held: list[str]) -> str:
+    """What a refusal of a tag under all_tables adds when no tag is close: the tags the
+    tables hold, or that they hold none."""
+    if not held:
+        return "; they hold no Script tag"
+    return f"; their Script tags are {in_words(held)}"
 
 
 def _unmatched_tags(table: str, named: list[str], table_tags: list[str]) -> list[str]:
@@ -4016,8 +4442,9 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
     promote it again, which archives the prod copy into admin/removed/ first, and the one under
     its old name when rename= gives it a new one. project.check()
-    reports a prod copy edited by hand, its notebook or its Table reference but its location=,
-    as promote would write over it. `tables` is one name or a list, each a dev table's.
+    reports a prod copy edited by hand, its notebook or its Table reference but its location=
+    and SEED, as promote would write over it. `tables` is one name or a list, each a dev
+    table's.
     """
     frame = callers_frame()
     call = _action_call("promote", tables)
@@ -4330,9 +4757,9 @@ def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[st
 def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str, str],
                           promoted_before: str) -> str:
     """Write a prod copy's Table reference, `databases` the Dev and Prod Database: the dev one
-    naming prod, its location= kept from `promoted_before`, the text of the one promoted
-    before, when you filled it in, else made from the dev one. Gives what promote's report
-    says of its location=, or nothing when it was kept."""
+    naming prod, its location= and its SEED kept from `promoted_before`, the text of the one
+    promoted before, when you answered them, else made from the dev one, with SEED = {}.
+    Gives what promote's report says of its location=, or nothing when it was kept."""
     dev_db, prod_db = databases
     dev_text = REFERENCE.path(root, table_stem(dev)).read_text(encoding="utf-8")
     location, said = _prod_location(promoted_before, dev_text, dev, prod, databases)
@@ -4342,18 +4769,33 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
     text = re.sub(rf"(?<![\"'\w.]){split_table_name(dev)[1]}\b(?![\"'])",
                   split_table_name(prod)[1], text)
     text = re.sub(r"^    location=.*$", location, text, count=1, flags=re.MULTILINE)
+    # A prod copy's seed is promote's own Decision: every Partition, unless its decisions cell
+    # answered "seed" for it before, which is kept.
+    text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
+                  flags=re.MULTILINE)
+    text = decisions.with_run_value_imports_kept(text, promoted_before)
     text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
-            "that one and promote it again. Its\n# location= is the one line yours to change "
-            "here.\n" + text)
+            "that one and promote it again. Its\n# location= and SEED are the lines yours to "
+            "change here.\n" + text)
     REFERENCE.path(root, table_stem(prod)).write_text(text, encoding="utf-8")
     return said
 
 
+def _prod_seed_line(promoted_before: str) -> str:
+    """A prod Table reference's SEED line: the one promote's decisions cell answered, kept
+    from the reference promoted before, else SEED = {}, every Partition."""
+    kept = decisions.seed_line(promoted_before)
+    if kept is None:
+        return decisions.SEED_START + "}"
+    return kept
+
+
 def _reference_hash(text: str) -> str:
-    """A prod Table reference's hash, its location= line left out, which is yours to fill
-    in."""
-    return _hash(re.sub(r"^    location=.*$", "", text, flags=re.MULTILINE).encode("utf-8"))
+    """A prod Table reference's hash, its location= and SEED lines left out, which are yours
+    to answer."""
+    left_out = re.sub(r"^(    location=|SEED = ).*$", "", text, flags=re.MULTILINE)
+    return _hash(left_out.encode("utf-8"))
 
 
 # The location= line a prod Table reference gets when nothing tells its folder.
@@ -4444,7 +4886,8 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
         dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
         if _reference_hash(reference) != entry.get("reference"):
             lines.append(f"Edited by hand, which project.promote writes over: "
-                         f"{REFERENCE.shown(table_stem(prod))}, but its location= (change "
+                         f"{REFERENCE.shown(table_stem(prod))}, but its location= and SEED "
+                         "(change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
         if not has_folder:
             continue

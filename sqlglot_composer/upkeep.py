@@ -76,7 +76,8 @@ def repair_partitions(t: Table) -> Statement:
 
 
 def compute_statistics(
-        t: Table, partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+        t: Table,
+        partition: dict[str, str | int | float | bool | datetime.date | Column] | None = None,
         columns: bool | list[Column | str] = False, **removed: object) -> Statement:
     """The ANALYZE TABLE Statement, which counts a Saved table's rows again.
 

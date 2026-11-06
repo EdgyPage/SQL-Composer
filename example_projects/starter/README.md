@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.3 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.4 - copy it, then edit your copy -->
 # The starter Example project
 
 A Project made for the Example database's tables `ops.jobs`, `ops.job_runs` and

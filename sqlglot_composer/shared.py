@@ -8,6 +8,13 @@ the Toolbox's files, so any of them may import it.
 from __future__ import annotations
 
 import json
+import re
+
+# A Hive variable, such as ${hivevar:run_day}, which Hive fills in from a SET line sent first.
+# In an Unchecked expression's text it is Hive, never a {name} placeholder, written as it is or
+# with its braces doubled, ${{hivevar:run_day}}, as the Conversion wrote it before 8.4: the
+# variable's name, hivevar:run_day, is group 1 when they are doubled and group 2 when not.
+HIVE_VARIABLE = re.compile(r"\$\{\{([^{}]+)\}\}|\$\{([^{}]+)\}")
 
 
 def in_words(items: list[str], last: str = "and") -> str:
@@ -61,6 +68,13 @@ def with_article(noun: str) -> str:
     if noun[0] in "aeiou":
         return f"an {noun}"
     return f"a {noun}"
+
+
+def unchecked_expression_text(hive: str) -> str:
+    """Hive written as an Unchecked expression's text: each brace doubled, as a brace meant as
+    a brace is, "'[a-z]{{2}}'", but each Hive variable written as it is, ${hivevar:run_day}."""
+    doubled = hive.replace("{", "{{").replace("}", "}}")
+    return HIVE_VARIABLE.sub(r"${\1\2}", doubled)
 
 
 def possessive(name: str) -> str:

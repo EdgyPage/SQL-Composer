@@ -1,4 +1,4 @@
-# sqlglot Composer 8.3 - copy it, then edit your copy
+# sqlglot Composer 8.4 - copy it, then edit your copy
 """ops.team_notes - one row per note a team wrote about its jobs.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the

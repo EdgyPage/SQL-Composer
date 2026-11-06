@@ -34,6 +34,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .project_files import TABLE_FOLDER
+from .run_values import note_read, refuse_failed_run_values
 from .shared import counted, in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
@@ -46,6 +47,7 @@ from .unchecked import (
     logged_run,
     record_sent,
     settings_text,
+    tables_read_and_written,
     unchecked_call,
     unchecked_text,
 )
@@ -205,6 +207,16 @@ def statements_within(s: Statement) -> list[Statement]:
     for step in steps:
         within += stack_steps(step)
     return within
+
+
+def tables_read_by(s: Statement) -> list[Table]:
+    """Each table `s` reads that has a Table reference: of each of its steps, every read
+    but a Derived table and an Unchecked derived table."""
+    tables = []
+    for step in statements_within(s):
+        tables += [read.table for read in step._reads
+                   if read.table._statement is None and not is_unchecked(read.table)]
+    return tables
 
 
 def _write_tree(s: Statement) -> Node:
@@ -781,12 +793,17 @@ def run_query(s: Statement | UncheckedStatement,
     if kinds.kind(s) == kinds.UNCHECKED:
         # No row Load limit: the Toolbox adds no LIMIT to text you wrote, so a full result
         # is a result, not one cut short.
+        for name, how in tables_read_and_written(s._text):
+            if how == "reads":
+                note_read(name)
         rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
         refuse_what_isnt_a_dataframe(rows)
         return rows
     text = to_hive(s)
     if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
+    for table in tables_read_by(s):
+        note_read(table._name, table)
     result = send_logged(s, text, query)
     refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s)
@@ -851,6 +868,7 @@ def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]
     other Hive than the Statement's own was sent, as "compared with the original by
     compare_with_original"."""
     tree = statement_tree(s) if kinds.is_a_query(s) else Node("Null")
+    refuse_failed_run_values(tree)
     calls = unchecked_calls(tree)
     if not calls:
         return warehouse_call(text)

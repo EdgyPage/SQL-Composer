@@ -1,9 +1,9 @@
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.3)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.4)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database, with sqlglot Composer 8.3, a Toolbox that writes Hive: the steps left, each its cell of the
+Database, with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the
 promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
 tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
 references, upgrades and changes to a Saved table; a step's own file, for the Python inside
@@ -30,7 +30,7 @@ it.
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.promote(tables, *, rename=None)
 - project.promoted_tables(tables, seeded=False)
-- project.write_decisions(answers)
+- project.write_decisions(answers, tables=None)
 
 ## Steps
 
@@ -70,7 +70,14 @@ it.
 
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
   by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
-  `project.write_decisions(DECISIONS)` writes each into its prod copy's Table reference.
+  the next step writes each into its prod copy's Table reference.
+- A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
+  write in prod too.
+- A prod copy that reads itself is seeded from its original once, at step 5, copying every
+  Partition unless its own "seed" answer limits them, as in
+  `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
+  answer isn't carried over, since prod often needs more of the original's history than a dev
+  compare did. "all_tables" answers every prod copy at once: file 17 says how.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -92,7 +99,7 @@ Its input:
 3. Write each answer into its prod table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 4. Create each table in prod (it is a call to the warehouse, yours to run).
 

@@ -22,15 +22,24 @@ waits on nothing. You answer each in the decisions cell of a Workflow's notebook
 and `answered_text` gives the Table reference with each answer written into the line it
 answers. It never writes over any other line that is made already, as yours is once you
 change it: the answer is kept unwritten, to name.
+
+`DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
+"seed", the limits of the seed's copy; "location_root", the folder each table's own goes
+under, as <root>/<db>.db/<table>, for a table whose location is still open; and "tags", each
+for the tables that hold it. `table_answer` gives one table's answer: all_tables' first, then
+the table's own over it, kind by kind and, for tags, tag by tag. A Key and a type are each
+table's own.
 """
 
 from __future__ import annotations
 
 import ast
+import datetime
 import re
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 
-from .shared import escaped_literal
+from .shared import escaped_literal, split_table_name
 from .writing import tag_value_problem
 
 LOCATION = "location"
@@ -49,6 +58,13 @@ DECISIONS_NAME = "DECISIONS"
 # hand.
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
 ANSWERED_KINDS = tuple(ANSWERS)
+# The decisions cell's answer for every table its Workflow's notebook names, beside each
+# table's own (Toolbox 8.4), and the kinds it answers, each by its name there: the limits of
+# the seed's copy, the folder each table's own goes under, and Script tags.
+ALL_TABLES = "all_tables"
+SEED = "seed"
+LOCATION_ROOT = "location_root"
+ALL_TABLES_ANSWERS = (SEED, LOCATION_ROOT, ANSWERS[TAG])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -68,6 +84,19 @@ GUESSED = "  # TODO: guessed: nothing told its type"
 # What new_table's Table reference holds for a Saved table's columns, until
 # project.reference_from_logic writes them from its logic.
 COLUMNS = "<COLUMNS>"
+# The line TAGS starts on in a Table reference, and the mark on the line above TAGS or SEED
+# that imports a Run value's function for them (Toolbox 8.4).
+TAGS_START = "TAGS = {"
+# A Table reference's seed limits, SEED, as a Conversion writes them for a table that reads
+# itself, and the line they start on: the Partitions its seed() copies (Toolbox 8.4).
+SEED_START = "SEED = {"
+SEED_COMMENT = (
+    "# The Partitions seed() copies from the original, by partition column: {} copies them",
+    '# all. Answer "seed" in the decisions cell, such as {"dt": {"from": "2026-01-01"}}.',
+)
+RUN_VALUE_MARK = "  # a Run value, for TAGS or SEED"
+RUN_VALUE_IMPORT = re.compile(
+    rf"from [\w.]+ import (?P<function>\w+){re.escape(RUN_VALUE_MARK)}")
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
 # What a Conversion writes after the Key it worked out of a table's query: a Decision made,
@@ -175,6 +204,128 @@ def is_open(line: str) -> bool:
     return bool(OPEN.search(line)) or line.strip().startswith(NO_LOCATION)
 
 
+def _tag_value_text(line: str) -> str:
+    """A tag line's value as written: Hive text in quotes, or a Run value's function's
+    name."""
+    return TAG_LINE.match(line)["value"]
+
+
+def _tag_answer_shown(line: str) -> str:
+    """A tag line's answer as a report says it: the Hive text, or a Run value's function's
+    name."""
+    value = _tag_value_of(line)
+    return value if isinstance(value, str) else _tag_value_text(line)
+
+
+def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
+    """A Table reference's text with an import above TAGS, or above SEED, for each Run value's
+    function its TAGS or SEED names, and none for one they no longer name."""
+    functions = [*_functions_in(answer.get(ANSWERS[TAG])), *_functions_in(answer.get(SEED))]
+    lines = text.split("\n")
+    named = {_tag_value_text(line) for line in lines if kind_of(line) == TAG}
+    seed_line = _seed_line_number(lines)
+    if seed_line is not None:
+        named |= set(re.findall(r"\w+", lines[seed_line]))
+    lines = [line for line in lines if not _is_unused_run_value_import(line, named)]
+    for function in functions:
+        imported = run_value_import(function)
+        starts = [number for number, line in enumerate(lines)
+                  if line.startswith((TAGS_START, SEED_START.removesuffix("{")))]
+        if imported not in lines and starts:
+            at = starts[0]
+            while at > 0 and lines[at - 1].startswith("#"):  # above TAGS' own comment
+                at -= 1
+            lines.insert(at, imported)
+    return "\n".join(lines)
+
+
+def _functions_in(value: object) -> list[Callable[..., object]]:
+    """Each function an answer holds, however deep in its dicts and lists."""
+    if callable(value):
+        return [value]
+    parts: list[object] = []
+    if isinstance(value, dict):
+        parts = list(value.values())
+    elif isinstance(value, (list, tuple)):
+        parts = list(value)
+    functions = []
+    for part in parts:
+        functions += _functions_in(part)
+    return functions
+
+
+def seed_line(text: str) -> str | None:
+    """A Table reference's SEED line, or None when it has none."""
+    lines = text.split("\n")
+    number = _seed_line_number(lines)
+    return None if number is None else lines[number]
+
+
+def with_run_value_imports_kept(text: str, kept_from: str) -> str:
+    """A prod copy's Table reference text with each Run value's import of `kept_from`, the one
+    promoted before, whose function its TAGS or SEED names, and none it no longer names."""
+    lines = text.split("\n")
+    imported = [line for line in kept_from.split("\n") if line.endswith(RUN_VALUE_MARK)]
+    starts = [number for number, line in enumerate(lines)
+              if line.startswith((TAGS_START, SEED_START.removesuffix("{")))]
+    if starts:
+        lines[starts[0]:starts[0]] = [line for line in imported if line not in lines]
+    return _with_run_value_imports("\n".join(lines), {})
+
+
+def _seed_line_number(lines: list[str]) -> int | None:
+    """Where a Table reference's SEED line is among its lines, or None when it has none."""
+    for number, line in enumerate(lines):
+        if line.startswith(SEED_START.removesuffix("{")):
+            return number
+    return None
+
+
+def _with_seed_written(text: str, answer: dict[str, object]) -> tuple[str, bool]:
+    """A Table reference's text with its SEED line holding the answer's seed limits, and
+    whether it was written: a table that doesn't read itself has no SEED line."""
+    limits = answer.get(SEED)
+    lines = text.split("\n")
+    at = _seed_line_number(lines)
+    if not isinstance(limits, dict) or at is None:
+        return text, False
+    lines[at] = SEED_START.removesuffix("{") + seed_python(limits)
+    return "\n".join(lines), True
+
+
+def seed_python(value: object) -> str:
+    """Seed limits as a Table reference writes them: text and dates in quotes, numbers as they
+    are, and a Run value's function by its name, which an import above SEED brings in."""
+    if callable(value):
+        return value.__qualname__
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{escaped_literal(str(key))}: {seed_python(each)}"
+                               for key, each in value.items()) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(seed_python(each) for each in value) + "]"
+    if isinstance(value, datetime.date):
+        return escaped_literal(value.isoformat())
+    if isinstance(value, str):
+        return escaped_literal(value)
+    return repr(value)
+
+
+def seed_partitions(text: str) -> list[str] | None:
+    """The partition columns a Table reference's text names, for its seed limits; None when
+    it has no SEED, as a table that doesn't read itself has none."""
+    if not any(line.startswith(SEED_START.removesuffix("{")) for line in text.split("\n")):
+        return None
+    found = re.search(r"partitioned_by=\[([^\]]*)\]", text)
+    return re.findall(r'"([^"]+)"', found.group(1)) if found else []
+
+
+def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
+    """Whether a line is an import run_value_import wrote of a function neither TAGS nor
+    SEED names any more."""
+    found = RUN_VALUE_IMPORT.fullmatch(line)
+    return found is not None and found["function"] not in named
+
+
 def _tag_name_of(line: str) -> str:
     """A tag line's NAME, as Python reads its string."""
     return ast.literal_eval(TAG_LINE.match(line)["name"])
@@ -216,22 +367,56 @@ def tag_hint(quoted: bool, where: str = "") -> str:
 
 def tag_answer_problem(value: object, quoted: bool) -> str | None:
     """Why a tag's answer can't be written where the tag stood, or None when it can: it must
-    be Python text, not <FILL IN>; a bare tag's answer is one value of a kind a program puts
-    there (writing.tag_value_problem), and a quoted tag's answer has no quotes of its own."""
+    be Python text, not <FILL IN>, or a Run value's function a Table reference can import
+    (run_value_problem); a bare tag's text is one value of a kind a program puts there
+    (writing.tag_value_problem), and a quoted tag's has no quotes of its own."""
     if is_left_to_fill_in(value):
         return still_to_fill_in("its answer")
+    if callable(value):
+        return run_value_problem(value)
     if not isinstance(value, str):
         return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
                 "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
                 "a subtraction to Python)")
+    return _text_answer_problem(value, quoted)
+
+
+def _text_answer_problem(value: str, quoted: bool) -> str | None:
+    """Why a tag's answer given as text can't be written where the tag stood, or None when it
+    can."""
     if not value.strip():
         return "is given empty text: give the Hive the program put where the tag stood"
     if not quoted:
         return _bare_answer_problem(value)
+    return _quoted_answer_problem(value)
+
+
+def _quoted_answer_problem(value: str) -> str | None:
+    """Why a quoted tag's answer, text not empty, can't stand where the tag stood, or None when
+    it can: it has no quotes of its own."""
     if len(value) > 1 and value.startswith("'") and value.endswith("'"):
         return (f"stands inside quotes already, so its answer has none: answer "
                 f"{escaped_literal(value[1:-1])}")
     return None
+
+
+def run_value_problem(function: object) -> str | None:
+    """Why a function can't answer a Decision as a Run value, or None when it can: it must be
+    a function of a file of the Project's, such as building_blocks/run_values.py, so a Table
+    reference can import it by its module and name."""
+    module = getattr(function, "__module__", None) or ""
+    name = getattr(function, "__qualname__", "") or ""
+    if module in ("__main__", "builtins") or not module or "<" in name or "." in name:
+        shown = name or repr(function)
+        return (f"is given {shown}, a function a Table reference can't import: write it in a "
+                "file of the Project's, such as building_blocks/run_values.py, import it in "
+                "the decisions cell, and answer with it")
+    return None
+
+
+def run_value_import(function: Callable[..., object]) -> str:
+    """The line a Table reference imports a Run value's function by, marked as one."""
+    return f"from {function.__module__} import {function.__qualname__}{RUN_VALUE_MARK}"
 
 
 def _bare_answer_problem(value: str) -> str | None:
@@ -290,7 +475,7 @@ def still_to_fill_in(what: str) -> str:
     """What a report says of an answer left <FILL IN>, as check() printed it: `what`, such as
     "its answer", is still to write."""
     return (f"is still {FILL_IN}: write {what} in the decisions cell in its place, then run "
-            "project.write_decisions(DECISIONS) again")
+            "the step's cell that writes the answers again")
 
 
 def is_left_to_fill_in(value: object) -> bool:
@@ -308,6 +493,52 @@ def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
                 and not is_left_to_fill_in(answers[decision.subject]))
     return (decision.kind in ANSWERS and ANSWERS[decision.kind] in answer
             and not is_left_to_fill_in(answer[ANSWERS[decision.kind]]))
+
+
+def table_answer(answers: dict[str, object], table: str, text: str) -> dict[str, object]:
+    """One table's answer in a decisions cell, `answers`, its Table reference's text being
+    `text`: what "all_tables" answers for it first, then the table's own answer over that, kind
+    by kind and, for tags, tag by tag."""
+    own = answers.get(table)
+    if not isinstance(own, dict):
+        own = {}
+    every = answers.get(ALL_TABLES)
+    if not isinstance(every, dict):
+        return dict(own)
+    answer = all_tables_answer(every, table, text)
+    for kind, value in own.items():
+        if kind == ANSWERS[TAG] and isinstance(value, dict) and kind in answer:
+            answer[kind] = {**answer[kind], **value}
+        else:
+            answer[kind] = value
+    return answer
+
+
+def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
+    """What "all_tables", `every`, answers for one table, its Table reference's text being
+    `text`: its seed limits as they are, for the seed to read; its location under
+    "location_root" while its location= is still open; and each tag of "tags" the table holds.
+    An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
+    answer: dict[str, object] = {}
+    if SEED in every:
+        answer[SEED] = every[SEED]
+    root = every.get(LOCATION_ROOT)
+    if (isinstance(root, str) and not is_left_to_fill_in(root)
+            and open_decisions(text, table, (LOCATION,))):
+        answer[ANSWERS[LOCATION]] = location_under(root, table)
+    tags = every.get(ANSWERS[TAG])
+    if isinstance(tags, dict):
+        held = tag_names(text)
+        answer[ANSWERS[TAG]] = {name: value for name, value in tags.items()
+                                if name in held and not is_left_to_fill_in(value)}
+    return answer
+
+
+def location_under(root: str, table: str) -> str:
+    """A table's own folder under a location_root, <root>/<db>.db/<table>: "/data/team" gives
+    mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
+    database, short = split_table_name(table)
+    return f"{root.rstrip('/')}/{database}.db/{short}"
 
 
 def answered_text(text: str, answer: dict[str, object], reference: str) -> Answered:
@@ -329,11 +560,14 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
             continue
         if kind_of(line) == TAG and not is_open(line) and written != line:
             answered.changed.append(f"tags: {_tag_name_of(line)} is "
-                                    f"{_tag_value_of(written)} now, in place of "
-                                    f"{_tag_value_of(line)}")
+                                    f"{_tag_answer_shown(written)} now, in place of "
+                                    f"{_tag_answer_shown(line)}")
         lines[number] = written
         answered.written.append(name)
-    answered.text = "\n".join(lines)
+    seeded, wrote_seed = _with_seed_written("\n".join(lines), answer)
+    if wrote_seed:
+        answered.written.append(SEED)
+    answered.text = _with_run_value_imports(seeded, answer)
     answered.unwritten += _unwritten(answer, answered.written, reference)
     answered.unwritten += _tags_unwritten(answer, text)
     return answered
@@ -410,19 +644,24 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     if tag_answer_problem(value, _tag_is_quoted(line)) is not None:
         return None, ""
     found = TAG_LINE.match(line)
-    return (f"    {found['name']}: {escaped_literal(value)},  {found['comment']}",
-            f"tags: {name}")
+    written = value.__qualname__ if callable(value) else escaped_literal(value)
+    return f"    {found['name']}: {written},  {found['comment']}", f"tags: {name}"
 
 
 def paste_lines(still_open: list[Decision]) -> list[str]:
     """The lines of a whole DECISIONS = {...} to paste into a decisions cell: each Decision of
     `still_open` the cell answers, by its table, each value still to give <FILL IN>, a guessed
-    type's proposal "string", and a comment beside each saying what to write."""
+    type's proposal "string", and a comment beside each saying what to write. A Decision more
+    than one table holds is offered once, under "all_tables": a location as location_root, and
+    a tag by its NAME, where it stands bare in each or inside quotes in each."""
+    answered = [decision for decision in still_open if decision.kind in ANSWERS]
+    shared = _shared_decisions(answered)
+    shared_kinds = [_shared_kind(decision) for decision in shared]
     by_table: dict[str, list[Decision]] = {}
-    for decision in still_open:
-        if decision.kind in ANSWERS:
+    for decision in answered:
+        if _shared_kind(decision) not in shared_kinds:
             by_table.setdefault(decision.table, []).append(decision)
-    lines = [f"{DECISIONS_NAME} = {{"]
+    lines = [f"{DECISIONS_NAME} = {{", *_all_tables_lines(shared)]
     for table, decided in by_table.items():
         lines.append(f"    {escaped_literal(table)}: {{")
         kinds = {decision.kind for decision in decided}
@@ -437,6 +676,52 @@ def paste_lines(still_open: list[Decision]) -> list[str]:
         lines += _tags_lines([each for each in decided if each.kind == TAG])
         lines.append("    },")
     return [*lines, "}"]
+
+
+def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
+    """What a Decision answered for several tables at once has in common: a location, or a
+    tag by its NAME and whether it stands inside quotes; None for a Key or a type, which each
+    table answers itself."""
+    if decision.kind == LOCATION:
+        return (LOCATION, "", False)
+    if decision.kind == TAG:
+        return (TAG, decision.subject, decision.quoted)
+    return None
+
+
+def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
+    """The first of each Decision of `still_open` that more than one table holds, which
+    paste_lines offers under "all_tables"."""
+    tables_of: dict[tuple[str, str, bool], list[Decision]] = {}
+    for decision in still_open:
+        kind = _shared_kind(decision)
+        if kind is not None:
+            tables_of.setdefault(kind, []).append(decision)
+    shared = []
+    for found in tables_of.values():
+        tables = {decision.table for decision in found}
+        if len(tables) > 1:
+            shared.append(found[0])
+    return shared
+
+
+def _all_tables_lines(shared: list[Decision]) -> list[str]:
+    """The lines of "all_tables" in DECISIONS to paste: its location_root, when the location
+    is shared, and each shared tag's <FILL IN>, with how its answer is written."""
+    if not shared:
+        return []
+    lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
+             "own answer, under its name, overrides it"]
+    for decision in shared:
+        if decision.kind == LOCATION:
+            example = location_under("/data/your_team", decision.table)
+            lines.append(f'        "{LOCATION_ROOT}": "{FILL_IN}",  # the folder each '
+                         f"table's own goes under, such as \"/data/your_team\", which gives "
+                         f'{decision.table} "{example}"')
+    # Where a shared tag stands differs from table to table, so its hint names no place.
+    lines += _tags_lines([replace(decision, where="") for decision in shared
+                          if decision.kind == TAG])
+    return [*lines, "    },"]
 
 
 def _types_lines(guessed: list[Decision]) -> list[str]:

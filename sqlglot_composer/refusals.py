@@ -76,6 +76,11 @@ class RepeatedRowsWarning(UserWarning):
     """A join may repeat rows, so sums and counts over them may come out too big."""
 
 
+class RunValueWarning(UserWarning):
+    """A Run value's function failed as a Statement was built, so its Hive holds the
+    function's name in the value's place, which run_query and run_execute refuse to send."""
+
+
 class UncheckedWarning(UserWarning):
     """A Guard or a Load limit couldn't look inside an Unchecked expression or an Unchecked
     derived table, so it lets the Statement through and says what to check by hand."""
@@ -462,6 +467,20 @@ def warning_unchecked_derived_read(call: str, name: str,
     warn_at_callers_line(message, UncheckedWarning)
 
 
+def warn_run_value_failed(call: str, failed: str, in_its_place: str, name: str) -> None:
+    """Warn that a Run value's function, `name`, failed as its Statement was built, saying
+    what it raised, `failed`, and what the Hive holds in its place: a dry run still shows the
+    Hive, and run_query and run_execute refuse to send it."""
+    message = four_part_message(
+        what=f"{call}: {failed}.",
+        why="A Run value is worked out each time the Statement is built: with none, the Hive "
+        f"holds {in_its_place} in its place, which run_query and run_execute refuse to send.",
+        fix=f"Fix {name}, or what it reads, and build the Statement again.",
+        opt_out="none - this one can't be switched off.",
+    )
+    warn_at_callers_line(message, RunValueWarning)
+
+
 def warn_upgrade_needed(have: str, toolbox: str) -> None:
     """Warn, as the Toolbox is imported in a Project an older Toolbox last wrote, that the
     Project needs an Upgrade. It only warns: a Statement run in a notebook harms nothing."""
@@ -470,9 +489,10 @@ def warn_upgrade_needed(have: str, toolbox: str) -> None:
         why="A newer Toolbox may change what your files need, and an Upgrade makes those "
         "changes, or marks them for you. The import worked, and your notebooks still run "
         "meanwhile: this only warns.",
-        fix="Run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-        "admin/workflows/upgrade/upgrade.ipynb once the Project has one, then work through "
-        f"the checklist it writes, admin/upgrade_{toolbox}.md.",
+        fix="Run step 1's cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(), "
+        f"then work through the checklist it writes, admin/upgrade_{toolbox}.md. A Project "
+        "made before 8.0 has no such notebook until its first Upgrade: there, "
+        "project.upgrade() goes in admin/check_project.ipynb.",
         opt_out="none - it shows at each import until the Project is upgraded.",
     )
     warn_at_callers_line(message, UserWarning)

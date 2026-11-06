@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.3 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.4 - copy it, then edit your copy -->
 # Lineage: write_job_events_checks
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
@@ -79,4 +79,4 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.3.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.4.

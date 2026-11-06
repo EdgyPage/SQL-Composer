@@ -1,4 +1,4 @@
-# sqlglot Composer 8.3 - copy it, then edit your copy
+# sqlglot Composer 8.4 - copy it, then edit your copy
 # %% [markdown]
 # # <DB>.<TABLE>
 #

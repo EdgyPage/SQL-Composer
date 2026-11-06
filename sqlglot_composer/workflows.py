@@ -52,6 +52,9 @@ if TYPE_CHECKING:  # project.py imports this file, so its name is for the hints 
 FILE_STEP = "file step"
 PERMISSION = "permission"
 DECISION = "decision"
+# How a decision step's text opens: run the cell under it, which says what to answer.
+RUN_THE_CHECK_CELL = ("Run the cell below, `project.check()`: it names each open Decision and "
+                      "prints a whole `DECISIONS` to paste over the decisions cell's")
 FIDDLING = "fiddling"
 KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
 
@@ -261,10 +264,13 @@ def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ..
     answers = inputs.get(DECISIONS)
     if not isinstance(answers, dict):
         answers = {}
-    for decision in open_decisions_of(root, tables, kinds):
-        answer = answers.get(decision.table)
-        if not isinstance(answer, dict) or not decisions.is_answered(decision, answer):
-            return False
+    for table in tables:
+        text = file_text(reference_path(root, table))
+        # all_tables' answer first, then the table's own over it.
+        answer = decisions.table_answer(answers, table, text)
+        for decision in decisions.open_decisions(text, table, kinds):
+            if not decisions.is_answered(decision, answer):
+                return False
     return True
 
 
@@ -323,11 +329,23 @@ def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object
 
 def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
-    reference."""
+    reference, all_tables' into each table TABLES names: a convert batch's own tables."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
-    return project.write_decisions(answers if isinstance(answers, dict) else {})
+    return project.write_decisions(answers if isinstance(answers, dict) else {},
+                                   tables=names_in(inputs, "TABLES"))
+
+
+def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
+    """The step that writes each answer of promote's decisions cell into its prod copy's Table
+    reference, all_tables' into the prod copy of each table TABLES names."""
+    from . import project  # project.py imports this file
+
+    answers = inputs.get(DECISIONS)
+    return project.write_decisions(
+        answers if isinstance(answers, dict) else {},
+        tables=project.promoted_tables(names_in(inputs, "TABLES")))
 
 
 def every_preview_builds(root: Path, inputs: dict[str, object]) -> bool:
@@ -959,11 +977,10 @@ CONVERT = Workflow(
              done=every_dev_decision_answered, decides=DEV_DECISIONS,
              goal="an answer to each open Decision of the batch's tables, each Script tag's "
              "value among them",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook: step 1 and "
-             "`project.check()` print a `DECISIONS` to paste there, each answer to give "
-             "`<FILL IN>`. Each table's `conversion/checklist.md`, in its Table folder, lists "
-             "its open Decisions. A "
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, each "
+             "`<FILL IN>` given its answer, then save the notebook. Each table's "
+             "`conversion/checklist.md`, in its Table folder, lists its open Decisions. A "
              'Script tag, a `<PARM="NAME"/>` the program that ran the scripts, such as a '
              'scheduler, replaced with a value before Hive read it, is answered under `"tags"` '
              "with that value as Hive. A tag standing alone, as in "
@@ -977,8 +994,8 @@ CONVERT = Workflow(
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each answer written in",),
-             "project.write_decisions(DECISIONS)", every_dev_decision_made,
-             write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
+             every_dev_decision_made, write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below.",
              done_when="each table's `conversion/checklist.md` says None under Open Decisions"),
@@ -1095,7 +1112,7 @@ PROMOTE = Workflow(
              done=every_prod_decision_answered, decides=PROD_DECISIONS,
              goal="an answer to each prod copy's open Decision: its location, the folder its "
              "files go in",
-             action="read what step 1 printed, or run `project.check()`. If neither names an "
+             action=RUN_THE_CHECK_CELL + ". If it names no "
              "open Decision of a prod copy, there is nothing to answer: step 1 filled in each "
              "prod copy's `location=` from its dev one, its folder named for your Prod "
              "Database, or from the one it had when promoted before. Leave the decisions cell "
@@ -1105,8 +1122,8 @@ PROMOTE = Workflow(
              "the prod copies, or it names none"),
         Step("Write each answer into its prod table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each with its location=",),
-             "project.write_decisions(DECISIONS)", every_prod_decision_made,
-             write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))",
+             every_prod_decision_made, write_the_prod_decisions,
              goal="each answer written into its prod copy's Table reference, which then has "
              "its `location=`",
              action="run the cell below.",
@@ -1220,13 +1237,14 @@ NEW_TABLE = Workflow(
              ("its Table reference",), ("each answer in the decisions cell",),
              done=every_new_table_decision_answered, decides=DEV_DECISIONS,
              goal="an answer to each open Decision of the new tables",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook.",
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, then save the "
+             "notebook.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "these tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("a dev Table folder whose logic loads",),
-             "project.write_decisions(DECISIONS)", every_new_table_decision_made,
+             "project.write_decisions(DECISIONS, tables=TABLES)", every_new_table_decision_made,
              write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below.",
@@ -1301,12 +1319,13 @@ REFERENCES = Workflow(
              done=every_source_decision_answered, decides=SOURCE_DECISIONS,
              goal="an answer to each table's open Key: the columns whose values name exactly "
              "one row, or None when no columns do",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook. To check a Key before "
-             "you answer it, run `check_key` in a new cell on a Table you make with that Key, "
-             "since the Table reference's Key is still open. Its `columns=` names each column "
-             "of the Key and the Partition column, each with None, which leaves its type out. "
-             "For `run_id` of `ops.job_runs`, partitioned by `dt`, the cell is three lines: "
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, then save the "
+             "notebook. To check a Key before you answer it, which how-to 21 shows, check_key "
+             "reads a Table you make with that Key, since the Table reference's Key is still "
+             "open. Its `columns=` names each column of the Key and the Partition column, "
+             "each with None, which leaves its type out. For `run_id` of `ops.job_runs`, "
+             "partitioned by `dt`, the code is three lines: "
              "`from sqlglot_composer import Table, check_key, equals`; "
              "`runs = Table(\"ops.job_runs\", columns={\"run_id\": None, \"dt\": None}, "
              "partitioned_by=[\"dt\"], key=[\"run_id\"])`; "
@@ -1318,7 +1337,7 @@ REFERENCES = Workflow(
              "tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("filled-in Table references",),
-             "project.write_decisions(DECISIONS)", every_source_decision_made,
+             "project.write_decisions(DECISIONS, tables=TABLES)", every_source_decision_made,
              write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below. It names each TODO line the Table reference still "
@@ -1470,7 +1489,16 @@ DECISIONS_CELL = (
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
     "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
     "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
-    '# answer "key" here.')
+    '# answer "key" here. "all_tables" answers for every table of this notebook, and a\n'
+    "# table's own answer overwrites it, kind by kind and tag by tag:\n"
+    '# {"all_tables": {"location_root": "/data/team",\n'
+    '#                 "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
+    "# gives each table with no location its own folder, such as\n"
+    '# "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.\n'
+    "# A tag may be answered with a Run value's function of your Project's, imported above\n"
+    '# DECISIONS, such as "PERIOD_END": period_end; and "seed", such as\n'
+    '# {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself\n'
+    "# copies: how-to 09 shows both.")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
@@ -1620,6 +1648,11 @@ def step_name_of(cell: str) -> str | None:
     return cell.split("\n")[0].split(". ", 1)[-1]
 
 
+# The cell under a decision step, which names each Decision open and prints a whole DECISIONS
+# to paste into the decisions cell, so no step asks for a cell of your own (Toolbox 8.4).
+DECISIONS_TO_ANSWER_CELL = "project.check()"
+
+
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next."""
@@ -1632,6 +1665,8 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
         cells.append(("markdown", step_cell(number, workflow, step)))
         if step.call:
             cells.append(("code", step.call))
+        elif step.decides:
+            cells.append(("code", DECISIONS_TO_ANSWER_CELL))
     if workflow.inputs:
         cells.append(("code", "project.do_next()"))
     cells.append(("code", run_cell_text(workflow)))
@@ -1649,8 +1684,10 @@ def run_cell_text(workflow: Workflow) -> str:
 
 def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
     """A Workflow's inputs, as its notebook's names cell holds them: each name given a
-    plain value there, and its decisions cell's DECISIONS, when it has one. A value that isn't
-    plain Python, or a notebook that isn't there, gives none."""
+    plain value there, and its decisions cell's DECISIONS, the cell holding a DECISIONS = line,
+    when it has one, a Run value's function it imports from the Project's own files among its
+    values. A value that isn't plain Python, but such a function, or a notebook that isn't
+    there, gives none."""
     text = file_text(notebook_path(root, workflow))
     if not text or not workflow.inputs:
         return {}
@@ -1662,11 +1699,63 @@ def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
         if cell.get("cell_type") != "code":
             continue
         # A names cell may start with an UPGRADE mark an Upgrade put above its first line.
-        if any(line.startswith(first_line) for line in source.split("\n")):
+        lines = source.split("\n")
+        if any(line.startswith(first_line) for line in lines):
             given.update(_plain_assignments(source, names))
-        elif source.startswith(f"{DECISIONS} ="):
-            given.update(_plain_assignments(source, {DECISIONS}))
+        elif any(line.startswith(f"{DECISIONS} =") for line in lines):
+            given.update(_decisions_assignment(root, source))
     return given
+
+
+def _decisions_assignment(root: Path, source: str) -> dict[str, object]:
+    """The DECISIONS a decisions cell assigns: plain values, and each Run value's function it
+    imports from a file of the Project's, such as building_blocks/run_values.py (Toolbox 8.4),
+    read without running the cell. A name it doesn't import from the Project gives none."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    imported = _project_imports(root, tree)
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == DECISIONS):
+            try:
+                return {DECISIONS: _value_of(node.value, imported)}
+            except ValueError:
+                return {}
+    return {}
+
+
+def _project_imports(root: Path, tree: ast.Module) -> dict[str, object]:
+    """Each name a cell imports from a module of the Project's own, the module a file under
+    `root`, such as building_blocks.run_values, by the name the cell gives it: those imports
+    alone are run, as load runs a logic cell's."""
+    # project.py imports this file, so its runner is read here.
+    from .project import run_logic
+
+    own = [node for node in tree.body
+           if isinstance(node, ast.ImportFrom) and node.module and not node.level
+           and root.joinpath(*node.module.split(".")).with_suffix(".py").is_file()]
+    if not own:
+        return {}
+    names = []
+    for node in own:
+        names += [alias.asname or alias.name for alias in node.names]
+    ran = run_logic(root, "\n".join(ast.unparse(node) for node in own), "decisions_cell")
+    return {name: ran[name] for name in names if name in ran}
+
+
+def _value_of(node: ast.expr, imported: dict[str, object]) -> object:
+    """A plain value a decisions cell writes, as ast.literal_eval reads one, but a name it
+    imported, which stands for what it imported."""
+    if isinstance(node, ast.Name) and node.id in imported:
+        return imported[node.id]
+    if isinstance(node, ast.Dict):
+        return {_value_of(key, imported): _value_of(value, imported)
+                for key, value in zip(node.keys, node.values, strict=True)}
+    if isinstance(node, ast.List):
+        return [_value_of(each, imported) for each in node.elts]
+    return ast.literal_eval(node)
 
 
 def _plain_assignments(source: str, names: set[str]) -> dict[str, object]:

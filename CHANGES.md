@@ -2,6 +2,138 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.4
+
+8.4 works out what a Script tag stands for each time a table is written, and copies only the
+Partitions a Seed needs. A **Run value** is the value a function of yours gives each time a
+table is written, such as the latest day a table holds: write the function in your Project,
+answer a tag with it in the decisions cell, and the Hive sent holds the day it gave, with no
+Hive variable to set. `"all_tables"` answers once for
+every table of a Workflow's notebook, and a `"seed"` answer limits the one-time copy of a table
+that reads itself to the Partitions you name. Reporting windows such as
+`date_sub(<PARM="PERIOD_END"/>, 14)` now convert and bound their reads, and a Project that
+Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
+
+### To update from 8.3
+
+- **Copy in 8.4's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read
+  `admin/upgrade_8.4.md`.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`: each step 3 cell gives the notebook's tables to `project.write_decisions`,
+  as `tables=project.batch_tables(NAME)` in convert's, which `"all_tables"` needs, and each
+  decisions cell you hadn't answered in is written with 8.4's comment, which shows
+  `"all_tables"`, a Run value and a seed limit; one you answered in is kept as you wrote it.
+  Each name and answer you gave stays.
+- **Each Workflow decision step has a `project.check()` cell** under it, which the Upgrade
+  writes in with the rest of the notebook.
+- **In a table converted before 8.4, each Script tag in a string**, which 8.3 wrote as
+  `TAGS["NAME"]` itself, the Upgrade writes as `tag_text(TAGS["NAME"])`, or with
+  `quoted=False` for a bare one in Hive kept whole, as 8.4 writes it, keeping the logic cell as
+  it was in `admin/removed/`: the same Hive for every answer it took, and a Run value's
+  function may answer it now.
+- **A table converted before 8.4 keeps its seed() copying every Partition**, with no `SEED`
+  for a `"seed"` answer to fill: the Upgrade marks its seed() so, and a `"seed"` answer for it
+  is refused, saying so. To limit its
+  seed, convert its scripts again as a new batch, with a new name for each table in RENAME,
+  and remove the old table with `project.remove_table(...)`, in `admin/remove.ipynb`, once the
+  new one's compare passes.
+- **`last_n_days` counts from UTC's today**, where it counted from this computer's: a window
+  run near midnight may move by a day. Where the warehouse keeps another day, bound the read
+  with a Run value in its place, a function of yours that starts from the warehouse's day:
+
+  ```python
+  def days_ago(days: int) -> datetime.date:
+      return today(utc_offset_hours=-6) - datetime.timedelta(days=days)
+
+  WHERE(between(job_runs.dt, run_value(days_ago, 7), run_value(days_ago, 1)))
+  ```
+
+  which reads the 7 days before today, six hours behind UTC, as `last_n_days(job_runs.dt, 7)`
+  does in UTC.
+
+### What's new
+
+- **date_sub and date_add convert** to `hive_function("date_sub", day, 14)` and
+  `hive_function("date_add", day, 1)`, the Hive the original wrote. Before, a Conversion wrote
+  a third argument, `unchecked_column("DAY")`, which the Toolbox refused, even on a plain
+  date.
+- **The Example database runs date_add and date_sub**, where it stopped saying its executor
+  has no DATE_ADD. week_start and month_start still can't run there: it has no NEXT_DAY or
+  TRUNC.
+- **A partition read bounded by values works out its own Partitions**: `between(dt,
+  date_sub(PERIOD_END, 14), PERIOD_END)`, or any condition holding a partition column to a
+  Script tag, a literal, or `date_sub`/`date_add` of them, bounds the Partitions read, as a
+  plain date does. Before, the Load limit refused it, as such an end bounded nothing, so
+  a reporting window ending at a Script tag needed `reads_all_partitions=True`. Which end comes
+  first is then Hive's to say: only two plain values are refused as backwards.
+- **Run values**: a Script tag may be answered with a function of your own, written in the
+  Project, such as `building_blocks/run_values.py`'s `period_end()`, which gives the latest day
+  your warehouse holds. Import it in the decisions cell and answer with it, as in
+  `{"tags": {"PERIOD_END": period_end}}`: the convert notebook's step 3 writes the import and the function's name into
+  TAGS, and each time the table's write is built the function is called and what it gives is
+  written into the Hive as plain text, a date as `'2026-10-31'`. A dry run shows the value; a
+  function that fails leaves `<PERIOD_END failed>` in its place, with a Warning saying why,
+  and `run_query` and `run_execute` refuse to send it.
+- **`tag_text(TAGS["NAME"])`** is a tag inside quotes' place in a converted table's logic, where
+  8.3 wrote `TAGS["NAME"]` itself: it calls a Run value's function too, and gives text as it
+  is. A bare tag in Hive kept whole, an Unchecked statement, is
+  `tag_text(TAGS["NAME"], quoted=False)`, which gives Hive, a date with its quotes.
+- **A Script tag in PARTITION converts**: `PARTITION (dt=<PARM="RUN_DAY"/>)`, which a
+  Conversion skipped before, becomes `partition={"dt": script_tag(TAGS["RUN_DAY"])}` in the
+  table's write(), so a nightly script writes the day its Run value gives. A tag found only in
+  PARTITION, bare or inside quotes, is a line of TAGS and a Decision too, where before a
+  quoted one there was in no TAGS. `partition=` takes `script_tag(...)` or `run_value(...)`,
+  one value worked out as the write is built, and lineage draws its Run value into the column.
+- **`run_value(function, *args)`** puts what any Python function gives into a Statement, a
+  date as `'2026-10-31'`, worked out each time the Statement is built, as a Script tag's Run
+  value is. A partition column held to it is bounded.
+- **Lineage traces each Run value that stands as a value**, `run_value`'s and a bare Script
+  tag's in a Statement: a box naming the function, what it was given, the Script tag it answers and what it
+  gave, with an arrow into it from each table the Toolbox read for it while it ran, the
+  partition column `latest_partition` read and each table a Statement it sent through
+  `run_query` read. A tag inside quotes gives text, part of a string, which lineage doesn't
+  draw.
+- **`today(utc_offset_hours=0)`**, **`latest_partition(column, query)`** and
+  **`hive_date(day)`** help write a Run value's function: today's date in UTC or at an
+  offset; the newest value of a partition column, from SHOW PARTITIONS, reading no row; and a
+  date as Hive writes it, in quotes. `last_n_days` now counts its days from UTC's today, where
+  it counted from this computer's.
+- **A Hive variable in Unchecked text is Hive**: in `unchecked_column` and
+  `unchecked_condition`, `${hivevar:run_day}` is written as it is, no longer read as a
+  `{name}` placeholder, so it needs no doubled braces. A `${{...}}` written before 8.4 gives
+  the same Hive, and a Conversion now writes `${...}` plainly.
+- **Upgrade from any version since 8.3 straight to the newest**: `project.upgrade()` runs each
+  version's step in turn, as before, and now ends by naming each step's
+  `admin/upgrade_<version>.md`, in order. A test upgrades the Example projects of every
+  version from 8.3 on straight to the newest, so you can skip versions.
+- **Step 3 takes out the needless `many_matches=True`**: a Conversion builds each table
+  before its Keys are answered, so it marks each join that might repeat rows with
+  `many_matches=True` and a `# CONVERSION:` mark. Once `project.write_decisions` writes a
+  Key, each marked one whose Repeated-rows Warning no longer fires is taken out, with its mark,
+  its checklist note and its batch.md line, and the report names each. One you wrote yourself,
+  with no mark, stays; a join on a table with no Key still only warns.
+- **No cell of your own on a Workflow's path**: each decision step of the convert, promote,
+  new_table and references notebooks now has a `project.check()` cell under it, which names
+  each open Decision and prints a whole DECISIONS to paste, where before its text sent you to
+  make one. The Upgrade writes the Workflow notebooks again with it.
+- **Decisions for every table**: `DECISIONS["all_tables"]` answers `location_root`, `tags` and
+  `seed` for every table a Workflow's notebook names, each table's own answer over it, kind by
+  kind and tag by tag. `location_root` gives each table with no location of its own
+  `<root>/<db>.db/<table>`. `project.write_decisions` takes the notebook's tables with
+  `tables=`, as each Workflow's step cell now gives them, and `project.check()` offers
+  `all_tables` for each Decision several tables share. A Key or a type stays each table's own.
+- **The seed's limits**: a converted table that reads itself has `SEED` in its Table
+  reference, and its `seed()` is `seed_copy(table, original, SEED)`. Answer `"seed"` in the
+  decisions cell, per table or under `all_tables`, to copy only the Partitions you need: by
+  partition column, a value, that value or later; `{"from": ..., "to": ...}`; or a list, those
+  values alone, as `{"dt": {"from": "2026-01-01"}, "region": ["US", "CA"]}`. Any value may be
+  a Run value's function. An `all_tables` limit applies to the tables with that column; a
+  column that isn't a partition column is refused. With no limit, every Partition is copied,
+  as before. A prod copy's seed is promote's own answer, every Partition until you give one.
+  A table converted before 8.4 keeps its seed() copying everything: convert it again to limit
+  it.
+
 ## 8.3
 
 8.3 reads Script tags: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that

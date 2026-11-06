@@ -8,13 +8,16 @@ sqlglot reads as a column, and `tags_as_written` takes the backticks off again. 
 quotes, as in '<PARM="PERIOD_END"/>', is part of a string, which sqlglot reads as it is.
 
 In a converted table's logic, a bare tag's place is script_tag(TAGS["PERIOD_END"]), and a quoted
-one's is TAGS["PERIOD_END"] itself, a string. TAGS, in the table's Table reference, holds what
-each tag stands for, a Decision answered in the decisions cell.
+one's is tag_text(TAGS["PERIOD_END"]), a string. TAGS, in the table's Table reference, holds
+what each tag stands for, a Decision answered in the decisions cell: Hive text, or a Run
+value's function (Toolbox 8.4), which script_tag and tag_text call each time the Statement is
+built.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .refusals import refuse
@@ -155,12 +158,41 @@ def tag_name(text: str) -> str | None:
     return found.group(1) if found else None
 
 
-def is_script_tag(value: object) -> bool:
-    """Whether `value` is a Column script_tag made."""
-    return isinstance(value, Column) and value._tree.kind == SCRIPT_TAG
+# The kinds of Node a value is built of: values, and sums of them in brackets.
+_VALUE_KINDS = {"Literal", "Null", "Boolean", SCRIPT_TAG, "Paren", "Add", "Sub", "Mul"}
+# The Hive functions that move a day by a number of days, whose call on values is a value.
+_DAYS_MOVED = ("date_add", "date_sub")
 
 
-def script_tag(text: str) -> Column:
+def is_built_of_values(value: object) -> bool:
+    """Whether `value` is a Column built of values alone: Script tags, literals, and sums or
+    date_add or date_sub of them, such as date_sub(PERIOD_END, 14). It reads no column, so a
+    condition holding a partition column to it bounds the Partitions read, as one holding it to
+    a plain value does."""
+    return isinstance(value, Column) and _is_built_of_values(value._tree)
+
+
+def is_one_value(value: object) -> bool:
+    """Whether `value` is a Column of one value alone, as a Script tag or a Run value gives
+    one: no sum, and no date_add or date_sub, which Hive's PARTITION(...) doesn't take."""
+    return isinstance(value, Column) and value._tree.kind in _ONE_VALUE_KINDS
+
+
+# The kinds of Node one value is: a Script tag's, and a Run value's literal.
+_ONE_VALUE_KINDS = {SCRIPT_TAG, "Literal", "Boolean"}
+
+
+def _is_built_of_values(node: Node) -> bool:
+    if node.kind == "HiveFunction":
+        return node.parts["name"] in _DAYS_MOVED and all(
+            _is_built_of_values(arg) for arg in node.parts["args"])
+    if node.kind not in _VALUE_KINDS:
+        return False
+    return all(_is_built_of_values(part) for part in node.parts.values()
+               if isinstance(part, Node))
+
+
+def script_tag(text: str | Callable[[], object]) -> Column:
     """The value a Script tag stands for, written where the tag stood, as a Column.
 
     >>> from sqlglot_composer import example_database
@@ -184,7 +216,12 @@ def script_tag(text: str) -> Column:
     job_runs.duration_mins / 60 does. TAGS, in the table's Table reference, holds what each
     tag stands for: the Hive the program put there, such as '2026-09-24' with its quotes, 5,
     or '${hivevar:period_end}', a Hive variable your warehouse fills in when the query runs,
-    in quotes when it holds a date.
+    in quotes when it holds a date; or a Run value's function, such as period_end, written in
+    your Project, which script_tag calls each time the Statement is built. What it gives is
+    written as Hive: a datetime.date as '2026-09-24', a number as it is, TRUE or FALSE, and
+    text as the Hive it is. One that fails leaves `<PERIOD_END failed>` in the value's
+    place, with a Warning saying why, so show_hive still shows the rest; run_query and
+    run_execute refuse to send it.
 
     You answer each tag in the convert notebook's decisions cell, under "tags", as in
     DECISIONS = {"mart_dev.daily_close": {"tags": {"PERIOD_END": "'2026-09-24'"}}}, and step
@@ -192,15 +229,21 @@ def script_tag(text: str) -> Column:
     Until then TAGS holds the tag itself, and the table isn't created: script_tag would write
     a bare one in backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run.
 
-    It is one value of a kind a program puts in a tag's place: text or a date in quotes, a
-    number, TRUE, FALSE, NULL or a Hive variable such as ${hivevar:period_end}. Anything else
-    is refused: a column, a condition, a sum such as 5 - 3, a function's call or a comment,
+    Its text, given or given by a Run value, is one value of a kind a program puts in a tag's
+    place: text or a date in quotes, a number, TRUE, FALSE, NULL or a Hive variable such as
+    ${hivevar:period_end}. Anything else is refused: a column, a condition, a sum such as
+    5 - 3, a function's call or a comment,
     which Hive would read with what stands beside the tag, and a date with no quotes,
     2026-09-24, which Hive reads as a subtraction. The Toolbox doesn't check
     the text inside it, but at_most(runs.dt, script_tag(...)) still filters dt, a partition
     column, as at_most(runs.dt, "2026-09-24") does.
     """
     call = f"script_tag({python_text(text)})"
+    if callable(text):
+        # run_values.py reads this file's SCRIPT_TAG and check_tag_value, so it is read here.
+        from .run_values import tag_value_column
+
+        return tag_value_column(text)
     if not isinstance(text, str) or not text.strip():
         refuse(
             what=f"{call} was given {text!r}, not the Hive a Script tag stands for.",
@@ -211,13 +254,13 @@ def script_tag(text: str) -> Column:
     if tag_name(text) is not None:
         node = Node(SCRIPT_TAG, text=in_backticks(text))
     else:
-        _check_tag_value(call, text)
+        check_tag_value(call, text)
         node = Node(SCRIPT_TAG, text=text)
     node.meta["call"] = call
     return Column(node)
 
 
-def _check_tag_value(call: str, text: str) -> None:
+def check_tag_value(call: str, text: str) -> None:
     """Refuse a Script tag's answer that can't stand where the tag stood, for the reason
     writing.tag_value_problem gives."""
     problem = tag_value_problem(text)
