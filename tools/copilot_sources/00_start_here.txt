@@ -51,6 +51,9 @@ you can ask it in plain words.
 - If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
   their Hive made into Saved tables in your Project, end to end, load file 13. To carry
   tables from dev to prod once compared, load file 16.
+- If you want a Script tag's day worked out at each run, such as the latest Partition a
+  table holds, one answer for every table of a Workflow notebook, or a seed that copies only
+  some Partitions, load file 17.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -86,6 +89,9 @@ you can ask it in plain words.
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
 - `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
   the promote Workflow's notebook.
+- `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
+  value each time a table is written, such as a Script tag's day; answers for every table of
+  a Workflow notebook; and seed limits, the Partitions a seed copies.
 
 ## Fitting Copilot
 

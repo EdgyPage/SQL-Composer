@@ -28,16 +28,17 @@ from .writing import hive_text
 
 
 def today(utc_offset_hours: float = 0) -> datetime.date:
-    """Today's date in UTC, or utc_offset_hours from it, as last_n_days sees it.
+    """Today's date in UTC, or utc_offset_hours from it.
 
     >>> today(utc_offset_hours=-6) <= today() <= today(utc_offset_hours=14)
     True
 
-    Write utc_offset_hours=-6 for a warehouse that keeps its days six hours behind UTC, such as
-    Central Standard Time, or 5.5 for India's: the offset stays as given all year, as no zone's
-    name is read. It is the usual start of a Run value's function, which works out a day each
-    time a table is written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1)
-    for yesterday where the warehouse is.
+    In UTC, it is the day last_n_days counts back from. Write utc_offset_hours=-6 for a
+    warehouse that keeps its days six hours behind UTC, such as Central Standard Time, or 5.5
+    for India's: the offset stays as given all year, as no zone's name is read. It is the
+    usual start of a Run value's function, which works out a day each time a table is
+    written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1) for yesterday
+    where the warehouse is.
     """
     if isinstance(utc_offset_hours, bool) or not isinstance(utc_offset_hours, (int, float)) \
             or not -24 < utc_offset_hours < 24:

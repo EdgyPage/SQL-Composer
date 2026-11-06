@@ -293,6 +293,16 @@ def _how_to_steps() -> list[str]:
                   "step that is a decision, yours to make, make it: write your answer to each "
                   "open Decision in the decisions cell, beside the names cell, and save it, or "
                   "read what the step before printed. Then run the next step."), "",
+        *_wrapped("An answer is what its kind takes, as the decisions cell's comment shows: a "
+                  "folder as text, a Key as a list, a Script tag's day as Hive text. A tag may "
+                  "be answered by a Run value's function instead, one of your Project's, "
+                  "imported at the top of the decisions cell and given by its name, which the "
+                  "Toolbox calls each time the table is written. \"all_tables\" answers once "
+                  "for every table the notebook names, and "
+                  "a table's own answer overwrites it. A table that reads itself is seeded "
+                  "once from its original, every Partition unless its \"seed\" answer limits "
+                  "them. [Convert someone else's Hive](#convert_someone_elses_hive) shows each "
+                  "one."), "",
         *_wrapped("Done when `project.check()` says every step of the Workflow is done. Then "
                   "check it worked, below."), "",
         "The Workflows, for steps 2 to 5:", ""]

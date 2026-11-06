@@ -57,6 +57,9 @@ you can ask it in plain words.
 - If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
   their Hive made into Saved tables in your Project, end to end, load file 13. To carry
   tables from dev to prod once compared, load file 16.
+- If you want a Script tag's day worked out at each run, such as the latest Partition a
+  table holds, one answer for every table of a Workflow notebook, or a seed that copies only
+  some Partitions, load file 17.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -92,6 +95,9 @@ you can ask it in plain words.
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
 - `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
   the promote Workflow's notebook.
+- `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
+  value each time a table is written, such as a Script tag's day; answers for every table of
+  a Workflow notebook; and seed limits, the Partitions a seed copies.
 
 ## Fitting Copilot
 
@@ -1201,12 +1207,12 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` in ON=, by `all_of`.
 - `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)`:
   `row_number(PARTITION_BY=t.a, ORDER_BY=descending(t.b))` (file 05).
-- `ORDER BY ... LIMIT n`: `ORDER_BY(...)`, `LIMIT(n)`.
 - `SET k=v;`: `hive_settings("converted", sets={"converted": {"k": "v"}})`, run_execute first.
 - `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
   Saved table's logic cell (file 06).
-- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted, `TAGS["NAME"]`;
-  `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not imported.
+- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
+  `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
+  imported; a day worked out each run: file 17.
 
 ## Steps
 
@@ -1568,12 +1574,11 @@ s = statement(
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
-datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
+datediff, Hive no Toolbox function writes, or dropping, repairing or counting a table.
 
 ## Terms
 
 - **Label**: a column whose value a lookup or a Condition, a test on rows, picks.
-- **Clause function**: a Toolbox function named for a SQL clause, such as SELECT or WHERE.
 - **Hand-written Hive**: Hive text kept as written, `unchecked_...`: no Guard, which refuses
   a wrong result, looks inside it. **Lineage**: which columns feed each output column.
 - **Saved table**: a table of the user's; its Table reference lists its columns and
@@ -1663,12 +1668,13 @@ Lineage sees it:
 - one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
 - a Derived table, read as a table:
   `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
-- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
+- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute;
+- `${hivevar:x}` is Hive as written, never a `{name}` placeholder; a day worked out each run:
+  file 17.
 
 ## Upkeep of a Saved table
 
-Each is a Statement sent with `run_execute(..., execute)`, after
-`from sqlglot_composer import admin`.
+Each is sent with `run_execute(..., execute)`, after `from sqlglot_composer import admin`.
 
 - `repair_partitions(t)` finds Partitions written outside Hive.
 - `compute_statistics(t, partition={"dt": day})` counts its rows again.
@@ -1698,7 +1704,7 @@ s = statement(
 )
 ```
 
-A chain of conditions on one day's events, the first that holds giving the label:
+A chain of conditions, the first that holds giving the label:
 
 ```python
 from sqlglot_composer import AS, FROM, SELECT, WHERE, equals, first_match, is_in, statement
@@ -2072,8 +2078,10 @@ inside it.
 - A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
   Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
-  user gives; only if they ask for one changing each run, `"'${hivevar:run_day}'"`, a SET
-  hivevar line kept in the script. If they give none, never guess: ask.
+  user gives; for one worked out each run, such as the latest Partition, a Run value: a
+  function of theirs (file 17). If they give none, never guess: ask.
+- `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
+  file 17.
 - Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
   then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
@@ -2561,6 +2569,13 @@ it.
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
   by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
+- A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
+  write in prod too.
+- A prod copy that reads itself is seeded from its original once, at step 5, copying every
+  Partition unless its own "seed" answer limits them, as in
+  `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
+  answer isn't carried over, since prod often needs more of the original's history than a dev
+  compare did. "all_tables" answers every prod copy at once: file 17 says how.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -2628,3 +2643,156 @@ project.promote(TABLES)
 - Each table promoted has a compare that passed, or the reply says to run it first.
 - Each later step is named in words, unless every cell was asked for.
 - Each Decision answered is in DECISIONS by the prod copy's name; each other is named.
+
+===== 17_run_values_and_seed_limits.txt =====
+
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.3)
+
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
+Objective: write a Run value, a function of the user's that works out a value each time a
+table is written, and the decisions cell answers that use it: a Script tag's, one for every
+table, and a seed's limits.
+Load this file when the user wants a tag's day worked out at each run, such as the latest
+Partition a table holds, one answer for every table of a Workflow notebook, or a seed that
+copies only some Partitions. File 13 is for the convert Workflow's other steps, file 16 for
+promote's.
+
+## Terms
+
+- **Script tag**: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that ran it
+  filled in; a Conversion leaves each as a Decision of its table, under "tags".
+- **Decision**: one thing about one table only the user decides, answered in a Workflow
+  notebook's **decisions cell**, DECISIONS; the notebook's step 3 cell writes each answer into
+  the table's **Table reference**, the file of its columns, partitions, Key and TAGS.
+- **Run value**: what a function gives each time a Statement is built, written into the Hive as
+  plain text: a `datetime.date` as '2026-09-24', a number as it is, True or False as TRUE or
+  FALSE, text as Hive.
+- **Partition**: the rows of a table that share one value of each partition column, such as dt.
+- **Seed**: the one copy of the original's rows into a converted table that reads itself,
+  before its first write: step 5 of convert, and of promote.
+
+## Names for this objective, with their arguments
+
+- latest_partition(column, query=None)
+- today(utc_offset_hours=0)
+- hive_date(day)
+- run_value(function, *arguments, **keywords)
+- tag_text(value, *, quoted=True)
+- project.write_decisions(answers, tables=None)
+- project.register(name)
+
+## Steps
+
+1. **Pick the pieces**, the function, the answers or both, by the Decision rules. Done when
+   each piece asked for is named. Then step 2.
+2. **Write the function**, if one is asked for and the user hasn't one, in the file
+   building_blocks/run_values.py, importing `query` from warehouse itself; a tag's function
+   takes no argument. Done when it gives a value. Then step 3.
+3. **Write the decisions cell**: the function's import, then DECISIONS, then the notebook's
+   step 3 cell, which writes the answers in. Done when each answer is in. Then step 4.
+4. **Name the rest** in words, as Output says. Then step 5.
+5. **Check** by the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- If a tag stands for a day that changes each run, answer it with a Run value. If the user
+  gives one fixed day, answer with text, as file 13 says.
+- If the day is the newest Partition of a table: `latest_partition(t.dt, query)`, which reads
+  no row. If it is today where the warehouse is: `today()` in UTC, or
+  `today(utc_offset_hours=-6)` six hours behind it, the user's offset; yesterday is that minus
+  `datetime.timedelta(days=1)`.
+- If no Partition names it, the function runs a Statement of its own with run_query, each
+  partitioned read bounded (file 03), and gives the value it read.
+- Answer with the function's name, no brackets: `{"tags": {"PERIOD_END": period_end}}`. With
+  brackets it is one day, which the notebook's step 3 refuses.
+- The function lives in a file of the Project. One made in a notebook cell, a lambda or one
+  inside another function is left unwritten by the notebook's step 3.
+- If several tables of the notebook share an answer, give it under "all_tables":
+  "location_root", "tags" or "seed" only. A table's own answer overwrites it, kind by kind
+  and tag by tag. A Key or a type goes under each table, never "all_tables".
+- "location_root" gives each table with no location its own folder, `<root>/<db>.db/<table>`.
+- If a table that reads itself needs only some Partitions, answer "seed", by partition
+  column: a value, **that value or later**, never it alone; `{"from": ..., "to": ...}`, either end left out as
+  the user likes; a list, those values alone; numbers as numbers. Any value may be a Run
+  value's function. A column left out is copied whole; a column that isn't a partition column
+  is refused. With no "seed", every Partition is copied. Under "all_tables", a limit applies
+  only to the tables with that column.
+- If the value goes in a Statement the user writes: `run_value(function, *arguments)`. In
+  Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
+- If the table was converted before 8.4, its seed copies everything and its tags inside
+  quotes take text alone: say to convert its scripts again for a seed limit or a quoted Run
+  value.
+
+## Output
+
+1. building_blocks/run_values.py in a ```python block, if step 2 wrote it.
+2. The decisions cell, then step 3's cell, in one ```python block.
+3. In words: the first time, register the file with `project.register("run_values")`, the
+   register cell of admin/check_project.ipynb, as `project.check()` asks; then run the
+   notebook's step 3 cell. A function that fails leaves `<NAME failed>` in the Hive and a Warning; nothing is
+   sent until it is fixed.
+
+## Examples
+
+The latest day ops.job_runs holds, for PERIOD_END:
+
+```python
+"""Run values: what a Script tag stands for, worked out each time a table is written."""
+
+import datetime
+
+from sqlglot_composer import latest_partition
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+
+def period_end() -> datetime.date:
+    """The latest day ops.job_runs holds."""
+    return latest_partition(job_runs.dt, query)
+```
+
+The latest day a run succeeded, from a Statement of its own, its read bounded by the newest
+Partition (lineage draws an arrow from ops.job_runs into the Run value):
+
+```python
+import datetime
+
+from sqlglot_composer import (AS, FROM, SELECT, WHERE, at_least, equals, latest_partition,
+                              max_of, run_query, statement)
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+
+def last_good_day() -> datetime.date:
+    """The latest day a run succeeded, of the last 30 days ops.job_runs holds."""
+    first = str(latest_partition(job_runs.dt, query) - datetime.timedelta(days=30))
+    rows = run_query(statement(SELECT(AS(max_of(job_runs.dt), "day")), FROM(job_runs),
+                               WHERE(at_least(job_runs.dt, first),
+                                     equals(job_runs.status, "SUCCESS"))), query)
+    return datetime.date.fromisoformat(rows["day"][0])
+```
+
+The convert notebook's decisions cell and step 3 cell: every table's PERIOD_END answered by
+period_end and its folder under /data/team; team_log's seed copies only the Partitions from
+2026-09-01 on whose team is US or CA:
+
+```python
+from building_blocks.run_values import period_end
+
+DECISIONS = {
+    "all_tables": {"location_root": "/data/team", "tags": {"PERIOD_END": period_end}},
+    "mart_dev.team_log_mart": {"key": None,
+                               "seed": {"dt": {"from": "2026-09-01"}, "team": ["US", "CA"]}},
+}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+```
+
+## Self-check
+
+- The function takes no argument and imports what it uses, `query` among them.
+- Each Run value is answered by the function's name, imported at the top of the cell.
+- "all_tables" holds only location_root, tags and seed; each Key and type is a table's own.
+- Each seed limit names a partition column.
+- The notebook's step 3 cell gives `tables=`, as its notebook does.
