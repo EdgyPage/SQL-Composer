@@ -73,7 +73,8 @@ file, the Project action that made it, and what was filled in by hand.
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `<db>__<table>.hql` in each Table folder, such as `tables/mart__job_day_costs/mart__job_day_costs.hql`, the table's Hive: each step its notebook's logic sends, in the order they are sent, to read at a glance and to commit | its notebook's `export_hive()` cell, the one after its lineage cell, which writes the file again each time it runs | nothing: never edit it. To change it, edit the notebook's logic, save the notebook, and run its `export_hive()` cell again |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
-| `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: its scripts as given, `batch.md`, what each statement became, and `written.json`, moved here once its table passed its compare |
+| `admin/workflows/convert/team_failures.hql`, the Hive the ops team wrote | you, saved beside the convert notebook | nothing: convert reads it where it is |
+| `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: `batch.md`, naming the script and what each statement became, and `written.json`, moved here once its table passed its compare |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs
 none.
