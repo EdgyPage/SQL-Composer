@@ -50,12 +50,22 @@ The database others read the user's finished Saved tables from. A table reaches 
 promoted from the Dev Database.
 _Avoid_: live, production schema
 
+**Database settings**:
+What differs between the Dev Database and the Prod Database, kept as one set of values for
+each, under the same names in both: the database's name, the folder its tables' files go
+under, the account its connection runs as, and any value of the user's own. Carrying a table
+or a Building block from dev to prod swaps one Database's settings for the other's, name by
+name, so a value missing from one of them is refused.
+_Avoid_: config, environment, profile, Session settings (a Hive SET)
+
 **Promotion**:
 The user's choice to carry one or more Saved tables from the Dev Database to the Prod
-Database: a prod copy of each table's code, each prod copy reading the prod copies of the
-others promoted with it. The dev table stays the source: a change is made in dev and promoted
-again, never in the prod copy. A table is promoted only once each of its Decisions is made
-and, for a Conversion's table, it is compared, and with each dev table it reads.
+Database: a prod copy of each table's code and of each Building block it uses, each prod copy
+reading the prod copies of the others promoted with it and the Prod Database's settings. The
+dev table stays the source: a change is made in dev and promoted again, never in the prod
+copy, so dev's Building blocks may change freely while prod's change only when promoted. A
+table is promoted only once each of its Decisions is made and, for a Conversion's table, it is
+compared, and with each dev table it reads.
 _Avoid_: deploy, release, convert to prod, publish
 
 ### The user's own scripts
