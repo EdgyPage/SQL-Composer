@@ -87,7 +87,7 @@ which `requirements.txt`'s pins are for, as they are for 3.12. It is one folder,
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 ```
 
@@ -244,7 +244,7 @@ starts with.
 Before you go on, check:
 
 - `project.start()` printed "Started a Project", and the folder holds admin/, references/,
-  building_blocks/, tables/ and warehouse.py beside `sqlglot_composer`.
+  building_blocks/, tables/, scheduled_runs/ and warehouse.py beside `sqlglot_composer`.
 - each notebook you run gives `connect(...)` the connection you mean to use.
 
 ## 2. Add your tables' references
@@ -1399,6 +1399,8 @@ And two more, for files beside the notebooks:
   `references`, to fill in.
 - `building_block`: a Derived table several notebooks read, which `new_block` writes into
   `building_blocks`, to fill in.
+- `scheduled_run`: a Scheduled run's notebook, which `new_scheduled_run` makes in
+  `scheduled_runs`, for an outside scheduler to run.
 
 ## Have Copilot write it
 

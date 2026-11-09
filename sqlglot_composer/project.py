@@ -18,8 +18,8 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    one's name and the folder its tables go under, set once
     │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
-    │   ├── registry.csv     every Table folder, Table reference, Building block and Conversion
-    │   │                    folder a Project action made
+    │   ├── registry.csv     every Table folder, Table reference, Building block, Scheduled run
+    │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
     │   ├── templates/       the Templates new_table and new_block make files from: yours to
@@ -34,24 +34,31 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    several tables' notebooks share
     │   └── prod/            the prod copy of each one a promoted table uses, which
     │                        project.promote writes
-    └── tables/              a Table folder per Saved table you build
-        └── mart__daily_job_runs/
-            ├── mart__daily_job_runs.ipynb
-            ├── mart__daily_job_runs.hql    its Hive, which the notebook's export_hive()
-            │                               writes
-            └── lineage/
+    ├── tables/              a Table folder per Saved table you build
+    │   └── mart__daily_job_runs/
+    │       ├── mart__daily_job_runs.ipynb
+    │       ├── mart__daily_job_runs.hql    its Hive, which the notebook's export_hive()
+    │       │                               writes
+    │       └── lineage/
+    └── scheduled_runs/      a folder per Scheduled run, a notebook an outside scheduler runs
+        └── weekly/          top to bottom, which new_scheduled_run makes
+            └── weekly.ipynb
 
 You make three things by hand: the Project's folder, the copy of sqlglot_composer in it, and
 the notebook you run start() from.
 start() makes the rest of the layout, once, and the Project actions make every file in it.
 new_table makes a Table folder and remove_table archives one; new_block makes a Building block
 and remove_block archives one; new_run_value writes a Run value's function, a table's latest
-Partition, into building_blocks/run_values.py; add_references writes Table references in bulk,
+Partition, into building_blocks/run_values.py; new_scheduled_run makes a Scheduled run's
+folder and notebook, and remove_scheduled_run archives one; add_references writes Table
+references in bulk,
 remove_reference archives one, register adopts a Table folder, Table reference or Building
 block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
-before the tables that read it. upgrade carries the Project's files to a newer Toolbox you
+before the tables that read it; build_run, in a Scheduled run's notebook, builds the
+Statements it names with the writes of each table they read, in that order, and prints their
+Hive. upgrade carries the Project's files to a newer Toolbox you
 copied in, marking with `# UPGRADE` what it leaves you to change. scan_hive reads Hive someone
 else wrote and says what a Conversion would make; convert makes each table the Hive writes
 a Saved table in your Dev Database, its Table folder and Table reference, marking with
@@ -70,21 +77,24 @@ None of them deletes a file of yours: what they remove moves into admin/removed/
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
 your tables; the rest never touch the warehouse. start, new_table, new_block, new_run_value,
-remove_table, remove_reference, remove_block, register, add_references and upgrade, the
-Project actions, each add an entry to admin/admin_log.md, the log that also keeps every Admin
-statement run inside the Project. The rest add no entry of their own: check and load change no
-file; refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
-file; run_tables writes only your tables in the warehouse, though an Admin or Unchecked
-statement it sends is logged, as run_execute logs one anywhere.
+new_scheduled_run, remove_table, remove_reference, remove_block, remove_scheduled_run,
+register, add_references and upgrade, the Project actions, each add an entry to
+admin/admin_log.md, the log that also keeps every Admin statement run inside the Project. The
+rest add no entry of their own: check and load change no file; refresh_reference_sheet
+writes the Reference sheet and the Database modules, and no other file; run_tables writes
+only your tables in the warehouse, though an Admin or Unchecked statement it sends is logged,
+as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
 
 import ast
+import contextlib
 import csv
 import dataclasses
 import datetime
 import difflib
+import functools
 import hashlib
 import importlib
 import inspect
@@ -94,10 +104,10 @@ import re
 import sys
 import textwrap
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import FrameType
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pandas as pd
 
@@ -118,6 +128,7 @@ from .project_files import (
     PROD_BLOCK,
     REFERENCE,
     REGISTRY,
+    SCHEDULED_RUN,
     TABLE_FOLDER,
     FileKind,
     Registry,
@@ -149,16 +160,22 @@ from .unchecked import (
     write_entry,
 )
 
+if TYPE_CHECKING:
+    # Only a hint names it, and scheduled_runs.py imports this file: imported here, it would
+    # make an import cycle.
+    from .scheduled_runs import BuiltRun
+
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
-           "reference_from_logic", "new_run_value"]
+           "reference_from_logic", "new_run_value", "new_scheduled_run",
+           "remove_scheduled_run", "build_run"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
-FOLDERS = ("admin", "references", "building_blocks", "tables")
+FOLDERS = ("admin", "references", "building_blocks", "tables", "scheduled_runs")
 WAREHOUSE = "warehouse.py"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
@@ -170,6 +187,8 @@ NEW_TABLE_WORKFLOW = "new_table"
 BLOCK_TEMPLATE = "building_block"
 # The Template a Saved table's Table reference is made from.
 REFERENCE_TEMPLATE = "saved_table_reference"
+# The Template a Scheduled run's notebook is made from (Toolbox 8.6).
+SCHEDULED_RUN_TEMPLATE = "scheduled_run"
 # The Reference sheet's columns, the sheet being workflows.REFERENCE_SHEET: one row per column
 # of every Table reference, "yes" in partition and in_key for its partition columns and the
 # Key's columns, and the column's Aliases and description.
@@ -381,19 +400,21 @@ ADMIN_NOTEBOOKS = {
          "if BLOCKS:\n    print(project.new_block(BLOCKS))"],
     ),
     "remove": (
-        "# Remove\n\nMoves Table folders, Table references, Building blocks and Conversion "
-        "folders into `admin/removed/`, each named by the time, and logs it. Nothing is "
-        "deleted, and a table stays in the warehouse: drop it with `admin.drop_table` in "
-        "`workflows/change_a_saved_table/`. Name what to archive in the cell below, then run "
-        "the rest: each list left empty is passed over.",
+        "# Remove\n\nMoves Table folders, Table references, Building blocks, Conversion "
+        "folders and Scheduled runs into `admin/removed/`, each named by the time, and logs "
+        "it. Nothing is deleted, and a table stays in the warehouse: drop it with "
+        "`admin.drop_table` in `workflows/change_a_saved_table/`. Name what to archive in the "
+        "cell below, then run the rest: each list left empty is passed over.",
         ['TABLES = []  # Table folders to archive, such as ["mart.daily_job_runs"]\n'
          "REFERENCES = []  # Table references to archive, by their tables' names\n"
          'BLOCKS = []  # Building blocks to archive, such as ["runs_per_job"]\n'
-         'CONVERSIONS = []  # Conversion folders to archive, such as ["weekly"]',
+         'CONVERSIONS = []  # Conversion folders to archive, such as ["weekly"]\n'
+         'SCHEDULED_RUNS = []  # Scheduled runs to archive, such as ["weekly"]',
          "if TABLES:\n    print(project.remove_table(TABLES))",
          "if REFERENCES:\n    print(project.remove_reference(REFERENCES))",
          "if BLOCKS:\n    print(project.remove_block(BLOCKS))",
-         "if CONVERSIONS:\n    print(project.remove_conversion(CONVERSIONS))"],
+         "if CONVERSIONS:\n    print(project.remove_conversion(CONVERSIONS))",
+         "if SCHEDULED_RUNS:\n    print(project.remove_scheduled_run(SCHEDULED_RUNS))"],
     ),
     "refresh_reference_sheet": (
         "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
@@ -466,12 +487,12 @@ def start() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
 
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
-    from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
-    them:
+    from. start() makes admin/, references/, building_blocks/, tables/, scheduled_runs/ and
+    warehouse.py beside them:
     admin/ gets its notebooks, a notebook per Workflow in admin/workflows/, the Templates in
     admin/templates/, admin/databases.py, admin/sent.csv, an empty registry, the Admin log,
     whose first entry is this one, and project_version.txt, the Toolbox version that made the
@@ -533,7 +554,7 @@ def start() -> ProjectReport:
     return ProjectReport([
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
-        "tables/ and warehouse.py.",
+        "tables/, scheduled_runs/ and warehouse.py.",
         "Next: at the top of each notebook, fill in connect(...) with your connection.",
     ])
 
@@ -627,7 +648,7 @@ def new_table(name: str | list[str], template: str = "saved_table",
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -897,7 +918,7 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -935,7 +956,7 @@ def remove_reference(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -1022,7 +1043,7 @@ def new_block(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -1084,7 +1105,7 @@ def remove_block(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -1166,6 +1187,137 @@ def _importers(root: Path, name: str) -> list[str]:
     return found
 
 
+# --- new_scheduled_run and remove_scheduled_run -----------------------------------------------
+
+
+def new_scheduled_run(name: str | list[str]) -> ProjectReport:
+    """Make a Scheduled run, a notebook an outside scheduler runs, from its Template.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.new_scheduled_run("weekly")
+    Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+    Fill in its <...>: its parameters, its connection and the Statements it runs.
+
+    `name` is the Scheduled run's name, a Python name such as "weekly": its folder is
+    scheduled_runs/weekly/, holding weekly.ipynb, which an outside scheduler, such as
+    papermill, runs top to bottom. The notebook is made from admin/templates/scheduled_run.py,
+    with <NAME> filled in; fill in every other <...> yourself. Its cells, top to bottom: the
+    parameters cell, whose first line is # parameters, tagged parameters, as papermill finds
+    it, holding the values the scheduler passes in, START_FROM among them; setup, which
+    connects; the run's own cell, # scheduled, whose statements() gives what it sends; then
+    Build, project.build_run(statements), which prints the Hive and sends nothing, and Run,
+    which sends it. It registers the folder and logs it. It refuses a name already taken, by
+    a folder in scheduled_runs/ or by the registry, a name Python can't import, and a folder
+    outside a Project, and never touches the warehouse.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
+    """
+    frame = callers_frame()
+
+    return _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
+                              frame)
+
+
+def _new_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
+    """new_scheduled_run(...) for one name: `frame` is its caller's, for the Admin log."""
+    call = _action_call("new_scheduled_run", name)
+    root = _project_root(call)
+    _check_scheduled_run_name(name, call)
+    shown = SCHEDULED_RUN.shown(name)
+    folder = SCHEDULED_RUN.path(root, name)
+    registry = _registry_for_new(
+        call, SCHEDULED_RUN, name, root, folder, shown, f"a Scheduled run {name}",
+        writes_over="your notebook",
+        fix=f"Open {shown}{name}.ipynb, or give the new Scheduled run a name of its own. To "
+        f'start it again, archive it first with project.remove_scheduled_run("{name}").')
+    template = root / "admin" / "templates" / f"{SCHEDULED_RUN_TEMPLATE}.py"
+    if not template.is_file():
+        refuse(
+            what=f"{call}: there is no admin/templates/{SCHEDULED_RUN_TEMPLATE}.py to make it "
+            "from.",
+            why="A Scheduled run is made from the Project's own Template, which start() "
+            "wrote into admin/templates/.",
+            fix="Put it back with project.start(), run again in this Project: it adds only "
+            "what start() makes and the Project is missing, and writes over nothing.",
+            error=FileNotFoundError,
+        )
+    text = _filled_template(template.read_text(encoding="utf-8"), {"<NAME>": name})
+    folder.mkdir(parents=True)
+    write_notebook(folder / f"{name}.ipynb", template_cells(text))
+    registry.add([(SCHEDULED_RUN, name)], unchecked.now())
+    _log(root, call, [], [f"created {shown} ({name}.ipynb)"], frame)
+    return ProjectReport([
+        f"Made {shown}: {name}.ipynb, from admin/templates/{SCHEDULED_RUN_TEMPLATE}.py.",
+        "Fill in its <...>: its parameters, its connection and the Statements it runs."])
+
+
+def _check_scheduled_run_name(name: object, call: str) -> None:
+    """Refuse a Scheduled run's name that Python couldn't import, as its folder and notebook
+    are named by it."""
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        refuse(
+            what=f"{call}: {name!r} isn't a name Python can import, which a Scheduled run's "
+            "name is.",
+            why="Its folder and its notebook are named by it, as scheduled_runs/weekly/"
+            "weekly.ipynb, so the name is letters, digits and _, not starting with a digit, as "
+            "a scheduler and Python read a name.",
+            fix='Write it like "weekly" or "team_days_weekly".',
+            error=ValueError,
+        )
+    if keyword.iskeyword(name) or (name.startswith("__") and name.endswith("__")):
+        refuse(
+            what=f"{call}: {name} is a name Python keeps for itself, so it can't name a "
+            "Scheduled run.",
+            why="Its folder and its notebook are named by it, and Python can't import a name "
+            "it keeps for itself.",
+            fix=f'Name it something else, such as "{name.strip("_")}_run".',
+            error=ValueError,
+        )
+
+
+def remove_scheduled_run(name: str | list[str]) -> ProjectReport:
+    """Move a Scheduled run's folder into admin/removed/, deleting nothing.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.new_scheduled_run("weekly")
+    Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+    Fill in its <...>: its parameters, its connection and the Statements it runs.
+    >>> project.remove_scheduled_run("weekly")  # the time it ran, as yyyymmdd-hhmmss
+    Moved scheduled_runs/weekly/ to admin/removed/...-weekly/.
+
+    scheduled_runs/weekly/ moves, whole, to a folder such as
+    admin/removed/20261109-093000-weekly/, and its registry row is marked removed. Take it out
+    of your scheduler too: the scheduler still names the notebook it ran. One the registry
+    lists but that was deleted by hand only has its row marked.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
+    """
+    frame = callers_frame()
+
+    return _run_for_each_name(name, "project.remove_scheduled_run",
+                              _remove_scheduled_run_one, frame)
+
+
+def _remove_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
+    """remove_scheduled_run(...) for one name: `frame` is its caller's, for the Admin log."""
+    call = _action_call("remove_scheduled_run", name)
+    root = _project_root(call)
+    _check_scheduled_run_name(name, call)
+    return _remove(root, SCHEDULED_RUN, name, call, frame)
+
+
 # --- new_run_value ----------------------------------------------------------------------------
 
 # The Building block new_run_value writes each Run value's function into.
@@ -1189,7 +1341,7 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
     >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
@@ -1465,7 +1617,7 @@ def add_references(names: str | list[str],
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
@@ -1653,7 +1805,7 @@ def register(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
@@ -1725,7 +1877,7 @@ def check() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
@@ -1938,7 +2090,7 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> # Only to stand in for typing the name in the notebook's names cell, and saving it:
@@ -2007,7 +2159,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> # Only to stand in for typing the names cell and the decisions cell, and saving:
@@ -2405,7 +2557,7 @@ def upgrade() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
@@ -2606,7 +2758,7 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> print(project.scan_hive('''
     ...     SELECT r.job_id, COUNT(*) AS runs
@@ -2653,7 +2805,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
@@ -3200,7 +3352,7 @@ def database_settings(name: str) -> dict[str, str]:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("admin/databases.py").write_text(  # only to stand in for filling it in
@@ -4154,7 +4306,7 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
@@ -4207,7 +4359,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
@@ -4330,7 +4482,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references("ops.team_notes", query=example_database.query)
     >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
@@ -4864,7 +5016,7 @@ def table_reference(name: str) -> Table:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/mart__daily_runs.py").write_text(
@@ -5250,7 +5402,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV and PROD
@@ -5525,7 +5677,7 @@ def promoted_tables(tables: str | list[str], seeded: bool = False) -> list[str]:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> try:
     ...     project.promoted_tables("mart_dev.daily_runs")
@@ -5994,7 +6146,7 @@ def remove_conversion(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
@@ -6178,7 +6330,7 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
@@ -6560,18 +6712,55 @@ OWN_MODULES = ("references", "building_blocks")
 LOGIC_OF = "logic of "
 
 
+# What a Statement a logic function gave is marked with while project.build_run calls a
+# Scheduled run's statements() (Toolbox 8.6): the function's name, which names a SELECT in its
+# list. _MARKING holds an entry while it does.
+LOGIC_FUNCTION = "_logic_function"
+_MARKING: list[bool] = []
+
+
+@contextlib.contextmanager
+def logic_functions_marked() -> Iterator[None]:
+    """While the block runs, each function of the logic load gives marks each Statement it
+    gives with its name, LOGIC_FUNCTION; outside it, load gives each function as it is."""
+    _MARKING.append(True)
+    try:
+        yield
+    finally:
+        _MARKING.pop()
+
+
 class TableLogic:
     """A Table notebook's or a Conversion's logic, as load gives it: each function its logic
-    cell defines, by its name, such as write."""
+    cell defines, by its name, such as write; while a Scheduled run is built, each marking
+    the Statements it gives with its name."""
 
     def __init__(self, name: str, functions: dict[str, Callable[..., object]]) -> None:
         self._name = name
         self._functions = functions
         for function_name, function in functions.items():
+            if _MARKING and inspect.isfunction(function):
+                function = _marking_what_it_gives(function_name, function)
             setattr(self, function_name, function)
 
     def __repr__(self) -> str:
         return f"The logic of {self._name}: {', '.join(self._functions)}."
+
+
+def _marking_what_it_gives(function_name: str,
+                           function: Callable[..., object]) -> Callable[..., object]:
+    """`function`, each Statement it gives marked with `function_name`, it alone or each in
+    the list it gives; anything else it gives is left as it is."""
+
+    @functools.wraps(function)
+    def marking(*arguments: object, **keywords: object) -> object:
+        given = function(*arguments, **keywords)
+        for each in given if isinstance(given, (list, tuple)) else [given]:
+            if kinds.kind(each) is not None:
+                setattr(each, LOGIC_FUNCTION, function_name)
+        return given
+
+    return marking
 
 
 def load(name: str) -> TableLogic:
@@ -6580,7 +6769,7 @@ def load(name: str) -> TableLogic:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
@@ -6624,7 +6813,7 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
     >>> _ = project.new_table("mart_dev.daily_runs")
@@ -6915,7 +7104,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.run_tables()
     No Table folder to run: make one with project.new_table(...).
@@ -7075,6 +7264,102 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
     )
 
 
+# --- build_run --------------------------------------------------------------------------------
+
+
+def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
+              run_values: dict[str, object] | None = None,
+              leave_out: list[str] | None = None) -> BuiltRun:
+    """Build a Scheduled run's Statements in order and print their Hive, sending none.
+
+    >>> import os
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.new_scheduled_run("weekly")
+    Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+    Fill in its <...>: its parameters, its connection and the Statements it runs.
+    >>> os.chdir("scheduled_runs/weekly")
+    >>> START_FROM = ""  # as the notebook's parameters cell sets it
+    >>> def statements():
+    ...     return {"failed_runs": statement(
+    ...         SELECT(job_runs.run_id),
+    ...         FROM(job_runs),
+    ...         WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+    ...     )}
+    >>> built = project.build_run(statements)
+    Parameters, as this run uses them:
+      START_FROM = ""
+    -- 1 of 1: failed_runs
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+    Built 1 Statement in order, and sent nothing: results = built.run(query, execute) sends
+    them.
+
+    It is the Build cell of a Scheduled run's notebook, which project.new_scheduled_run makes,
+    and runs in that notebook, as a scheduler runs it, from its folder. Give it the function
+    of the # scheduled cell, statements, not what it gives, with no brackets: it reads the
+    parameters first, then calls it.
+
+    1. The parameters: each name in the notebook's # parameters cell is read by its type
+       hint, as the notebook holds it, and given back to it: "2026-11-01", as a scheduler
+       passes it for a datetime.date, is that date. A value that can't be read, a parameter
+       with no hint or a hint it doesn't read, and one left empty whose hint has no | None
+       are refused, naming it. It prints each as used, first.
+    2. The Statements: statements() gives a dict of them by name, or a list, each a SELECT, a
+       write, an Admin statement, an Unchecked statement or a Python step; anything else is
+       refused. A SELECT's rows come back by its name: its key in a dict, and in a list the
+       logic function it came from, such as week_totals. It is called now, so each Run value
+       is worked out now: one reading the warehouse needs connect(...) first.
+       run_values={"period_end": RUN_DATE} gives each Run value whose function is named
+       period_end that value for this build, in place of what its function gives, a write()
+       that takes nothing among them; a name no Statement's Run value has is refused.
+    3. The tables they read: each table of this Project with a Table folder that a Statement
+       reads, and each its writes read, all the way up, has its Table notebook's write()
+       added, through project.load, before what reads it; a table outside the Project is only
+       read. leave_out=["mart.daily_job_runs"] leaves one out, with what only it reads; a
+       name it wouldn't add is refused, naming those it would.
+    4. The order: all in lineage order, a writer before each that reads its table, as
+       run_tables orders them; a loop is refused, naming its tables. A table's
+       session_settings() are printed before its first write. A START_FROM parameter that
+       names a table, as a run that failed prints it, passes over each Statement before that
+       table's first write.
+
+    It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
+    Hive, and gives back the built run, which built.run(query, execute) sends.
+    """
+    call = _build_run_call(statements, run_values, leave_out)
+    if not callable(statements) or _arguments_needed(statements):
+        refuse(
+            what=f"{call} was given {statements!r}, where the function statements goes.",
+            why="build_run takes the function itself, and calls it once it has read the "
+            "parameters, so the Statements are built with the values read.",
+            fix="Pass statements with no brackets after it, as project.build_run(statements), "
+            "and define it in the # scheduled cell, taking nothing.",
+            error=TypeError,
+        )
+    # scheduled_runs imports this file, so it is read here, when a run is built.
+    from .scheduled_runs import build_run as build
+
+    return build(statements, run_values or {}, leave_out or [], callers_frame(), call)
+
+
+def _build_run_call(statements: object, run_values: dict[str, object] | None,
+                    leave_out: list[str] | None) -> str:
+    """build_run's call as the Build cell writes it, its keywords shown when given."""
+    shown = getattr(statements, "__name__", "statements")
+    if run_values:
+        shown += ", run_values={...}"
+    if leave_out:
+        shown += f", leave_out={leave_out!r}"
+    return f"project.build_run({shown})"
+
+
 # --- Pieces they share ------------------------------------------------------------------------
 
 
@@ -7216,6 +7501,9 @@ def _filled_template(text: str, fills: dict[str, str]) -> str:
 
 
 def _is_notebook_template(path: Path) -> bool:
-    """Whether a file in admin/templates/ is a Table notebook's Template: one in cells."""
+    """Whether a file in admin/templates/ is a Table notebook's Template: one in cells, but
+    the Scheduled run's, which is in cells too."""
+    if path.stem == SCHEDULED_RUN_TEMPLATE:
+        return False
     return path.is_file() and any(line.startswith("# %%") for line in
                                   path.read_text(encoding="utf-8").splitlines())

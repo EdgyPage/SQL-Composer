@@ -461,9 +461,9 @@ def _add_unchecked(graph: Graph, s: UncheckedStatement, index: int, name: str) -
                     name=f"{UNCHECKED} Unchecked statement",
                     full=f"{name}: Unchecked statement", type=None, sql=s._text,
                     formula=first, calculated=False, statement=index, reads=set())
-    for table in sorted(_tables_read(s)):
+    for table in sorted(tables_read(s)):
         graph.arrow(_whole_table_box(graph, table), key, "value")
-    written = [_whole_table_box(graph, table) for table in _tables_written(s)]
+    written = [_whole_table_box(graph, table) for table in tables_written(s)]
     for target in written:
         graph.arrow(key, target, "value")
     return [key, *written]
@@ -588,7 +588,7 @@ def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | Py
     taken by another passed Statement's Derived table, by a Statement or by a table."""
     places, taken = {}, {name for _, name in ordered}
     for index, (s, _) in enumerate(ordered):
-        taken |= _tables_read(s)
+        taken |= tables_read(s)
         for table in _derived_tables_of(s):
             places.setdefault(table._name, []).append(index)
     group_names = {}
@@ -604,7 +604,7 @@ def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | Py
 # --- Putting the Statements in order ----------------------------------------------------------
 
 
-def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
+def tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     """The names of the real tables a Statement reads, itself or through its Derived tables,
     an Unchecked derived table's text among them, that an Unchecked statement's text reads,
     or that a Python step read."""
@@ -623,7 +623,7 @@ def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     return found
 
 
-def _tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
+def tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
     """The Saved table a Statement writes, each table an Unchecked statement's text writes
     or changes, or the table a Python step wrote."""
     if kinds.kind(s) == kinds.UNCHECKED:
@@ -641,18 +641,19 @@ def _derived_tables_of(s: Statement | UncheckedStatement | PythonStep) -> list[T
 
 
 def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
-             call: str | None = None
+             call: str | None = None, leave_one_out_with: str = "tables=[...]"
              ) -> list[tuple[Statement | UncheckedStatement | PythonStep, str]]:
     """The Statements with every writer before the Statements that read what it writes. An
     Unchecked statement or a Python step that reads a table it changes, as many do, waits
-    only on others. `call`, given by project.run_tables, names it in the refusal of a loop."""
-    reads = [_tables_read(s) for s, _ in named]
+    only on others. `call`, given by project.run_tables and project.build_run, names it in the
+    refusal of a loop, which says to leave one out with `leave_one_out_with`."""
+    reads = [tables_read(s) for s, _ in named]
     # needs[i]: the place of each Statement that writes a table the one at place i reads.
     needs = []
     for i in range(len(named)):
         needed = set()
         for j, (writer, _) in enumerate(named):
-            if not set(_tables_written(writer)) & reads[i]:
+            if not set(tables_written(writer)) & reads[i]:
                 continue
             if j == i and kinds.kind(writer) in (kinds.UNCHECKED, kinds.PYTHON):
                 continue  # it changes a table it reads, and waits only on others
@@ -662,7 +663,8 @@ def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]
     while len(placed) < len(named):
         ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
         if not ready:
-            _refuse_loop(named, reads, _in_the_loop(needs, placed), call)
+            _refuse_loop(named, reads, _in_the_loop(needs, placed), call,
+                         leave_one_out_with)
         placed.append(ready[0])
     return [named[i] for i in placed]
 
@@ -682,14 +684,16 @@ def _in_the_loop(needs: list[set[int]], placed: list[int]) -> list[int]:
 
 def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
                  reads: list[set[str]],
-                 stuck: list[int], call: str | None = None) -> NoReturn:
+                 stuck: list[int], call: str | None = None,
+                 leave_one_out_with: str = "tables=[...]") -> NoReturn:
     """Refuse Statements that go round in a loop, naming each write and who reads it: to
-    export_lineage, or, with `call`, to project.run_tables."""
+    export_lineage, or, with `call`, to project.run_tables or project.build_run, whose
+    keyword that leaves one out is `leave_one_out_with`."""
     links = []
     for i in stuck:
         s, name = named[i]
-        written = " and ".join(_tables_written(s))
-        readers = [named[j][1] for j in stuck if set(_tables_written(s)) & reads[j]]
+        written = " and ".join(tables_written(s))
+        readers = [named[j][1] for j in stuck if set(tables_written(s)) & reads[j]]
         verb = singular_or_plural(len(readers), "reads", "read")
         links.append(f"{name} writes {written}, which {' and '.join(readers)} {verb}")
     if call is not None:
@@ -698,7 +702,7 @@ def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, 
             + "; ".join(links) + ".",
             why="Each would have to be written before the other, so none can be first.",
             fix="Change one table's logic so it no longer reads the other, or leave one out "
-            "with tables=[...].",
+            f"with {leave_one_out_with}.",
             error=ValueError,
         )
     refuse(
@@ -874,8 +878,8 @@ def _about(s: Statement, index: int,
            ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]) -> str:
     """One sentence on how a Statement joins the others through Saved tables."""
     parts = []
-    for table in sorted(_tables_read(s)):
-        writers = [name for other, name in ordered[:index] if table in _tables_written(other)]
+    for table in sorted(tables_read(s)):
+        writers = [name for other, name in ordered[:index] if table in tables_written(other)]
         if writers:
             parts.append(f"It reads the Saved table {table}, written by "
                          f"{' and '.join(writers)} above.")
@@ -901,8 +905,8 @@ def _about_unchecked(s: UncheckedStatement) -> str:
     and the tables its text reads and writes."""
     text = (f"{UNCHECKED} An Unchecked statement: Hive written by hand, which no Guard, "
             "Warning or Load limit looked inside, so its columns can't be followed through it.")
-    reads = sorted(_tables_read(s))
-    written = _tables_written(s)
+    reads = sorted(tables_read(s))
+    written = tables_written(s)
     if reads and written:
         text += (f" It reads {' and '.join(reads)}, and writes or changes "
                  f"{' and '.join(written)}.")
@@ -1260,7 +1264,7 @@ def _table_folder_path(statements: list[Statement | UncheckedStatement | PythonS
         return None
     written = set()
     for s in statements:
-        for name in _tables_written(s):
+        for name in tables_written(s):
             if "." in name:
                 written.add(table_stem(name))
     if len(written) == 1:

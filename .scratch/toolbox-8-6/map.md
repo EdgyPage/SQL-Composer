@@ -46,7 +46,8 @@ dependencies from actually running code" (Q3): building and running are separate
 
 - **Where**: `scheduled_runs/<name>/<name>.ipynb`, its folder laid out as a Table folder is,
   made by `project.new_scheduled_run("<name>")` from a Template in `admin/templates/`, and in
-  the registry (Q5, Q18). `remove` removes one; `check()` reports one made by hand.
+  the registry (Q5, Q18). `project.remove_scheduled_run` removes one, as `remove_table`
+  removes a Table folder; `check()` reports one made by hand.
 - **No dev/prod** (Q6): "I don't want the scheduled notebook to concern itself with dev/prod."
   It runs the tables it names, in whichever Database that is; the examples name dev tables.
 - **The notebook, top to bottom** (Q13, Q21):

@@ -277,7 +277,7 @@ def _how_to_steps() -> list[str]:
         ">>> project.start()",
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
-        "tables/ and warehouse.py.",
+        "tables/, scheduled_runs/ and warehouse.py.",
         "Next: at the top of each notebook, fill in connect(...) with your connection.", "",
         "Done when `project.start()` says it started a Project. Then step 2.", "",
         "### 2. Choose the Workflow for your job", "",
