@@ -22,11 +22,11 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
-    │   ├── templates/       the Templates new_table and new_block make files from: yours to
-    │   │                    edit
-    │   └── removed/         what remove_table, remove_reference, remove_block and
-    │                        remove_conversion archived, and each file as it was before
-    │                        upgrade or convert changed it
+    │   ├── templates/       the Templates new_table, new_block and new_scheduled_run make
+    │   │                    files from: yours to edit
+    │   └── removed/         what remove_table, remove_reference, remove_block,
+    │                        remove_scheduled_run and remove_conversion archived, and each
+    │                        file as it was before upgrade or convert changed it
     ├── references/          a Table reference per table, such as ops__job_runs.py, and a
     │                        Database module per Database, such as ops.py: from references
     │                        import ops gives ops.job_runs, and ops.job_runs.status a column
@@ -52,9 +52,10 @@ and remove_block archives one; new_run_value writes a Run value's function, a ta
 Partition, into building_blocks/run_values.py; new_scheduled_run makes a Scheduled run's
 folder and notebook, and remove_scheduled_run archives one; add_references writes Table
 references in bulk,
-remove_reference archives one, register adopts a Table folder, Table reference or Building
-block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
-rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
+remove_reference archives one, register adopts a Table folder, Table reference, Building
+block or Scheduled run made by hand, and check reports any made or deleted by hand.
+refresh_reference_sheet rebuilds references/reference_sheet.csv, a row per column of every
+Table reference. load gives
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
 before the tables that read it; build_run, in a Scheduled run's notebook, builds the
 Statements it names with the writes of each table they read, in that order, and prints their
@@ -76,14 +77,15 @@ still in it, as new_table writes one, is left out until it is filled in.
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
-your tables; the rest never touch the warehouse. start, new_table, new_block, new_run_value,
-new_scheduled_run, remove_table, remove_reference, remove_block, remove_scheduled_run,
-register, add_references and upgrade, the Project actions, each add an entry to
-admin/admin_log.md, the log that also keeps every Admin statement run inside the Project. The
-rest add no entry of their own: check and load change no file; refresh_reference_sheet
-writes the Reference sheet and the Database modules, and no other file; run_tables writes
-only your tables in the warehouse, though an Admin or Unchecked statement it sends is logged,
-as run_execute logs one anywhere.
+your tables; build_run sends nothing, and reads the warehouse only through a Run value's
+function that reads it, such as a table's latest Partition; the rest never touch the
+warehouse. start, new_table, new_block, new_run_value, new_scheduled_run, remove_table,
+remove_reference, remove_block, remove_scheduled_run, register, add_references and upgrade,
+the Project actions, each add an entry to admin/admin_log.md, the log that also keeps every
+Admin statement run inside the Project. The rest add no entry of their own: check and load
+change no file; refresh_reference_sheet writes the Reference sheet and the Database modules,
+and no other file; run_tables writes only your tables in the warehouse, though an Admin or
+Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -1002,8 +1004,8 @@ def _remove_reference_one(name: str, frame: FrameType) -> ProjectReport:
 
 def _remove(root: Path, kind: FileKind, name: str, call: str,
             frame: FrameType) -> ProjectReport:
-    """Archive a Table folder, Table reference or Building block, mark its registry row
-    removed, and log it.
+    """Archive a Table folder, Table reference, Building block or Scheduled run, mark its
+    registry row removed, and log it.
     One the registry lists that was deleted by hand has only its row marked; one neither
     there nor listed is refused."""
     stem = kind.stem(name)
@@ -1146,14 +1148,18 @@ def _remove_block_one(name: str, frame: FrameType) -> ProjectReport:
     return _remove(root, BUILDING_BLOCK, name, call, frame)
 
 
-def _check_block_name(name: object, call: str) -> None:
-    """Refuse a Building block's name that Python couldn't import it by."""
+def _check_block_name(name: object, call: str, *, scheduled_run_too: bool = False) -> None:
+    """Refuse a Building block's name that Python couldn't import it by: with
+    `scheduled_run_too`, as register reads a name with no dot, a Scheduled run's too."""
+    shown = "a Building block or a Scheduled run" if scheduled_run_too else "a Building block"
+    named_too = (" A Scheduled run's folder and notebook are named by it, as "
+                 "scheduled_runs/weekly/weekly.ipynb." if scheduled_run_too else "")
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
         refuse(
-            what=f"{call}: {name!r} isn't a name Python can import a Building block by.",
+            what=f"{call}: {name!r} isn't a name Python can import {shown} by.",
             why="A notebook imports a Building block by its file's name, as from "
             "building_blocks.runs_per_job import runs_per_job, so the name is letters, digits "
-            "and _, not starting with a digit.",
+            f"and _, not starting with a digit.{named_too}",
             fix='Write it like "runs_per_job". A table, such as "ops.jobs", is made with '
             "project.new_table(...) or project.add_references(...).",
             error=ValueError,
@@ -1162,7 +1168,7 @@ def _check_block_name(name: object, call: str) -> None:
         refuse(
             what=f"{call}: {name} is a name Python keeps for itself.",
             why="A notebook imports a Building block by its name, and Python can't import "
-            "one named so.",
+            f"one named so.{named_too}",
             fix=f'Name it something else, such as "{name.strip("_")}_block".',
             error=ValueError,
         )
@@ -1800,7 +1806,7 @@ def _names_as_written(names: object) -> str:
 
 
 def register(name: str | list[str]) -> ProjectReport:
-    """Adopt a Table folder, Table reference or Building block made by hand.
+    """Adopt a Table folder, Table reference, Building block or Scheduled run you made.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -1818,12 +1824,11 @@ def register(name: str | list[str]) -> ProjectReport:
     check() then stops reporting it.
 
     Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
-    for references/ops__jobs.py, whichever is there and isn't registered yet. Given a
-    Building block's name, a name with no dot such as "runs_per_job", it adds one for
-    building_blocks/runs_per_job.py: that is how a Building block written by hand before 7.0
-    joins the registry, since new_block refuses a name already taken. It logs what it adopted,
-    and
-    refuses when there is nothing to adopt.
+    for references/ops__jobs.py, whichever is there and isn't registered yet. Given a name with
+    no dot, such as "runs_per_job" or "weekly", it adds one for building_blocks/runs_per_job.py
+    or scheduled_runs/weekly/, whichever is there: that is how a Building block written by hand
+    before 7.0 joins the registry, since new_block refuses a name already taken. It logs what
+    it adopted, and refuses when there is nothing to adopt.
 
     `name` may also be a list of names, each done in turn, in one report. A name refused
     stops the rest, and its refusal says which were done before it, which stay done, and
@@ -1839,7 +1844,7 @@ def _register_one(name: str, frame: FrameType) -> ProjectReport:
     call = _action_call("register", name)
     root = _project_root(call)
     if isinstance(name, str) and "." not in name:
-        _check_block_name(name, call)
+        _check_block_name(name, call, scheduled_run_too=True)
     else:
         _table_name_parts(name, call)
     named = kinds_named_by(name)
@@ -1854,9 +1859,10 @@ def _register_one(name: str, frame: FrameType) -> ProjectReport:
         refuse(
             what=f"{call}: nothing to register: {there} either registered already or not "
             "there.",
-            why="register adopts a Table folder, Table reference or Building block made by "
-            "hand: a table by its name with its database, such as \"ops.jobs\", and a "
-            "Building block by its own, such as \"runs_per_job\".",
+            why="register adopts a Table folder, Table reference, Building block or Scheduled "
+            "run made by hand: a table by its name with its database, such as \"ops.jobs\", "
+            "and a Building block or a Scheduled run by its own, such as \"runs_per_job\" or "
+            "\"weekly\".",
             fix="Run admin/check_project.ipynb to see what isn't registered, and the call that "
             "adopts each.",
             error=ValueError,
@@ -1885,8 +1891,8 @@ def check() -> ProjectReport:
     Not registered, made by hand. Adopt each with the call beside it:
       references/ops__jobs.py: project.register("ops.jobs")
 
-    It reports each Table folder, Table reference and Building block the registry doesn't
-    list, and each it lists that isn't there, each with
+    It reports each Table folder, Table reference, Building block and Scheduled run the
+    registry doesn't list, and each it lists that isn't there, each with
     the call that mends it, and changes nothing. It also reports a send.py from before 7.0
     with no warehouse.py beside it; a Project an older Toolbox last wrote, which
     project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
@@ -1905,7 +1911,7 @@ def check() -> ProjectReport:
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
-    remove_table, remove_reference or remove_block.
+    remove_table, remove_reference, remove_block or remove_scheduled_run.
     """
     root = _project_root("project.check()")
     registry = Registry(root)
@@ -1927,8 +1933,8 @@ def check() -> ProjectReport:
     lines += _workflow_lines(root)
     lines += _databases_lines(root)
     if not lines:
-        lines = ["Every Table folder, Table reference and Building block is registered, and "
-                 "each one registered is there."]
+        lines = ["Every Table folder, Table reference, Building block and Scheduled run is "
+                 "registered, and each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
     return ProjectReport([*lines, *_finished_batch_lines(root), *_proposed_line_lines(root),
                           *_conversion_note_lines(root)])
@@ -2521,9 +2527,9 @@ def _stop_after(root: Path, step: workflows.Step, inputs: dict[str, object],
 
 
 def _registry_mismatch_lines(root: Path, registry: Registry) -> list[str]:
-    """What check() says of each Table folder, Table reference and Building block on disk that
-    the registry doesn't list, and each it lists that isn't there, with the call that mends
-    each."""
+    """What check() says of each Table folder, Table reference, Building block and Scheduled run
+    on disk that the registry doesn't list, and each it lists that isn't there, with the call
+    that mends each."""
     # Each (kind, stem) the registry lists, with the name it lists it by, and each on disk.
     named: dict[tuple[FileKind, str], str] = {}
     on_disk: set[tuple[FileKind, str]] = set()

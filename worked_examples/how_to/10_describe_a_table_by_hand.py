@@ -276,8 +276,8 @@ At work, once `run_execute(create_table(job_day), execute)` has made the table,
 Project knows the file:
 
 >>> project.check()  # -> a report, printed
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.

@@ -163,8 +163,8 @@ notebook admin/check_project.ipynb runs, compares the registry with the files, a
 nothing:
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 
 Done when it says every one is registered and there. Then step 4.
 
@@ -398,8 +398,8 @@ nothing amiss:
 7  table_folder  mart.job_minutes
 8     reference  mart.job_minutes
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 
 Before you go on, check that:
 

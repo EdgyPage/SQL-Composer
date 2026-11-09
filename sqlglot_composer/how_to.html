@@ -339,12 +339,12 @@ from warehouse import connect, query
 <p><code>pathlib.Path.cwd()</code> is the folder the notebook runs in, and <code>.parents[1]</code> the folder two above it: the Project&#x27;s. An admin notebook, one folder down, starts with <code>.parent</code> in its place, and a Workflow&#x27;s, three down, with <code>.parents[2]</code>. The last line, <code># connect(your_connection)</code>, is the one step 8 has you fill in, in each notebook. <code>project.new_table</code> and <code>project.start</code> write these lines into each notebook they make.</p>
 <p>Done when you can say which line puts the Project&#x27;s folder on Python&#x27;s list. Then check it worked, below.</p>
 <h4>Check it worked</h4>
-<p>The Project&#x27;s folders are there, and <code>project.check()</code> finds nothing wrong with them: every Table folder, Table reference and Building block the registry lists is there, and none is there that it doesn&#x27;t list.</p>
+<p>The Project&#x27;s folders are there, and <code>project.check()</code> finds nothing wrong with them: every Table folder, Table reference, Building block and Scheduled run the registry lists is there, and none is there that it doesn&#x27;t list.</p>
 <pre class="python">sorted(path.name for path in Path(&quot;.&quot;).iterdir() if path.is_dir())</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;admin&#x27;, &#x27;building_blocks&#x27;, &#x27;references&#x27;, &#x27;scheduled_runs&#x27;, &#x27;tables&#x27;]</pre>
 <p>In your own Project the list holds <code>sqlglot_composer</code> too, the Toolbox you copied in, and <code>__pycache__/</code>, where Python keeps warehouse.py ready to import once a notebook has imported it; this page&#x27;s folder has neither.</p>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Your query gives back a pandas DataFrame, with the column named as the Hive names it:</p>
 <pre class="python">import pandas as pd
 isinstance(one, pd.DataFrame)</pre>
@@ -352,7 +352,7 @@ isinstance(one, pd.DataFrame)</pre>
 <pre class="python">list(one.columns)</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;one&#x27;]</pre>
 <p>Before you go on, check that:</p>
-<ul><li>the Project&#x27;s folder holds admin, building_blocks, references and tables;</li><li><code>project.check()</code> says every Table folder, Table reference and Building block is registered;</li><li><code>query(&quot;SELECT 1 AS one&quot;)</code> gives back a DataFrame whose one column is named one.</li></ul>
+<ul><li>the Project&#x27;s folder holds admin, building_blocks, references, scheduled_runs and tables;</li><li><code>project.check()</code> says every Table folder, Table reference, Building block and Scheduled run is registered;</li><li><code>query(&quot;SELECT 1 AS one&quot;)</code> gives back a DataFrame whose one column is named one.</li></ul>
 <h4>Common mistakes</h4>
 <h5>A query that gives back the wrong thing</h5>
 <p>Many APIs give each row as a tuple, without the column names. A query that hands those rows to <code>pd.DataFrame</code> without the names gives back a DataFrame whose columns are numbered 0, 1 and 2. This page has no API, so a stand-in plays yours here, giving each row as a tuple:</p>
@@ -882,7 +882,7 @@ minutes  # -&gt; Column</pre>
 sorted(path.name for path in Path(&quot;references&quot;).glob(&quot;ops*.py&quot;))</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;ops.py&#x27;, &#x27;ops__job_runs.py&#x27;, &#x27;ops__jobs.py&#x27;, &#x27;ops__run_alerts.py&#x27;]</pre>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Each file matches its table:</p>
 <pre class="python">for table in (ops.jobs, ops.job_runs, ops.run_alerts):
     print(check_table_reference(table, query=query))</pre>
@@ -2861,7 +2861,7 @@ GROUP BY
 <h4>Check it worked</h4>
 <p>The registry lists the block&#x27;s file, and <code>project.check()</code> finds nothing amiss; it lists too, blocking nothing, each line add_references proposed that you haven&#x27;t kept or changed yet:</p>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
   references/ops__run_alerts.py, line 1: &quot;&quot;&quot;ops.run_alerts - One row per alert_id.&quot;&quot;&quot;  # proposed from its Key
   references/ops__run_alerts.py, line 14: does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate</pre>
@@ -3769,7 +3769,7 @@ execute: INSERT OVERWRITE TABLE mart.alerts_per_severity PARTITION(dt)
 sorted(path.name for path in Path(&quot;tables/mart__alerts_per_severity&quot;).iterdir())</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;lineage&#x27;, &#x27;mart__alerts_per_severity.hql&#x27;, &#x27;mart__alerts_per_severity.ipynb&#x27;]</pre>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
   references/ops__job_runs.py, line 1: &quot;&quot;&quot;ops.job_runs - One row per run_id.&quot;&quot;&quot;  # proposed from its Key
   references/ops__job_runs.py, line 16: does_not_add_up=[&quot;avg_retry_secs&quot;],  # proposed from its columns&#x27; names
@@ -6091,7 +6091,7 @@ registry[[&quot;kind&quot;, &quot;table&quot;, &quot;removed_at&quot;]]</pre>
 <h5>3. Check the registry against the files</h5>
 <p>Goal: know whether the registry and the files agree. <code>project.check()</code>, which the admin notebook admin/check_project.ipynb runs, compares the registry with the files, and changes nothing:</p>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Done when it says every one is registered and there. Then step 4.</p>
 <h5>4. Adopt a file made by hand with project.register</h5>
 <p>Goal: a file made by hand listed in the registry. Say a colleague gives you the Table reference they wrote for <code>ops.scheduler_runs</code>, and you copy it into references/:</p>
@@ -6544,7 +6544,7 @@ registry[registry.removed_at != &quot;&quot;][[&quot;kind&quot;, &quot;table&quo
 <tr><td>reference</td><td>mart.job_minutes</td></tr>
 </table></div>
 <pre class="python">project.check()</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Before you go on, check that:</p>
 <ul><li>the registry marks mart.job_minutes&#x27; Table folder and Table reference removed;</li><li><code>project.check()</code> says every one is registered and there;</li><li>references/reference_sheet.csv lists ops.scheduler_runs, the file you adopted;</li><li>admin/removed/ holds mart__job_minutes&#x27; folder and file.</li></ul>
 <h4>Common mistakes</h4>
@@ -8188,7 +8188,7 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <p>The partition column, dt, goes under PARTITIONED BY rather than among the other columns: that is how Hive splits a table into Partitions. LOCATION is the folder you wrote, as you wrote it. STORED AS ORC says how Hive keeps the table&#x27;s files: ORC, a compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the table&#x27;s own folder.</p>
 <p>At work, once <code>run_execute(create_table(job_day), execute)</code> has made the table, <code>check_table_reference(job_day, query=query)</code> compares it with your file, as above. And the Project knows the file:</p>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>Before you go on, check that:</p>
@@ -17936,7 +17936,7 @@ PROD = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says nothing of the version, and lists no <code># UPGRADE</code> mark left:</p>
 <pre class="python">print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Run again, the Upgrade does nothing:</p>
 <pre class="python">print(project.upgrade())</pre>
 <p class="label">Python prints</p><pre class="output">The Project is at 8.5 already, as this Toolbox is: nothing to upgrade.</pre>

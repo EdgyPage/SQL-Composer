@@ -30,7 +30,8 @@ REGISTRY = Path("admin") / "registry.csv"
 # own name, such as runs_per_job), when it was made, and when it was archived, empty while it
 # is in use.
 REGISTRY_COLUMNS = ["kind", "table", "created_at", "removed_at"]
-# Where an archived Table folder, Table reference or Building block goes, named by the time.
+# Where an archived Table folder, Table reference, Building block or Scheduled run goes, named
+# by the time.
 REMOVED = "admin/removed"
 # The end of a Database module's first line: the Project actions know a file in references/ by
 # it as one they wrote, theirs to write again or remove, and not a Table reference.

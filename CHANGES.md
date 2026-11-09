@@ -17,6 +17,38 @@ as at its top.
   a connection another notebook set. A Project from before 7.0, with a send.py and no
   warehouse.py, writes one: copy the warehouse.py `project.start()` writes into a new folder,
   move your connection into each notebook's `connect(...)` line, then delete send.py.
+- **A `scheduled_runs/` folder.** `project.start()` makes `scheduled_runs/` beside `tables/`,
+  and the `scheduled_run` Template in `admin/templates/`; run again in an older Project, it
+  adds both.
+- **Scheduled runs.** `project.new_scheduled_run("weekly")` makes
+  `scheduled_runs/weekly/weekly.ipynb`, a Scheduled run: a notebook an outside scheduler, such
+  as papermill, runs top to bottom. You fill in its `<...>` lines: its parameters, its
+  `connect(...)` line and, in its `# scheduled` cell, `statements()`, the Statements it runs.
+  `project.remove_scheduled_run("weekly")` moves one into `admin/removed/`, deleting nothing,
+  and `admin/remove.ipynb` gains `SCHEDULED_RUNS = []` for the names to remove.
+- **`register` and `check()` know a Scheduled run.** `project.check()` reports a folder in
+  `scheduled_runs/` the registry doesn't list, with `project.register("weekly")`, which adopts
+  it, and one the registry lists that isn't there, with `project.remove_scheduled_run(...)`.
+  Its all-clear line now reads "Every Table folder, Table reference, Building block and
+  Scheduled run is registered, and each one registered is there."
+- **The parameters cell.** A Scheduled run's `# parameters` cell, tagged `parameters` so
+  papermill puts the values it is given after it, holds each value a run is given, each with
+  its type hint, such as `START_FROM: str = ""` and `RUN_DATE: datetime.date | None = None`.
+  A scheduler passes text, so each is read by its hint (`datetime.date` from `2026-11-01`,
+  `int`, `float`, `bool` from `true` or `false`, `str`, each in `list[...]` or with `| None`)
+  before anything is built, and a value that can't be read, a hint outside those or a value
+  left empty without `| None` is refused, naming the parameter, its hint and the value. A
+  parameter cell of your own beside it is yours: it isn't read.
+- **`project.build_run(statements)`** builds a run, in a Scheduled run's notebook: it reads
+  the parameters, then calls your `statements()` and adds, before them, the writes of each
+  Project table they read, all the way up, in lineage order, each table before the tables
+  that read it. `run_values={"period_end": END}` gives a Run value of that function's name
+  for this run in place of calling it; `leave_out=["mart.team_days"]` leaves a table out, and
+  what only it reads; `START_FROM = "<table>"` passes over each Statement before that table's
+  first write. It prints the parameters, then each Statement's Hive under a heading such as
+  `-- 3 of 7: mart.team_days (read by week_totals)`, and sends nothing. A Run value's function
+  that reads the warehouse, such as a table's latest Partition, is called as it builds, so
+  its notebook connects first.
 
 ## 8.5
 

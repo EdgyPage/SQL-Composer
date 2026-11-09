@@ -193,13 +193,13 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     `project.upgrade()`; you make the changes it lists, each marked `# UPGRADE <version>:` at
     its line.
   - `admin/registry.csv`, the registry: made by `project.start()`, then each Project action
-    that makes or archives a Table folder, a Table reference, a Building block or a Conversion
-    folder adds a row; you fill in nothing.
+    that makes or archives a Table folder, a Table reference, a Building block, a Scheduled
+    run or a Conversion folder adds a row; you fill in nothing.
   - `admin/templates/`, the Templates: made by `project.start()`; you fill in nothing, unless
     you want your team's own shape.
   - admin/removed/, what you archive: made by `project.remove_table(...)`,
-    `project.remove_reference(...)`, `project.remove_block(...)` and
-    `project.remove_conversion(...)`, and by `project.upgrade()` and
+    `project.remove_reference(...)`, `project.remove_block(...)`,
+    `project.remove_scheduled_run(...)` and `project.remove_conversion(...)`, and by `project.upgrade()` and
     `project.convert(..., overwrite=True)`, which keep each file as it was before they change
     it; you fill in nothing.
 - **In references/:**
@@ -229,6 +229,12 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     glance and to commit: written by its notebook's Hive cell, `export_hive()`, again each time
     it runs. It is generated, so never edit it: edit the notebook's logic, save the notebook,
     and run its `export_hive()` cell again.
+- **In scheduled_runs/:**
+  - scheduled_runs/, a folder per Scheduled run: made by `project.start()`; you fill in
+    nothing.
+  - `scheduled_runs/<name>/<name>.ipynb`, a Scheduled run, a notebook an outside scheduler
+    runs top to bottom: made by `project.new_scheduled_run("<name>")`; you fill in its `<...>`
+    lines: its parameters, its connection and the Statements it runs.
 - **Anywhere else:**
   - a `.hql` file of Hive you write or are given, such as `daily.hql`: your input, not
     generated. Saved by you, in `admin/workflows/convert/` for the convert Workflow's `FILES`
@@ -642,7 +648,7 @@ Goal: every file the registry lists is there, and every file there is registered
 
 ```python
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow's decisions cell, with "key": "proposed" under its table's name or under "all_tables"; accept any other line by taking off its # proposed comment, or change it.
   references/ops__job_runs.py, line 1: """ops.job_runs - One row per run_id."""  # proposed from its Key
   references/ops__job_runs.py, line 16: does_not_add_up=["avg_retry_secs"],  # proposed from its columns' names
@@ -675,8 +681,8 @@ How-to: [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_pro
 
 Before you go on, check:
 
-- `project.check()` prints that every Table folder, Table reference and Building block is
-  registered.
+- `project.check()` prints that every Table folder, Table reference, Building block and
+  Scheduled run is registered.
 
 ## 9. Convert someone else's Hive
 
@@ -1393,12 +1399,15 @@ The Table notebook Templates, each a notebook of the same six code cells around 
 - `quality_checks`: the row count of each Partition of a table you read, saved, and checks for
   repeated keys and NULLs.
 
-And two more, for files beside the notebooks:
+And three more: two for files beside the notebooks,
 
 - `saved_table_reference`: the Table reference `new_table` writes for the table, in
   `references`, to fill in.
 - `building_block`: a Derived table several notebooks read, which `new_block` writes into
   `building_blocks`, to fill in.
+
+and one for a notebook of its own:
+
 - `scheduled_run`: a Scheduled run's notebook, which `new_scheduled_run` makes in
   `scheduled_runs`, for an outside scheduler to run.
 

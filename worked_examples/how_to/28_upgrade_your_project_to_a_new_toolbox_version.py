@@ -143,8 +143,8 @@ worked, below.
 `project.check()` says nothing of the version, and lists no `# UPGRADE` mark left:
 
 >>> print(project.check())
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 
 Run again, the Upgrade does nothing:
 
