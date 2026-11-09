@@ -61,6 +61,11 @@ Toolbox 8.5 (fewer of the user's actions: Workflow notebooks read top to bottom,
 the names cell, proposals the user accepts, `project.new_run_value`; Database settings for
 dev and prod; and Building blocks copied into prod) is charted through
 `.scratch/toolbox-8-5/map.md`; read its Notes before working one of its tickets.
+Toolbox 8.6 (`connect` in warehouse.py, so each notebook gives its own connection; and
+Scheduled runs: a notebook an outside scheduler runs, its parameters typed, building the
+Statements it names with what they read in lineage order apart from running them, and the
+Project's lineage drawn by hand) is charted through `.scratch/toolbox-8-6/map.md`; read its
+Notes before working one of its tickets.
 
 ## Checks
 
