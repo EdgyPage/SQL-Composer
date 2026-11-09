@@ -105,6 +105,12 @@ def test_a_whole_number_given_for_a_float_is_a_float(tmp_path: Path) -> None:
     assert names["RATE"] == 2.0 and isinstance(names["RATE"], float)
 
 
+def test_one_value_given_for_a_list_is_a_list_of_it(tmp_path: Path) -> None:
+    """papermill's -p passes 5 as a number: for a list[int] it is [5], as the text "5" is."""
+    names = used(tmp_path, f"{PARAMETERS}DAYS: list[int] = None", {"DAYS": 5})
+    assert names["DAYS"] == [5]
+
+
 def test_a_number_given_for_a_str_is_its_text(tmp_path: Path) -> None:
     """papermill's -p passes 12345 as a number: a user ID hinted str is "12345"."""
     names = used(tmp_path, f'{PARAMETERS}USER_ID: str = ""', {"USER_ID": 12345})

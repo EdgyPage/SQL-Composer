@@ -44,6 +44,7 @@ refusal, and every place that does the job calls it:
 | The same, in a Table reference or its messages, each letter outside ASCII escaped | `shared.escaped_literal` |
 | A table's name split into its Database and its table | `shared.split_table_name` |
 | Hive written as an Unchecked expression's text: each brace doubled, a Hive variable as it is | `shared.unchecked_expression_text` |
+| One thing or a list of them, as a list: a list's or a tuple's items, or the thing alone | `shared.items_of` |
 | A list with its repeats dropped, in order | `list(dict.fromkeys(items))`, Python's own |
 | A refusal, with its four parts | `refusals.refuse` |
 

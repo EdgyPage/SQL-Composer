@@ -148,8 +148,8 @@ from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_f
                        warn_upgrade_needed)
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
-from .shared import (counted, escaped_literal, in_words, python_literal, singular_or_plural,
-                     split_table_name)
+from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
+                     singular_or_plural, split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
                      proposed_key_from_rows, table_reference_text, write_table_reference)
@@ -6761,7 +6761,7 @@ def _marking_what_it_gives(function_name: str,
     @functools.wraps(function)
     def marking(*arguments: object, **keywords: object) -> object:
         given = function(*arguments, **keywords)
-        for each in given if isinstance(given, (list, tuple)) else [given]:
+        for each in items_of(given):
             if kinds.kind(each) is not None:
                 setattr(each, LOGIC_FUNCTION, function_name)
         return given
@@ -7324,7 +7324,10 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        is worked out now: one reading the warehouse needs connect(...) first.
        run_values={"period_end": RUN_DATE} gives each Run value whose function is named
        period_end that value for this build, in place of what its function gives, a write()
-       that takes nothing among them; a name no Statement's Run value has is refused.
+       that takes nothing among them. The value is read by the hint of what period_end gives
+       back, as a parameter is read by its own, so RUN_DATE's text, "2026-11-01", is a
+       datetime.date where period_end gives one; a function with no hint takes it as it is.
+       A value that can't be read, and a name no Statement's Run value has, are refused.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
@@ -7335,6 +7338,18 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        session_settings() are printed before its first write. A START_FROM parameter that
        names a table, as a run that failed prints it, passes over each Statement before that
        table's first write.
+    5. The Guards: while statements() runs, a Guard tripped by a Statement this notebook's own
+       code composes only warns, with its what, why and fix and its opt-out named, so a quick
+       Statement needs no opt-out; the build lists each one it let through, with its line, and
+       builds the Statement as you wrote it. These are the Guards Hive runs past as written:
+       adding up what doesn't add up, a WHERE on a LEFT_JOIN's or a FULL_JOIN's table, a write
+       whose Key is unproven, and ORDER_BY in a Derived table. Still refused here: each Load
+       limit; a Guard Hive would refuse anyway, as a column GROUP_BY leaves out; one whose
+       Statement can't be written as you wrote it: a calculation with no name, a comparison
+       with None, NaN or infinity, a control character, a time of day for a day, a join with
+       no ON= or a write whose columns don't line up; and every refusal of a mistake, such as
+       a column not in its table or a value of the wrong type. A Statement from a Table
+       notebook's logic, through project.load, keeps every Guard, as code anywhere else does.
 
     It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
     Hive, and gives back the built run, which built.run(query, execute) sends.
@@ -7350,9 +7365,10 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
             error=TypeError,
         )
     # scheduled_runs imports this file, so it is read here, when a run is built.
-    from .scheduled_runs import build_run as build
+    from .scheduled_runs import build_scheduled_run
 
-    return build(statements, run_values or {}, leave_out or [], callers_frame(), call)
+    return build_scheduled_run(statements, run_values or {}, leave_out or [], callers_frame(),
+                               call)
 
 
 def _build_run_call(statements: object, run_values: dict[str, object] | None,
