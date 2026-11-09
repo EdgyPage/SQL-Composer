@@ -35,8 +35,9 @@ _Avoid_: develop, internal branch, testing branch
 Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them.
 Each Toolbox user has one; the Example database stands in for it. The Toolbox reaches it only
 through the user's two calls: `query`, which gives back rows as a DataFrame, and `execute`, which
-gives back nothing. Both pass the Hive to the user's connection, `conn`, set once in the
-Project's warehouse.py. The user chooses which call sends each
+gives back nothing. Both pass the Hive to the user's connection, which each notebook gives
+the Project's warehouse.py with `connect(...)` before either is called, so each notebook, a
+Scheduled run among them, picks the account it runs as. The user chooses which call sends each
 Statement; the Toolbox never chooses for them.
 _Avoid_: backend, engine, server, platform, send
 
@@ -73,8 +74,18 @@ _Avoid_: deploy, release, convert to prod, publish
 **Project**:
 The user's folder at work holding the Toolbox and their own scripts in one fixed layout: an
 admin folder, which holds a folder per Workflow, a flat folder of Table references, Building
-blocks, and a Table folder for each Saved table they build. It records, in its admin folder, the Toolbox version that last wrote it.
+blocks, a Table folder for each Saved table they build, and a folder for each Scheduled run.
+It records, in its admin folder, the Toolbox version that last wrote it.
 _Avoid_: workspace, repo, codebase
+
+**Scheduled run**:
+A notebook in a Project that an outside scheduler runs top to bottom: it takes the values the
+scheduler passes in, builds the Statements it names from the Table notebooks' logic and its own,
+with the writes of each Project table they read, in Lineage order, and only then sends them,
+giving back what each read returns. It runs what it names, in whichever Database that is; two
+Scheduled runs may write the same table, and keeping them from stepping over each other is the
+user's design. Within its own cell a Guard only warns.
+_Avoid_: job, DAG, pipeline, schedule
 
 **Table folder**:
 The folder in a Project that holds everything about one Saved table the user builds: the
@@ -271,7 +282,8 @@ _Avoid_: predicate, criterion
 **Guard**:
 A check the Toolbox runs while a Statement is composed, which refuses a Statement that would
 silently give a wrong result, unless the call that made the mistake carries the Guard's opt-out.
-Guards protect the answer. Load limits protect the cluster, and are not Guards.
+In a Scheduled run's own cell it warns instead, as a Warning does. Guards protect the answer.
+Load limits protect the cluster, and are not Guards.
 _Avoid_: guardrail, check, validation, rule
 
 **Warning**:
