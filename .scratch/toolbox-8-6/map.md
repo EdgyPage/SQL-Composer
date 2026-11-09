@@ -125,6 +125,8 @@ projects at 8.5 in `tests/upgrade_from/8.5/`.
 ### Words
 
 - **Scheduled run** (CONTEXT.md, 2026-11-09). _Avoid_: job, DAG, pipeline, schedule.
+- **Parameter** (CONTEXT.md, 2026-11-09, D469): a value the scheduler passes into a Scheduled
+  run's parameters cell, read by its hint. _Avoid_: argument, variable, input, setting.
 - **Warehouse**, **Project** and **Guard** changed with it: the connection given by `connect`
   in each notebook; the Project's folder of Scheduled runs; a Guard only warning in a Scheduled
   run's own cell.
