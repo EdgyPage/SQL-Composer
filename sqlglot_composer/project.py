@@ -207,19 +207,22 @@ def connect(connection: object) -> None:
     """Set the connection query and execute pass each Hive string to, such as
     connect(example_database): an object with a query(sql) and an execute(sql)."""
     global _connection
-    for call in ("query", "execute"):
-        if not callable(getattr(connection, call, None)):
-            _refuse(
-                what=f"The connection given to connect(...), a {type(connection).__name__}, "
-                f"has no {call}(sql).",
-                why="query passes each Hive string that gives back rows to your connection's "
-                "query(sql), and execute each one that changes something to its execute(sql), "
-                "so your connection needs both.",
-                fix="Pass connect(...) the connection itself, the object with both, such as "
-                f"connect(example_database) in the Example projects. If yours names its {call} "
-                f"another way, change {call} below to call it.",
-                error=TypeError,
-            )
+    missing = [call for call in ("query", "execute")
+               if not callable(getattr(connection, call, None))]
+    if missing:
+        calls = " or ".join(f"{call}(sql)" for call in missing)
+        _refuse(
+            what=f"The connection given to connect(...), a {type(connection).__name__}, "
+            f"has no {calls} to call.",
+            why="query passes each Hive string that gives back rows to your connection's "
+            "query(sql), and execute each one that changes something to its execute(sql), "
+            "so your connection needs both.",
+            fix="Pass connect(...) the connection itself, the object with both, such as "
+            "connect(example_database) in the Example projects. If yours names them another "
+            "way, change the functions in your Project's warehouse.py: the names connect "
+            "checks for, (\"query\", \"execute\"), and the calls query and execute make.",
+            error=TypeError,
+        )
     _connection = connection
 
 
@@ -1758,7 +1761,8 @@ def check() -> ProjectReport:
     if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
         lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
                      "query and execute in")
-        lines.append(f"a new {WAREHOUSE}, as CHANGES.md's 7.0 says, then delete {OLD_SEND}.")
+        lines.append(f"a new {WAREHOUSE}, as CHANGES.md's 8.6 says, each notebook giving its "
+                     f"connect(...) your connection, then delete {OLD_SEND}.")
     version_line = _version_check_line(root)
     if version_line:
         lines.append(version_line)

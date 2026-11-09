@@ -99,3 +99,18 @@ Built 2026-11-09.
   01's imports line, `_always.txt` and any example naming the two calls; `docs/workflows.md`;
   `tools/copilot_eval.py`'s stand-in warehouse.py, still conn-shaped, once Copilot files teach
   connect. Left for ticket 12: warehouse.py and the notebooks of a Project upgraded from 8.5.
+
+### The code review (2026-11-09)
+
+Standards and Spec axes on 3873fd51; no hard breach, nothing missing. Mended in the commit
+after it: `connect`'s refusal names both calls when both are missing, and its fix names the
+functions in your Project's warehouse.py, the names `connect` checks for and the calls
+`query` and `execute` make, in place of "change query below" (with drift's D472). Answered:
+- warehouse.py's own `_refuse`, a second writer of the four parts: warehouse.py imports no
+  name that isn't public, and `tests/test_connect.py` holds its text to the Toolbox's.
+- `_connection` has no hint: the one that is true needs a Protocol, which the hint style
+  rules out.
+- The cell-rewriting loop in `tools/example_project.py` and `tools/usability_loop.py`: each
+  fills a different line set for a different reader; kept apart.
+- The xfail(strict) marks are ticket 12's to lift; the drift list's version item (D470) holds
+  them open till then.

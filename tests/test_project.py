@@ -456,7 +456,8 @@ def test_check_reports_a_send_py_with_no_warehouse_py(started: Path) -> None:
     (started / "warehouse.py").rename(started / "send.py")
     assert repr(project.check()) == (
         "send.py is from before 7.0, and there is no warehouse.py: write your query and "
-        "execute in\na new warehouse.py, as CHANGES.md's 7.0 says, then delete send.py.")
+        "execute in\na new warehouse.py, as CHANGES.md's 8.6 says, each notebook giving its "
+        "connect(...) your connection, then delete send.py.")
     (started / "warehouse.py").write_text(project.WAREHOUSE_TEXT, encoding="utf-8")
     assert "send.py" not in repr(project.check())
 

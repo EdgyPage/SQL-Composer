@@ -2,6 +2,22 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.6
+
+8.6 has each notebook give warehouse.py its own connection, so each picks the account it runs
+as at its top.
+
+### What's new
+
+- **`connect(...)` in warehouse.py.** warehouse.py no longer sets `conn` when it is imported:
+  each notebook's first cell imports `connect` with `query` and `execute`, and its line
+  `connect(your_connection)` gives warehouse.py the connection that notebook uses, such as
+  `connect(example_database)` in the Example projects. Until a notebook connects, `query` and
+  `execute` refuse with "No connection: call connect(...) first", so a notebook never runs on
+  a connection another notebook set. A Project from before 7.0, with a send.py and no
+  warehouse.py, writes one: copy the warehouse.py `project.start()` writes into a new folder,
+  move your connection into each notebook's `connect(...)` line, then delete send.py.
+
 ## 8.5
 
 8.5 takes away steps you do by hand in the Workflows, each doing what it did before: the

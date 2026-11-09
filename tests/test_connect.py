@@ -123,15 +123,18 @@ def test_before_connect_each_call_refuses(warehouse: ModuleType, call: str) -> N
 
 
 @pytest.mark.parametrize(("given", "missing"), [
-    (QueryOnly(), "execute"), (ExecuteOnly(), "query"), (None, "query"), ("text", "query")])
+    (QueryOnly(), "execute(sql)"), (ExecuteOnly(), "query(sql)"),
+    (None, "query(sql) or execute(sql)"), ("text", "query(sql) or execute(sql)")])
 def test_connect_refuses_a_connection_lacking_a_call(warehouse: ModuleType, given: object,
                                                      missing: str) -> None:
     with pytest.raises(TypeError) as refused:
         warehouse.connect(given)
     what, _, fix, _ = parts_of(str(refused.value))
-    assert f"has no {missing}(sql)" in what
+    # Each call it lacks is named, both when it lacks both.
+    assert f"has no {missing} to call" in what
     assert type(given).__name__ in what
     assert "connect(example_database)" in fix
+    assert "functions in your Project's warehouse.py" in fix
     # Nothing was connected: query still refuses.
     with pytest.raises(RuntimeError, match="No connection"):
         warehouse.query("SELECT 1 AS one")
