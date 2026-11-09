@@ -19,6 +19,7 @@ from sqlglot_composer.project_files import (
     BUILDING_BLOCK,
     KINDS,
     REFERENCE,
+    SCHEDULED_RUN,
     TABLE_FOLDER,
     FileKind,
     Registry,
@@ -41,15 +42,17 @@ def root(tmp_path: Path) -> Path:
 
 
 def test_each_kind_is_one_entry() -> None:
-    assert KINDS == (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK)
+    assert KINDS == (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK, SCHEDULED_RUN)
     assert [(kind.kind, kind.label, kind.remover) for kind in KINDS] == [
         ("table_folder", "Table folder", "remove_table"),
         ("reference", "Table reference", "remove_reference"),
         ("building_block", "Building block", "remove_block"),
+        # Toolbox 8.6, ticket 02: a Scheduled run's folder, named as the run is.
+        ("scheduled_run", "Scheduled run", "remove_scheduled_run"),
     ]
     assert all(isinstance(kind, FileKind) for kind in KINDS)
     # Only a Table reference's change writes the Database modules again.
-    assert [kind.writes_databases for kind in KINDS] == [False, True, False]
+    assert [kind.writes_databases for kind in KINDS] == [False, True, False, False]
 
 
 @pytest.mark.parametrize(("kind", "name", "stem", "shown"), [
@@ -88,7 +91,15 @@ def test_a_database_name_holding_two_underscores_doesnt_map_back(
 
 def test_a_name_with_a_dot_is_a_tables_and_one_without_a_building_blocks() -> None:
     assert project_files.kinds_named_by("ops.jobs") == (TABLE_FOLDER, REFERENCE)
-    assert project_files.kinds_named_by("runs_per_job") == (BUILDING_BLOCK,)
+    # Toolbox 8.6, ticket 02: or a Scheduled run's.
+    assert project_files.kinds_named_by("runs_per_job") == (BUILDING_BLOCK, SCHEDULED_RUN)
+
+
+def test_a_scheduled_run_is_found_on_disk_and_none_where_its_folder_isnt(root: Path) -> None:
+    assert SCHEDULED_RUN.found(root) == []
+    (root / "scheduled_runs" / "weekly").mkdir(parents=True)
+    assert SCHEDULED_RUN.found(root) == ["weekly"]
+    assert SCHEDULED_RUN.shown("weekly") == "scheduled_runs/weekly/"
 
 
 def test_a_table_notebook_is_named_as_its_table_folder() -> None:

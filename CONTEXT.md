@@ -110,14 +110,14 @@ can load and use that logic without running the rest.
 _Avoid_: table script, pipeline notebook, job
 
 **Registry**:
-The Project's list of every Table folder, Table reference, Building block and Conversion folder
-a Project action made, and when each was removed. What is in the Project but not in the Registry was made by hand; what is in
+The Project's list of every Table folder, Table reference, Building block, Scheduled run and
+Conversion folder a Project action made, and when each was removed. What is in the Project but not in the Registry was made by hand; what is in
 the Registry but not in the Project was moved or deleted by hand.
 _Avoid_: manifest, inventory, index
 
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
-folder or a Building block, adding Table references, upgrading the Project, converting Hive,
+folder, a Building block or a Scheduled run, adding Table references, upgrading the Project, converting Hive,
 comparing a Conversion's tables, promoting tables and archiving a Conversion folder - run from
 the admin folder or a Workflow's notebook, and recorded in the Admin log. One that takes a name
 takes a list of names too, each done in turn. Where an Admin statement changes the warehouse, a
