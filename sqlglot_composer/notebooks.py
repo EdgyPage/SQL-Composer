@@ -157,6 +157,23 @@ def _first_line(text: str) -> str:
     return lines[0].strip()
 
 
+def parameters_cell(path: Path, *, shown: str = "", call: str = "") -> tuple[str, bool] | None:
+    """A Scheduled run's parameters cell, the code cell whose first line is # parameters: its
+    text, and whether it is tagged parameters, as papermill needs it to be; None if the
+    notebook has none. A notebook Jupyter couldn't open is refused, as read_cells does."""
+    read_cells(path, shown=shown, call=call)  # refuses a notebook Jupyter couldn't open
+    for cell in _cell_list(_read_json(path)):
+        _, text = _kind_and_text(cell)
+        if cell.get("cell_type") != "code" or _first_line(text) != PARAMETERS:
+            continue
+        metadata = cell.get("metadata")
+        tags = []
+        if isinstance(metadata, dict) and isinstance(metadata.get("tags"), list):
+            tags = metadata["tags"]
+        return text, PARAMETERS_TAG in tags
+    return None
+
+
 def _source_lines(text: str) -> list[str]:
     """A cell's text as Jupyter keeps it: its lines, each with its own newline."""
     return text.splitlines(keepends=True)
