@@ -87,6 +87,14 @@ Scheduled runs may write the same table, and keeping them from stepping over eac
 user's design. Within its own cell a Guard only warns.
 _Avoid_: job, DAG, pipeline, schedule
 
+**Parameter**:
+A value an outside scheduler passes into a Scheduled run, one of the names in its parameters
+cell, read by that name's type hint and checked before anything is built, so the run refuses a
+value it can't read rather than run with it. A parameter may stand in for a Run value for that
+run only, by the Run value's name; it is neither a Run value, a Script tag nor a Session
+setting.
+_Avoid_: argument, variable, input, setting
+
 **Table folder**:
 The folder in a Project that holds everything about one Saved table the user builds: the
 notebook whose Statements create and write it, its past Lineage, and the Hive the notebook's
@@ -186,7 +194,7 @@ used, such as `<PARM="PERIOD_END"/>`, which it filled in before Hive read it. It
 statements only: the same tag may stand for a different value in another table. A Conversion
 reads past each, where a value goes, and leaves it as a Decision of the table it ends up in;
 the Hive text the user answers stands in its place, and answering again changes it.
-_Avoid_: parameter, PARM, variable, placeholder
+_Avoid_: parameter (a Scheduled run's), PARM, variable, placeholder
 
 **Run value**:
 The value a Python function gives each time a Statement is built, any function, the
@@ -196,7 +204,7 @@ into the Hive as plain text, so the Hive it sends, and the Hive a dry run shows,
 value itself, and the Statement's lineage traces each one standing as a value: the
 function, what it was given, the value it gave, and each table the Toolbox read for it while it
 ran.
-_Avoid_: parameter, variable, runtime param, Hive variable
+_Avoid_: parameter (a Scheduled run's), variable, runtime param, Hive variable
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
@@ -449,7 +457,7 @@ _Avoid_: replicated join, small-table join
 A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named
 set of them can be kept and sent again in one step. In Python, `hive_settings(...)` gives back
 `SessionSettings`, the name a type hint uses.
-_Avoid_: config, option, parameter
+_Avoid_: config, option, parameter (a Scheduled run's)
 
 **Load limit**:
 A check that refuses a Statement that would read or return more than the cluster or the notebook
