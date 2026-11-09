@@ -441,11 +441,11 @@ ADMIN_NOTEBOOKS = {
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
-        "reference or Building block no Project action made (one made by hand), and one the "
-        "registry lists that isn't there, and the next step of each Workflow you have started, "
-        "in `workflows/`. `project.do_next()` runs the steps it can for you. Adopt "
-        "one made by hand with `project.register(...)`, given its table's name, or the "
-        "Building block's.",
+        "reference, Building block or Scheduled run no Project action made (one made by "
+        "hand), and one the registry lists that isn't there, and the next step of each "
+        "Workflow you have started, in `workflows/`. `project.do_next()` runs the steps it can "
+        "for you. Adopt one made by hand with `project.register(...)`, given its table's name, "
+        "or the Building block's or Scheduled run's.",
         ["project.check()",
          "project.do_next()  # runs the next steps it can of each Workflow you have started",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
