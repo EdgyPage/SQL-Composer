@@ -88,32 +88,36 @@ which `requirements.txt`'s pins are for, as they are for 3.12. It is one folder,
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.
 ```
 
-5. **Connect your warehouse.** Goal: the Toolbox's Hive reaching your tables. Action:
-   `project.start()` set `conn` to the Example database; at work, set it to yours, once, in
-   `warehouse.py`, as below. Done when `conn` in `warehouse.py` is your connection, or is still
-   the Example database while you follow this page; then go on to section 2, "Add your
-   tables' references".
+5. **Connect your warehouse.** Goal: the Toolbox's Hive reaching your tables. Action: each
+   notebook runs on its own, so each gives `warehouse.py` your connection at its top, with
+   `connect(...)`: each notebook the Project actions write that reaches the warehouse has the
+   line `# connect(your_connection)` in its first code cells, for you to fill in, as below.
+   This page connects to the Example database, `connect(example_database)`. Done when each
+   notebook you run connects, or connects to the Example database while you follow this page;
+   then go on to section 2, "Add your tables' references".
 
 ```python
 import my_api  # your team's library
 
 # Your connection: its query(sql) gives back a DataFrame, its execute(sql) runs a change.
-conn = my_api.connect()
+connect(my_api.connect())
 ```
 
 If your team keeps its connection in a file outside the Project, such as a file
-team_connection.py, then write these lines in `warehouse.py`, in place of
-`conn = example_database`: they put that file's folder on Python's path, then import it.
+team_connection.py, then write these lines in place of that line: they put that file's folder
+on Python's path, then import it.
 
 ```python
-import sys
-
 sys.path.append("C:/work/connections")  # the folder team_connection.py is in
 from team_connection import conn
+connect(conn)
 ```
+
+Until a notebook connects, `query` and `execute` refuse: "No connection: call connect(...)
+first".
 
 Two rules hold for every call on this page:
 
@@ -124,7 +128,8 @@ Two rules hold for every call on this page:
 ### Your query and execute
 
 - The Toolbox never connects to anything itself: it writes Hive as text, and hands that text
-  to one of two functions in `warehouse.py`, which pass it to your connection, `conn`.
+  to one of two functions in `warehouse.py`, which pass it to the connection the notebook
+  gave `connect(...)`.
 - `query` runs Hive that gives back rows, such as a SELECT, and gives them back as a pandas
   DataFrame.
 - `execute` runs Hive that changes something, such as a write, and gives back nothing.
@@ -149,7 +154,8 @@ missing or made by hand. Each line below names a path, what makes it, and what y
   - `start.ipynb`, or any name you like, the notebook you run `project.start()` from: made by
     you, in Jupyter; you fill in nothing: keep it for trying things out, or delete it.
 - **At the Project's top:**
-  - `warehouse.py`: made by `project.start()`; you fill in `conn`, your connection.
+  - `warehouse.py`: made by `project.start()`; you fill in nothing: each notebook's line
+    `connect(...)` takes your connection.
 - **In admin/:**
   - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
     run_tables.ipynb and remove.ipynb: made by `project.start()`; you fill in the names some
@@ -239,7 +245,7 @@ Before you go on, check:
 
 - `project.start()` printed "Started a Project", and the folder holds admin/, references/,
   building_blocks/, tables/ and warehouse.py beside `sqlglot_composer`.
-- `conn` in `warehouse.py` is the connection you mean to use.
+- each notebook you run gives `connect(...)` the connection you mean to use.
 
 ## 2. Add your tables' references
 
@@ -263,7 +269,9 @@ such as `references/ops.py`, that gives each of its tables at a dot. The referen
    file it wrote; then step 3.
 
 ```python
->>> from warehouse import query, execute
+>>> from sqlglot_composer import example_database
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:

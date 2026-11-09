@@ -162,6 +162,9 @@ HOW = (
 )
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
+# Each notebook's line connect(...), as the Example projects fill it in: the Example database
+# is their connection (Toolbox 8.6).
+EXAMPLE_CONNECTION = "from sqlglot_composer import example_database\nconnect(example_database)"
 
 
 def saved_and_converted_tables(name: str) -> list[str]:
@@ -276,6 +279,7 @@ def write_here(name: str) -> None:
     _add_building_blocks(name, folder)
     _add_saved_tables(name, folder)
     _add_conversions(name, folder)
+    _connect_each_notebook(folder)
     project.refresh_reference_sheet()
     _export_lineage(name, folder)
     _export_hive(name, folder)
@@ -359,6 +363,28 @@ def _add_conversions(name: str, folder: Path) -> None:
         report = project.compare_batch(conversion, query=_same_rows(table, original))
         if "finished" not in repr(report):
             raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
+
+
+def _connect_each_notebook(folder: Path) -> None:
+    """Fill in the line connect(...) of each notebook that has one with the Example database,
+    as a user fills in theirs with their connection, so each notebook of the Example project
+    connects at its top. The Templates are left as start() writes them, so an Upgrade finds
+    them unchanged."""
+    from sqlglot_composer import notebooks
+    from sqlglot_composer.project_templates import CONNECT_PLACEHOLDER
+
+    for notebook in sorted(folder.rglob("*.ipynb")):
+        cells = notebooks.read_cells(notebook)
+        connected = [(kind, connected_text(text, CONNECT_PLACEHOLDER)) for kind, text in cells]
+        if connected != cells:
+            notebooks.write_notebook(notebook, connected)
+
+
+def connected_text(text: str, placeholder: str) -> str:
+    """A setup cell's text, its line `placeholder` filled in with the Example database."""
+    lines = text.split("\n")
+    filled = [EXAMPLE_CONNECTION if line == placeholder else line for line in lines]
+    return "\n".join(filled)
 
 
 def _same_rows(table: str, original: str) -> Callable[[str], pd.DataFrame]:

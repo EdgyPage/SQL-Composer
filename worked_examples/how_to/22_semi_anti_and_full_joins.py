@@ -57,7 +57,8 @@ started, which should match it run for run but doesn't quite. Add their Table re
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.add_references(["ops.job_runs", "ops.scheduler_runs"], query=query)
 Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO
     lines.

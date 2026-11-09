@@ -48,8 +48,9 @@ as `project.add_references` writes them:
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
->>> from warehouse import query, execute
+Next: at the top of each notebook, fill in connect(...) with your connection.
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
@@ -184,7 +185,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     #
     # ## The code cells
     #
-    # - 1: the Project and your query.
+    # - 1: the Project, your connection, connected with `connect(...)`, and your query.
     # - 2: the logic, which starts `# logic`.
     # - 3: try it.
     # - 4: its lineage.
@@ -206,7 +207,16 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic
@@ -316,7 +326,16 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic
@@ -786,9 +805,8 @@ Done when it says `Printed 1 write in order, and sent nothing.` Then step 12.
 ### 12. Write it with the Project's other tables
 
 Goal: each Saved table written, in order. With your query and execute, from warehouse.py,
-`project.run_tables` sends the writes. The Project's warehouse.py holds the Example database as
-its connection until you set your own, so here its execute prints the first line of each thing
-sent. It takes query= as well as execute=, since a write() may give an Admin statement, one
+`project.run_tables` sends the writes. This page gave connect(...) the Example database as its
+connection, in step 1, so here its execute prints the first line of each thing sent. It takes query= as well as execute=, since a write() may give an Admin statement, one
 that changes a Saved table's definition or deletes its data, or an Unchecked statement, Hive
 written by hand, and one that reads rows goes to your query. A write fills dt from its rows, so
 the Session setting `"dynamic_partitions"` goes first:

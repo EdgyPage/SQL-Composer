@@ -62,7 +62,8 @@ execute:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 
 Done when the three imports run without an error. Then step 3.
 

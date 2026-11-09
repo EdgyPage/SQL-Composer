@@ -60,7 +60,8 @@ and execute:
 >>> from sqlglot_composer import project
 >>> import pandas as pd
 >>> from references import ops
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 >>> region_costs = ops.region_costs  # -> Table
 

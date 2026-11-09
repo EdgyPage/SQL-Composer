@@ -588,7 +588,7 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\\n# logic\\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\\n"

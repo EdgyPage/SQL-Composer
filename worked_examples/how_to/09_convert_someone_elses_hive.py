@@ -56,12 +56,13 @@ edit:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "starter", ".", dirs_exist_ok=True)
 >>> from sqlglot_composer import example_database, project, run_execute, hive_settings, show_hive
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> databases = Path("admin/databases.py")
 >>> _ = databases.write_text(databases.read_text(encoding="utf-8").replace(
 ...     '"<DEV_LOCATION_ROOT>"', '"/data/dev"'), encoding="utf-8")
 
-Done when `from warehouse import query, execute` runs without an error. Then step 2.
+Done when `connect(example_database)` runs without an error. Then step 2.
 
 ### 2. Save the scripts
 

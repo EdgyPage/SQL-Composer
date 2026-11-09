@@ -23,8 +23,9 @@ too (the doc says how to make it). It holds what the user has:
   user downloads;
 - `from_your_team/`, the scenario's files, such as a script or a workbook;
 - `my_work/`, empty, where the agents keep what they make;
-- `my_project/`, when the scenario starts from a Project: its folder, its warehouse.py given
-  the team's connection;
+- `my_project/`, when the scenario starts from a Project: its folder, each notebook's
+  `connect(...)` line given the team's connection (its warehouse.py's `conn`, in a Project
+  from before 8.6);
 - `team_connection.py`, their team's connection, `conn`, to a warehouse that keeps each table
   between processes (`tools/workflow_warehouse.py`'s SavedWarehouse), holding the Example
   database's tables and what the scenario's Hive wrote;
@@ -199,18 +200,25 @@ def set_up_the_warehouse(chosen: Scenario, run: Path) -> None:
         encoding="utf-8")
 
 
-# What a Project's warehouse.py says, before its user sets conn, and the lines the team's
-# connection is given by in a Project the user has already.
+# What a Project's warehouse.py from before 8.6 says, before its user sets conn, and the lines
+# the team's connection is given by in a Project the user has already.
 EXAMPLE_CONN = "conn = example_database"
 TEAMS_CONN = ("import sys  # noqa: E402\nfrom pathlib import Path  # noqa: E402\n\n"
               "sys.path.insert(0, str(Path(__file__).resolve().parent.parent))\n"
               "from team_connection import conn  # noqa: E402")
+# Since 8.6, each notebook connects at its top: the lines connect(...) a notebook or Template
+# holds before its user fills it in, as start() writes it or as an Example project fills it.
+LINES_TO_CONNECT = ("# connect(your_connection)", "connect(example_database)")
+# The lines the team's connection is given by in each, beside the Project: a connection kept
+# in a file outside it, as the notebook's comment says.
+TEAMS_CONNECT = ('sys.path.append({run!r})  # the folder team_connection.py is in\n'
+                 "from team_connection import conn\nconnect(conn)")
 
 
 def bring_in_the_project(chosen: Scenario, run: Path) -> None:
     """The Project the scenario's user has already, as my_project/: copied in, or made by the
     reference end of the scenario it starts from, its tables in the run's warehouse; then its
-    warehouse.py reaching the team's connection."""
+    notebooks reaching the team's connection."""
     root = run / "my_project"
     if chosen.start_from:
         import usability_scenario_files  # it imports this file
@@ -226,17 +234,40 @@ def bring_in_the_project(chosen: Scenario, run: Path) -> None:
             toolbox = ROOT / "sqlglot_composer"
         shutil.copytree(toolbox, root / "sqlglot_composer",
                         ignore=shutil.ignore_patterns("__pycache__"))
-    connect_the_team(root / "warehouse.py")
+    connect_the_team(root)
 
 
-def connect_the_team(warehouse_py: Path) -> None:
-    """Set a Project's warehouse.py's conn to the team's connection: its line conn =
-    example_database alone, not a comment that names that line, as 8.2's does."""
+def connect_the_team(root: Path) -> None:
+    """Give the Project at `root` the team's connection, as its user would: each notebook's and
+    Template's line connect(...) filled in with it, from team_connection.py beside the
+    Project; and, in a Project from before 8.6, its warehouse.py's line conn =
+    example_database alone, not a comment that names that line, as 8.2's does. A Project with
+    neither is refused."""
+    connected = False
+    warehouse_py = root / "warehouse.py"
     lines = warehouse_py.read_text(encoding="utf-8").split("\n")
-    if EXAMPLE_CONN not in lines:
-        raise ValueError(f"{warehouse_py} has no line {EXAMPLE_CONN!r} to set")
-    lines[lines.index(EXAMPLE_CONN)] = TEAMS_CONN
-    warehouse_py.write_text("\n".join(lines), encoding="utf-8")
+    if EXAMPLE_CONN in lines:
+        lines[lines.index(EXAMPLE_CONN)] = TEAMS_CONN
+        warehouse_py.write_text("\n".join(lines), encoding="utf-8")
+        connected = True
+    teams = TEAMS_CONNECT.format(run=str(root.parent))
+    for notebook in sorted(root.rglob("*.ipynb")):
+        cells = notebooks.read_cells(notebook)
+        filled = [(kind, _with_the_teams_connection(text, teams)) for kind, text in cells]
+        if filled != cells:
+            notebooks.write_notebook(notebook, filled)
+            connected = True
+    for template in sorted((root / "admin" / "templates").glob("*.py")):
+        text = template.read_text(encoding="utf-8")
+        template.write_text(_with_the_teams_connection(text, teams), encoding="utf-8")
+    if not connected:
+        raise ValueError(f"{root} has no line {EXAMPLE_CONN!r} or connect(...) to set")
+
+
+def _with_the_teams_connection(text: str, teams: str) -> str:
+    """A cell's or Template's text, each of its lines connect(...) the team's connection."""
+    lines = text.split("\n")
+    return "\n".join(teams if line in LINES_TO_CONNECT else line for line in lines)
 
 
 def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> list[str]:

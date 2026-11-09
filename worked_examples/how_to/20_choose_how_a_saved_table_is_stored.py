@@ -53,7 +53,8 @@ reference, as [Save a table](#save_a_table) shows:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.new_table("mart.job_region_costs")
 Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
 admin/templates/saved_table.py.

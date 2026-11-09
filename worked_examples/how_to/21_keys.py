@@ -55,7 +55,8 @@ the Project's `ops` Database, a named group of tables:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> from references import ops
 >>> job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_notes
 

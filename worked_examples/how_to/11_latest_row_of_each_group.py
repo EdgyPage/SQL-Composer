@@ -56,7 +56,8 @@ beside the table it is about:
 >>> from sqlglot_composer import *
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 >>> ends_a_run  # -> Condition
 job_events.event_type IN ('finish', 'fail')

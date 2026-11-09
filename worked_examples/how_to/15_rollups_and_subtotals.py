@@ -57,7 +57,8 @@ the `"start"` rows counts the runs.
 >>> from sqlglot_composer import project
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 
 Done when the imports run without an error. Then step 3.

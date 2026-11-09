@@ -51,8 +51,8 @@ job_day_events = Table(
 # Project actions, which change the user's Project: a block calling one is read, not run.
 ACTIONS = frozenset(project.__all__) - {"load", "check"}
 # Names the files call that the user's own code defines, or Python has.
-OWN_CALLS = frozenset({"query", "execute", "rows", "preview", "write", "create", "converted",
-                       "recent_runs"}) | frozenset(dir(builtins))
+OWN_CALLS = frozenset({"connect", "query", "execute", "rows", "preview", "write", "create",
+                       "converted", "recent_runs"}) | frozenset(dir(builtins))
 # Hive's own functions, which file 07 quotes from the Hive it converts: allowed as Hive's
 # words in backticks, so a file writing COUNT(x) as a Toolbox name would pass this test; the
 # block tests, which run the code, are what catch it.
