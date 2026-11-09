@@ -1,9 +1,12 @@
 """The Project's lineage: every Saved table, what reads it and which Scheduled runs write it, as
-an HTML page and a Markdown twin, and a loop among the Project's tables (Toolbox 8.6).
+an HTML page and a Markdown twin, and a loop among the Project's tables (Toolbox 8.6); and one
+Scheduled run's lineage and Hive.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call:
-project.export_project_lineage writes the page, and project.check reports a loop. Both are run
-by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run's notebook. Each Table
+project.export_project_lineage writes the page, and project.check reports a loop;
+project.export_run_lineage and project.export_run_hive write one run's lineage and Hive into
+its folder. Each is run by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run's
+notebook. Each Table
 folder's writes come through project.load, as run_tables gathers them. Each Scheduled run is
 built from outside its notebook by built_run_of, as its Build cell builds it with the
 notebook's defaults, sending nothing: a Run value is worked out, so the warehouse is read for
@@ -22,16 +25,18 @@ import warnings
 from pathlib import Path
 from typing import NamedTuple
 
-from . import unchecked
+from . import kinds, unchecked
 from .clauses import Statement
-from .lineage import names_in_a_loop, scripts_commit, shortened, tables_read, tables_written
+from .lineage import (lineage_footer, names_in_a_loop, scripts_commit, shortened, tables_read,
+                      tables_written, write_lineage)
 from .notebooks import PARAMETERS, SCHEDULED, first_line, read_cells
 from .project import load, one_line_message, run_logic, writes_of
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry, table_notebook, table_stem
 from .python_steps import PythonStep
 from .refusals import refuse
-from .scheduled_runs import BuiltRun
-from .shared import counted, in_words
+from .running import hive_file_header
+from .scheduled_runs import BuiltRun, step_texts
+from .shared import counted, in_words, singular_or_plural
 from .unchecked import UncheckedStatement
 
 # The name the code built_run_of runs gives the built run, as the Build cell names it built.
@@ -602,6 +607,82 @@ def write_project_lineage(root: Path, call: str) -> list[str]:
         lines.append(f"Passed over, as its logic doesn't load: {table}: "
                      f"{one_line_message(error)}")
     return lines
+
+
+# --- One Scheduled run's lineage and Hive -----------------------------------------------------
+
+# The kinds of Statement a lineage draws: each makes a column from another, or, an Unchecked
+# statement or a Python step, is drawn as one step. A create, upkeep and an Admin statement
+# make none, as export_lineage leaves an Admin statement out.
+_DRAWN = (kinds.READ, kinds.WRITE, kinds.UNCHECKED, kinds.PYTHON)
+# How a run is built for its lineage and its Hive, as both reports say.
+BUILT_AS = ("built as its Build cell builds {it}, with the defaults of its # parameters cell, "
+            "sending nothing")
+
+
+def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
+    """Write the lineage of the Scheduled run `name`, built as its notebook's Build cell
+    builds it, into its folder's lineage/, as an HTML page and a Markdown twin named by the
+    time and the run, such as scheduled_runs/weekly/lineage/20261109-093000-weekly.html: what
+    project.export_run_lineage says it did, a line each."""
+    built, _ = built_run_of(root, name, call)
+    steps = built.passed_over + built.steps
+    drawn = [(step.statement, step.name) for step in steps
+             if kinds.kind(step.statement) in _DRAWN]
+    left_out = [f"{step.name}, {kinds.WORDS[kinds.kind(step.statement)]}" for step in steps
+                if kinds.kind(step.statement) not in _DRAWN]
+    if not drawn:
+        refuse(
+            what=f"{call}: the Scheduled run {name} sends nothing a lineage draws: "
+            f"{in_words(left_out)}.",
+            why="A lineage draws where each column comes from, and a create, an upkeep "
+            "Statement or an Admin statement makes no column from another.",
+            fix="Nothing to draw: project.export_run_hive(...) writes the run's Hive to read.",
+            error=ValueError,
+        )
+    when = unchecked.now()
+    footer = lineage_footer(when, scripts_commit(root), list(built.settings.values()),
+                            made_by=call)
+    stem = f"{when.strftime(unchecked.TIME_IN_A_NAME)}-{name}"
+    html_path = root / SCHEDULED_RUN.folder / name / "lineage" / f"{stem}.html"
+    html_path, markdown_path = write_lineage(drawn, f"the Scheduled run {name}", html_path,
+                                             footer, made_by=call)
+    names = [shown for _, shown in drawn]
+    lines = [f"Wrote {html_path.relative_to(root).as_posix()} and its Markdown twin, "
+             f"{markdown_path.name}: the lineage of {counted(len(drawn), 'Statement')}, "
+             f"{in_words(list(dict.fromkeys(names)))}, "
+             f"{BUILT_AS.format(it=singular_or_plural(len(drawn), 'it', 'them'))}."]
+    if left_out:
+        makes = singular_or_plural(len(left_out), "it makes", "they make")
+        lines.append(f"Not drawn, as {makes} no column from another: {'; '.join(left_out)}.")
+    return lines
+
+
+def write_run_hive(root: Path, name: str, call: str) -> list[str]:
+    """Write the Hive of the Scheduled run `name`, built as its notebook's Build cell builds
+    it, into scheduled_runs/<name>/<name>.hql: a header saying what it is, what the build
+    printed before its first Statement, as comment lines, then each Statement as the build
+    prints it. What project.export_run_hive says it did, a line each."""
+    built, printed = built_run_of(root, name, call)
+    count = counted(len(built.steps), "Statement")
+    header = (f"The Hive of the Scheduled run {name}, generated by {call} from {name}.ipynb, "
+              f"beside this file, {BUILT_AS.format(it='it')}. It is to read, never to edit or "
+              "to send: the notebook builds its Hive again each time it runs, its Run values "
+              "worked out then, so this file is never what is sent. To change it, edit the "
+              f"notebook, save it and call {call} again. It holds {count}.")
+    before = []
+    for line in printed.splitlines():
+        if line.startswith(("-- ", "Built ")):
+            break
+        before.append(f"-- {line}".rstrip())
+    pieces = [f"{hive_file_header(header)}\n--\n" + "\n".join(before), *step_texts(built)]
+    path = root / SCHEDULED_RUN.folder / name / f"{name}.hql"
+    # \n line endings on every computer, so a file written again matches the one committed.
+    path.write_text("\n\n".join(pieces) + "\n", encoding="utf-8", newline="\n")
+    it = singular_or_plural(len(built.steps), "it", "them")
+    return [f"Wrote {path.relative_to(root).as_posix()}: the Hive of {count}, in the order the "
+            f"run sends {it}, {BUILT_AS.format(it=it)}. It is to read, never to edit: the "
+            "notebook builds its Hive again each time it runs."]
 
 
 # The HTML page, in the look of a Statement's lineage page. to_html fills in each __NAME__
