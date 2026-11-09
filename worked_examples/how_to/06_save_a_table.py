@@ -832,8 +832,8 @@ and its Table reference beside the ones before:
 >>> sorted(path.name for path in Path("tables/mart__alerts_per_severity").iterdir())
 ['lineage', 'mart__alerts_per_severity.hql', 'mart__alerts_per_severity.ipynb']
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 ...
 
 Below its first line, it lists each line add_references proposed that you haven't kept or

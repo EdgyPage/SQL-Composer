@@ -380,8 +380,9 @@ def test_new_table_doesnt_register_a_reference_twice(started: Path) -> None:
 
 
 def test_check_finds_nothing_in_a_new_project(started: Path) -> None:
-    assert repr(project.check()) == ("Every Table folder, Table reference and Building block "
-                                     "is registered, and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference, Building block and "
+                                     "Scheduled run is registered, and each one registered is "
+                                     "there.")
 
 
 def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
@@ -509,7 +510,7 @@ def test_new_block_writes_a_building_block_from_the_template(started: Path) -> N
         "fill in its <...> and TODO lines.")
     assert ('- Call: `project.new_block("runs_per_job")`\n'
             "- Files: created building_blocks/runs_per_job.py\n") in log_text(started)
-    assert repr(project.check()).startswith("Every Table folder, Table reference and Building")
+    assert repr(project.check()).startswith("Every Table folder, Table reference, Building")
 
 
 def test_new_block_uses_the_projects_own_template(started: Path) -> None:
@@ -1016,8 +1017,8 @@ def test_a_database_module_says_what_it_is_and_lists_its_tables(started: Path) -
 def test_check_and_the_reference_sheet_leave_a_database_module_out(started: Path) -> None:
     project.add_references(["ops.jobs"], query=example_database.query)
     assert repr(project.check()).startswith(
-        "Every Table folder, Table reference and Building block is registered, and each one "
-        "registered is there.\nProposed by the Toolbox, which blocks nothing")
+        "Every Table folder, Table reference, Building block and Scheduled run is registered, "
+        "and each one registered is there.\nProposed by the Toolbox, which blocks nothing")
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
     assert [row["table"] for row in registry(started)] == ["ops.jobs"]

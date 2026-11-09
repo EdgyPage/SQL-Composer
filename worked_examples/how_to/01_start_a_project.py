@@ -380,8 +380,8 @@ worked, below.
 ## Check it worked
 
 The Project's folders are there, and `project.check()` finds nothing wrong with them: every
-Table folder, Table reference and Building block the registry lists is there, and none is there
-that it doesn't list.
+Table folder, Table reference, Building block and Scheduled run the registry lists is there,
+and none is there that it doesn't list.
 
 >>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
 ['admin', 'building_blocks', 'references', 'scheduled_runs', 'tables']
@@ -391,8 +391,8 @@ In your own Project the list holds `sqlglot_composer` too, the Toolbox you copie
 this page's folder has neither.
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 
 Your query gives back a pandas DataFrame, with the column named as the Hive names it:
 
@@ -404,8 +404,9 @@ True
 
 Before you go on, check that:
 
-- the Project's folder holds admin, building_blocks, references and tables;
-- `project.check()` says every Table folder, Table reference and Building block is registered;
+- the Project's folder holds admin, building_blocks, references, scheduled_runs and tables;
+- `project.check()` says every Table folder, Table reference, Building block and Scheduled run
+  is registered;
 - `query("SELECT 1 AS one")` gives back a DataFrame whose one column is named one.
 
 ## Common mistakes

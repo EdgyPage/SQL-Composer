@@ -332,8 +332,8 @@ The registry lists the block's file, and `project.check()` finds nothing amiss; 
 too, blocking nothing, each line add_references proposed that you haven't kept or changed yet:
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 ...
 
 The block, checked alone over the two days, gives the failed runs the team Statement adds up:

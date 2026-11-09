@@ -149,8 +149,9 @@ def test_a_project_has_no_todo_left_and_nothing_unregistered(
     for path in (root / "references").glob("ops__*.py"):
         assert "# TODO" not in path.read_text(encoding="utf-8"), path.name
     checked = repr(project.check())
-    assert checked.split("\n")[0] == ("Every Table folder, Table reference and Building block "
-                                      "is registered, and each one registered is there.")
+    assert checked.split("\n")[0] == ("Every Table folder, Table reference, Building block and "
+                                      "Scheduled run is registered, and each one registered is "
+                                      "there.")
     # Since 8.2 (ticket 23), a batch the convert Workflow finished is named done below it.
     finished = (root / "admin" / "workflows" / "convert" / "finished").glob("*")
     done = [f"  admin/workflows/convert/convert.ipynb, {folder.name}: every table the batch "

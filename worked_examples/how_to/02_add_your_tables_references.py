@@ -397,8 +397,8 @@ lists each Table reference:
 >>> sorted(path.name for path in Path("references").glob("ops*.py"))
 ['ops.py', 'ops__job_runs.py', 'ops__jobs.py', 'ops__run_alerts.py']
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is
-    there.
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
 
 Each file matches its table:
 
