@@ -10,8 +10,8 @@ as at its top.
 ### What's new
 
 - **`connect(...)` in warehouse.py.** warehouse.py no longer sets `conn` when it is imported:
-  each notebook's first cell imports `connect` with `query` and `execute`, and its line
-  `connect(your_connection)` gives warehouse.py the connection that notebook uses, such as
+  each notebook that reaches the warehouse imports `connect` in its setup cell, near its top,
+  and its line `connect(your_connection)` gives warehouse.py the connection that notebook uses, such as
   `connect(example_database)` in the Example projects. Until a notebook connects, `query` and
   `execute` refuse with "No connection: call connect(...) first", so a notebook never runs on
   a connection another notebook set. A Project from before 7.0, with a send.py and no
