@@ -5,7 +5,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 

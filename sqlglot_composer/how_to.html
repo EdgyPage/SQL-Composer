@@ -133,9 +133,9 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <p>Goal: the Project&#x27;s layout. <code>project.start()</code> lays out the folder your notebook runs in:</p>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -151,6 +151,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -168,7 +169,7 @@ print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;)
 <p class="label">Python prints</p><pre class="output">2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
 <p>The Script line names the git commit your Project&#x27;s folder is at, when you keep it in git, and nogit when you don&#x27;t; this page shows a made-up one, 1a2b3c4.</p>
@@ -275,7 +276,7 @@ from warehouse import query</pre>
 <h4>Check it worked</h4>
 <p>The Project&#x27;s folders are there, and <code>project.check()</code> finds nothing wrong with them: every Table folder, Table reference and Building block the registry lists is there, and none is there that it doesn&#x27;t list.</p>
 <pre class="python">sorted(path.name for path in Path(&quot;.&quot;).iterdir() if path.is_dir())</pre>
-<p class="label">Python shows</p><pre class="output">[&#x27;admin&#x27;, &#x27;building_blocks&#x27;, &#x27;references&#x27;, &#x27;tables&#x27;]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;admin&#x27;, &#x27;building_blocks&#x27;, &#x27;references&#x27;, &#x27;scheduled_runs&#x27;, &#x27;tables&#x27;]</pre>
 <p>In your own Project the list holds <code>sqlglot_composer</code> too, the Toolbox you copied in, and <code>__pycache__/</code>, where Python keeps warehouse.py ready to import once a notebook has imported it; this page&#x27;s folder has neither.</p>
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
@@ -325,9 +326,9 @@ query_without_column_names(&quot;SELECT 1 AS one, 2 AS two, 3 AS three&quot;)</p
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -343,6 +344,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -391,7 +393,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -565,7 +567,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -855,7 +857,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -904,9 +906,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -922,6 +924,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -949,7 +952,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -1380,9 +1383,9 @@ run_query(not_test, query)</pre>
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -1398,6 +1401,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -1425,7 +1429,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -1677,7 +1681,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -2314,9 +2318,9 @@ statement() got an unexpected keyword argument &#x27;many_matches&#x27;</pre>
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -2332,6 +2336,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -2359,7 +2364,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -2603,7 +2608,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -2842,9 +2847,9 @@ runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -2860,6 +2865,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -2887,7 +2893,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -3043,7 +3049,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -3750,9 +3756,9 @@ from sqlglot_composer import *
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -3768,6 +3774,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -3793,7 +3800,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -3912,7 +3919,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -4204,7 +4211,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -4538,7 +4545,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -5079,7 +5086,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -5544,9 +5551,9 @@ from sqlglot_composer import *
 from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -5562,6 +5569,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -5589,7 +5597,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -5740,7 +5748,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -5828,7 +5836,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -5997,7 +6005,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6191,7 +6199,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6280,7 +6288,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6342,7 +6350,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6440,7 +6448,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6521,7 +6529,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6616,7 +6624,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;starter&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 50 files</p>
+<p class="label">It writes 51 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -6633,6 +6641,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -6847,7 +6856,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -7060,7 +7069,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -7185,7 +7194,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -7413,7 +7422,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -7674,7 +7683,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7691,6 +7700,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -7808,7 +7818,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -8146,7 +8156,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8163,6 +8173,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -8500,7 +8511,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8517,6 +8528,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -9132,7 +9144,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9149,6 +9161,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -9524,7 +9537,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9541,6 +9554,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -9854,7 +9868,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9871,6 +9885,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -10319,7 +10334,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10336,6 +10351,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -10642,7 +10658,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10659,6 +10675,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -10941,7 +10958,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10958,6 +10975,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -11200,7 +11218,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -11530,7 +11548,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11547,6 +11565,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -12586,7 +12605,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12603,6 +12622,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -12684,7 +12704,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13030,7 +13050,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13334,7 +13354,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13351,6 +13371,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -13442,7 +13463,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14105,7 +14126,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14122,6 +14143,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -14208,7 +14230,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14745,7 +14767,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14762,6 +14784,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -15047,7 +15070,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15064,6 +15087,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -15148,7 +15172,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15449,7 +15473,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15466,6 +15490,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -15682,7 +15707,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15699,6 +15724,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -15785,7 +15811,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16025,7 +16051,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16306,7 +16332,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16862,7 +16888,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16879,6 +16905,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -16963,7 +16990,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17549,7 +17576,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -17566,6 +17593,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -17782,9 +17810,9 @@ PROD = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot
 <pre class="python">from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<p class="label">It writes 22 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -17800,6 +17828,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
@@ -18358,7 +18387,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 79 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18375,6 +18404,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
@@ -18482,7 +18512,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 

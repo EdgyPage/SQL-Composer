@@ -2,7 +2,8 @@
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions use it, project.new_table to write a Table notebook from a Template, project.load
-to read its logic cell, and project.upgrade to mark a line in a cell. A notebook is read as its
+to read its logic cell, project.build_run to read a Scheduled run's parameters cell, and
+project.upgrade to mark a line in a cell. A notebook is read as its
 cells, each as (kind, text), kind being "code" or "markdown"; one Jupyter couldn't open either,
 as it isn't JSON or has no list of cells it can read, is refused, naming the file. An empty
 list of cells is read as no cells.
@@ -18,6 +19,10 @@ from .refusals import refuse
 
 # The first line of a Table notebook's logic cell, the cell project.load runs.
 LOGIC = "# logic"
+# The first line of a Scheduled run's parameters cell (Toolbox 8.6), and the tag write_notebook
+# gives that cell: papermill's, which puts the values a scheduler passes in a cell after it.
+PARAMETERS = "# parameters"
+PARAMETERS_TAG = "parameters"
 
 
 def read_cells(path: Path, *, shown: str = "", call: str = "") -> list[tuple[str, str]]:
@@ -133,11 +138,23 @@ def write_cell_text(path: Path, number: int, text: str) -> None:
 
 
 def _cell_json(kind: str, text: str) -> dict[str, object]:
-    """A cell as Jupyter's JSON holds it, not yet run."""
+    """A cell as Jupyter's JSON holds it, not yet run: a parameters cell, whose first line is
+    # parameters, tagged parameters, as papermill finds it."""
     if kind == "markdown":
         return {"cell_type": "markdown", "metadata": {}, "source": _source_lines(text)}
-    return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
+    metadata: dict[str, object] = {}
+    if _first_line(text) == PARAMETERS:
+        metadata["tags"] = [PARAMETERS_TAG]
+    return {"cell_type": "code", "execution_count": None, "metadata": metadata, "outputs": [],
             "source": _source_lines(text)}
+
+
+def _first_line(text: str) -> str:
+    """A cell's first line that isn't empty, its spaces stripped: "" for an empty cell."""
+    lines = text.strip().splitlines()
+    if not lines:
+        return ""
+    return lines[0].strip()
 
 
 def _source_lines(text: str) -> list[str]:

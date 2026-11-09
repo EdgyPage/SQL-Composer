@@ -59,6 +59,11 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
     # stay as that version wrote them.
     "8.5": ("admin/workflows/convert/finished/",),
 }
+# What the coming version's tickets changed in the Example projects before its Upgrade step is
+# written, left out of every comparison until it is: 8.6's ticket 12 writes the step that makes
+# them, and empties this. Ticket 02 added the scheduled_run Template and remove.ipynb's
+# SCHEDULED_RUNS.
+AWAITING_ITS_STEP: tuple[str, ...] = ("admin/templates/scheduled_run.py", "admin/remove.ipynb")
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
@@ -146,7 +151,7 @@ def left_out_since(start_from: str, name: str) -> tuple[str, ...]:
     """What the comparison leaves out of the Example project `name` upgraded from `start_from`:
     what it gained by hand in each later version, GAINED_BY_HAND, and what each later version's
     Upgrade left as it was, LEFT_AS_IT_WAS."""
-    left_out: list[str] = []
+    left_out: list[str] = list(AWAITING_ITS_STEP)
     for version in upgrades.steps_between(start_from, VERSION):
         left_out += GAINED_BY_HAND.get(version, {}).get(name, ())
         left_out += LEFT_AS_IT_WAS.get(version, ())

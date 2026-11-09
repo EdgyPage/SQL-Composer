@@ -552,7 +552,7 @@ def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) ->
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
@@ -748,7 +748,7 @@ def test_the_page_shows_a_file_after_an_edit_in_a_box_headed_by_its_path(
 WRITTEN = """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.
 >>> from pathlib import Path
 >>> notebook = Path("tables/mart__little/mart__little.ipynb")
