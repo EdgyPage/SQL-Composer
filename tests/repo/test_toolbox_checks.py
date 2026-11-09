@@ -128,7 +128,10 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 8.6, ticket 04: a Scheduled run's Statements, built and printed.
                  "build_run",
                  # Toolbox 8.6, ticket 07: every Saved table, and the Scheduled runs writing it.
-                 "export_project_lineage"]
+                 "export_project_lineage",
+                 # Toolbox 8.6, ticket 08: one run's lineage and Hive, and a table's logic
+                 # functions described for Copilot.
+                 "export_run_lineage", "export_run_hive", "describe_logic"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

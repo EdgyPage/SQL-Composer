@@ -1059,10 +1059,11 @@ def _section_markdown(section: dict[str, object]) -> list[str]:
 
 
 def to_markdown(graph: Graph, sections: list[dict[str, object]], title: str,
-                footer: str) -> str:
-    """The Markdown twin: its title, the Mermaid chart, each Statement's section, the footer."""
+                footer: str, made_by: str = "export_lineage") -> str:
+    """The Markdown twin: its title, what made it, the Mermaid chart, each Statement's section,
+    the footer."""
     lines = [f"# Lineage: {title}", "",
-             "Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab "
+             f"Made by `{made_by}`. The chart is written in Mermaid, which JupyterLab "
              "draws. Arrows run from where a value comes from to where it goes. A solid "
              "arrow carries a value. A dotted arrow carries a column into a condition, or "
              "runs from a condition to the step whose rows it decides (labelled \"filters\").",
@@ -1434,13 +1435,23 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     else:
         html_path = (_table_folder_path(statements, caller, when)
                      or default_path(caller, commit, names, when))
-    markdown_path = html_path.with_suffix(".md")
     ordered = in_order(list(zip(statements, names)))
-    graph = build_graph(ordered)
-    footer = _footer(when, commit, settings)
     title = ", ".join(name for _, name in ordered)
+    footer = lineage_footer(when, commit, settings)
+    return write_lineage(ordered, title, html_path, footer)
+
+
+def write_lineage(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+                  title: str, html_path: Path, footer: str,
+                  made_by: str = "export_lineage") -> tuple[Path, Path]:
+    """Write the lineage of Statements already in order, each with its name, as the HTML page
+    at `html_path` and its Markdown twin beside it, ending in .md, each titled `title` and
+    ending with `footer`: the two paths, HTML first. export_lineage writes with it, and so
+    does project.export_run_lineage, `made_by` naming it."""
+    markdown_path = html_path.with_suffix(".md")
+    graph = build_graph(ordered)
     sections = report(graph, ordered)
-    markdown = to_markdown(graph, sections, title, footer)
+    markdown = to_markdown(graph, sections, title, footer, made_by)
     page = to_html(graph, sections, title, markdown_path.name, footer)
     html_path.parent.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(markdown, encoding="utf-8")
@@ -1455,10 +1466,12 @@ def _version() -> str:
     return VERSION
 
 
-def _footer(when: datetime.datetime, commit: str, settings: list[SessionSettings]) -> str:
-    """The line both files end with: when, from which commit, with which Toolbox, and each
-    Session settings passed with the Statements: its names, and the SET lines it sends."""
-    text = (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
+def lineage_footer(when: datetime.datetime, commit: str, settings: list[SessionSettings],
+                   made_by: str = "export_lineage") -> str:
+    """The line both files end with: what made them and when, from which commit, with which
+    Toolbox, and each Session settings passed with the Statements: its names, and the SET
+    lines it sends."""
+    text = (f"Made by {made_by} on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
             f"{commit}, with {_version()}.")
     for each in settings:
         text += (f" Session settings sent before these Statements, one line at a time "

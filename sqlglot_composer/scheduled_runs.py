@@ -33,7 +33,7 @@ from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
 from .python_steps import PythonStep
 from .refusals import refuse
 from .run_values import values_given
-from .running import show_hive
+from .running import hive_to_show
 from .shared import counted, in_words, python_literal, singular_or_plural, with_article
 from .unchecked import SessionSettings, UncheckedStatement
 
@@ -675,6 +675,24 @@ def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
     )
 
 
+def step_texts(built: BuiltRun) -> list[str]:
+    """Each Statement the built run sends, in order, as the build prints it: its heading, such
+    as -- 3 of 7: mart.team_days (read by week_totals), a table's Session settings before its
+    first write, and its Hive, as show_hive shows it. project.export_run_hive writes them."""
+    count = len(built.passed_over) + len(built.steps)
+    texts = []
+    last = ""
+    for position, step in enumerate(built.steps, start=len(built.passed_over) + 1):
+        lines = [step.heading(position, count)]
+        if kinds.kind(step.statement) != kinds.PYTHON:
+            if step.table and step.table != last and step.table in built.settings:
+                lines.append(hive_to_show(built.settings[step.table], None))
+            last = step.table or last
+        lines.append(hive_to_show(step.statement, None))
+        texts.append("\n".join(lines))
+    return texts
+
+
 def _print_build(built: BuiltRun) -> None:
     """Print what the build made, after the parameters: the Run values given, the steps
     START_FROM passes over, then each step's heading and its Hive, a table's Session settings
@@ -691,13 +709,7 @@ def _print_build(built: BuiltRun) -> None:
               "run before sent them:")
         for position, step in enumerate(built.passed_over, start=1):
             print(f"  {step.heading(position, count).removeprefix('-- ')}")
-    last = ""
-    for position, step in enumerate(built.steps, start=len(built.passed_over) + 1):
-        print(step.heading(position, count))
-        if kinds.kind(step.statement) != kinds.PYTHON:
-            if step.table and step.table != last and step.table in built.settings:
-                show_hive(built.settings[step.table])
-            last = step.table or last
-        show_hive(step.statement)
+    for text in step_texts(built):
+        print(text)
     print(f"Built {counted(len(built.steps), 'Statement')} in order, and sent nothing: "
           "results = built.run(query, execute) sends them.")
