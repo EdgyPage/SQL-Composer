@@ -209,19 +209,22 @@ def connect(connection: object) -&gt; None:
     &quot;&quot;&quot;Set the connection query and execute pass each Hive string to, such as
     connect(example_database): an object with a query(sql) and an execute(sql).&quot;&quot;&quot;
     global _connection
-    for call in (&quot;query&quot;, &quot;execute&quot;):
-        if not callable(getattr(connection, call, None)):
-            _refuse(
-                what=f&quot;The connection given to connect(...), a {type(connection).__name__}, &quot;
-                f&quot;has no {call}(sql).&quot;,
-                why=&quot;query passes each Hive string that gives back rows to your connection&#x27;s &quot;
-                &quot;query(sql), and execute each one that changes something to its execute(sql), &quot;
-                &quot;so your connection needs both.&quot;,
-                fix=&quot;Pass connect(...) the connection itself, the object with both, such as &quot;
-                f&quot;connect(example_database) in the Example projects. If yours names its {call} &quot;
-                f&quot;another way, change {call} below to call it.&quot;,
-                error=TypeError,
-            )
+    missing = [call for call in (&quot;query&quot;, &quot;execute&quot;)
+               if not callable(getattr(connection, call, None))]
+    if missing:
+        calls = &quot; or &quot;.join(f&quot;{call}(sql)&quot; for call in missing)
+        _refuse(
+            what=f&quot;The connection given to connect(...), a {type(connection).__name__}, &quot;
+            f&quot;has no {calls} to call.&quot;,
+            why=&quot;query passes each Hive string that gives back rows to your connection&#x27;s &quot;
+            &quot;query(sql), and execute each one that changes something to its execute(sql), &quot;
+            &quot;so your connection needs both.&quot;,
+            fix=&quot;Pass connect(...) the connection itself, the object with both, such as &quot;
+            &quot;connect(example_database) in the Example projects. If yours names them another &quot;
+            &quot;way, change the functions in your Project&#x27;s warehouse.py: the names connect &quot;
+            &quot;checks for, (\&quot;query\&quot;, \&quot;execute\&quot;), and the calls query and execute make.&quot;,
+            error=TypeError,
+        )
     _connection = connection
 
 

@@ -54,8 +54,8 @@ file, the Project action that made it, and what was filled in by hand.
 | `intermediate/`, this Project's folder | by hand | nothing |
 | `sqlglot_composer/` | you: copy it in from the download, before you run anything | nothing: never edit a file inside it |
 | the notebook `project.start()` was run from | by hand, in Jupyter; not kept here | nothing |
-| `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it, running on the Example database |
-| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove and run_tables, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | nothing |
+| `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it; each notebook gives it the Example database with `connect(example_database)` |
+| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove and run_tables, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | each notebook's line `connect(...)`, at its top, that reaches the warehouse: the Example database |
 | `admin/databases.py`, the Dev Database and Prod Database | `project.start()` | `DEV`, `mart` |
 | `admin/sent.csv`, a row for each change a notebook sends to the warehouse | `project.start()` | nothing: nothing was sent |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()` | nothing |
