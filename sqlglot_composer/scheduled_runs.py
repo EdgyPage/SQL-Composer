@@ -9,7 +9,8 @@ date, and one that can't be read is refused, naming the parameter.
 
 The build then calls the run's statements() within the Run values run_values= gives, adds the
 writes of each Project table the Statements read, all the way up, as run_tables does, puts
-them in lineage order and prints each one's Hive, sending nothing: a BuiltRun.
+them in lineage order and prints each one's Hive, sending nothing: a BuiltRun. Its
+built.run(query, execute) sends them, in that order.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from pathlib import Path
 from types import FrameType
 from typing import NamedTuple, NoReturn
 
+import pandas as pd
+
 from . import kinds
 from .clauses import Statement
 from .lineage import caller_folder, calling_file, in_order, tables_read, tables_written
@@ -30,12 +33,12 @@ from .notebooks import PARAMETERS, PARAMETERS_TAG, parameters_cell
 from .project import (LOGIC_FUNCTION, TableLogic, load, logic_functions_marked,
                       project_folder, writes_of)
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
-from .python_steps import PythonStep
-from .refusals import refuse
+from .python_steps import PythonStep, saving_hive
+from .refusals import need_warehouse_call, refuse
 from .run_values import values_given
-from .running import show_hive
+from .running import run_execute, run_query, settings_needed, show_hive
 from .shared import counted, in_words, python_literal, singular_or_plural, with_article
-from .unchecked import SessionSettings, UncheckedStatement
+from .unchecked import SessionSettings, UncheckedStatement, hive_settings
 
 # The types a parameter's hint may name, as the parameters cell writes them, each alone, in
 # list[...] or with | None.
@@ -376,6 +379,61 @@ class BuiltRun:
                 f"{in_words([step.name for step in self.steps])}. Nothing is sent until "
                 "built.run(query, execute).")
 
+    def run(self, query: Callable[[str], pd.DataFrame], execute: Callable[[str], None]
+            ) -> dict[str, pd.DataFrame]:
+        """Send each Statement the build made, in its order, and give back each SELECT's rows.
+
+        >>> import os
+        >>> from sqlglot_composer import project
+        >>> project.start()
+        Started a Project in the folder you're working in: admin/, references/,
+        building_blocks/, tables/, scheduled_runs/ and warehouse.py.
+        Next: at the top of each notebook, fill in connect(...) with your connection.
+        >>> project.new_scheduled_run("weekly")
+        Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+        Fill in its <...>: its parameters, its connection and the Statements it runs.
+        >>> os.chdir("scheduled_runs/weekly")
+        >>> START_FROM = ""  # as the notebook's parameters cell sets it
+        >>> def statements():
+        ...     return {"failed_runs": statement(
+        ...         SELECT(job_runs.run_id),
+        ...         FROM(job_runs),
+        ...         WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+        ...     )}
+        >>> built = project.build_run(statements)
+        Parameters, as this run uses them:
+        ...
+        >>> results = built.run(example_database.query, example_database.execute)
+        1 of 1: failed_runs  worked: 1 row, in results["failed_runs"]
+        Sent 1 Statement in order. results holds the rows of failed_runs, by name, as
+        results["failed_runs"].
+        >>> results["failed_runs"]
+           run_id
+        0     102
+
+        It is the Run cell of a Scheduled run's notebook: results = built.run(query, execute),
+        your own two functions, from warehouse.py. Each Statement goes in the order the build
+        printed: a SELECT through run_query and your query, its rows kept in results by its
+        name; a write, an Admin statement or an Unchecked statement through run_execute and
+        your execute. It prints a line as each one works, numbered as the build numbered it.
+        The Session setting "dynamic_partitions" is sent once first when a write fills
+        Partitions from its rows, and a table's session_settings() before its first write, as
+        the build printed them.
+
+        A Python step given rows= (help(python_step)) writes its table: its rows= SELECT is
+        sent through your query, the function is given the DataFrame, and what it gives back
+        is saved to its table through your execute, each value cast to its column's type. A
+        Python step with no rows= is refused before anything is sent.
+
+        The first that fails stops the rest: it prints the tables this run wrote before it,
+        and the parameter that sends the rest, such as START_FROM = "mart.team_days", then
+        raises the error your query or execute raised, so the scheduler sees the notebook
+        fail. Rerun with that START_FROM, or run it all again: each write writes its table
+        again. It writes no lineage and no file of its own; an Admin or Unchecked statement is
+        logged in the Admin log by run_execute, as anywhere.
+        """
+        return run_built(self, query, execute)
+
 
 def build_run(statements: Callable[[], object], run_values: dict[str, object],
               leave_out: list[str], frame: FrameType, call: str) -> BuiltRun:
@@ -701,3 +759,156 @@ def _print_build(built: BuiltRun) -> None:
         show_hive(step.statement)
     print(f"Built {counted(len(built.steps), 'Statement')} in order, and sent nothing: "
           "results = built.run(query, execute) sends them.")
+
+
+# --- The run ----------------------------------------------------------------------------------
+
+# The call, as the Run cell writes it and its messages name it.
+RUN_CALL = "built.run(query, execute)"
+
+
+def run_built(built: BuiltRun, query: Callable[[str], pd.DataFrame],
+              execute: Callable[[str], None]) -> dict[str, pd.DataFrame]:
+    """built.run's work: each step sent in the build's order, a line printed as each works,
+    and each SELECT's rows given back by its name. The first that fails stops the rest, and
+    its error is raised again once the START_FROM that sends the rest is printed."""
+    _check_query_and_execute(query, execute)
+    _check_python_steps_have_rows(built.steps)
+    if not built.steps:
+        print("Sent nothing: the build has no Statement to send.")
+        return {}
+    if any(_fills_partitions(step) for step in built.steps):
+        run_execute(hive_settings("dynamic_partitions"), execute)
+    results: dict[str, pd.DataFrame] = {}
+    count = len(built.passed_over) + len(built.steps)
+    width = max(len(step.name) for step in built.steps)
+    last = ""
+    for index, step in enumerate(built.steps):
+        position = len(built.passed_over) + index + 1
+        shown = f"{position} of {count}: {step.name:<{width}}"
+        is_python = kinds.kind(step.statement) == kinds.PYTHON
+        try:
+            # A table's Session settings before its first write, as the build printed them.
+            if not is_python and step.table != last and step.table in built.settings:
+                run_execute(built.settings[step.table], execute)
+            worked = _send_step(step, query, execute, results)
+        except Exception:
+            print(f"{shown}  failed: see below. The Statements after it weren't sent.")
+            print("\n".join(_rerun_lines(built, index)))
+            raise
+        if not is_python:
+            last = step.table or last
+        print(f"{shown}  {worked}")
+    print(_run_end_line(built, results))
+    return results
+
+
+def _check_query_and_execute(query: object, execute: object) -> None:
+    """Refuse a query or an execute that isn't a function, and the two given the other way
+    round, before anything is sent."""
+    need_warehouse_call(RUN_CALL, "query", query,
+                        "A run sends each SELECT through your query, which gives back rows.")
+    need_warehouse_call(RUN_CALL, "execute", execute,
+                        "A run sends each write through your execute, which changes something.")
+    is_swapped = (getattr(query, "__name__", "") == "execute"
+                  or getattr(execute, "__name__", "") == "query")
+    if is_swapped:
+        refuse(
+            what=f"{RUN_CALL} was given your query and execute the other way round.",
+            why="It sends each SELECT through your query, which gives back rows, and each "
+            "write through your execute: the other way round, each would get Hive it isn't "
+            "for.",
+            fix="Pass your query first, then your execute: results = built.run(query, "
+            "execute).",
+        )
+
+
+def _check_python_steps_have_rows(steps: list[RunStep]) -> None:
+    """Refuse a Python step with no rows=, whose rows the run can't pull, before anything is
+    sent."""
+    lacking = [step.table for step in steps
+               if kinds.kind(step.statement) == kinds.PYTHON and step.statement._rows is None]
+    if not lacking:
+        return
+    refuse(
+        what=f"{RUN_CALL}: the Python step writing {in_words(lacking)} has no rows=, so the "
+        "run can't pull the rows its function takes.",
+        why="A run writes a Python step's table itself: it sends the step's rows= SELECT "
+        "through your query, gives the rows to the function, and saves what it gives back "
+        "through your execute.",
+        fix="Give python_step the SELECT whose rows its function takes, such as its Table "
+        "notebook's rows(): python_step(add_margin, reads=[...], writes=margins, "
+        "rows=rows()). Or leave the table out of this run with leave_out=[...] in the Build "
+        "cell, and save its rows as its own notebook does.",
+        error=ValueError,
+    )
+
+
+def _fills_partitions(step: RunStep) -> bool:
+    """Whether a step fills Partitions from its rows, so the Session setting
+    "dynamic_partitions" is sent before it: a write whose show_hive names it, or a Python step
+    saving to a partitioned table."""
+    if kinds.kind(step.statement) == kinds.PYTHON:
+        return bool(step.statement._writes._partitioned_by)
+    return kinds.kind(step.statement) == kinds.WRITE and bool(settings_needed(step.statement))
+
+
+def _send_step(step: RunStep, query: Callable[[str], pd.DataFrame],
+               execute: Callable[[str], None], results: dict[str, pd.DataFrame]) -> str:
+    """Send one step, a SELECT's rows put in `results` by its name, and give back what its
+    line says once it worked."""
+    kind = kinds.kind(step.statement)
+    if kind == kinds.READ:
+        rows = run_query(step.statement, query)
+        results[step.result] = rows
+        return f"worked: {counted(len(rows), 'row')}, in results[{python_literal(step.result)}]"
+    if kind == kinds.PYTHON:
+        rows = run_query(step.statement._rows, query)
+        changed = step.statement._function(rows)
+        hive = saving_hive(step.statement, changed, RUN_CALL)
+        if hive is None:
+            return "worked: its function gave back no rows, so nothing was saved"
+        execute(hive)
+        return f"worked: {counted(len(changed), 'row')} saved"
+    run_execute(step.statement, execute)
+    return "worked"
+
+
+def _rerun_lines(built: BuiltRun, failed: int) -> list[str]:
+    """What the run prints when its step at `failed` failed: the tables it wrote before it,
+    and the START_FROM that sends the rest. That is its own table, or, for a step that writes
+    none, the table whose first write comes last before it, so a rerun sends it again; ""
+    when no table's first write comes before it."""
+    failed_table = built.steps[failed].table
+    written = list(dict.fromkeys(step.table for step in built.steps[:failed]
+                                 if step.table and step.table != failed_table))
+    if written:
+        lines = [f"This run wrote each table before it: {in_words(written)}."]
+    else:
+        lines = ["This run wrote no table before it."]
+    every = built.passed_over + built.steps
+    failed_at = len(built.passed_over) + failed
+    # Each table's first write, by its place in the run, in the order they come.
+    first_writes: dict[str, int] = {}
+    for position, step in enumerate(every):
+        if step.table and step.table not in first_writes:
+            first_writes[step.table] = position
+    start_from = ""
+    for table, position in first_writes.items():
+        if position <= failed_at:
+            start_from = table
+    if failed_table:
+        start_from = failed_table
+    lines.append("To send it and the rest, run this notebook again with the parameter:")
+    lines.append(f"{START_FROM} = {python_literal(start_from)}")
+    return lines
+
+
+def _run_end_line(built: BuiltRun, results: dict[str, pd.DataFrame]) -> str:
+    """The run's last line: what it sent, and the names its SELECTs' rows are in results by."""
+    line = f"Sent {counted(len(built.steps), 'Statement')} in order."
+    if results:
+        names = list(results)
+        line += (f" results holds the rows of {in_words(names)}, by name, as "
+                 f"results[{python_literal(names[0])}].")
+    return line
