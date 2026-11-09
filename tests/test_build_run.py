@@ -22,11 +22,14 @@ from conftest import toolbox_module
 from sqlglot_composer import (
     FROM,
     SELECT,
+    WHERE,
     Table,
     admin,
+    equals,
     hive_settings,
     notebooks,
     project,
+    run_value,
     set_admin_log,
     statement,
     unchecked_hive,
@@ -220,11 +223,11 @@ def test_run_values_reaches_a_write_that_takes_nothing(
     assert "jobs.job_id >= 1" in capsys.readouterr().out
 
 
-def test_a_parameter_given_in_run_values_is_used_as_read(
+def test_a_parameter_given_in_run_values_is_read_by_its_run_values_hint(
         run: Path, monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
-    """run_values={"first_job": FIRST} is written before the build reads FIRST: the build
-    uses the value it read, not the text the scheduler passed."""
+    """run_values={"first_job": FIRST} is written before the build reads FIRST, so it holds
+    the text the scheduler passed: the build reads it by first_job's hint, int."""
     path = run / "scheduled_runs" / "weekly" / "weekly.ipynb"
     notebooks.write_notebook(path, [("code", '# parameters\nSTART_FROM: str = ""\n'
                                      "FIRST: int = 1")])
@@ -233,11 +236,59 @@ def test_a_parameter_given_in_run_values_is_used_as_read(
     def statements() -> dict[str, object]:
         return {"teams": logic("mart.team_jobs").team_list()}
 
-    project.build_run(statements, run_values={"first_job": globals()["FIRST"]})
+    built = project.build_run(statements, run_values={"first_job": globals()["FIRST"]})
     printed = capsys.readouterr().out
     assert '  FIRST = 7, read as int from "7"' in printed
-    assert "  first_job = 7\n" in printed
+    assert '  first_job = 7, read from "7"\n' in printed
+    assert "jobs.job_id >= 7" in printed
+    assert built.run_values == {"first_job": 7}
     assert globals()["FIRST"] == 7
+
+
+def test_a_run_values_text_is_never_taken_for_a_parameters_value(
+        run: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """The scheduler passes FIRST "7", and run_values= gives a Run value whose function gives
+    a str the same text, "7", one object in Python: it stays text, not FIRST's 7."""
+    path = run / "scheduled_runs" / "weekly" / "weekly.ipynb"
+    notebooks.write_notebook(path, [("code", '# parameters\nSTART_FROM: str = ""\n'
+                                     "FIRST: int = 1")])
+    monkeypatch.setitem(globals(), "FIRST", "7")
+
+    def team_name() -> str:
+        return "ops"
+
+    def statements() -> dict[str, object]:
+        return {"named": statement(SELECT(jobs.job_id), FROM(jobs),
+                                   WHERE(equals(jobs.team, run_value(team_name))))}
+
+    built = project.build_run(statements, run_values={"team_name": "7"})
+    assert "jobs.team = '7'" in capsys.readouterr().out
+    assert built.run_values == {"team_name": "7"}
+
+
+def test_a_run_values_value_its_functions_hint_cant_read_is_refused(run: Path) -> None:
+    def statements() -> dict[str, object]:
+        return {"teams": logic("mart.team_jobs").team_list()}
+
+    with pytest.raises(ValueError, match=r'run_values= gives first_job "seven", which can\'t '
+                                         r"be read as an int, what first_job\(\) gives back"):
+        project.build_run(statements, run_values={"first_job": "seven"})
+
+
+def test_a_run_value_with_no_hint_takes_the_value_as_it_is(
+        run: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # A Run value's function with no hint of what it gives back, which this test is about.
+    def team_name():
+        return "ops"
+
+    def statements() -> dict[str, object]:
+        return {"named": statement(SELECT(jobs.job_id), FROM(jobs),
+                                   WHERE(equals(jobs.team, run_value(team_name))))}
+
+    built = project.build_run(statements, run_values={"team_name": "data"})
+    assert "jobs.team = 'data'" in capsys.readouterr().out
+    assert built.run_values == {"team_name": "data"}
 
 
 def test_a_run_values_name_no_statement_has_is_refused_naming_those_it_has(run: Path) -> None:

@@ -146,8 +146,8 @@ from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_f
                        warn_upgrade_needed)
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
-from .shared import (counted, escaped_literal, in_words, python_literal, singular_or_plural,
-                     split_table_name)
+from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
+                     singular_or_plural, split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
                      proposed_key_from_rows, table_reference_text, write_table_reference)
@@ -6755,7 +6755,7 @@ def _marking_what_it_gives(function_name: str,
     @functools.wraps(function)
     def marking(*arguments: object, **keywords: object) -> object:
         given = function(*arguments, **keywords)
-        for each in given if isinstance(given, (list, tuple)) else [given]:
+        for each in items_of(given):
             if kinds.kind(each) is not None:
                 setattr(each, LOGIC_FUNCTION, function_name)
         return given
@@ -7318,7 +7318,10 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        is worked out now: one reading the warehouse needs connect(...) first.
        run_values={"period_end": RUN_DATE} gives each Run value whose function is named
        period_end that value for this build, in place of what its function gives, a write()
-       that takes nothing among them; a name no Statement's Run value has is refused.
+       that takes nothing among them. The value is read by the hint of what period_end gives
+       back, as a parameter is read by its own, so RUN_DATE's text, "2026-11-01", is a
+       datetime.date where period_end gives one; a function with no hint takes it as it is.
+       A value that can't be read, and a name no Statement's Run value has, are refused.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
@@ -7344,9 +7347,10 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
             error=TypeError,
         )
     # scheduled_runs imports this file, so it is read here, when a run is built.
-    from .scheduled_runs import build_run as build
+    from .scheduled_runs import build_scheduled_run
 
-    return build(statements, run_values or {}, leave_out or [], callers_frame(), call)
+    return build_scheduled_run(statements, run_values or {}, leave_out or [], callers_frame(),
+                               call)
 
 
 def _build_run_call(statements: object, run_values: dict[str, object] | None,

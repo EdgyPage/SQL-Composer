@@ -58,26 +58,33 @@ class Traced:
 # The calls being traced, innermost last: note_read notes each read in each of them.
 _TRACING: list[Traced] = []
 # While project.build_run builds (Toolbox 8.6), the value its run_values= gives each Run value,
-# by its function's name, given in place of calling the function; and, for each build, the
-# name of each Run value met, called or given a value, in order.
+# by its function's name, given in place of calling the function; how each such value is read
+# for the function it stands in for, innermost last; and, for each build, the name of each Run
+# value met, called or given a value, in order.
 _GIVEN: dict[str, object] = {}
+_READERS: list[Callable[[str, object, Callable[..., object]], object]] = []
 _MET: list[list[str]] = []
 
 
 @contextmanager
-def values_given(given: dict[str, object]) -> Iterator[list[str]]:
+def values_given(given: dict[str, object],
+                 read: Callable[[str, object, Callable[..., object]], object]
+                 ) -> Iterator[list[str]]:
     """While the block runs, each Run value whose function's name `given` holds gives that
-    value in place of calling the function, a Script tag's and tag_text's too; the list it
-    gives holds the name of each Run value met while the block runs, in order. Afterwards,
-    each function is called again."""
-    met: list[str] = []
+    value in place of calling the function, a Script tag's and tag_text's too, as
+    read(name, value, function) reads it for that function; the list it gives holds the name
+    of each Run value met while the block runs, in order. Afterwards, each function is called
+    again."""
+    run_values_met: list[str] = []
     before = dict(_GIVEN)
     _GIVEN.update(given)
-    _MET.append(met)
+    _READERS.append(read)
+    _MET.append(run_values_met)
     try:
-        yield met
+        yield run_values_met
     finally:
-        _MET.remove(met)
+        _MET.remove(run_values_met)
+        _READERS.remove(read)
         _GIVEN.clear()
         _GIVEN.update(before)
 
@@ -111,7 +118,7 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
     for met in _MET:
         met.append(name)
     if name in _GIVEN:
-        return _GIVEN[name], traced, None
+        return _READERS[-1](name, _GIVEN[name], function), traced, None
     _TRACING.append(traced)
     try:
         return function(*arguments, **keywords), traced, None
