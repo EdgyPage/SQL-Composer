@@ -2,8 +2,9 @@
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions use it, project.new_table to write a Table notebook from a Template, project.load
-to read its logic cell, project.build_run to read a Scheduled run's parameters cell, and
-project.upgrade to mark a line in a cell. A notebook is read as its
+to read its logic cell, project.build_run to read a Scheduled run's parameters cell,
+project.export_project_lineage to build a Scheduled run from its cells, and project.upgrade
+to mark a line in a cell. A notebook is read as its
 cells, each as (kind, text), kind being "code" or "markdown"; one Jupyter couldn't open either,
 as it isn't JSON or has no list of cells it can read, is refused, naming the file. An empty
 list of cells is read as no cells.
@@ -23,6 +24,8 @@ LOGIC = "# logic"
 # gives that cell: papermill's, which puts the values a scheduler passes in a cell after it.
 PARAMETERS = "# parameters"
 PARAMETERS_TAG = "parameters"
+# The first line of a Scheduled run's logic cell (Toolbox 8.6), which defines statements().
+SCHEDULED = "# scheduled"
 
 
 def read_cells(path: Path, *, shown: str = "", call: str = "") -> list[tuple[str, str]]:
@@ -143,13 +146,13 @@ def _cell_json(kind: str, text: str) -> dict[str, object]:
     if kind == "markdown":
         return {"cell_type": "markdown", "metadata": {}, "source": _source_lines(text)}
     metadata: dict[str, object] = {}
-    if _first_line(text) == PARAMETERS:
+    if first_line(text) == PARAMETERS:
         metadata["tags"] = [PARAMETERS_TAG]
     return {"cell_type": "code", "execution_count": None, "metadata": metadata, "outputs": [],
             "source": _source_lines(text)}
 
 
-def _first_line(text: str) -> str:
+def first_line(text: str) -> str:
     """A cell's first line that isn't empty, its spaces stripped: "" for an empty cell."""
     lines = text.strip().splitlines()
     if not lines:
@@ -164,7 +167,7 @@ def parameters_cell(path: Path, *, shown: str = "", call: str = "") -> tuple[str
     read_cells(path, shown=shown, call=call)  # refuses a notebook Jupyter couldn't open
     for cell in _cell_list(_read_json(path)):
         _, text = _kind_and_text(cell)
-        if cell.get("cell_type") != "code" or _first_line(text) != PARAMETERS:
+        if cell.get("cell_type") != "code" or first_line(text) != PARAMETERS:
             continue
         metadata = cell.get("metadata")
         tags = []
