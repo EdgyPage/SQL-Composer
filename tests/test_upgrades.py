@@ -62,8 +62,9 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is: 8.6's ticket 12 writes the step that makes
 # them, and empties this. Ticket 02 added the scheduled_run Template and remove.ipynb's
-# SCHEDULED_RUNS.
-AWAITING_ITS_STEP: tuple[str, ...] = ("admin/templates/scheduled_run.py", "admin/remove.ipynb")
+# SCHEDULED_RUNS; ticket 07, admin/scheduled_runs.ipynb.
+AWAITING_ITS_STEP: tuple[str, ...] = ("admin/templates/scheduled_run.py", "admin/remove.ipynb",
+                                      "admin/scheduled_runs.ipynb")
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")

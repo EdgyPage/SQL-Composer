@@ -17,6 +17,14 @@ as at its top.
   a connection another notebook set. A Project from before 7.0, with a send.py and no
   warehouse.py, writes one: copy the warehouse.py `project.start()` writes into a new folder,
   move your connection into each notebook's `connect(...)` line, then delete send.py.
+- **The Project's lineage, by hand.** `project.export_project_lineage()` writes an HTML page
+  and its Markdown twin into `admin/lineage/`: every Saved table as a box, an arrow from each
+  table to each that reads it, each Scheduled run that writes a table named on it, a table
+  more than one run writes marked, and a loop drawn red, its tables listed at the top. It
+  builds each Scheduled run as its Build cell does, sending nothing; a run that doesn't
+  build is shown on the page with why. `project.check()` now reports a loop among your
+  tables, naming each and the logic cell to mend. Both are cells of the new
+  `admin/scheduled_runs.ipynb`, run by hand, never by a Scheduled run.
 
 ## 8.5
 
