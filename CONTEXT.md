@@ -398,9 +398,10 @@ _Avoid_: raw CTE, unchecked view
 **Python step**:
 A change the user makes to data in Python, outside any Statement, and saves to a table
 themselves, declared to the Toolbox with the columns it read and the table it wrote. Lineage
-shows it as one opaque step naming the function that made the change and where it lives; the
-Toolbox never moves its data. In Python, `python_step(...)` gives back a `PythonStep`, the name a
-type hint uses.
+shows it as one opaque step naming the function that made the change and where it lives.
+Elsewhere the Toolbox never moves its data, but a Scheduled run writes the table of one given
+the SELECT its function takes: its rows pulled through `query`, saved through `execute`. In
+Python, `python_step(...)` gives back a `PythonStep`, the name a type hint uses.
 _Avoid_: transform, pandas step, UDF
 
 **Admin statement**:

@@ -57,6 +57,20 @@ as at its top.
   table, a write whose Key is unproven, and ORDER_BY in a Derived table. Load limits, the
   other Guards and every other refusal still refuse there, and a Statement from a Table
   notebook's logic, through `project.load`, keeps every Guard.
+- **`results = built.run(query, execute)`, a Scheduled run's Run cell**, sends each Statement
+  `project.build_run` built, in its order, printing a line as each works, such as
+  `2 of 4: mart.team_jobs  worked`: each write, Admin statement and Unchecked statement through
+  `run_execute` and your execute, each SELECT through `run_query` and your query, its rows kept
+  in `results` by its name, as `results["week_totals"]`; nothing is saved to a file. The
+  Session setting "dynamic_partitions" goes once first when a write fills Partitions from its
+  rows, and a table's `session_settings()` before its first write, as the build printed them.
+  The first that fails stops the rest and raises its error, so the scheduler sees the notebook
+  fail, once it has printed the tables written before it and the line to rerun from it, such
+  as `START_FROM = "mart.teams"`. A Python step given `rows=`, the SELECT its function takes,
+  as `python_step(add_margin, reads=[...], writes=margins, rows=rows())`, has its table
+  written: its rows pulled through your query, given to the function, and what it gives back
+  saved through your execute, each value cast to its column's type. One with no `rows=` is
+  refused before anything is sent.
 
 ## 8.5
 
