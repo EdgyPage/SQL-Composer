@@ -79,6 +79,16 @@ as at its top.
   build is shown on the page with why. `project.check()` now reports a loop among your
   tables, naming each and the logic cell to mend. Both are cells of the new
   `admin/scheduled_runs.ipynb`, run by hand, never by a Scheduled run.
+- **One run's lineage and Hive, and a table's logic described, by hand.**
+  `project.export_run_lineage("weekly")` builds that Scheduled run as its Build cell does,
+  with its parameters' defaults, sending nothing, and writes its lineage into
+  `scheduled_runs/weekly/lineage/`, named by the time and the run.
+  `project.export_run_hive("weekly")` writes its built Hive, in order, each Statement headed
+  as the build prints it, into `scheduled_runs/weekly/weekly.hql`, to read, never to edit:
+  the run builds its Hive again each time it runs.
+  `project.describe_logic(["mart.team_days"])` lists each function of a table's logic cell,
+  its hints and its docstring's first sentence, to paste into Copilot. Each takes one name or
+  a list, and each is a cell of `admin/scheduled_runs.ipynb`.
 
 ## 8.5
 

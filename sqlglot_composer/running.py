@@ -519,7 +519,7 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        hive = _hive_to_show(s, frame)
+        hive = hive_to_show(s, frame)
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}"
             if name:
@@ -531,9 +531,10 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     return HiveText(text)
 
 
-def _hive_to_show(s: object, frame: FrameType) -> str:
+def hive_to_show(s: object, frame: FrameType | None) -> str:
     """What show_hive prints for one of the things it is given, or the refusal of what isn't
-    one: `frame` is its caller's."""
+    one: `frame` is its caller's, or None when the Toolbox gives it a Statement it built, as
+    a Scheduled run's build does."""
     if kinds.kind(s) == kinds.SETTINGS:
         return settings_text(s)
     if kinds.kind(s) == kinds.UNCHECKED:
@@ -654,7 +655,7 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     name = name_in(frame, s)
     path = here / f"{name or 'statement'}{_HIVE_FILE_END}"
     # \n line endings on every computer, so a file written again matches the one committed.
-    path.write_text(_hive_to_show(s, frame) + "\n", encoding="utf-8", newline="\n")
+    path.write_text(hive_to_show(s, frame) + "\n", encoding="utf-8", newline="\n")
     from .project import ProjectReport  # project.py imports this file
 
     if name is None:
@@ -679,14 +680,20 @@ def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
               f"{folder.name}.ipynb, beside this file. Edit the logic there, not this file: "
               "each export_hive() writes it again, from the notebook as last saved. It holds "
               f"{held}.")
-    pieces_of_the_file = ["\n".join("-- " + line
-                                    for line in textwrap.wrap(header, width=_HEADER_WIDTH))]
+    pieces_of_the_file = [hive_file_header(header)]
     for position, (_, heading, sent) in enumerate(steps, start=1):
         pieces_of_the_file.append(f"-- {position} of {len(steps)}: {heading}\n"
-                                  f"{_hive_to_show(sent, frame)}")
+                                  f"{hive_to_show(sent, frame)}")
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(pieces_of_the_file) + "\n", encoding="utf-8", newline="\n")
     return ProjectReport([f"Wrote {path.name} beside its notebook, the Hive of {held}."])
+
+
+def hive_file_header(text: str) -> str:
+    """Text as the comment lines a .hql file the Toolbox writes starts with: each line starts
+    with -- and is at most _HEADER_WIDTH wide after it. export_hive and
+    project.export_run_hive write them."""
+    return "\n".join("-- " + line for line in textwrap.wrap(text, width=_HEADER_WIDTH))
 
 
 def _notebooks_table_folder(here: Path) -> Path:
