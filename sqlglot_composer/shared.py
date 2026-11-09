@@ -82,3 +82,11 @@ def possessive(name: str) -> str:
     if name.endswith("s"):
         return f"{name}'"
     return f"{name}'s"
+
+
+def items_of(value: object) -> list[object]:
+    """What may be one thing or a list of them, as a list: a list's or a tuple's items, or
+    anything else alone, as a write() gives one Statement or a list."""
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value]

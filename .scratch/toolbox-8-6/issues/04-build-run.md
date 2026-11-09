@@ -92,3 +92,29 @@ Built 2026-11-09.
   `built.run`, sending `dynamic_partitions` once first where a write needs it, as `run_tables`
   does, and each table's settings as the build printed them; the docs (ticket 10): the README,
   CHANGES.md, Copilot file 18.
+
+### The code review (2026-11-09)
+
+The review of tickets 02 to 04, mended in `fix(8.6): tickets 02 to 04's code review`:
+
+- **Decided, in place of "a value that is a parameter is used as read": a `run_values=` value
+  is read by the hint of what the overridden Run value's function gives back**, with the
+  readers the parameters use (`scheduled_runs._run_value_read`, through a `read` that
+  `run_values.values_given` now takes). The swap by identity (`value is parameter.given`)
+  could take a literal `"7"` for another parameter's value, as CPython keeps one `"7"`; now
+  nothing is matched against the parameters. A function with no hint, or one the build doesn't
+  read, takes the value as it is; one that can't be read is refused, naming the Run value and
+  its hint. The build prints each as used, with `read from "7"` where reading changed it.
+  Tests: the collision, a refusal, and a function with no hint.
+- Renamed: `scheduled_runs.build_run` to `build_scheduled_run`; `Parameter.given` to
+  `Parameter.passed_in`; `BuiltRun.given` to `BuiltRun.run_values`, now each value as read;
+  `_shown` to `_path_in_project`; `met` to `run_values_met`; `_added_writes`' `writes` to
+  `writes_of_table` and `would_add` to `every_table_read_up`.
+- `_read_value`'s empty test is `_is_left_empty`, an `if`; `_refuse_unread`'s and
+  `_split_at_start_from`'s fixes are built with an `if`.
+- One thing or a list of them, as a list, is `shared.items_of` (a new row in the standard's
+  "One way per job"), in `_given_steps`, `_named_steps`, `_list_items` and project.py's
+  `_marking_what_it_gives`; `_list_items` now reads a single value given for a `list[...]` as
+  a list of it, as the text `"5"` already was.
+- `TYPES_READ` is the one map of the types read: each a `TypeRead`, its reader and how it is
+  passed, in place of `PASSED_AS` and `_read_one`'s dict.

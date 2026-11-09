@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 import datetime
+import inspect
 import json
 import re
 from collections.abc import Callable
@@ -34,23 +35,20 @@ from .python_steps import PythonStep
 from .refusals import refuse
 from .run_values import values_given
 from .running import show_hive
-from .shared import counted, in_words, python_literal, singular_or_plural, with_article
+from .shared import (counted, in_words, items_of, python_literal, singular_or_plural,
+                     with_article)
 from .unchecked import SessionSettings, UncheckedStatement
 
-# The types a parameter's hint may name, as the parameters cell writes them, each alone, in
-# list[...] or with | None.
-TYPES_READ = ("datetime.date", "int", "float", "bool", "str")
-# Each type, as a refusal says to pass it: the text a scheduler passes that reads as one.
-PASSED_AS = {"datetime.date": '"2026-11-01"', "int": '"7"', "float": '"1.5"',
-             "bool": '"true" or "false"', "str": "any text"}
 # How a list is passed: its items split at commas, or as a JSON list.
 LIST_PASSED_AS = 'its items split by commas, as "2026-11-01,2026-11-08", or a JSON list'
 # A date as text: the only form read as a datetime.date.
 _DATE_TEXT = re.compile(r"\d{4}-\d{2}-\d{2}")
 # A whole number as text.
 _WHOLE_NUMBER = re.compile(r"[+-]?\d+")
-# What a reader of one type gives for a value it can't read as that type.
+# What reading a value gives when it can't be read as its hint's type.
 _UNREAD = object()
+# What reading a value gives when it is left empty, None or "", and its hint has no | None.
+_EMPTY = object()
 
 
 class Hint(NamedTuple):
@@ -64,13 +62,21 @@ class Hint(NamedTuple):
     may_be_none: bool
 
 
+class TypeRead(NamedTuple):
+    """How a type a hint may name is read: its reader, which gives the value or _UNREAD, and
+    the text a scheduler passes that reads as one, as a refusal says to pass it."""
+
+    read: Callable[[object], object]
+    passed_as: str
+
+
 class Parameter(NamedTuple):
-    """One parameter as the build uses it: its name, its hint, the value given, as the
+    """One parameter as the build uses it: its name, its hint, the value passed in, as the
     scheduler or the cell's default left it, and the value read from it by its hint."""
 
     name: str
     hint: Hint
-    given: object
+    passed_in: object
     value: object
 
 
@@ -111,8 +117,9 @@ def parameter_lines(parameters: list[Parameter]) -> list[str]:
     lines = ["Parameters, as this run uses them:"]
     for parameter in parameters:
         line = f"  {parameter.name} = {python_literal(parameter.value)}"
-        if parameter.given is not parameter.value:
-            line += f", read as {parameter.hint.shown} from {python_literal(parameter.given)}"
+        if parameter.passed_in is not parameter.value:
+            line += (f", read as {parameter.hint.shown} from "
+                     f"{python_literal(parameter.passed_in)}")
         lines.append(line)
     return lines
 
@@ -171,7 +178,24 @@ def _refuse_no_hint(name: str, shown: str, call: str) -> NoReturn:
 def _hint_of(name: str, annotation: ast.expr, shown: str, call: str) -> Hint:
     """A parameter's hint, read from the cell; refused when it is one the build doesn't
     read."""
-    written = ast.unparse(annotation)
+    hint = _hint_read(annotation)
+    if hint is None:
+        refuse(
+            what=f"{call}: the parameter {name}, in the {PARAMETERS} cell of {shown}, has the "
+            f"hint {ast.unparse(annotation)}, which the build doesn't read.",
+            why="A scheduler passes each value as text, and the build reads it by its hint: "
+            "it knows how to read text as each of the types it names.",
+            fix=f"Use {in_words(list(TYPES_READ), last='or')}, alone, in list[...] or with "
+            "| None, such as list[datetime.date] or int | None. For any other value, take it "
+            "as str and read it yourself in the # scheduled cell.",
+            error=ValueError,
+        )
+    return hint
+
+
+def _hint_read(annotation: ast.expr) -> Hint | None:
+    """A hint, as Python writes it, read: None when it names a type outside TYPES_READ, or
+    isn't one of them alone, in list[...] or with | None."""
     node, may_be_none = annotation, False
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr) and _is_none(node.right):
         node, may_be_none = node.left, True
@@ -181,17 +205,8 @@ def _hint_of(name: str, annotation: ast.expr, shown: str, call: str) -> Hint:
         node = node.slice
     each = ast.unparse(node)
     if each not in TYPES_READ:
-        refuse(
-            what=f"{call}: the parameter {name}, in the {PARAMETERS} cell of {shown}, has the "
-            f"hint {written}, which the build doesn't read.",
-            why="A scheduler passes each value as text, and the build reads it by its hint: "
-            "it knows how to read text as each of the types it names.",
-            fix=f"Use {in_words(list(TYPES_READ), last='or')}, alone, in list[...] or with "
-            "| None, such as list[datetime.date] or int | None. For any other value, take it "
-            "as str and read it yourself in the # scheduled cell.",
-            error=ValueError,
-        )
-    return Hint(written, each, is_list, may_be_none)
+        return None
+    return Hint(ast.unparse(annotation), each, is_list, may_be_none)
 
 
 def _is_none(node: ast.expr) -> bool:
@@ -202,10 +217,8 @@ def _is_none(node: ast.expr) -> bool:
 def _read_value(name: str, hint: Hint, given: object, call: str) -> object:
     """A parameter's value read by its hint, from text as a scheduler passes it or from the
     value itself: refused, naming the parameter, its hint and the value, when it can't be."""
-    is_empty = given is None or (given == "" and not (hint.each == "str" and not hint.is_list))
-    if is_empty and hint.may_be_none:
-        return None
-    if is_empty:
+    value = _value_read(hint, given)
+    if value is _EMPTY:
         refuse(
             what=f"{call}: the parameter {name}, {with_article(hint.shown)}, was left empty: "
             f"it was given {python_literal(given)}.",
@@ -215,37 +228,53 @@ def _read_value(name: str, hint: Hint, given: object, call: str) -> object:
             f"hint {hint.shown} | None and read None in the # scheduled cell.",
             error=ValueError,
         )
-    if not hint.is_list:
-        return _read_one(name, hint, given, given, call)
-    items = _list_items(name, hint, given, call)
-    return [_read_one(name, hint, item, given, call) for item in items]
-
-
-def _list_items(name: str, hint: Hint, given: object, call: str) -> list[object]:
-    """The items of a list parameter: a list as it is, JSON list text read, or other text
-    split at its commas."""
-    if isinstance(given, (list, tuple)):
-        return list(given)
-    if isinstance(given, str) and given.strip().startswith("["):
-        try:
-            items = json.loads(given)
-        except ValueError:
-            _refuse_unread(name, hint, given, call)
-        if isinstance(items, list):
-            return items
-    if isinstance(given, str):
-        return [item.strip() for item in given.split(",")]
-    _refuse_unread(name, hint, given, call)
-
-
-def _read_one(name: str, hint: Hint, item: object, given: object, call: str) -> object:
-    """One value read as the hint's type, from text or as it is; refused when it can't be."""
-    readers = {"str": _as_text, "bool": _as_bool, "int": _as_whole_number,
-               "float": _as_number, "datetime.date": _as_date}
-    value = readers[hint.each](item)
     if value is _UNREAD:
         _refuse_unread(name, hint, given, call)
     return value
+
+
+def _value_read(hint: Hint, given: object) -> object:
+    """A value read by its hint, from text as a scheduler passes it or from the value itself:
+    None for one left empty where the hint has | None, _EMPTY for one left empty where it
+    hasn't, and _UNREAD for one that can't be read."""
+    if _is_left_empty(hint, given):
+        if hint.may_be_none:
+            return None
+        return _EMPTY
+    read = TYPES_READ[hint.each].read
+    if not hint.is_list:
+        return read(given)
+    items = _list_items(given)
+    if items is None:
+        return _UNREAD
+    values = [read(item) for item in items]
+    if any(value is _UNREAD for value in values):
+        return _UNREAD
+    return values
+
+
+def _is_left_empty(hint: Hint, given: object) -> bool:
+    """Whether a value is left empty: None, or "" for any hint but a str alone, whose "" is a
+    value, as START_FROM's default is."""
+    if given is None:
+        return True
+    if isinstance(given, str) and given == "":
+        return hint.each != "str" or hint.is_list
+    return False
+
+
+def _list_items(given: object) -> list[object] | None:
+    """The items of a list's value: JSON list text read, other text split at its commas, and
+    anything else as items_of gives it; None for text that starts a JSON list but isn't
+    one."""
+    if isinstance(given, str) and given.strip().startswith("["):
+        try:
+            return json.loads(given)
+        except ValueError:  # text such as "[1, 2" that isn't JSON
+            return None
+    if isinstance(given, str):
+        return [item.strip() for item in given.split(",")]
+    return items_of(given)
 
 
 def _as_text(item: object) -> object:
@@ -303,25 +332,79 @@ def _as_date(item: object) -> object:
         return _UNREAD
 
 
+# Each type a hint may name, as Python writes it, alone, in list[...] or with | None: how it
+# is read.
+TYPES_READ = {
+    "datetime.date": TypeRead(_as_date, '"2026-11-01"'),
+    "int": TypeRead(_as_whole_number, '"7"'),
+    "float": TypeRead(_as_number, '"1.5"'),
+    "bool": TypeRead(_as_bool, '"true" or "false"'),
+    "str": TypeRead(_as_text, "any text"),
+}
+
+
 def _passed_as(hint: Hint) -> str:
     """How a value of `hint` is passed, as text, for a refusal's fix."""
     if hint.is_list:
         return LIST_PASSED_AS
-    return PASSED_AS[hint.each]
+    return TYPES_READ[hint.each].passed_as
 
 
 def _refuse_unread(name: str, hint: Hint, given: object, call: str) -> NoReturn:
     """Refuse a parameter's value that can't be read by its hint."""
+    fix = f"Pass it as {_passed_as(hint)}"
+    if hint.is_list:
+        fix += f", each item as {TYPES_READ[hint.each].passed_as}"
     refuse(
         what=f"{call}: the parameter {name}, {with_article(hint.shown)}, was given "
         f"{python_literal(given)}, which can't be read as one.",
         why="A scheduler passes each value as text, and the build reads it by its hint before "
         "anything is built, so the run never sends Hive built from a value it misread.",
-        fix=f"Pass it as {_passed_as(hint)}"
-        + (f", each item as {PASSED_AS[hint.each]}" if hint.is_list else "")
-        + ", or change its hint in the parameters cell.",
+        fix=f"{fix}, or change its hint in the parameters cell.",
         error=ValueError,
     )
+
+
+def _run_value_read(name: str, given: object, function: Callable[..., object],
+                    call: str) -> object:
+    """A value run_values= gives the Run value `name`, read for `function`, the function it
+    stands in for, by the hint of what that function gives back, as a parameter is read by its
+    own: "2026-11-01" given for a function that gives a datetime.date is that date, and "7"
+    for one that gives a str stays "7". A function with no such hint, or one the build doesn't
+    read, takes the value as it is. Refused when the value can't be read by that hint."""
+    hint = _return_hint(function)
+    if hint is None:
+        return given
+    value = _value_read(hint, given)
+    if value is _EMPTY or value is _UNREAD:
+        refuse(
+            what=f"{call}: run_values= gives {name} {python_literal(given)}, which can't be "
+            f"read as {with_article(hint.shown)}, what {name}() gives back.",
+            why="A value run_values= gives stands in for what the Run value's function gives, "
+            "so it is read by that function's hint, as a parameter is read by its own, and the "
+            "Hive is built with the value the function would give.",
+            fix=f"Give {name} {with_article(hint.shown)}, or text that reads as one, as "
+            f"{_passed_as(hint)}; or change the hint of what {name}() gives back.",
+            error=ValueError,
+        )
+    return value
+
+
+def _return_hint(function: Callable[..., object]) -> Hint | None:
+    """The hint of what `function` gives back, read as a parameter's is: None when it has
+    none, or one the build doesn't read."""
+    annotation = getattr(function, "__annotations__", {}).get("return")
+    if annotation is None:
+        return None
+    if isinstance(annotation, str):  # as from __future__ import annotations keeps it
+        written = annotation
+    else:
+        written = inspect.formatannotation(annotation)
+    try:
+        node = ast.parse(written, mode="eval").body
+    except SyntaxError:  # a hint Python shows as no Python reads, such as <class 'Day'>
+        return None
+    return _hint_read(node)
 
 
 # --- The build --------------------------------------------------------------------------------
@@ -359,16 +442,16 @@ class RunStep(NamedTuple):
 class BuiltRun:
     """A Scheduled run, built by project.build_run: the parameters as used, each Statement in
     the order it is sent, those START_FROM passes over, each table's Session settings, and the
-    Run values run_values= gave a value."""
+    value each Run value run_values= named was given, as read for its function."""
 
     def __init__(self, parameters: list[Parameter], steps: list[RunStep],
                  passed_over: list[RunStep], settings: dict[str, SessionSettings],
-                 given: dict[str, object]) -> None:
+                 run_values: dict[str, object]) -> None:
         self.parameters = parameters
         self.steps = steps
         self.passed_over = passed_over
         self.settings = settings
-        self.given = given
+        self.run_values = run_values
 
     def __repr__(self) -> str:
         count = counted(len(self.steps), "Statement")
@@ -377,23 +460,30 @@ class BuiltRun:
                 "built.run(query, execute).")
 
 
-def build_run(statements: Callable[[], object], run_values: dict[str, object],
-              leave_out: list[str], frame: FrameType, call: str) -> BuiltRun:
+def build_scheduled_run(statements: Callable[[], object], run_values: dict[str, object],
+                        leave_out: list[str], frame: FrameType, call: str) -> BuiltRun:
     """project.build_run's work, the caller's frame `frame`: the parameters read and printed,
-    then the Statements built within the Run values given, the writes of each Project table
-    they read added, all put in lineage order, and printed."""
+    then the Statements built within the Run values given, each read for its function, the
+    writes of each Project table they read added, all put in lineage order, and printed."""
     notebook, root = _scheduled_run_notebook(frame, call)
-    parameters = use_parameters(notebook, _shown(notebook, root), frame.f_globals, call)
+    parameters = use_parameters(notebook, _path_in_project(notebook, root), frame.f_globals,
+                                call)
     print("\n".join(parameter_lines(parameters)))
-    given = _values_as_read(run_values, parameters)
-    with values_given(given) as met:
+    run_values_used: dict[str, object] = {}
+
+    def read(name: str, given: object, function: Callable[..., object]) -> object:
+        value = _run_value_read(name, given, function, call)
+        run_values_used.setdefault(name, value)
+        return value
+
+    with values_given(run_values, read) as run_values_met:
         steps = _given_steps(_given_by(statements), call)
         added, settings = _added_writes(root, steps, leave_out, call)
-    _check_values_given_were_met(given, met, call)
+    _check_values_given_were_met(run_values, run_values_met, call)
     ordered = _steps_in_order(steps + added, call)
     passed_over, sent = _split_at_start_from(ordered, _start_from(parameters), call)
-    built = BuiltRun(parameters, sent, passed_over, settings, given)
-    _print_build(built)
+    built = BuiltRun(parameters, sent, passed_over, settings, run_values_used)
+    _print_build(built, run_values)
     return built
 
 
@@ -421,23 +511,9 @@ def _scheduled_run_notebook(frame: FrameType, call: str) -> tuple[Path, Path]:
     )
 
 
-def _shown(notebook: Path, root: Path) -> str:
+def _path_in_project(notebook: Path, root: Path) -> str:
     """A notebook's path in its Project, as messages show it."""
     return notebook.relative_to(root).as_posix()
-
-
-def _values_as_read(run_values: dict[str, object],
-                    parameters: list[Parameter]) -> dict[str, object]:
-    """run_values= with each value that is a parameter's, as the notebook held it before the
-    build read it, in place of the value read: run_values={"period_end": RUN_DATE} is
-    written before the build runs, so it holds RUN_DATE's text."""
-    as_read = {}
-    for name, value in run_values.items():
-        as_read[name] = value
-        for parameter in parameters:
-            if value is parameter.given:
-                as_read[name] = parameter.value
-    return as_read
 
 
 def _given_by(statements: Callable[[], object]) -> object:
@@ -461,8 +537,8 @@ def _given_steps(given: object, call: str) -> list[RunStep]:
         _refuse_given(call, f"{given!r}, {with_article(type(given).__name__)}", given)
     steps = []
     for value in given:
-        items = list(value) if isinstance(value, (list, tuple)) else [value]
-        steps += [_step_of(item, getattr(item, LOGIC_FUNCTION, None), call) for item in items]
+        steps += [_step_of(item, getattr(item, LOGIC_FUNCTION, None), call)
+                  for item in items_of(value)]
     _check_each_select_named(steps, call)
     return steps
 
@@ -473,7 +549,7 @@ def _named_steps(key: object, value: object, call: str) -> list[RunStep]:
     if not isinstance(key, str) or not key:
         _refuse_given(call, f"a dict with the key {key!r}, where each key is a name, as text",
                       key)
-    items = list(value) if isinstance(value, (list, tuple)) else [value]
+    items = items_of(value)
     selects = [item for item in items if kinds.kind(item) == kinds.READ]
     if len(selects) > 1:
         refuse(
@@ -550,19 +626,20 @@ def _added_writes(root: Path, steps: list[RunStep], leave_out: list[str], call: 
     project_tables = Registry(root).in_force(TABLE_FOLDER)
     logics: dict[str, TableLogic] = {}
 
-    def writes(table: str) -> list[Statement | UncheckedStatement | PythonStep]:
+    def writes_of_table(table: str) -> list[Statement | UncheckedStatement | PythonStep]:
         if table not in logics:
             logics[table] = load(table)
         return writes_of(table, logics[table], call)
 
-    would_add = _tables_read_up(steps, project_tables, [], writes)
-    unknown = [name for name in leave_out if name not in would_add]
+    every_table_read_up = _tables_read_up(steps, project_tables, [], writes_of_table)
+    unknown = [name for name in leave_out if name not in every_table_read_up]
     if unknown:
-        _refuse_leave_out(call, unknown, list(would_add))
-    readers = _tables_read_up(steps, project_tables, leave_out, writes)
+        _refuse_leave_out(call, unknown, list(every_table_read_up))
+    readers = _tables_read_up(steps, project_tables, leave_out, writes_of_table)
     added = []
     for table, read_by in readers.items():
-        added += [RunStep(write, table, None, table, read_by) for write in writes(table)]
+        added += [RunStep(write, table, None, table, read_by)
+                  for write in writes_of_table(table)]
     settings = {}
     for table in dict.fromkeys(step.table for step in steps + added):
         if table in project_tables and table not in logics:
@@ -616,13 +693,14 @@ def _refuse_leave_out(call: str, unknown: list[str], would_add: list[str]) -> No
     )
 
 
-def _check_values_given_were_met(given: dict[str, object], met: list[str], call: str) -> None:
+def _check_values_given_were_met(run_values: dict[str, object], run_values_met: list[str],
+                                 call: str) -> None:
     """Refuse a run_values= name no Statement of the run has a Run value of, naming those it
     has."""
-    unknown = [name for name in given if name not in met]
+    unknown = [name for name in run_values if name not in run_values_met]
     if not unknown:
         return
-    held = list(dict.fromkeys(met))
+    held = list(dict.fromkeys(run_values_met))
     if held:
         has = f"Its Statements' Run values are {in_words(held)}."
     else:
@@ -664,25 +742,33 @@ def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
         if step.table == start_from:
             return ordered[:position], ordered[position:]
     written = list(dict.fromkeys(step.table for step in ordered if step.table))
+    if written:
+        fix = (f"Give it one of the tables this run writes, {in_words(written)}, or \"\" to "
+               "send them all.")
+    else:
+        fix = "This run writes no table: give START_FROM \"\"."
     refuse(
         what=f"{call}: START_FROM is {python_literal(start_from)}, which no Statement of this "
         "run writes.",
         why="START_FROM names the table a rerun starts from, as a run that failed prints it: "
         "the Statements before its first write are passed over.",
-        fix=f"Give it one of the tables this run writes, {in_words(written)}, or \"\" to send "
-        "them all." if written else "This run writes no table: give START_FROM \"\".",
+        fix=fix,
         error=ValueError,
     )
 
 
-def _print_build(built: BuiltRun) -> None:
-    """Print what the build made, after the parameters: the Run values given, the steps
-    START_FROM passes over, then each step's heading and its Hive, a table's Session settings
-    before its first write, and a last line saying nothing was sent."""
-    if built.given:
+def _print_build(built: BuiltRun, run_values: dict[str, object]) -> None:
+    """Print what the build made, after the parameters: the Run values given, each as used and
+    the value run_values= gave where that differs, the steps START_FROM passes over, then each
+    step's heading and its Hive, a table's Session settings before its first write, and a last
+    line saying nothing was sent."""
+    if built.run_values:
         print("Run values given by run_values=, in place of what each one's function gives:")
-        for name, value in built.given.items():
-            print(f"  {name} = {python_literal(value)}")
+    for name, value in built.run_values.items():
+        line = f"  {name} = {python_literal(value)}"
+        if value is not run_values[name]:
+            line += f", read from {python_literal(run_values[name])}"
+        print(line)
     count = len(built.passed_over) + len(built.steps)
     if built.passed_over:
         print(f"START_FROM is {python_literal(built.steps[0].table)}: the "
