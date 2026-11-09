@@ -56,7 +56,9 @@ remove_reference archives one, register adopts a Table folder, Table reference o
 block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
-before the tables that read it. upgrade carries the Project's files to a newer Toolbox you
+before the tables that read it; build_run, in a Scheduled run's notebook, builds the
+Statements it names with the writes of each table they read, in that order, and prints their
+Hive. upgrade carries the Project's files to a newer Toolbox you
 copied in, marking with `# UPGRADE` what it leaves you to change. scan_hive reads Hive someone
 else wrote and says what a Conversion would make; convert makes each table the Hive writes
 a Saved table in your Dev Database, its Table folder and Table reference, marking with
@@ -87,10 +89,12 @@ as run_execute logs one anywhere.
 from __future__ import annotations
 
 import ast
+import contextlib
 import csv
 import dataclasses
 import datetime
 import difflib
+import functools
 import hashlib
 import importlib
 import inspect
@@ -100,10 +104,10 @@ import re
 import sys
 import textwrap
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import FrameType
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pandas as pd
 
@@ -156,13 +160,18 @@ from .unchecked import (
     write_entry,
 )
 
+if TYPE_CHECKING:
+    # Only a hint names it, and scheduled_runs.py imports this file: imported here, it would
+    # make an import cycle.
+    from .scheduled_runs import BuiltRun
+
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
            "reference_from_logic", "new_run_value", "new_scheduled_run",
-           "remove_scheduled_run"]
+           "remove_scheduled_run", "build_run"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -6652,18 +6661,55 @@ OWN_MODULES = ("references", "building_blocks")
 LOGIC_OF = "logic of "
 
 
+# What a Statement a logic function gave is marked with while project.build_run calls a
+# Scheduled run's statements() (Toolbox 8.6): the function's name, which names a SELECT in its
+# list. _MARKING holds an entry while it does.
+LOGIC_FUNCTION = "_logic_function"
+_MARKING: list[bool] = []
+
+
+@contextlib.contextmanager
+def logic_functions_marked() -> Iterator[None]:
+    """While the block runs, each function of the logic load gives marks each Statement it
+    gives with its name, LOGIC_FUNCTION; outside it, load gives each function as it is."""
+    _MARKING.append(True)
+    try:
+        yield
+    finally:
+        _MARKING.pop()
+
+
 class TableLogic:
     """A Table notebook's or a Conversion's logic, as load gives it: each function its logic
-    cell defines, by its name, such as write."""
+    cell defines, by its name, such as write; while a Scheduled run is built, each marking
+    the Statements it gives with its name."""
 
     def __init__(self, name: str, functions: dict[str, Callable[..., object]]) -> None:
         self._name = name
         self._functions = functions
         for function_name, function in functions.items():
+            if _MARKING and inspect.isfunction(function):
+                function = _marking_what_it_gives(function_name, function)
             setattr(self, function_name, function)
 
     def __repr__(self) -> str:
         return f"The logic of {self._name}: {', '.join(self._functions)}."
+
+
+def _marking_what_it_gives(function_name: str,
+                           function: Callable[..., object]) -> Callable[..., object]:
+    """`function`, each Statement it gives marked with `function_name`, it alone or each in
+    the list it gives; anything else it gives is left as it is."""
+
+    @functools.wraps(function)
+    def marking(*arguments: object, **keywords: object) -> object:
+        given = function(*arguments, **keywords)
+        for each in given if isinstance(given, (list, tuple)) else [given]:
+            if kinds.kind(each) is not None:
+                setattr(each, LOGIC_FUNCTION, function_name)
+        return given
+
+    return marking
 
 
 def load(name: str) -> TableLogic:
@@ -7165,6 +7211,102 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
         "writes. They hold only while your execute keeps one session (help(hive_settings)).",
         given=given, call=call,
     )
+
+
+# --- build_run --------------------------------------------------------------------------------
+
+
+def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
+              run_values: dict[str, object] | None = None,
+              leave_out: list[str] | None = None) -> BuiltRun:
+    """Build a Scheduled run's Statements in order and print their Hive, sending none.
+
+    >>> import os
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> project.new_scheduled_run("weekly")
+    Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+    Fill in its <...>: its parameters, its connection and the Statements it runs.
+    >>> os.chdir("scheduled_runs/weekly")
+    >>> START_FROM = ""  # as the notebook's parameters cell sets it
+    >>> def statements():
+    ...     return {"failed_runs": statement(
+    ...         SELECT(job_runs.run_id),
+    ...         FROM(job_runs),
+    ...         WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+    ...     )}
+    >>> built = project.build_run(statements)
+    Parameters, as this run uses them:
+      START_FROM = ""
+    -- 1 of 1: failed_runs
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+    Built 1 Statement in order, and sent nothing: results = built.run(query, execute) sends
+    them.
+
+    It is the Build cell of a Scheduled run's notebook, which project.new_scheduled_run makes,
+    and runs in that notebook, as a scheduler runs it, from its folder. Give it the function
+    of the # scheduled cell, statements, not what it gives, with no brackets: it reads the
+    parameters first, then calls it.
+
+    1. The parameters: each name in the notebook's # parameters cell is read by its type
+       hint, as the notebook holds it, and given back to it: "2026-11-01", as a scheduler
+       passes it for a datetime.date, is that date. A value that can't be read, a parameter
+       with no hint or a hint it doesn't read, and one left empty whose hint has no | None
+       are refused, naming it. It prints each as used, first.
+    2. The Statements: statements() gives a dict of them by name, or a list, each a SELECT, a
+       write, an Admin statement, an Unchecked statement or a Python step; anything else is
+       refused. A SELECT's rows come back by its name: its key in a dict, and in a list the
+       logic function it came from, such as week_totals. It is called now, so each Run value
+       is worked out now: one reading the warehouse needs connect(...) first.
+       run_values={"period_end": RUN_DATE} gives each Run value whose function is named
+       period_end that value for this build, in place of what its function gives, a write()
+       that takes nothing among them; a name no Statement's Run value has is refused.
+    3. The tables they read: each table of this Project with a Table folder that a Statement
+       reads, and each its writes read, all the way up, has its Table notebook's write()
+       added, through project.load, before what reads it; a table outside the Project is only
+       read. leave_out=["mart.daily_job_runs"] leaves one out, with what only it reads; a
+       name it wouldn't add is refused, naming those it would.
+    4. The order: all in lineage order, a writer before each that reads its table, as
+       run_tables orders them; a loop is refused, naming its tables. A table's
+       session_settings() are printed before its first write. A START_FROM parameter that
+       names a table, as a run that failed prints it, passes over each Statement before that
+       table's first write.
+
+    It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
+    Hive, and gives back the built run, which built.run(query, execute) sends.
+    """
+    call = _build_run_call(statements, run_values, leave_out)
+    if not callable(statements) or _arguments_needed(statements):
+        refuse(
+            what=f"{call} was given {statements!r}, where the function statements goes.",
+            why="build_run takes the function itself, and calls it once it has read the "
+            "parameters, so the Statements are built with the values read.",
+            fix="Pass statements with no brackets after it, as project.build_run(statements), "
+            "and define it in the # scheduled cell, taking nothing.",
+            error=TypeError,
+        )
+    # scheduled_runs imports this file, so it is read here, when a run is built.
+    from .scheduled_runs import build_run as build
+
+    return build(statements, run_values or {}, leave_out or [], callers_frame(), call)
+
+
+def _build_run_call(statements: object, run_values: dict[str, object] | None,
+                    leave_out: list[str] | None) -> str:
+    """build_run's call as the Build cell writes it, its keywords shown when given."""
+    shown = getattr(statements, "__name__", "statements")
+    if run_values:
+        shown += ", run_values={...}"
+    if leave_out:
+        shown += f", leave_out={leave_out!r}"
+    return f"project.build_run({shown})"
 
 
 # --- Pieces they share ------------------------------------------------------------------------
