@@ -17,6 +17,14 @@ as at its top.
   a connection another notebook set. A Project from before 7.0, with a send.py and no
   warehouse.py, writes one: copy the warehouse.py `project.start()` writes into a new folder,
   move your connection into each notebook's `connect(...)` line, then delete send.py.
+- **Guards only warn in a Scheduled run's own cell.** While `project.build_run(statements)`
+  calls the run's `statements()`, a Guard tripped by a Statement the run's own notebook composes
+  warns, with its what, why, fix and opt-out, and the build lists each one it let through, with
+  its line, so a quick Statement needs no opt-out. Those let through are the Guards Hive runs
+  past as written: adding up what doesn't add up, a WHERE on a LEFT_JOIN's or a FULL_JOIN's
+  table, a write whose Key is unproven, and ORDER_BY in a Derived table. Load limits, the
+  other Guards and every other refusal still refuse there, and a Statement from a Table
+  notebook's logic, through `project.load`, keeps every Guard.
 
 ## 8.5
 

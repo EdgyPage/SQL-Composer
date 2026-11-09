@@ -7332,6 +7332,18 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        session_settings() are printed before its first write. A START_FROM parameter that
        names a table, as a run that failed prints it, passes over each Statement before that
        table's first write.
+    5. The Guards: while statements() runs, a Guard tripped by a Statement this notebook's own
+       code composes only warns, with its what, why and fix and its opt-out named, so a quick
+       Statement needs no opt-out; the build lists each one it let through, with its line, and
+       builds the Statement as you wrote it. These are the Guards Hive runs past as written:
+       adding up what doesn't add up, a WHERE on a LEFT_JOIN's or a FULL_JOIN's table, a write
+       whose Key is unproven, and ORDER_BY in a Derived table. Still refused here: each Load
+       limit; a Guard Hive would refuse anyway, as a column GROUP_BY leaves out; one whose
+       Statement can't be written as you wrote it: a calculation with no name, a comparison
+       with None, NaN or infinity, a control character, a time of day for a day, a join with
+       no ON= or a write whose columns don't line up; and every refusal of a mistake, such as
+       a column not in its table or a value of the wrong type. A Statement from a Table
+       notebook's logic, through project.load, keeps every Guard, as code anywhere else does.
 
     It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
     Hive, and gives back the built run, which built.run(query, execute) sends.
