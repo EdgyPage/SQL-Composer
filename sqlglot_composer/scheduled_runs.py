@@ -32,7 +32,7 @@ from .project import (LOGIC_FUNCTION, TableLogic, load, logic_functions_marked,
                       project_folder, writes_of)
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
 from .python_steps import PythonStep
-from .refusals import refuse
+from .refusals import GuardLetThrough, guards_warn_in, refuse
 from .run_values import values_given
 from .running import show_hive
 from .shared import (counted, in_words, items_of, python_literal, singular_or_plural,
@@ -441,17 +441,20 @@ class RunStep(NamedTuple):
 
 class BuiltRun:
     """A Scheduled run, built by project.build_run: the parameters as used, each Statement in
-    the order it is sent, those START_FROM passes over, each table's Session settings, and the
-    value each Run value run_values= named was given, as read for its function."""
+    the order it is sent, those START_FROM passes over, each table's Session settings, the
+    value each Run value run_values= named was given, as read for its function, and each Guard
+    the run's own cell tripped, let through."""
 
     def __init__(self, parameters: list[Parameter], steps: list[RunStep],
                  passed_over: list[RunStep], settings: dict[str, SessionSettings],
-                 run_values: dict[str, object]) -> None:
+                 run_values: dict[str, object],
+                 guards_let_through: list[GuardLetThrough]) -> None:
         self.parameters = parameters
         self.steps = steps
         self.passed_over = passed_over
         self.settings = settings
         self.run_values = run_values
+        self.guards_let_through = guards_let_through
 
     def __repr__(self) -> str:
         count = counted(len(self.steps), "Statement")
@@ -477,12 +480,14 @@ def build_scheduled_run(statements: Callable[[], object], run_values: dict[str, 
         return value
 
     with values_given(run_values, read) as run_values_met:
-        steps = _given_steps(_given_by(statements), call)
+        given, guards_let_through = _given_by(statements, frame.f_globals)
+        steps = _given_steps(given, call)
         added, settings = _added_writes(root, steps, leave_out, call)
     _check_values_given_were_met(run_values, run_values_met, call)
     ordered = _steps_in_order(steps + added, call)
     passed_over, sent = _split_at_start_from(ordered, _start_from(parameters), call)
-    built = BuiltRun(parameters, sent, passed_over, settings, run_values_used)
+    built = BuiltRun(parameters, sent, passed_over, settings, run_values_used,
+                     guards_let_through)
     _print_build(built, run_values)
     return built
 
@@ -516,11 +521,13 @@ def _path_in_project(notebook: Path, root: Path) -> str:
     return notebook.relative_to(root).as_posix()
 
 
-def _given_by(statements: Callable[[], object]) -> object:
+def _given_by(statements: Callable[[], object], names: dict[str, object]
+              ) -> tuple[object, list[GuardLetThrough]]:
     """What statements() gives, each Statement a Table notebook's logic function gave it
-    through load marked with that function's name, LOGIC_FUNCTION."""
-    with logic_functions_marked():
-        return statements()
+    through load marked with that function's name, LOGIC_FUNCTION; and each Guard let through
+    as it ran, tripped by code whose names are `names`, the Scheduled run's own notebook's."""
+    with logic_functions_marked(), guards_warn_in(names) as let_through:
+        return statements(), let_through
 
 
 def _given_steps(given: object, call: str) -> list[RunStep]:
@@ -785,5 +792,17 @@ def _print_build(built: BuiltRun, run_values: dict[str, object]) -> None:
                 show_hive(built.settings[step.table])
             last = step.table or last
         show_hive(step.statement)
+    _print_guards_let_through(built.guards_let_through)
     print(f"Built {counted(len(built.steps), 'Statement')} in order, and sent nothing: "
           "results = built.run(query, execute) sends them.")
+
+
+def _print_guards_let_through(let_through: list[GuardLetThrough]) -> None:
+    """Print each Guard the run's own cell tripped and the build let through: the line of the
+    call that tripped it, and what happened."""
+    if let_through:
+        print(f"{counted(len(let_through), 'Guard')} let through, as this run's own cell "
+              f"composed {singular_or_plural(len(let_through), 'it', 'them')}, each warned of "
+              "above:")
+    for each in let_through:
+        print(f"  {each.line}\n    {each.what}")
