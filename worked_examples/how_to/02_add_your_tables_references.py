@@ -39,14 +39,15 @@ has none, so it starts one; in your own Project, which is started already, leave
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
->>> from warehouse import query, execute
+Next: at the top of each notebook, fill in connect(...) with your connection.
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 
 Every step here passes that `query`; `execute` waits for a step that changes a table. Here it
-runs on the Example database, the made-up tables that ship inside the Toolbox, as warehouse.py
-holds it; at work it is your own, and you name your own tables.
+runs on the Example database, the made-up tables that ship inside the Toolbox, as
+`connect(example_database)` gives it; at work it is your own, and you name your own tables.
 
-Done when `from warehouse import query, execute` runs without an error. Then step 2.
+Done when `connect(example_database)` runs without an error. Then step 2.
 
 ### 2. See what a table says about itself
 

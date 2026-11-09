@@ -46,6 +46,11 @@ DRAWN = {
     workflows.DECISION: ("{", "}", "your_decision", "fill:#fbf1d6,stroke:#a8842a"),
     workflows.FIDDLING: (">", "]", "by_hand", "fill:#f8d7d5,stroke:#b03a30"),
 }
+# What a Workflow notebook's first cell holds under its imports, since Toolbox 8.6.
+CONNECT_SAID = ("Under the imports, the same cell has a line connect(...), for your connection "
+                "to the warehouse: each notebook runs on its own, so each connects at its top. "
+                "Write yours in it, such as connect(your_library.connect(...)), and delete its "
+                "#; until you do, query and execute refuse.")
 # What each shape of a chart is, as a page says it under its charts.
 LEGEND = ("In each chart, a plain box is a step that changes only files, or only prints; a "
           "box with double edges a call to the warehouse, yours to run; a diamond a decision, "
@@ -273,7 +278,7 @@ def _how_to_steps() -> list[str]:
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
         "tables/ and warehouse.py.",
-        "Next: set conn, your connection, in warehouse.py.", "",
+        "Next: at the top of each notebook, fill in connect(...) with your connection.", "",
         "Done when `project.start()` says it started a Project. Then step 2.", "",
         "### 2. Choose the Workflow for your job", "",
         *_wrapped("Goal: the one Workflow whose end goal is yours. Each Workflow is described "
@@ -286,6 +291,7 @@ def _how_to_steps() -> list[str]:
                   "notebook starts by finding the Project, then imports what its steps "
                   "call:"), "",
         *[f"    {line}" for line in _imports_wrapped()], "",
+        *_wrapped(CONNECT_SAID), "",
         "Done when its first cells run without an error. Then step 4.", "",
         "### 4. Fill in its names cell, and save it", "",
         *_wrapped("Goal: the start materials the Workflow works on, named once. Write each "

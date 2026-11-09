@@ -61,7 +61,8 @@ your query. A Database is a named group of tables, the first part of a table's n
 >>> from sqlglot_composer import *
 >>> import pandas as pd
 >>> from references import ops
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 
 Done when the four imports run without an error. Then step 3.
 

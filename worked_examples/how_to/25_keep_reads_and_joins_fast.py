@@ -51,7 +51,8 @@ Goal: the tables the steps read, by short names. mart.job_day_facts, each job's 
 and minutes per day beside its team, is one of the Project's Saved tables, partitioned by dt:
 
 >>> from sqlglot_composer import *
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> from references import mart, ops
 >>> job_day_facts = mart.job_day_facts  # -> Table
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table

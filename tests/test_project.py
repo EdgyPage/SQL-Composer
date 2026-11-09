@@ -119,28 +119,14 @@ def test_the_admin_notebooks_speak_of_no_day(started: Path) -> None:
     assert "admin.drop_partitions(" in change
 
 
-def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: Path) -> None:
-    text = (started / "warehouse.py").read_text(encoding="utf-8")
-    assert text == project.WAREHOUSE_TEXT
-    defined = {node.name: node for node in ast.parse(text).body
-               if isinstance(node, ast.FunctionDef)}
-    assert sorted(defined) == ["execute", "query"]
-    assert ast.unparse(defined["query"].returns) == "pd.DataFrame"
-    assert ast.unparse(defined["execute"].returns) == "None"
-    # Toolbox 8.0: your connection, conn, set once; query and execute pass each Hive string on.
-    assert "\nconn = example_database\n" in text
-    assert "    return conn.query(hive)\n" in text
-    assert "    conn.execute(hive)\n" in text
-
-
-def test_start_says_to_write_the_query_and_execute(
+def test_start_says_to_connect_each_notebook(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     set_admin_log()
     assert " ".join(repr(project.start()).split()) == (
         "Started a Project in the folder you're working in: admin/, references/, "
-        "building_blocks/, tables/ and warehouse.py. Next: set conn, your connection, in "
-        "warehouse.py.")
+        "building_blocks/, tables/ and warehouse.py. Next: at the top of each notebook, fill "
+        "in connect(...) with your connection.")
 
 
 def test_start_logs_a_project_action(started: Path) -> None:
@@ -194,8 +180,8 @@ def test_start_run_again_in_a_project_from_before_7_writes_no_warehouse_py(
     (started / "warehouse.py").rename(started / "send.py")
     (started / "admin" / "new_block.ipynb").unlink()
     says = ("send.py is from before 7.0, so no warehouse.py was written: write a new "
-            "warehouse.py, setting conn, your connection, as CHANGES.md's 8.0 says, then "
-            "delete send.py.")
+            "warehouse.py, as CHANGES.md's 8.6 says, each notebook giving its connect(...) "
+            "your connection, then delete send.py.")
     assert str(project.start()) == ("This folder is a Project already. Added what it lacked: "
                                     "admin/new_block.ipynb.\n" + says)
     assert str(project.start()) == "This folder is a Project already.\n" + says
@@ -703,8 +689,15 @@ def test_the_check_references_notebook_checks_each_table_and_its_key(
         reference.write_text(text.replace("    key=None,", f"    key={key},", 1),
                              encoding="utf-8")
     project.new_table("mart.daily_job_runs")
+    notebook = started / "admin" / "check_references.ipynb"
+    # Its line connect(...) filled in, as the user fills theirs in (Toolbox 8.6).
+    cells = [(kind, text.replace("# connect(your_connection)",
+                                 "from sqlglot_composer import example_database\n"
+                                 "connect(example_database)"))
+             for kind, text in notebooks.read_cells(notebook)]
+    notebooks.write_notebook(notebook, cells)
     capsys.readouterr()
-    said = run_admin_notebook(started / "admin" / "check_references.ipynb", capsys=capsys)
+    said = run_admin_notebook(notebook, capsys=capsys)
     assert said.startswith("Wrote references/reference_sheet.csv: 13 rows, 3 tables.\n"
                            "Left out, since it can't be read yet: "
                            "references/mart__daily_job_runs.py.")

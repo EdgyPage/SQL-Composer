@@ -8,8 +8,8 @@ A Project is the folder you work in, laid out the same way every time:
 
     your_project/
     ├── sqlglot_composer/    the Toolbox, copied in
-    ├── warehouse.py         your connection, conn, and its query and execute: each notebook
-    │                        imports them
+    ├── warehouse.py         connect, query and execute: each notebook imports them, and
+    │                        gives connect(...) your connection at its top
     ├── admin/               the notebooks you run each time you need one
     │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
     │   │                    name what it works on in its names cell, and run each step;
@@ -128,7 +128,7 @@ from .project_files import (
     table_references,
     table_stem,
 )
-from .project_templates import TEMPLATES
+from .project_templates import CONNECT_LINES, TEMPLATES
 from .python_steps import PythonStep
 from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
@@ -176,47 +176,87 @@ REFERENCE_TEMPLATE = "saved_table_reference"
 SHEET_COLUMNS = ["table", "column", "type", "partition", "in_key", "aliases",
                  "description", "exported_at"]
 
-WAREHOUSE_TEXT = '''"""warehouse - your connection to the warehouse, conn, and its two calls.
+WAREHOUSE_TEXT = r'''"""warehouse - connect, which takes your connection, and its two calls.
 
 Why: every notebook in the Project reaches the warehouse through query and execute, so a change
 to how you reach it is made here, once.
 
-Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
-them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something:
-whatever it gives back, execute drops. Until you do, conn is the Example database, which the
-how-tos run on. You
-pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
-a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
-two share one session, so a Session setting sent through execute holds for what is sent after
-it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
-failed only when your connection raises. Keep it importing nothing from references/,
-building_blocks/ or tables/, so any notebook or script of yours can import it; a connection
-kept in a file outside the Project is imported as the comment above conn shows.
+Each notebook runs on its own, so each gives its connection at its top, in its setup cell, with
+connect(your_connection), before it calls query or execute; until it does, they refuse. Your
+connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
+a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
+back, execute drops. The Example projects and the how-tos connect to the Example database:
+connect(example_database). You pick which one sends each Statement, by calling
+run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute) for
+what changes something, as a write does. Let the two share one session, so a Session setting
+sent through execute holds for what is sent after it; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your connection raises. Keep
+it importing nothing from references/, building_blocks/ or tables/, so any notebook or script
+of yours can import it.
 """
+
+from typing import NoReturn
 
 import pandas as pd
 
-from sqlglot_composer import example_database
+# The connection this notebook gave connect(...): None until it connects.
+_connection = None
 
-# Your connection to the warehouse. At work, replace example_database with your own, such as
-# conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
-# execute(sql) runs Hive that changes something. A connection kept in a file outside the
-# Project, such as team_connection.py, is imported by these lines, written in place of the
-# line below that sets conn to example_database:
-#     import sys
-#     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
-#     from team_connection import conn
-conn = example_database
+
+def connect(connection: object) -> None:
+    """Set the connection query and execute pass each Hive string to, such as
+    connect(example_database): an object with a query(sql) and an execute(sql)."""
+    global _connection
+    for call in ("query", "execute"):
+        if not callable(getattr(connection, call, None)):
+            _refuse(
+                what=f"The connection given to connect(...), a {type(connection).__name__}, "
+                f"has no {call}(sql).",
+                why="query passes each Hive string that gives back rows to your connection's "
+                "query(sql), and execute each one that changes something to its execute(sql), "
+                "so your connection needs both.",
+                fix="Pass connect(...) the connection itself, the object with both, such as "
+                f"connect(example_database) in the Example projects. If yours names its {call} "
+                f"another way, change {call} below to call it.",
+                error=TypeError,
+            )
+    _connection = connection
 
 
 def query(hive: str) -> pd.DataFrame:
     """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
-    return conn.query(hive)
+    _check_connected("query")
+    return _connection.query(hive)
 
 
 def execute(hive: str) -> None:
     """Run a Hive string that changes something, such as a write, and give back nothing."""
-    conn.execute(hive)
+    _check_connected("execute")
+    _connection.execute(hive)
+
+
+def _check_connected(call: str) -> None:
+    """Refuse a call to query or execute made before this notebook connected."""
+    if _connection is None:
+        _refuse(
+            what=f"No connection: call connect(...) first. {call}(...) was called before this "
+            "notebook gave warehouse.py its connection.",
+            why="Each notebook runs on its own, in a Python of its own, so each connects at "
+            "its top: a connection given in another notebook, or before this one's kernel "
+            "restarted, isn't this one's.",
+            fix="In this notebook's setup cell, at its top, fill in the line connect(...) "
+            "under its from warehouse import line with your connection, such as "
+            "connect(example_database) in the Example projects, then run that cell again.",
+            error=RuntimeError,
+        )
+
+
+def _refuse(what: str, why: str, fix: str, error: type[Exception]) -> NoReturn:
+    """Stop, with the four parts every refusal of the Toolbox has."""
+    raise error(f"\n  What happened:  {what}"
+                f"\n  Why it matters: {why}"
+                f"\n  Usual fix:      {fix}"
+                "\n  Opt-out:        none - this one can't be switched off.")
 '''
 
 # The first code cell of every admin notebook: the Project folder, one up, on Python's path.
@@ -228,7 +268,8 @@ ADMIN_PATH_LINES = [
     "from sqlglot_composer import project",
 ]
 # The first code cell of every Workflow's notebook: the Project folder, three up from
-# admin/workflows/<name>/, on Python's path, and the warehouse's two calls.
+# admin/workflows/<name>/, on Python's path, the warehouse's two calls, and the line that
+# connects them to the user's connection.
 WORKFLOW_PATH_LINES = [
     "import pathlib",
     "import sys",
@@ -236,7 +277,8 @@ WORKFLOW_PATH_LINES = [
     "",
     "from sqlglot_composer import admin, hive_settings, project, run_execute, run_query, "
     "show_hive",
-    "from warehouse import query, execute",
+    "from warehouse import connect, query, execute",
+    *CONNECT_LINES.split("\n"),
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
 DATABASES = Path("admin") / "databases.py"
@@ -259,10 +301,11 @@ SENT_HEADER = "time,kind,tables,script\n"
 # The code cells of admin/check_references.ipynb, after the path: the Reference sheet read,
 # each table it lists checked, and a last cell for a check on a table's own Table reference.
 CHECK_REFERENCES_CELLS = [
-    '''import csv
+    f'''import csv
 
 from sqlglot_composer import Table, all_of, check_key, check_table_reference, equals
-from warehouse import query
+from warehouse import connect, query
+{CONNECT_LINES}
 
 # The Reference sheet: a row per column of every Table reference in references/, with its
 # type, and "yes" for a partition column and for a column in the Key.
@@ -363,9 +406,11 @@ ADMIN_NOTEBOOKS = {
         "its logic cell with `project.load`, each before the tables that read it. First, with "
         "no `execute`, it prints each Hive in that order and sends nothing; then, with your "
         "query and execute, it sends them. `tables=` picks some; leave it out for every Table "
-        "folder the registry lists.",
-        ["project.run_tables()  # first, with no execute: prints each Hive, sends nothing",
-         "# from warehouse import query, execute\n"
+        "folder the registry lists. The cell under the Project's path connects to the "
+        "warehouse, as every notebook that reaches it does: a Run value that reads the "
+        "warehouse needs it even to print.",
+        [f"from warehouse import connect, execute\n{CONNECT_LINES}",
+         "project.run_tables()  # first, with no execute: prints each Hive, sends nothing",
          "# project.run_tables(execute=execute)"],
     ),
     "check_project": (
@@ -419,7 +464,7 @@ def start() -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
 
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
     from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
@@ -428,8 +473,10 @@ def start() -> ProjectReport:
     admin/templates/, admin/databases.py, admin/sent.csv, an empty registry, the Admin log,
     whose first entry is this one, and project_version.txt, the Toolbox version that made the
     Project, which project.upgrade() reads. It refuses a folder that isn't a Project but has
-    any of them already, and a folder inside a Project. Then set conn, your connection, in
-    warehouse.py, and make your first Table folder from
+    any of them already, and a folder inside a Project. Each notebook it writes that reaches
+    the warehouse has a line connect(...) at its top, under its from warehouse import line,
+    for you to fill in with your connection: each notebook runs on its own, so each connects,
+    and until it does, query and execute refuse. Then make your first Table folder from
     admin/workflows/new_table/new_table.ipynb.
 
     Run again in a Project's own folder, from a notebook there, it completes the Project: it
@@ -484,7 +531,7 @@ def start() -> ProjectReport:
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
         "tables/ and warehouse.py.",
-        "Next: set conn, your connection, in warehouse.py.",
+        "Next: at the top of each notebook, fill in connect(...) with your connection.",
     ])
 
 
@@ -495,7 +542,7 @@ def _complete_project(root: Path, frame: FrameType) -> ProjectReport:
     before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
     if not (root / WAREHOUSE).exists() and not before_7:
         (root / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
-        added.append(f"{WAREHOUSE}: set conn, your connection, in it")
+        added.append(f"{WAREHOUSE}: each notebook gives its connect(...) your connection")
     if added:
         _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
     return _completed_report(added, before_7)
@@ -562,8 +609,8 @@ def _completed_report(added: list[str], before_7: bool) -> ProjectReport:
         lines = ["This folder is a Project already, and lacks nothing start() makes."]
     if before_7:
         lines.append(f"{OLD_SEND} is from before 7.0, so no {WAREHOUSE} was written: write "
-                     f"a new {WAREHOUSE}, setting conn, your connection, as CHANGES.md's 8.0 "
-                     f"says, then delete {OLD_SEND}.")
+                     f"a new {WAREHOUSE}, as CHANGES.md's 8.6 says, each notebook giving its "
+                     f"connect(...) your connection, then delete {OLD_SEND}.")
     return ProjectReport(lines)
 
 
@@ -578,7 +625,7 @@ def new_table(name: str | list[str], template: str = "saved_table",
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -848,7 +895,7 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -886,7 +933,7 @@ def remove_reference(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -973,7 +1020,7 @@ def new_block(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
     fill in its <...> and TODO lines.
@@ -1035,7 +1082,7 @@ def remove_block(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
     fill in its <...> and TODO lines.
@@ -1140,7 +1187,7 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
     >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
     Wrote period_end into building_blocks/run_values.py: the latest Partition of
@@ -1416,7 +1463,7 @@ def add_references(names: str | list[str],
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -1604,7 +1651,7 @@ def register(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.register("ops.jobs")
@@ -1676,7 +1723,7 @@ def check() -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.check()
@@ -1888,7 +1935,7 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> # Only to stand in for typing the name in the notebook's names cell, and saving it:
     >>> notebook = Path("admin/workflows/new_table/new_table.ipynb")
@@ -1957,7 +2004,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> # Only to stand in for typing the names cell and the decisions cell, and saving:
     >>> notebook = Path("admin/workflows/references/references.ipynb")
@@ -2355,7 +2402,7 @@ def upgrade() -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
@@ -2556,7 +2603,7 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> print(project.scan_hive('''
     ...     SELECT r.job_id, COUNT(*) AS runs
     ...     FROM ops.job_runs r
@@ -2603,7 +2650,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"',
@@ -3150,7 +3197,7 @@ def database_settings(name: str) -> dict[str, str]:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("admin/databases.py").write_text(  # only to stand in for filling it in
     ...     'DEV = {"database": "mart_dev", "location_root": "/data/team/dev", '
@@ -3742,7 +3789,7 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up\n\n"
          "from sqlglot_composer import (compare_hive, compare_with_original, export_hive, "
          "export_lineage,\n                              project, run_query, show_hive)\n"
-         "from warehouse import query"),
+         f"from warehouse import connect, query\n{CONNECT_LINES}"),
         ("code", f"{LOGIC}\n{logic}"),
         ("code", "# Try it: its rows, then, once its Table reference has its location=, the "
          "Hive of\n# each step\nrun_query(preview(), query)\nshow_hive([create(), write()])"),
@@ -4104,7 +4151,7 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"',
@@ -4157,7 +4204,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"',
@@ -4280,7 +4327,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references("ops.team_notes", query=example_database.query)
     >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
     Wrote 1 answer into references/ops__team_notes.py.
@@ -4814,7 +4861,7 @@ def table_reference(name: str) -> Table:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("references/mart__daily_runs.py").write_text(
     ...     'from sqlglot_composer import Table\\n\\n'
@@ -5200,7 +5247,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV and PROD
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"', '"mart_dev"')
@@ -5475,7 +5522,7 @@ def promoted_tables(tables: str | list[str], seeded: bool = False) -> list[str]:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> try:
     ...     project.promoted_tables("mart_dev.daily_runs")
     ... except ValueError as refused:
@@ -5944,7 +5991,7 @@ def remove_conversion(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"',
@@ -6128,7 +6175,7 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
@@ -6530,7 +6577,7 @@ def load(name: str) -> TableLogic:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
     ...     "# %%\n# logic\ndef write() -> str:\n    return 'what writes it'\n")
@@ -6574,7 +6621,7 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
     >>> _ = project.new_table("mart_dev.daily_runs")
     >>> # Only to stand in for writing its logic in its notebook, and saving it:
@@ -6865,7 +6912,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> project.run_tables()
     No Table folder to run: make one with project.new_table(...).
 

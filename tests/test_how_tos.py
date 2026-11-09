@@ -40,7 +40,9 @@ PUBLIC = set(sqlglot_composer.__all__)
 # database cursor a query or execute calls, and the Project's warehouse.py, which holds them,
 # named in prose as `warehouse.py`), the Example database's database, the Toolbox's folders,
 # and its project module, which a how-to may name in prose, such as `project.check()`.
-OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project", "warehouse", "query", "execute"}
+OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project", "warehouse", "query", "execute",
+                 # warehouse.py's own, which how-to 01's query written over a cursor calls.
+                 "_check_connected", "_connection"}
 
 
 def page() -> str:
@@ -553,7 +555,7 @@ def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) ->
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.""")
+Next: at the top of each notebook, fill in connect(...) with your connection.""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
                       "</pre>", shown, re.DOTALL)
@@ -749,7 +751,7 @@ WRITTEN = """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from pathlib import Path
 >>> notebook = Path("tables/mart__little/mart__little.ipynb")
 >>> notebook.parent.mkdir(parents=True)

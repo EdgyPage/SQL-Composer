@@ -21,6 +21,8 @@ from conftest import forget_the_projects_modules, toolbox_module
 from openpyxl.worksheet.table import Table
 from workflow_warehouse import SavedWarehouse
 
+from sqlglot_composer import notebooks, project
+
 HIVE_RAN = """CREATE TABLE IF NOT EXISTS mart.daily_fails (job_id BIGINT, fails BIGINT)
 PARTITIONED BY (dt STRING);
 INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
@@ -124,11 +126,32 @@ def test_a_project_brought_in_reaches_the_team_connection_through_its_conn_line_
     warehouse = tmp_path / "warehouse.py"
     warehouse.write_text(f"# in place of the line {usability_loop.EXAMPLE_CONN}, as it was\n"
                          f"{usability_loop.EXAMPLE_CONN}\n", encoding="utf-8")
-    usability_loop.connect_the_team(warehouse)
+    usability_loop.connect_the_team(tmp_path)
     written = warehouse.read_text(encoding="utf-8")
     assert written.startswith(f"# in place of the line {usability_loop.EXAMPLE_CONN}, as it")
     assert written.count("from team_connection import conn") == 1
     ast.parse(written)
+
+
+def test_a_project_brought_in_reaches_the_team_connection_through_each_connect_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Toolbox 8.6: each notebook connects at its top, so each notebook's line, and each
+    # Template's, is the one filled in, and warehouse.py is left as start() wrote it.
+    root = tmp_path / "my_project"
+    root.mkdir()
+    monkeypatch.chdir(root)
+    project.start()
+    warehouse = (root / "warehouse.py").read_text(encoding="utf-8")
+    usability_loop.connect_the_team(root)
+    assert (root / "warehouse.py").read_text(encoding="utf-8") == warehouse
+    notebook = root / "admin" / "workflows" / "references" / "references.ipynb"
+    setup = notebooks.read_cells(notebook)[1][1]
+    assert f"sys.path.append({str(tmp_path)!r})" in setup
+    assert "from team_connection import conn\nconnect(conn)" in setup
+    assert "# connect(your_connection)" not in setup
+    ast.parse(setup)
+    template = (root / "admin" / "templates" / "saved_table.py").read_text(encoding="utf-8")
+    assert "from team_connection import conn\nconnect(conn)" in template
 
 
 def test_each_phases_message_gives_its_role_what_that_person_has(

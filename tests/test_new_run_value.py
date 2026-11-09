@@ -29,7 +29,7 @@ IMPORT_LINE = "from building_blocks.run_values import period_end"
 @pytest.fixture
 def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """A started Project holding the Table references of ops.job_runs, ops.jobs and
-    ops.job_events, its conn the Example database."""
+    ops.job_events, read from the Example database."""
     monkeypatch.setattr(sys, "path", [str(tmp_path), *sys.path])
     monkeypatch.chdir(tmp_path)
     project.start()
@@ -46,6 +46,8 @@ def _registry_rows(root: Path) -> list[str]:
 
 def _period_end() -> object:
     forget_the_projects_modules()
+    # As the notebook importing it connects at its top (Toolbox 8.6).
+    importlib.import_module("warehouse").connect(example_database)
     return importlib.import_module("building_blocks.run_values").period_end
 
 

@@ -49,7 +49,8 @@ Its TODO lines can wait, since `EXCEPT` compares whole rows and reads no Key:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.
 ...

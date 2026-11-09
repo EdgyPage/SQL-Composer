@@ -46,8 +46,9 @@ left out:
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
->>> from warehouse import query, execute
+Next: at the top of each notebook, fill in connect(...) with your connection.
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
 Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
 ...
@@ -255,7 +256,16 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic
@@ -391,7 +401,16 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic
@@ -571,7 +590,16 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic

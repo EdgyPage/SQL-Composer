@@ -73,10 +73,9 @@ something and see its rows.
 - In a notebook in the Project's folder: `from sqlglot_composer import project`, then
   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
   warehouse.py.
-- warehouse.py holds `conn`, the connection the user sets once, and two functions over it:
-  `query(hive)` calls `conn.query`, running Hive that gives rows, and returns a pandas
-  DataFrame; `execute(hive)` calls `conn.execute`, running Hive that changes something, and
-  returns nothing. Nothing else in the Project reaches the warehouse.
+- warehouse.py holds `connect(connection)`, which each notebook's setup cell calls first;
+  `query(hive)`, running Hive that gives rows, returning a pandas DataFrame; and
+  `execute(hive)`, running Hive that changes something. Nothing else reaches the warehouse.
 - Each table read needs a Table reference: the references Workflow,
   admin/workflows/references/references.ipynb, runs
   `project.add_references(["ops.job_runs"], query=query)`, which writes

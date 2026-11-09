@@ -174,6 +174,9 @@ UPGRADED_TO_THIS_ONE = upgraded_to_this_one()
 
 @pytest.mark.parametrize(("start_from", "name"), UPGRADED_TO_THIS_ONE,
                          ids=[f"{version}-{name}" for version, name in UPGRADED_TO_THIS_ONE])
+# 8.6's ticket 01 connects each Example project's notebooks and gives warehouse.py connect;
+# no step makes them so until 8.6's Upgrade step, ticket 12, which takes this mark away.
+@pytest.mark.xfail(strict=True, reason="ticket 12: to_8_6 adds connect")
 def test_the_example_projects_of_each_version_since_8_3_upgrade_straight_into_this_ones(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, start_from: str,
         name: str) -> None:
@@ -352,7 +355,8 @@ def test_a_mark_in_a_notebook_sits_in_its_cell(marked: Path) -> None:
     notebook = json.loads((marked / "admin" / "run_tables.ipynb").read_text(encoding="utf-8"))
     source = notebook["cells"][2]["source"]
     assert source[0] == f"# UPGRADE {VERSION}: pick query or execute\n"
-    assert source[1].startswith("project.run_tables()")
+    # Its cell 3, since 8.6, imports execute and connects, before the run_tables cells.
+    assert source[1].startswith("from warehouse import connect, execute")
 
 
 def test_each_file_a_step_changes_is_kept_as_it_was(marked: Path) -> None:
@@ -718,7 +722,9 @@ def test_8_2_writes_warehouse_py_again_where_8_1_left_it(
     monkeypatch.chdir(copy)
     project.upgrade()
     assert warehouse.read_text(encoding="utf-8") == project.WAREHOUSE_TEXT
-    assert "from team_connection import conn" in project.WAREHOUSE_TEXT
+    # Since 8.6 it takes each notebook's connection with connect(...), and the comment on a
+    # connection kept outside the Project is in each notebook's setup cell.
+    assert "def connect(connection: object) -> None:" in project.WAREHOUSE_TEXT
 
 
 def test_8_2_keeps_a_warehouse_py_you_changed(

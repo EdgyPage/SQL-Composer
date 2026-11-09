@@ -42,7 +42,7 @@ for its names cell:
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.
 
 Done when `project.start()` says it started a Project. Then step 2.
 
@@ -84,7 +84,11 @@ the Project, then imports what its steps call:
         run_query,
         show_hive,
     )
-    from warehouse import query, execute
+    from warehouse import connect, query, execute
+
+Under the imports, the same cell has a line connect(...), for your connection to the warehouse:
+each notebook runs on its own, so each connects at its top. Write yours in it, such as
+connect(your_library.connect(...)), and delete its #; until you do, query and execute refuse.
 
 Done when its first cells run without an error. Then step 4.
 

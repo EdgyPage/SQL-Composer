@@ -47,7 +47,8 @@ named group of tables whose names start `ops.`, and your query:
 
 >>> from sqlglot_composer import *
 >>> from references import ops
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> job_owners = ops.job_owners  # -> Table
 >>> job_events = ops.job_events  # -> Table
 

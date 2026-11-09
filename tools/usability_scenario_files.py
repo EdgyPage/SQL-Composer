@@ -17,6 +17,7 @@ does, an Excel one of the SQL each formula maps to.
 from __future__ import annotations
 
 import contextlib
+import importlib
 import json
 import shutil
 import sys
@@ -848,6 +849,12 @@ def reference_end(scenario_id: str, run: Path) -> None:
         root = start_the_project(run)
     warehouse = SavedWarehouse(run / "_loop" / "warehouse.json")
     with contextlib.chdir(root), project_on_the_path(root):
+        # As each notebook's setup cell connects, so a Run value reading the warehouse through
+        # warehouse.py's query reads the run's (Toolbox 8.6). A Project from before 8.6, such
+        # as H2's, has no connect: its warehouse.py's conn is the team's already.
+        warehouse_module = importlib.import_module("warehouse")
+        if hasattr(warehouse_module, "connect"):
+            warehouse_module.connect(warehouse)
         REFERENCE_ENDS[scenario_id](root, warehouse)
 
 

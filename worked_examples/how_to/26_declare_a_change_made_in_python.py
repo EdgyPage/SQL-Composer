@@ -52,7 +52,8 @@ name its Table reference gives a condition on it:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query, execute
+>>> from warehouse import connect, query, execute
+>>> connect(example_database)
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run  # -> Condition
 >>> job_events = ops.job_events  # -> Table
@@ -194,7 +195,16 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_lineage, run_query
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic
@@ -317,7 +327,16 @@ The file `tables/mart__slow_runs/mart__slow_runs.ipynb`, after you fill it in:
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
     from sqlglot_composer import export_lineage, show_hive
-    from warehouse import query
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
     # %%
     # logic

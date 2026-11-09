@@ -74,7 +74,7 @@ Goal: the Project's layout. `project.start()` lays out the folder your notebook 
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.
 
 Done when it says `Started a Project`. Then step 6.
 
@@ -90,7 +90,8 @@ it, and what you fill in:
 - `sqlglot_composer/`: copied in by you. You fill in nothing: never edit a file inside it.
 - start.ipynb, or any name you like, the notebook you run `project.start()` from: made by
   you, in Jupyter. Keep it for trying things out, or delete it.
-- `warehouse.py`: `project.start()`. You set `conn`, your connection, in it, in step 8.
+- `warehouse.py`: `project.start()`. You fill in nothing: each notebook gives it your
+  connection with `connect(...)`, in its first code cells, as step 8 shows.
 - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
   run_tables.ipynb and remove.ipynb: `project.start()`. You fill in the names some ask for in
   their names cell, such as the tables to remove, and run them. Calling the same Project
@@ -192,114 +193,140 @@ itself. It writes Hive as text, and hands that text to a function in warehouse.p
 it to your connection to the warehouse. Your team's library most likely gives you a connection
 with two calls: one that gives back rows, as a SELECT does, and one that gives back nothing, as
 a statement that changes a table does, such as a write or a CREATE TABLE. So warehouse.py holds
-your connection, `conn`, set once, and two functions over it:
+`connect`, which takes your connection, and two functions over it:
 
-- `query` runs Hive through `conn.query`, and gives back its rows as a pandas DataFrame;
-- `execute` runs Hive through `conn.execute`, and gives back nothing.
+- `query` runs Hive through your connection's `query`, and gives back its rows as a pandas
+  DataFrame;
+- `execute` runs Hive through your connection's `execute`, and gives back nothing.
 
 You pick which one sends each Statement, a query the Toolbox builds, by the Toolbox function
 you call, as [Build and run a first statement](#build_and_run_a_first_statement) shows.
-`project.start()` set `conn` to the Example database, the made-up tables that ship inside the
-Toolbox, so every how-to runs before you touch a real table:
 
 >>> print(Path("warehouse.py").read_text(encoding="utf-8"))
-\"\"\"warehouse - your connection to the warehouse, conn, and its two calls.
+\"\"\"warehouse - connect, which takes your connection, and its two calls.
 ...
-conn = example_database
-<BLANKLINE>
-<BLANKLINE>
+def connect(connection: object) -> None:
+    \"\"\"Set the connection query and execute pass each Hive string to, such as
+    connect(example_database): an object with a query(sql) and an execute(sql).\"\"\"
+...
 def query(hive: str) -> pd.DataFrame:
     \"\"\"Run a Hive string that gives back rows, and give them back as a pandas
         DataFrame.\"\"\"
-    return conn.query(hive)
+    _check_connected("query")
+    return _connection.query(hive)
 <BLANKLINE>
 <BLANKLINE>
 def execute(hive: str) -> None:
     \"\"\"Run a Hive string that changes something, such as a write, and give back
         nothing.\"\"\"
-    conn.execute(hive)
-<BLANKLINE>
+    _check_connected("execute")
+    _connection.execute(hive)
+...
 
-Among the lines the `...` above leaves out, warehouse.py imports the Example database from the
-Toolbox:
+Among the lines the `...` above leaves out, `_check_connected` refuses a call made before the
+notebook connected, and `connect` refuses an object with no `query` or no `execute`. Neither
+names a connection: each notebook gives warehouse.py its own, as step 8 shows.
 
-    from sqlglot_composer import example_database
+Done when warehouse.py shows `connect` and the two functions. Then step 8.
 
-`example_database.query` runs Hive on the Example database's nine tables, and
-`example_database.execute` prints the first line of the Hive and changes nothing, since the
-Example database can't be written to. The Getting started how-tos keep warehouse.py just so.
+### 8. Connect each notebook
 
-Done when warehouse.py shows `conn = example_database` and the two functions. Then step 8.
+Goal: `query` and `execute` that reach your warehouse. Each notebook runs on its own, in a
+Python of its own, so each gives warehouse.py its connection at its top: a connection one
+notebook gave isn't another's. Each notebook the Project actions write that reaches the
+warehouse holds the line for it in its first code cells, under its `from warehouse import`
+line, with a comment above it saying what to write:
 
-### 8. Set your connection
+    # connect(your_connection)
 
-Goal: `query` and `execute` that reach your warehouse. At work, open warehouse.py in your
-editor and set `conn` to your team's connection, once, in place of `example_database`. `conn`
-can be anything with the two calls: a module, as `example_database` is, or the object your
-team's library connects you with. Here `my_api` and its connect call are made-up names for
-yours:
+At work, write your team's connection in that line, and delete its `#`. Your connection can be
+anything with the two calls: a module, as `example_database` is, or the object your team's
+library connects you with. Here `my_api` and its connect call are made-up names for yours:
 
     import my_api  # your team's library
 
-    conn = my_api.connect()  # its query gives back a DataFrame; its execute runs a change
+    connect(my_api.connect())  # its query gives back a DataFrame; its execute runs a change
 
-If your team keeps its connection in a file outside the Project, such as
-team_connection.py in a folder C:/work/connections, write these lines in warehouse.py in place
-of `conn = example_database`: they put that folder on Python's path, then import it.
-
-    import sys
+If your team keeps its connection in a file outside the Project, such as team_connection.py in
+a folder C:/work/connections, write these lines in that line's place: they put that folder on
+Python's path, then import it, the cell having imported sys already.
 
     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
     from team_connection import conn
+    connect(conn)
+
+Until a notebook connects, `query` and `execute` refuse, naming the line to fill in. Here, in
+start.ipynb, nothing has connected yet:
+
+>>> from warehouse import connect, query, execute
+>>> query("SELECT 1 AS one")
+Traceback (most recent call last):
+...
+RuntimeError:
+  What happened:  No connection: call connect(...) first. query(...) was called before this
+                  notebook gave warehouse.py its connection.
+...
+
+This page connects to the Example database, the made-up tables that ship inside the Toolbox,
+so every how-to runs before you touch a real table. `example_database.query` runs Hive on its
+nine tables, and `example_database.execute` prints the first line of the Hive and changes
+nothing, since the Example database can't be written to:
+
+>>> from sqlglot_composer import example_database
+>>> connect(example_database)
 
 That is all, when your connection's `query` gives back a pandas DataFrame whose columns are
 named as the SELECT names them, and its `execute` runs Hive that changes something. Whatever
-`conn.execute` gives back, `execute` drops it. `query` and `execute` below it pass each Hive
-string on. In this page, `query` and `execute` are always the two functions in warehouse.py;
-`conn.query` and `conn.execute` are your connection's.
+your connection's `execute` gives back, `execute` drops it. In this page, `query` and `execute`
+are always the two functions in warehouse.py, which pass each Hive string to the connection
+`connect` was given.
 
-If your connection gives rows some other way, as each row a dict or a tuple, change `query`
-to turn them into a DataFrame. A dict, such as `{"run_id": 97, "job_id": 3}`, gives its column
-names from its keys:
+If your connection gives rows some other way, as each row a dict or a tuple, change `query` in
+warehouse.py to turn them into a DataFrame. `_connection` there is the connection `connect` was
+given. A dict, such as `{"run_id": 97, "job_id": 3}`, gives its column names from its keys:
 
     def query(hive: str) -> pd.DataFrame:
-        return pd.DataFrame(conn.query(hive))
+        _check_connected("query")
+        return pd.DataFrame(_connection.query(hive))
 
 A database cursor gives each row as a tuple, and the column names apart, in
 `cursor.description`. Pass those names on, rather than typing them yourself, since each
 Statement has its own columns:
 
     def query(hive: str) -> pd.DataFrame:
-        cursor = conn.cursor()  # your connection's cursor, from its database library
+        _check_connected("query")
+        cursor = _connection.cursor()  # your connection's cursor, from its database library
         cursor.execute(hive)
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
 
     def execute(hive: str) -> None:
-        conn.cursor().execute(hive)  # the same connection: nothing comes back to read
+        _check_connected("execute")
+        _connection.cursor().execute(hive)  # the same connection: nothing comes back to read
+
+`connect` refuses a connection with a `cursor` and no `query`, since it checks for the two
+calls: change the names it checks for, `("query", "execute")`, to `("cursor",)`.
 
 `hive: str`, `-> pd.DataFrame` and `-> None` are type hints: they say a Hive string goes in,
 and that a DataFrame comes out of `query` and nothing out of `execute`. Python doesn't check
 them.
 
-Both functions use the one `conn`. Most connections keep one session, so a Session setting, a
-Hive SET line that holds for the rest of the session, sent through `execute` holds for what is sent
-after it, through either function; if yours opens a new session for each call, keep one open in
-`conn` yourself. And let each raise when the warehouse reports a failure. If your connection
+Both functions use the one connection. Most connections keep one session, so a Session setting,
+a Hive SET line that holds for the rest of the session, sent through `execute` holds for what is
+sent after it, through either function; if yours opens a new session for each call, keep one
+open yourself. And let each raise when the warehouse reports a failure. If your connection
 gives back an error rather than raising one, raise it yourself, such as
 `raise RuntimeError(answer.error)`: the Toolbox knows a step failed only when your connection
 raises.
 
-Done when warehouse.py sets `conn` to your connection, and `query` gives back a DataFrame. Then
-step 9.
+Done when `connect(example_database)` runs without an error, and at work each notebook's
+`connect(...)` line holds your connection. Then step 9.
 
 ### 9. Try your query
 
 Goal: proof that `query` gives back rows. Every notebook of the Project imports the two from
-warehouse.py:
-
->>> from warehouse import query, execute
+warehouse.py, once it has connected, as step 8 did.
 
 Try it on Hive that reads no table. A working query gives back a pandas DataFrame, one column
 for each name after SELECT:
@@ -329,12 +356,22 @@ Table notebook is made from, writes it:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
-    from warehouse import query
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
+    from warehouse import connect, query
+
+    # Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+    # its top, before it calls query or execute: write yours in the line below and delete its #,
+    # such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+    # such as team_connection.py, is imported by these lines, written in that line's place:
+    #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    #     from team_connection import conn
+    #     connect(conn)
+    # connect(your_connection)
 
 `pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
 it: the Project's. An admin notebook, one folder down, starts with `.parent` in its place,
-and a Workflow's, three down, with `.parents[2]`.
+and a Workflow's, three down, with `.parents[2]`. The last line, `# connect(your_connection)`,
+is the one step 8 has you fill in, in each notebook.
 `project.new_table` and `project.start` write these lines into each notebook they make.
 
 Done when you can say which line puts the Project's folder on Python's list. Then check it
