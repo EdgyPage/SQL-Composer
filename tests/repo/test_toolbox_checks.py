@@ -126,7 +126,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 8.6, ticket 02: a Scheduled run's folder, made and archived.
                  "new_scheduled_run", "remove_scheduled_run",
                  # Toolbox 8.6, ticket 04: a Scheduled run's Statements, built and printed.
-                 "build_run"]
+                 "build_run",
+                 # Toolbox 8.6, ticket 07: every Saved table, and the Scheduled runs writing it.
+                 "export_project_lineage"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

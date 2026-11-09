@@ -43,7 +43,7 @@ NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
 # The notebooks start() writes in admin/: since Toolbox 8.0 (ticket 12) only those for no
 # Workflow in particular, each Workflow's own being in admin/workflows/<name>/.
 ADMIN_NOTEBOOKS = ["check_project", "check_references", "new_block", "refresh_reference_sheet",
-                   "remove", "run_tables"]
+                   "remove", "run_tables", "scheduled_runs"]
 WORKFLOWS = toolbox_module("workflows").WORKFLOWS
 
 
