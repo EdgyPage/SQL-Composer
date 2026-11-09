@@ -14,17 +14,27 @@ keyword on one of your own calls.
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
 and so do the stops of the import self-check in checks.py.
+
+In a Scheduled run's own cell (Toolbox 8.6), while project.build_run calls its statements(),
+a Guard tripped by the run's own notebook's code only warns, with a GuardWarning, and the build
+lists it: those Hive runs as written, adding up what doesn't add up, a WHERE on a LEFT_JOIN's or
+a FULL_JOIN's table, a write whose Key is unproven, and ORDER_BY in a Derived table. The other
+Guards refuse there too, as Hive would refuse the Statement anyway or the Toolbox can't write it
+as given, and so do the Load limits and every other refusal. Code anywhere else, a Table
+notebook's logic that load runs among it, keeps every Guard.
 """
 
 from __future__ import annotations
 
+import contextlib
 import inspect
+import linecache
 import os
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from types import FrameType
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 import pandas as pd
 
@@ -84,6 +94,55 @@ class RunValueWarning(UserWarning):
 class UncheckedWarning(UserWarning):
     """A Guard or a Load limit couldn't look inside an Unchecked expression or an Unchecked
     derived table, so it lets the Statement through and says what to check by hand."""
+
+
+class GuardWarning(UserWarning):
+    """A Guard a Scheduled run's own cell tripped, let through while project.build_run builds
+    the run: the Statement is built as written, and the build lists it."""
+
+
+class GuardLetThrough(NamedTuple):
+    """A Guard a Scheduled run's own cell tripped and project.build_run let through: what
+    happened, and the line of the run's own code whose call tripped it."""
+
+    what: str
+    line: str
+
+
+# What a Guard let through adds to what happened, in its GuardWarning.
+LET_THROUGH = ("A Guard refuses this; in a Scheduled run's own cell it only warns, and the "
+               "build lists it.")
+# While project.build_run calls a Scheduled run's statements() (Toolbox 8.6): the names of the
+# run's own notebook, whose own code's Guards only warn, and each Guard let through, innermost
+# last.
+_GUARDS_WARN: list[tuple[dict[str, object], list[GuardLetThrough]]] = []
+
+
+@contextlib.contextmanager
+def guards_warn_in(names: dict[str, object]) -> Iterator[list[GuardLetThrough]]:
+    """While the block runs, a Guard Hive runs past as written, tripped by code whose names are
+    `names`, a Scheduled run's own notebook's, warns with a GuardWarning in place of refusing;
+    the list it gives holds each one let through. Code with any other names, a Table
+    notebook's logic that load runs among it, keeps its Guards."""
+    let_through: list[GuardLetThrough] = []
+    _GUARDS_WARN.append((names, let_through))
+    try:
+        yield let_through
+    finally:
+        _GUARDS_WARN.pop()
+
+
+def _refuse_or_let_through(what: str, why: str, fix: str, opt_out: str | None) -> None:
+    """Refuse as a Guard does; or, while project.build_run calls a Scheduled run's statements()
+    and the call that tripped the Guard is the run's own notebook's code, warn with the
+    Guard's four parts, its opt-out named, and note it for the build to list."""
+    frame = callers_frame()
+    if not _GUARDS_WARN or frame.f_globals is not _GUARDS_WARN[-1][0]:
+        refuse(what=what, why=why, fix=fix, opt_out=opt_out, error=GuardRefused)
+    message = four_part_message(what=f"{what} {LET_THROUGH}", why=why, fix=fix, opt_out=opt_out)
+    warn_at_callers_line(message, GuardWarning)
+    line = linecache.getline(frame.f_code.co_filename, frame.f_lineno).strip()
+    _GUARDS_WARN[-1][1].append(GuardLetThrough(what, line or f"line {frame.f_lineno}"))
 
 
 # --- Guards: each refuses a wrong answer --------------------------------------------------
@@ -191,7 +250,7 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     """
     if adds_up or reason is None:
         return
-    refuse(
+    _refuse_or_let_through(
         what=f"{call} adds up {column}, which is {reason}.",
         why=_REGROUPING_WHY.get(
             reason, "Averages, ratios and distinct counts don't add up: the average of "
@@ -200,7 +259,6 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
         fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
         # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
         opt_out=f"{call[:-1]}, adds_up=True)",
-        error=GuardRefused,
     )
 
 
@@ -249,14 +307,13 @@ def guard_left_join_then_where(table: str, condition: str, keeps_only_matches: b
     """A WHERE on a LEFT_JOIN's table throws away the rows the LEFT_JOIN kept."""
     if keeps_only_matches:
         return
-    refuse(
+    _refuse_or_let_through(
         what=f"WHERE has {condition}, a condition on {table}, which LEFT_JOIN brought in.",
         why=f"LEFT_JOIN keeps rows with no match in {table}, but those rows have NULL "
         "there, so this WHERE throws them away again. The result is an ordinary JOIN.",
         fix=f"Move the condition into LEFT_JOIN({table}, ON=...), next to the join "
         "condition, so it only decides which rows match.",
         opt_out=f"LEFT_JOIN({table}, ON=..., keeps_only_matches=True)",
-        error=GuardRefused,
     )
 
 
@@ -265,7 +322,7 @@ def guard_full_join_then_where(joined: str, table: str, condition: str,
     """A WHERE on a FULL_JOIN's tables throws away the rows FULL_JOIN kept with no match."""
     if keeps_only_matches:
         return
-    refuse(
+    _refuse_or_let_through(
         what=f"WHERE has {condition}, a condition on {table}, and FULL_JOIN({joined}) keeps "
         "the rows of both sides that have no match.",
         why=f"A row with no match in {table} has NULL in every {table} column, so this "
@@ -274,7 +331,6 @@ def guard_full_join_then_where(joined: str, table: str, condition: str,
         "table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps "
         "the rows with no match on that side.",
         opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
-        error=GuardRefused,
     )
 
 
@@ -290,15 +346,16 @@ def guard_cross_join(call: str, table: str) -> NoReturn:
     )
 
 
-def guard_order_by_in_derived_table(name: str) -> NoReturn:
-    """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out."""
-    refuse(
+def guard_order_by_in_derived_table(name: str) -> None:
+    """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out, but in a
+    Scheduled run's own cell it only warns."""
+    _refuse_or_let_through(
         what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
         why="The warehouse may not keep the order of rows inside a Derived table (Hive "
         "never does), so any order you rely on later may not be there.",
         fix="Sort in the outermost Statement, or number the rows with row_number(...) "
         "and keep the ones you want.",
-        error=GuardRefused,
+        opt_out=None,
     )
 
 
@@ -321,9 +378,9 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
     )
 
 
-def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
+def guard_unproven_key(call: str, key: list[str], why: str) -> None:
     """A write into a Saved table with a Key must show each row has one of its own."""
-    refuse(
+    _refuse_or_let_through(
         what=f"{call} can't show that each row it writes has a Key ({', '.join(key)}) of "
         f"its own: {why}.",
         why="Hive never checks a Key, so rows that share one would be saved without a "
@@ -335,7 +392,6 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
         'key=["job_id"], once check_key(...) confirms it. The how-to on Keys shows each.',
         opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
         "reason the Toolbox can't see.",
-        error=GuardRefused,
     )
 
 

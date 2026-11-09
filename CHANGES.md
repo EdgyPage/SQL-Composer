@@ -49,6 +49,14 @@ as at its top.
   `-- 3 of 7: mart.team_days (read by week_totals)`, and sends nothing. A Run value's function
   that reads the warehouse, such as a table's latest Partition, is called as it builds, so
   its notebook connects first.
+- **Guards only warn in a Scheduled run's own cell.** While `project.build_run(statements)`
+  calls the run's `statements()`, a Guard tripped by a Statement the run's own notebook composes
+  warns, with its what, why, fix and opt-out, and the build lists each one it let through, with
+  its line, so a quick Statement needs no opt-out. Those let through are the Guards Hive runs
+  past as written: adding up what doesn't add up, a WHERE on a LEFT_JOIN's or a FULL_JOIN's
+  table, a write whose Key is unproven, and ORDER_BY in a Derived table. Load limits, the
+  other Guards and every other refusal still refuse there, and a Statement from a Table
+  notebook's logic, through `project.load`, keeps every Guard.
 
 ## 8.5
 

@@ -84,7 +84,7 @@ scheduler passes in, builds the Statements it names from the Table notebooks' lo
 with the writes of each Project table they read, in Lineage order, and only then sends them,
 giving back what each read returns. It runs what it names, in whichever Database that is; two
 Scheduled runs may write the same table, and keeping them from stepping over each other is the
-user's design. Within its own cell a Guard only warns.
+user's design. Within its own cell a Guard Hive runs past as written only warns.
 _Avoid_: job, DAG, pipeline, schedule
 
 **Parameter**:
@@ -290,7 +290,8 @@ _Avoid_: predicate, criterion
 **Guard**:
 A check the Toolbox runs while a Statement is composed, which refuses a Statement that would
 silently give a wrong result, unless the call that made the mistake carries the Guard's opt-out.
-In a Scheduled run's own cell it warns instead, as a Warning does. Guards protect the answer.
+In a Scheduled run's own cell, one Hive runs past as written warns instead, as a Warning does.
+Guards protect the answer.
 Load limits protect the cluster, and are not Guards.
 _Avoid_: guardrail, check, validation, rule
 
