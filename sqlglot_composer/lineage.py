@@ -648,7 +648,31 @@ def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]
     only on others. `call`, given by project.run_tables and project.build_run, names it in the
     refusal of a loop, which says to leave one out with `leave_one_out_with`."""
     reads = [tables_read(s) for s, _ in named]
-    # needs[i]: the place of each Statement that writes a table the one at place i reads.
+    needs = _needs(named, reads)
+    placed = _placed(needs)
+    if len(placed) < len(named):
+        _refuse_loop(named, reads, _in_the_loop(needs, placed), call, leave_one_out_with)
+    return [named[i] for i in placed]
+
+
+def names_in_a_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+                    ) -> list[str]:
+    """The name of each Statement that goes round in a loop, as in_order would refuse them,
+    each once, in the order given; [] when none does. project.check and
+    project.export_project_lineage report a loop with it, refusing nothing (Toolbox 8.6)."""
+    needs = _needs(named, [tables_read(s) for s, _ in named])
+    placed = _placed(needs)
+    if len(placed) == len(named):
+        return []
+    stuck = _in_the_loop(needs, placed)
+    return list(dict.fromkeys(named[i][1] for i in sorted(stuck)))
+
+
+def _needs(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+           reads: list[set[str]]) -> list[set[int]]:
+    """For each Statement, by its place, the place of each Statement that writes a table it
+    reads. An Unchecked statement or a Python step that changes a table it reads waits only on
+    others."""
     needs = []
     for i in range(len(named)):
         needed = set()
@@ -659,14 +683,19 @@ def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]
                 continue  # it changes a table it reads, and waits only on others
             needed.add(j)
         needs.append(needed)
-    placed = []
-    while len(placed) < len(named):
-        ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
+    return needs
+
+
+def _placed(needs: list[set[int]]) -> list[int]:
+    """The places of the Statements in order, each after those it needs, as many as can be:
+    fewer than all when some go round in a loop."""
+    placed: list[int] = []
+    while len(placed) < len(needs):
+        ready = [i for i in range(len(needs)) if i not in placed and needs[i] <= set(placed)]
         if not ready:
-            _refuse_loop(named, reads, _in_the_loop(needs, placed), call,
-                         leave_one_out_with)
+            return placed
         placed.append(ready[0])
-    return [named[i] for i in placed]
+    return placed
 
 
 def _in_the_loop(needs: list[set[int]], placed: list[int]) -> list[int]:
@@ -940,7 +969,7 @@ def _mermaid_text(text: str) -> str:
     return text
 
 
-def _shortened(text: str, most: int) -> str:
+def shortened(text: str, most: int) -> str:
     """Text cut to at most `most` characters, ending in "…" when it was cut."""
     if len(text) <= most:
         return text
@@ -965,7 +994,7 @@ def mermaid_chart(graph: Graph) -> list[str]:
         lines.append(f'  subgraph {group_ids[group]}["{_mermaid_text(group)}"]')
         for key in keys:
             first, *rest = box_lines(graph.boxes[key])
-            small = [f"<small>{_mermaid_text(_shortened(line, 44))}</small>" for line in rest]
+            small = [f"<small>{_mermaid_text(shortened(line, 44))}</small>" for line in rest]
             text = "<br/>".join([_mermaid_text(first), *small])
             ends = ('{{"', '"}}') if graph.boxes[key]["kind"] == "condition" else ('["', '"]')
             lines.append(f"    {ids[key]}{ends[0]}{text}{ends[1]}")

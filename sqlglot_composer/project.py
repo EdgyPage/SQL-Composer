@@ -22,6 +22,7 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
+    │   ├── lineage/         the Project's lineage, which export_project_lineage writes
     │   ├── templates/       the Templates new_table and new_block make files from: yours to
     │   │                    edit
     │   └── removed/         what remove_table, remove_reference, remove_block and
@@ -58,12 +59,13 @@ rebuilds references/reference_sheet.csv, a row per column of every Table referen
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
 before the tables that read it; build_run, in a Scheduled run's notebook, builds the
 Statements it names with the writes of each table they read, in that order, and prints their
-Hive. upgrade carries the Project's files to a newer Toolbox you
-copied in, marking with `# UPGRADE` what it leaves you to change. scan_hive reads Hive someone
-else wrote and says what a Conversion would make; convert makes each table the Hive writes
-a Saved table in your Dev Database, its Table folder and Table reference, marking with
-`# CONVERSION` each chance the original took, and remove_conversion archives a batch's
-folder. Each runs from a notebook
+Hive; export_project_lineage, run by hand from admin/scheduled_runs.ipynb, draws every Saved
+table, what reads it and which Scheduled runs write it. upgrade carries the Project's files
+to a newer Toolbox you copied in, marking with `# UPGRADE` what it leaves you to change.
+scan_hive reads Hive someone else wrote and says what a Conversion would make; convert makes
+each table the Hive writes a Saved table in your Dev Database, its Table folder and Table
+reference, marking with `# CONVERSION` each chance the original took, and remove_conversion
+archives a batch's folder. Each runs from a notebook
 start() writes in admin/, such as
 admin/new_block.ipynb; admin/check_references.ipynb checks every Table reference against its
 table in the warehouse.
@@ -80,7 +82,8 @@ your tables; the rest never touch the warehouse. start, new_table, new_block, ne
 new_scheduled_run, remove_table, remove_reference, remove_block, remove_scheduled_run,
 register, add_references and upgrade, the Project actions, each add an entry to
 admin/admin_log.md, the log that also keeps every Admin statement run inside the Project. The
-rest add no entry of their own: check and load change no file; refresh_reference_sheet
+rest add no entry of their own: check and load change no file; export_project_lineage
+writes only its two files in admin/lineage/; refresh_reference_sheet
 writes the Reference sheet and the Database modules, and no other file; run_tables writes
 only your tables in the warehouse, though an Admin or Unchecked statement it sends is logged,
 as run_execute logs one anywhere.
@@ -171,7 +174,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
            "reference_from_logic", "new_run_value", "new_scheduled_run",
-           "remove_scheduled_run", "build_run"]
+           "remove_scheduled_run", "build_run", "export_project_lineage"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -436,6 +439,21 @@ ADMIN_NOTEBOOKS = {
         [f"from warehouse import connect, execute\n{CONNECT_LINES}",
          "project.run_tables()  # first, with no execute: prints each Hive, sends nothing",
          "# project.run_tables(execute=execute)"],
+    ),
+    "scheduled_runs": (
+        "# Scheduled runs, by hand\n\nWhat no Scheduled run does each time it runs, since it "
+        "would be work for nothing each time: run these cells by hand, when you want them. "
+        "`project.check()` reports a loop among your tables, two or more each waiting on "
+        "another so that none can be written first, naming the logic cell to mend, and "
+        "changes nothing. `project.export_project_lineage()` writes "
+        "`lineage/<time>-project.html` and its Markdown twin: every Saved table, what reads "
+        "it, and which Scheduled runs write it, a table more than one writes marked and a loop "
+        "drawn red. It builds each Scheduled run as its Build cell does, with its parameters' "
+        "defaults, and sends nothing. The cell under the Project's path connects to the "
+        "warehouse: a Run value that reads the warehouse needs it even to build.",
+        [f"from warehouse import connect\n{CONNECT_LINES}",
+         "project.check()  # a loop among your tables, and what else needs you",
+         "project.export_project_lineage()  # every Saved table, and the runs that write each"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
@@ -1699,7 +1717,7 @@ def _write_proposals(root: Path, tables: list[str],
         # Whatever the query raises, the reference stays written, its Key a TODO.
         except Exception as error:  # noqa: BLE001
             key, said = None, [f"{table}: no Key proposed: counting its rows failed: "
-                               f"{type(error).__name__}: {_one_line_message(error)}"]
+                               f"{type(error).__name__}: {one_line_message(error)}"]
         text = decisions.with_proposals(path.read_text(encoding="utf-8"), table,
                                         values["columns"], key)
         path.write_text(text, encoding="utf-8")
@@ -1753,7 +1771,7 @@ def _write_each_reference(root: Path, names: list[object],
         # Whatever the query raises, the table is reported, and the rest still written.
         except Exception as error:  # noqa: BLE001
             skipped.append(f"{name} (DESCRIBE failed: {type(error).__name__}: "
-                           f"{_one_line_message(error)})")
+                           f"{one_line_message(error)})")
             continue
         files.append(file)
         if not registry.listed(REFERENCE, name):
@@ -1781,7 +1799,7 @@ def _refuse_skipped_tables(skipped: list[str], files: list[str], count: int) -> 
     )
 
 
-def _one_line_message(error: Exception) -> str:
+def one_line_message(error: Exception) -> str:
     """An error's message on one line: for one of the Toolbox's four-part messages, only what
     happened, so it reads inside another."""
     text = str(error)
@@ -1895,7 +1913,11 @@ def check() -> ProjectReport:
     of a prod copy project.promote wrote that was changed or deleted by hand since; the next
     step of each Workflow you have started, in admin/workflows/, with its call, which
     project.do_next() runs for you when it can, and why a step is due when its files can say,
-    such as which Table reference changed after the Reference sheet was last written; each
+    such as which Table reference changed after the Reference sheet was last written; a loop
+    among the Project's tables, two or more each waiting on another so that none can be
+    written first, naming each table in it and the notebook whose # logic cell to mend, which
+    it finds by loading each Table folder's logic, as run_tables does, a Table folder whose
+    logic doesn't load yet passed over; each
     batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
@@ -1926,6 +1948,10 @@ def check() -> ProjectReport:
     lines += _edited_by_hand_lines(root)
     lines += _workflow_lines(root)
     lines += _databases_lines(root)
+    # project_lineage imports this file, so it is read here, when check() runs.
+    from .project_lineage import loop_lines
+
+    lines += loop_lines(registry)
     if not lines:
         lines = ["Every Table folder, Table reference and Building block is registered, and "
                  "each one registered is there."]
@@ -7358,6 +7384,56 @@ def _build_run_call(statements: object, run_values: dict[str, object] | None,
     if leave_out:
         shown += f", leave_out={leave_out!r}"
     return f"project.build_run({shown})"
+
+
+# --- export_project_lineage -------------------------------------------------------------------
+
+
+def export_project_lineage() -> ProjectReport:
+    """Draw every Saved table, what reads it and which Scheduled runs write it.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.new_scheduled_run("weekly")
+    Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+    Fill in its <...>: its parameters, its connection and the Statements it runs.
+    >>> project.export_project_lineage()
+    Wrote admin/lineage/...-project.html and its Markdown twin, ...-project.md: 0 tables and
+    1 Scheduled run.
+    Not built, as the page shows: weekly: project.export_project_lineage(): cell 4 of
+    scheduled_runs/weekly/weekly.ipynb isn't Python yet, at its line 12: ...
+
+    Run it by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run's notebook: it
+    builds every run, so it is work no Scheduled run need do each time. It writes an HTML
+    page and its Markdown twin into admin/lineage/, named by the time, such as
+    admin/lineage/20261109-093000-project.html, and changes no other file.
+
+    Each table is a box: each Table folder the registry lists, each table a write of the
+    Project writes, and each table they read that the Project doesn't write, marked so. An
+    arrow runs from a table to each table whose write reads it. Each Table folder's write()
+    comes through project.load, as run_tables reads it. Each Scheduled run is built as its
+    Build cell builds it, with its parameters' defaults, sending nothing: its parameters cell,
+    the imports above its # scheduled cell, that cell and the Build cell's call run, from the
+    run's folder. Each table a run writes, those the build adds included, names the run on
+    its box, and a table more than one run writes is marked: two runs may write one table,
+    so it is shown, never refused. A loop, tables each waiting on another, so that none can
+    be written first, is drawn red, its tables listed at the top; project.check() names the
+    logic cell to mend.
+
+    A Run value is worked out as each Statement is built, so one that reads the warehouse
+    needs connect(...) first, as the notebook's first cell has it; one that fails changes
+    nothing drawn. A run that doesn't build, as one with a <...> left, and a Table folder whose
+    logic doesn't load are shown on the page with why, and named here.
+    """
+    call = "project.export_project_lineage()"
+    root = _project_root(call)
+    # project_lineage imports this file, so it is read here, when the lineage is written.
+    from .project_lineage import write_project_lineage
+
+    return ProjectReport(write_project_lineage(root, call))
 
 
 # --- Pieces they share ------------------------------------------------------------------------
