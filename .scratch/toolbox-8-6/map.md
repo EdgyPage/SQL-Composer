@@ -58,7 +58,9 @@ dependencies from actually running code" (Q3): building and running are separate
      run is for, from the Table notebooks' logic through `load(...)`, such as
      `load("mart.team_days").week_totals(WEEK)`, and Statements of its own. It may define Run
      values of its own (Q22), traced like any other, kept in the notebook.
-  4. **Build**: `built = project.build_run(statements(), run_values={...}, leave_out=[...])`.
+  4. **Build**: `built = project.build_run(statements, run_values={...}, leave_out=[...])`,
+     given the function, not what it gives: the build reads the parameters and writes them
+     back first, then calls `statements()` within its Run value overrides (ticket 04).
   5. **Run**: `results = built.run(query, execute)`.
 - **Strong parameters** (Q13, "make sure passing in parameters is strong here in case I need to
   define days of interest or whatever"; Q21): before anything is built, each parameter is
