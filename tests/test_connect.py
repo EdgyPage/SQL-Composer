@@ -179,7 +179,9 @@ def test_each_notebook_that_reaches_the_warehouse_connects_at_its_top(
 def test_each_table_notebook_template_connects_at_its_top() -> None:
     templates = toolbox_module("project_templates")
     for name, text in templates.TEMPLATES.items():
-        if "# %%" not in text:
+        # A Scheduled run's Template isn't a Table notebook's: its parameters cell comes first,
+        # and test_new_scheduled_run holds its setup cell to the same line.
+        if "# %%" not in text or name == "scheduled_run":
             continue
         first = text.split("# %%\n")[1]
         assert "from warehouse import connect, query" in first, name

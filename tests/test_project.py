@@ -75,7 +75,8 @@ def log_text(root: Path) -> str:
 
 def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
-        "admin", "building_blocks", "references", "tables", "warehouse.py"]
+        "admin", "building_blocks", "references", "scheduled_runs", "tables",
+        "warehouse.py"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
         ["admin_log.md", "databases.py", "project_version.txt", "registry.csv",
          "sent.csv", "templates", "workflows"]
@@ -86,7 +87,7 @@ def test_start_lays_out_a_project(started: Path) -> None:
                 / f"{workflow.name}.ipynb").is_file()
     assert sorted(path.name for path in (started / "admin" / "templates").iterdir()) == [
         "building_block.py", "quality_checks.py", "saved_table.py",
-        "saved_table_reference.py"]
+        "saved_table_reference.py", "scheduled_run.py"]
     assert registry(started) == []
     assert (started / "admin" / "registry.csv").read_text(encoding="utf-8") == (
         "kind,table,created_at,removed_at\n")
@@ -125,13 +126,14 @@ def test_start_says_to_connect_each_notebook(
     set_admin_log()
     assert " ".join(repr(project.start()).split()) == (
         "Started a Project in the folder you're working in: admin/, references/, "
-        "building_blocks/, tables/ and warehouse.py. Next: at the top of each notebook, fill "
-        "in connect(...) with your connection.")
+        "building_blocks/, tables/, scheduled_runs/ and warehouse.py. Next: at the top of each "
+        "notebook, fill in connect(...) with your connection.")
 
 
 def test_start_logs_a_project_action(started: Path) -> None:
     assert ("## 2026-10-21 09:30:00, Project action\n\n- Call: `project.start()`\n"
-            "- Files: created admin/, references/, building_blocks/, tables/, warehouse.py\n"
+            "- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, "
+            "warehouse.py\n"
             in log_text(started))
 
 
@@ -671,7 +673,7 @@ def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path
     remove = started / "admin" / "remove.ipynb"
     removal = [text for kind, text in cells(remove) if kind == "code"]
     run_admin_notebook(remove, [removal[0], 'TABLES = REFERENCES = CONVERSIONS = []\n'
-                                'BLOCKS = ["your_block"]', *removal[2:]])
+                                'SCHEDULED_RUNS = []\nBLOCKS = ["your_block"]', *removal[2:]])
     assert not (started / "building_blocks" / "your_block.py").exists()
     assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"]
 

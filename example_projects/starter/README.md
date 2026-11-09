@@ -60,7 +60,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/runs_per_job.py`, a Building block | `project.new_block("runs_per_job")` | its `<...>` and TODO lines |
-| `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, and the same for mart__daily_job_runs, mart__alerts_per_job and mart__team_day | `project.new_table("mart.alerts_per_severity")`, and so on | its `<...>` lines |
+| `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, and the same for mart__daily_job_runs, mart__alerts_per_job and mart__team_day | `project.new_table("mart.alerts_per_severity")`, and so on | its `<...>` lines, and its first cell's `connect(...)`, with the Example database |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `<db>__<table>.hql` in each Table folder, such as `tables/mart__team_day/mart__team_day.hql`, the table's Hive: each step its notebook's logic sends, in the order they are sent, to read at a glance and to commit | its notebook's `export_hive()` cell, the one after its lineage cell, which writes the file again each time it runs | nothing: never edit it. To change it, edit the notebook's logic, save the notebook, and run its `export_hive()` cell again |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |

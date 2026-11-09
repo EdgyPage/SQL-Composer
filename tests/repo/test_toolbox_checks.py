@@ -122,7 +122,11 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  "reference_from_logic",
                  # Toolbox 8.5, ticket 06: a Run value's function, giving a table's latest
                  # Partition.
-                 "new_run_value"]
+                 "new_run_value",
+                 # Toolbox 8.6, ticket 02: a Scheduled run's folder, made and archived.
+                 "new_scheduled_run", "remove_scheduled_run",
+                 # Toolbox 8.6, ticket 04: a Scheduled run's Statements, built and printed.
+                 "build_run"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

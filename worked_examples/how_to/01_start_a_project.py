@@ -73,7 +73,7 @@ Goal: the Project's layout. `project.start()` lays out the folder your notebook 
 
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
+tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 
 Done when it says `Started a Project`. Then step 6.
@@ -175,7 +175,7 @@ is the one after its heading:
 2026-09-25 09:00:00, Project action
 <BLANKLINE>
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 <BLANKLINE>
@@ -384,7 +384,7 @@ Table folder, Table reference and Building block the registry lists is there, an
 that it doesn't list.
 
 >>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
-['admin', 'building_blocks', 'references', 'tables']
+['admin', 'building_blocks', 'references', 'scheduled_runs', 'tables']
 
 In your own Project the list holds `sqlglot_composer` too, the Toolbox you copied in, and
 `__pycache__/`, where Python keeps warehouse.py ready to import once a notebook has imported it;

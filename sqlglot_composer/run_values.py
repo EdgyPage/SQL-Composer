@@ -7,7 +7,9 @@ call is traced: while it runs, each read the Toolbox makes for it (latest_partit
 partition column, each table a Statement it sends through run_query reads) is noted, and the
 Statement's lineage draws a box for the call, with an arrow from each read. A function that
 fails leaves a placeholder in its value's place, with a Warning, so a dry run still shows the
-rest, and the Statement is never sent.
+rest, and the Statement is never sent. While project.build_run builds a Scheduled run, a
+Run value its run_values= names, by its function's name, gives that value instead, its
+function not called.
 
 today, latest_partition and hive_date help write such a function.
 """
@@ -16,7 +18,8 @@ from __future__ import annotations
 
 import datetime
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from .describe import printed_answer
@@ -54,6 +57,29 @@ class Traced:
 
 # The calls being traced, innermost last: note_read notes each read in each of them.
 _TRACING: list[Traced] = []
+# While project.build_run builds (Toolbox 8.6), the value its run_values= gives each Run value,
+# by its function's name, given in place of calling the function; and, for each build, the
+# name of each Run value met, called or given a value, in order.
+_GIVEN: dict[str, object] = {}
+_MET: list[list[str]] = []
+
+
+@contextmanager
+def values_given(given: dict[str, object]) -> Iterator[list[str]]:
+    """While the block runs, each Run value whose function's name `given` holds gives that
+    value in place of calling the function, a Script tag's and tag_text's too; the list it
+    gives holds the name of each Run value met while the block runs, in order. Afterwards,
+    each function is called again."""
+    met: list[str] = []
+    before = dict(_GIVEN)
+    _GIVEN.update(given)
+    _MET.append(met)
+    try:
+        yield met
+    finally:
+        _MET.remove(met)
+        _GIVEN.clear()
+        _GIVEN.update(before)
 
 
 def function_name(function: Callable[..., object]) -> str:
@@ -81,6 +107,11 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
     shown = ", ".join([*(repr(each) for each in arguments),
                        *(f"{name}={each!r}" for name, each in keywords.items())])
     traced = Traced(function_name(function), shown, tag)
+    name = getattr(function, "__name__", traced.function)
+    for met in _MET:
+        met.append(name)
+    if name in _GIVEN:
+        return _GIVEN[name], traced, None
     _TRACING.append(traced)
     try:
         return function(*arguments, **keywords), traced, None
