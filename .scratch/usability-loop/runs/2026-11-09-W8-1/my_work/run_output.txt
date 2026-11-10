@@ -1,0 +1,116 @@
+--- cell 1
+--- parameters given: WEEK
+--- cell 2
+--- cell 3
+--- cell 4
+Parameters, as this run uses them:
+  START_FROM = ""
+  WEEK = datetime.date(2026, 9, 16), read as datetime.date | None from "2026-09-16"
+-- 1 of 4: mart.job_day_costs
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+WITH costs_per_job AS (
+  SELECT
+    region_costs.job_id,
+    SUM(region_costs.cost_cents) AS cost_cents,
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      '-',
+      SUBSTRING(region_costs.dt, 5, 2),
+      '-',
+      SUBSTRING(region_costs.dt, 7, 2)
+    ) AS dt
+  FROM ops.region_costs AS region_costs
+  WHERE
+    region_costs.dt BETWEEN '20260914' AND '20260920'
+  GROUP BY
+    region_costs.job_id,
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      '-',
+      SUBSTRING(region_costs.dt, 5, 2),
+      '-',
+      SUBSTRING(region_costs.dt, 7, 2)
+    )
+)
+INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt)
+SELECT
+  costs_per_job.job_id,
+  costs_per_job.cost_cents,
+  costs_per_job.dt
+FROM costs_per_job;
+-- 2 of 4: mart.job_day_facts
+WITH events_per_job AS (
+  SELECT
+    job_events.job_id,
+    job_events.dt,
+    COUNT(*) AS events,
+    COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END) AS runs,
+    COALESCE(
+      SUM(
+        CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
+      ),
+      0
+    ) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN '2026-09-14' AND '2026-09-20'
+  GROUP BY
+    job_events.job_id,
+    job_events.dt
+)
+INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)
+SELECT
+  events_per_job.job_id,
+  job_owners.team,
+  events_per_job.events,
+  events_per_job.runs,
+  events_per_job.minutes,
+  events_per_job.dt
+FROM events_per_job
+LEFT JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = events_per_job.dt
+  AND job_owners.dt BETWEEN '2026-09-14' AND '2026-09-20';
+-- 3 of 4: mart.team_days
+INSERT OVERWRITE TABLE mart.team_days PARTITION(dt)
+SELECT
+  job_day_facts.team,
+  SUM(job_day_facts.events) AS events,
+  SUM(job_day_facts.runs) AS runs,
+  SUM(job_day_facts.minutes) AS minutes,
+  SUM(job_day_costs.cost_cents) AS cost_cents,
+  job_day_facts.dt
+FROM mart.job_day_facts AS job_day_facts
+LEFT JOIN mart.job_day_costs AS job_day_costs
+  ON job_day_costs.job_id = job_day_facts.job_id
+  AND job_day_costs.dt = job_day_facts.dt
+  AND job_day_costs.dt BETWEEN '2026-09-14' AND '2026-09-20'
+WHERE
+  job_day_facts.dt BETWEEN '2026-09-14' AND '2026-09-20'
+GROUP BY
+  job_day_facts.dt,
+  job_day_facts.team;
+-- 4 of 4: week_totals
+SELECT
+  CAST(NEXT_DAY(DATE_ADD(team_days.dt, 7 * -1), 'MO') AS STRING) AS week,
+  team_days.team,
+  SUM(team_days.events) AS events,
+  SUM(team_days.runs) AS runs,
+  SUM(team_days.minutes) AS minutes,
+  SUM(team_days.cost_cents) AS cost_cents
+FROM mart.team_days AS team_days
+WHERE
+  team_days.dt BETWEEN '2026-09-14' AND '2026-09-20'
+GROUP BY
+  CAST(NEXT_DAY(DATE_ADD(team_days.dt, 7 * -1), 'MO') AS STRING),
+  team_days.team;
+Built 4 Statements in order, and sent nothing: results = built.run(query, execute) sends them.
+--- cell 5
+1 of 4: mart.job_day_costs  worked
+2 of 4: mart.job_day_facts  worked
+3 of 4: mart.team_days      worked
+4 of 4: week_totals         worked: 2 rows, in results["week_totals"]
+Sent 4 Statements in order. results holds the rows of week_totals, by name, as results["week_totals"].
+--- every cell ran

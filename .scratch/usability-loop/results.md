@@ -801,3 +801,50 @@ What 8.5 did:
   H1-3), where in_dev.hql has the table's own.
 - **The harness**: the runner's cell numbers are code cells only (W3-3, W7-3); a FILES path
   that doesn't exist printed nothing through the runner (W7-3).
+| 2026-11-09 | W1 | dev | 2026-11-09-W1-2 | pass | 0 | passed with no question; RENAME needed to keep the name; a Windows path's backslashes failed in sys.path.append; another run's file in the shared scratchpad; 8 actions; inputs 5dd96ac865f72551 |
+| 2026-11-09 | W1 | dev | 2026-11-09-W1-1 | pass | 0 | passed with no question; the 117 KB README searched by heading; --cells numbers code cells, unsaid; a TODO line's blocking unsaid; 4 actions; inputs 5dd96ac865f72551 |
+| 2026-11-09 | W1 | dev | 2026-11-09-W1-3 | pass | 0 | passed with no question; a run without a notebook unsaid in section 1; FILES outside the Project unclear in step 1; 4 actions; inputs 5dd96ac865f72551 |
+| 2026-11-09 | W8 | dev | 2026-11-09-W8-3 | pass | 0 | passed with no question; writing a table for a chosen period (write_days in statements()) unsaid in the README; a plain parameter default unsaid; hand-editing a notebook's JSON; 6 actions; inputs db651039d61563a0 |
+| 2026-11-09 | W8 | dev | 2026-11-09-W8-1 | pass | 0 | passed with no question; write_days for a chosen period unsaid in the README; a write in statements() taking the added one's place unsaid; run_value against reading WEEK unsaid; 6 actions; inputs db651039d61563a0 |
+| 2026-11-09 | W8 | dev | 2026-11-09-W8-2 | pass | 0 | passed with no question; WEEK bare with no default, so a Jupyter run needs it set; notebooks edited by script; scratch files in the shared scratchpad; 6 actions; inputs db651039d61563a0 |
+
+## The 8.6 round, 2026-11-09: connect, and a Scheduled run
+
+Main's tree was built from dev at 8.6 (e2776efc). A round of the scenarios 8.6 changed the
+path of: convert (W1), whose notebooks now connect at their top, and the new W8, a Scheduled
+run of a week's breakdown given its week as text; three fresh Haiku runs each, one phase each.
+The 6 rows are just above. It is the first round the loop records its inputs for (ticket 11):
+each row ends with its inputs hash, and `plan W1 W8` now answers memoized for both, so the
+next round gives neither to an agent until something a run reads changes.
+
+| scenario | split | passed | questions | actions | files of its own, 8.5 | files of its own, 8.6 |
+|---|---|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 4, 8, 4 | 4, 3, 3 | 3, 7, 3 |
+| W8 | dev | 3/3 | 0 | 6, 6, 6 | new | 6, 6, 6 |
+
+What 8.6 did:
+- **connect.** Every W1 run filled the convert notebook's `connect(...)` line with the team's
+  connection, as the README says, and asked nothing.
+- **Scheduled runs.** Every W8 run made its run through `admin/scheduled_runs.ipynb`'s
+  `NEW_RUNS`, typed its parameter with a hint, built it to read the Hive, and ran it top to
+  bottom with the week passed as text; each table holds exactly the week asked for.
+
+### Found in the 8.6 round, none failing a run
+
+- **A run of a chosen period** (W8, all three): writing a table for the week asked for takes
+  each Table notebook's `write_days(first_day, last_day)` in `statements()`, which the README's
+  Scheduled runs section and the Template never name; each run found it in the logic's
+  docstrings. Nor does the README say that a write in `statements()` takes the place of the
+  one the build would add for that table (W8-1), which the code does.
+- **Parameter defaults** (W8-2, W8-3): the README's examples are all `| None`; one run left
+  WEEK with no default, one gave a plain date, with no word on either.
+- **run_value or the parameter itself** (W8-1): the Template shows `run_value(...)` for a value
+  worked out each build; reading the parameter inside `statements()` works too, and nothing
+  says which to pick.
+- **W1, as in 8.5**: `--cells` numbers code cells only, unsaid (W1-1); the README is long
+  enough that the convert steps are found by heading (W1-1); whether a Table reference's TODO
+  line blocks a run is unsaid (W1-1); a Windows path's backslashes failed in
+  `sys.path.append` (W1-2); FILES pointing outside the Project read as unclear in step 1 (W1-3).
+- **The harness**: the runs' agents share the session's scratchpad folder, so one run's
+  script was overwritten by another's (W1-2) and others left scratch files there (W8-2): give
+  each run a scratch folder of its own, or tell the agent to keep scripts in `my_work/`.

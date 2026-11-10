@@ -1,0 +1,28 @@
+{
+ "scenario": "W1",
+ "commit": "e2776efc21fca1f77cbcfe0ffcce6345dac84e50",
+ "main": {
+  "tree": "95220f2fb46396075e394e87ac02a3e1695eaa65a3bc9d80bc2bf1ce71a50b9c",
+  "named": {
+   ".github/README.md": "2b8589d43dacdbaf1770af1cf118894639cba7a403771a1fe004c3fcfae97473"
+  }
+ },
+ "project": {},
+ "warehouse": "c2f5e5471f8a159d5ac36965a27f1df895195e04dcd624959b3a1d32ab2591f2",
+ "scenario_files": {
+  "key.json": "e8ed286428f98947ea62fe9e400ec9242628e211d78f806783123b62a718c081",
+  "scenario.json": "ba7a347303d73b0c124adf3764e96cd8bd3befc51b403dc84eb43d8d83e0b8c5",
+  "weekly_fails.hql": "c8c7a1dd9338718ba662ade2a643e4833743f0779f711b2f4cb29b37c3837d3a"
+ },
+ "phases": [
+  "8248b304ea6b054f8a1cde33f2638896a9777fdd4e22afa5dafbd3b3ea02f7b9"
+ ],
+ "loop_files": {
+  "run_notebook.py": "6e20857e7f2ba5028b28aa7b2124ff96d9dbfbc00758f72e5c057d1b4d81b168",
+  "workflow_warehouse.py": "70e23c632d34cd9ebe8d5ce766d1d2857ac4653a269a782e16c0769afe2eb046",
+  "team_connection.py": "4ac32fb10f6bf36b2bbdfe0e3fdfaf5171f44616591206ec8d5a7efef52bc0c8",
+  "warehouse.py's conn line": "850487c1e5fa472ff2cde296750dd3c3fb4107a49ce08d86dc847d0a0859227c",
+  "each notebook's connect lines": "a97adecf1e6f6924689fc1be0c1644f7785daac2d96a9b13bec9b393ef99501f"
+ },
+ "inputs_hash": "5dd96ac865f725512c51401f837a0b1ece79d1f03529fb7e24dbd450dc896975"
+}
