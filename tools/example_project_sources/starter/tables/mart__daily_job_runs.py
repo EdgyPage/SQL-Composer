@@ -12,8 +12,9 @@
 # too, so the two can never count runs two ways. Every run counts, TEST runs among them. It is
 # partitioned by dt, as ops.job_runs is.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__daily_job_runs.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__daily_job_runs.hql;
+# 6 its rows in the Reference sheet.
 # The Example database can be read but not written, so cell 3 prints each write's Hive and
 # runs only the preview.
 

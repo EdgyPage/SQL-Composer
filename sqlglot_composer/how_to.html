@@ -191,13 +191,16 @@ connect(your_connection), before it calls query or execute; until it does, they 
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
 back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which one sends each Statement, by calling
-run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute) for
-what changes something, as a write does. Let the two share one session, so a Session setting
-sent through execute holds for what is sent after it; and let each raise when the warehouse
-reports a failure, since the Toolbox knows a step failed only when your connection raises. Keep
-it importing nothing from references/, building_blocks/ or tables/, so any notebook or script
-of yours can import it.
+connect(example_database). You pick which of query and execute sends each Statement, by
+calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
+execute) for what changes something, as a write does; a Scheduled run&#x27;s Run cell,
+built.run(query, execute), picks for each of its Statements the same way. You edit nothing
+here, unless your connection names its two calls another way: then change the calls query and
+execute make below, and the names connect checks for, (&quot;query&quot;, &quot;execute&quot;), to yours. Let your
+connection&#x27;s two calls share one session, so a Session setting sent through execute holds for
+what is sent after it; and let each raise when the warehouse reports a failure, since the
+Toolbox knows a step failed only when your connection raises. Keep it importing nothing from
+references/, building_blocks/ or tables/, so any notebook or script of yours can import it.
 &quot;&quot;&quot;
 
 from typing import NoReturn
@@ -3386,8 +3389,9 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file&#x27;s name,
 # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql;
+# 6 its rows in the Reference sheet.
 # The logic only imports and defines, so `project.load(&quot;mart.alerts_per_severity&quot;)` can run it
 # from anywhere else, for lineage across your tables and for `admin/run_tables.ipynb`, which
 # sends its `write()`.
@@ -16535,8 +16539,8 @@ run_speed = Table(
 # usual run, the median. The change is made in pandas, by add_minutes_over_median in
 # `building_blocks/run_speed.py`, and the rows are saved by your own call, in cell 3.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3
-# pull, change and save the rows; 4 its lineage.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 pull, change and save the rows; 4 its lineage.
 
 # %%
 # 1. The Project and your query
@@ -16878,8 +16882,8 @@ slow_runs = Table(
 #
 # Each run that took more than 5 minutes over its job&#x27;s usual run, from mart.run_speed.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3
-# try it; 4 its lineage.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage.
 
 # %%
 # 1. The Project and your query
@@ -19549,7 +19553,7 @@ Sent 4 Statements in order. results holds the rows of team_day, by name, as resu
 <p>Done when it ends with no error, and <code>results[&quot;team_day&quot;]</code> holds each team&#x27;s numbers. Then step 7.</p>
 <h5>7. Schedule it</h5>
 <p>Goal: the scheduler runs the notebook. Have your scheduler run team_day.ipynb top to bottom, from its own folder, passing each parameter as text. With papermill, which runs a notebook and saves a copy of it with each cell&#x27;s output, that is a command such as &quot;papermill team_day.ipynb runs/team_day_2026-09-23.ipynb -p READ_DAY 2026-09-23&quot;, typed in a terminal opened in scheduled_runs/team_day/. Its &quot;-p READ_DAY 2026-09-23&quot; passes READ_DAY as text, which the Build cell reads as a date, as in step 5. papermill finds the parameters cell by its tag: in JupyterLab, the cell&#x27;s tags are in the right sidebar&#x27;s Property Inspector; the Template&#x27;s cell has it already. The saved copy is the run&#x27;s record: what the build printed, each parameter as used first, and each line the run printed. Nothing else is written as it runs.</p>
-<p>If one fails, the run stops there, prints the tables it wrote before it and a line such as <code>START_FROM = &quot;mart.team_days&quot;</code>, and raises its error, so the scheduler sees the notebook fail. Run it again with that value, <code>-p START_FROM mart.team_days</code>, and the build passes over each Statement before that table&#x27;s first write. A plain run again, <code>START_FROM</code> left <code>&quot;&quot;</code>, is safe too: each write replaces the Partitions it fills.</p>
+<p>If one fails, the run stops there, prints the tables it wrote before it and a line such as <code>START_FROM = &quot;mart.team_days&quot;</code>, and raises its error, so the scheduler sees the notebook fail. Run it again with that value, <code>-p START_FROM mart.team_days</code>, and the build passes over each Statement before that table&#x27;s first write. A SELECT it passes over isn&#x27;t sent, so its rows aren&#x27;t in <code>results</code>: here team_day, sent first, is passed over, and only a plain run gives <code>results[&quot;team_day&quot;]</code>. A plain run again, <code>START_FROM</code> left <code>&quot;&quot;</code>, is safe too: here, each write is an INSERT_OVERWRITE, as each <code>INSERT OVERWRITE TABLE</code> line the build printed in step 5 shows, which replaces the Partitions it fills. A write made with INSERT_INTO, printed as <code>INSERT INTO TABLE</code>, adds its rows each time it is sent, so a run holding one runs again only with the <code>START_FROM</code> it printed.</p>
 <p>Done when your scheduler runs it with the parameters it needs. Then step 8.</p>
 <h5>8. Export its Hive and lineage by hand</h5>
 <p>Goal: the run&#x27;s Hive in a file to read and commit, and its lineage. Neither is written as the run runs, since that would be work for nothing each time: admin/scheduled_runs.ipynb holds the cells that write them, by hand, from the Project&#x27;s top. <code>project.export_run_hive</code> builds the run as its Build cell does, with its parameters&#x27; defaults, and writes its Hive into team_day.hql beside its notebook, to read, never to edit or to send:</p>

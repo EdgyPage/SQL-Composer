@@ -13,8 +13,9 @@
 # as well: an alert counts on the day it was raised, whichever of the two days its run is in.
 # Each alert joins its run on run_id, ops.job_runs' Key, so it is counted once.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__alerts_per_job.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__alerts_per_job.hql;
+# 6 its rows in the Reference sheet.
 
 # %%
 # 1. The Project and your query
