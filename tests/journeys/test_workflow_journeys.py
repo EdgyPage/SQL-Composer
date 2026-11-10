@@ -33,7 +33,6 @@ from __future__ import annotations
 import ast
 import contextlib
 import csv
-import datetime
 import io
 import re
 import shutil
@@ -48,7 +47,6 @@ import notebook_runner
 import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
-from sqlglot.executor import env as executor_env
 from workflow_warehouse import Warehouse
 
 from sqlglot_composer import project, to_hive
@@ -1358,8 +1356,6 @@ MONDAY = "2026-09-21"
 # cell, the last the user runs before scheduling the run.
 INJECTED = "# Parameters"
 BUILD = "# Build:"
-# Hive's days of the week, as NEXT_DAY names them.
-WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 
 
 @dataclass
@@ -1449,15 +1445,6 @@ class FailingOneWrite:
         self.warehouse.execute(hive)
 
 
-def _next_day(day: str, weekday: str) -> str:
-    """Hive's NEXT_DAY(day, 'MO'): the first Monday after `day`, as text. week_start writes
-    it, and the Example database's executor has none, so the stand-in is taught it for the
-    journey, as Hive at work knows it."""
-    start = datetime.date.fromisoformat(str(day)[:10])
-    ahead = (WEEKDAYS.index(weekday.upper()[:2]) - start.weekday() - 1) % 7 + 1
-    return (start + datetime.timedelta(days=ahead)).isoformat()
-
-
 @pytest.fixture
 def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                  request: pytest.FixtureRequest) -> Iterator[Started]:
@@ -1479,7 +1466,6 @@ def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setitem(sys.modules, "journey_conn", conn)
     for table in WEEKLY_WRITES:
         warehouse.execute(to_hive(project.load(table).create()))
-    monkeypatch.setitem(executor_env.ENV, "NEXTDAY", _next_day)
     journeyed = Started(root, monkeypatch, warehouse, {})
     yield journeyed
     forget_the_projects_modules()
@@ -1536,8 +1522,9 @@ def test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_fail
     assert _week_totals_given_back(names), "week_totals gave back no row"
     assert _week_totals_given_back(names) == _week_totals_of(intermediate.warehouse)
 
-    # The next week's run, by the scheduler alone: the warehouse fails mart.team_days' write,
-    # so the scheduler sees the notebook fail, and the run printed its START_FROM.
+    # The same week's run once more, by the scheduler alone: the warehouse fails
+    # mart.team_days' write, so the scheduler sees the notebook fail, and the run printed its
+    # START_FROM.
     conn = sys.modules["journey_conn"]
     conn.conn = FailingOneWrite(intermediate.warehouse, "mart.team_days")
     printed, names, error = run.run_as_a_scheduler(WEEK=WEEK)

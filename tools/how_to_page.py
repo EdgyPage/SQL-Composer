@@ -67,7 +67,7 @@ Under the headings go:
   box headed by its path and the call. Its `<...>` placeholders needn't be Python yet.
 
 Where the Example database can't run a Statement's Hive, such as one with
-week_start, the how-to's file gives a pandas stand-in after its docstring: a
+month_start, the how-to's file gives a pandas stand-in after its docstring: a
 function `NAME_in_pandas()`, which returns the DataFrame the Statement the steps call `NAME`
 gives, as the Worked examples' `*_in_pandas` functions do. When the Example database's query
 can't run that Statement's Hive, the stand-in's DataFrame comes back instead, both on the page,
