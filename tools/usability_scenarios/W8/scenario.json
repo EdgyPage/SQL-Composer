@@ -1,0 +1,15 @@
+{
+ "id": "W8",
+ "split": "dev",
+ "title": "a Scheduled run of a week's breakdown, its week given as text",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's Project, my_project, saves each team's numbers per day in mart.team_days, written from mart.job_day_facts and mart.job_day_costs, and mart.team_days's logic has week_totals, each team's totals for a week. Your team's scheduler must be able to add up any week again: make it a Scheduled run of your own, team_week, with the Toolbox. The scheduler gives it WEEK, a day of the week to add up, as text, such as 2026-09-16. Each run writes mart.team_days for each day of WEEK's week, Monday to Sunday, and no other day, each table mart.team_days reads written for those days first, then gives back week_totals for that week. Build it and read its Hive, then run it top to bottom as the scheduler does, which passes WEEK as text: run its notebook with run_notebook.py, adding `-p WEEK 2026-09-16`."
+  }
+ ],
+ "hive_ran": [
+  "tables_made.hql"
+ ],
+ "project": "example_projects/intermediate"
+}
