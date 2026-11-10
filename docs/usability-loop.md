@@ -82,7 +82,8 @@ given:
 - `warehouse`: the team's warehouse, as the scenario's Hive left it;
 - `scenario_files`: each file of the scenario's folder, its answer key among them;
 - `phases`: each phase's message, as written for no run in particular;
-- `loop_files`: the runner, the warehouse's code and the team's connection the loop puts in.
+- `loop_files`: the runner, the warehouse's code and the team's connection the loop puts in,
+  and the lines it gives a Project brought in that connection by, each hashed on its own.
 
 `inputs_hash` is one hash of all of those; dev's commit is left out of it. A change to any of
 them, such as a fix to a how-to an agent reads, gives a new hash, and the scenario runs again.
@@ -93,11 +94,24 @@ Two things are cached, in `%TEMP%\usability-loop\cache\`, so a round builds each
   copied into each run;
 - `scenarios\<commit>\<scenario>-<hash>\`: each scenario's files, its warehouse having run its
   Hive, and any Project its user starts from (for W5, the end of W2), set up once per dev
-  commit and scenario, the hash that of the scenario's own files, then copied into each run.
+  commit and scenario, then copied into each run. The hash is that of what the set-up is made
+  from: the scenario's own files, the folder of dev's its Project is copied from (such as
+  `example_projects/intermediate` for W8), and the files of the scenario it starts from (W2's,
+  for W5), so an edit to any of them, committed or not, sets it up again.
 
 Building a new commit's tree removes every other commit's cache. To clear it all, delete the
 folder: `rmdir /s /q %TEMP%\usability-loop\cache`. Nothing in it is ever edited: a run works
 on its own copy.
+
+Prepares may run at once, such as one per agent of a round. Each builds into a folder of its
+own and renames it into place, so no prepare takes a half-built tree, or removes another's.
+While a prepare (or a `plan`) builds, drops or copies from the cache, it holds the cache's lock,
+the folder `cache\prepare.lock`, and removes it when it is done, however it ends:
+
+- If another prepare holds the lock, this one waits for it, up to five minutes.
+- If the lock is still held after that, the prepare stops and names the lock folder. If a
+  prepare is still running, wait for it to finish, then prepare again. If none is running, one
+  was stopped while it held the lock: delete `cache\prepare.lock`, then prepare again.
 
 ## A round
 

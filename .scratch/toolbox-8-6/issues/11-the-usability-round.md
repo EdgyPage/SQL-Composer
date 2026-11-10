@@ -58,8 +58,9 @@ The first two "Done when" bullets are built; the round itself is still to run.
   scenario (its files, its warehouse, its Project before connecting) once per commit into
   `cache/scenarios/<commit>/<scenario>-<hash>/`, the hash that of the scenario's own files, any
   dev folder its Project is copied from and the scenario it starts from, so an uncommitted
-  edit to a scenario is never served stale. Each is built into a `.building` folder and
-  renamed, so a build cut short is never taken for a whole one. Building a new commit's tree
+  edit to a scenario is never served stale. Each is built into a folder of its own and
+  renamed, so a build cut short is never taken for a whole one (made safe for prepares at
+  once by the code review, below). Building a new commit's tree
   drops every other commit's cache, which keeps the folder small; delete it to clear it.
   `--main` is gone: the cache does its job. With no cache (the tests), each is made afresh in
   a temporary folder, by the same code.
@@ -84,6 +85,41 @@ The first two "Done when" bullets are built; the round itself is still to run.
   each scenario once, each run a copy of its own, another commit's cache dropped; `plan`'s
   answer for three, two, a failure and none, and one pass for a held-out scenario; and
   `record` naming the hash, with `prepare` refusing until `--fresh`.
+
+#### The code review (2026-11-09)
+
+- **Two prepares at once were unsafe.** `cached_main` and `cached_scenario` each built into
+  one `<name>.building` folder, removing any there first, so a second prepare could delete
+  the first's build part way through; and `drop_other_commits` could remove a cache another
+  prepare was copying from. Now one helper, `build_in_place`, builds into a folder of its own
+  call's (`tempfile.mkdtemp` beside the place), renames it into place, and discards its own
+  when the place is there already or another build reached it first; both caches use it. And
+  `hold_the_cache` holds the cache's lock, `cache/prepare.lock`, a folder made with `mkdir`,
+  removed in a `finally`, while `prepare` (and `plan`) works out its inputs, builds, drops and
+  copies the run, so dropping never runs while another prepare holds the cache. A prepare
+  that finds it held waits up to `LOCK_WAIT` (five minutes), then refuses with a
+  `TimeoutError` naming the lock and saying to delete it if no prepare is running. Standard
+  library only, and offline. Tests: two threads racing `build_in_place` on one place, each
+  part way through when the other is, leave one whole folder and nothing beside it; a held
+  lock refuses a prepare that would drop another commit's cache, which stays, and a lock held
+  a moment by another thread is waited for, then the other commit dropped and the lock gone.
+  `docs/usability-loop.md` says prepares may run at once, and what to do if the lock is held.
+- **Names.** `the_inputs` gives a `RunInputs` NamedTuple (`inputs`, `main_tree`, `set_up`),
+  not a 3-tuple read by `[0]`, and `prepare` no longer reassigns its parameter `main`. `place`
+  named both main's tree and a scenario's set-up: each is named for what it holds,
+  `main_tree` and `set_up`, through `make_the_run`, `set_up_the_scenario`,
+  `bring_in_the_project` and `inputs_of`. `drop_other_commits` iterates plainly, unsorted.
+- **`inputs_of`** had four jobs: the scan for main's files the messages name is its own
+  function, `named_main_files`.
+- **The team's connection** was hashed as `TEAM_CONNECTION + TEAMS_CONN + TEAMS_CONNECT`
+  joined: each is hashed on its own now, the two sets of lines given a Project under their
+  own keys in `loop_files`. This changes every scenario's `inputs_hash`; no run had recorded
+  one yet.
+- **From the drift review.** The doc said a scenario's cache folder's hash is that of its own
+  files; `scenario_hash` covers the folder its Project is copied from and the scenario it
+  starts from too, and the doc and the module's docstring say so now. And `run_notebook.py`
+  with `--cells` that left out the cell tagged parameters dropped `-p`'s parameters without a
+  word: it refuses now, naming the tagged cell and saying to add it to `--cells`, with a test.
 
 **The scenario, W8**, "a Scheduled run of a week's breakdown, its week given as text", a dev
 scenario for a technical user, from the intermediate Example project as `my_project/`:

@@ -16,7 +16,8 @@ the decisions cell, such as --cells 1-3,6.
 
 The fourth runs it as a scheduler does (Toolbox 8.6, ticket 11): each `-p NAME VALUE` is given
 as text, `NAME = 'VALUE'`, in a cell run right after the code cell tagged `parameters`, as
-papermill's `-p` puts one there; a notebook with no cell so tagged is refused.
+papermill's `-p` puts one there; a notebook with no cell so tagged is refused, and so is a
+`--cells` that leaves the tagged cell out, as the parameters would follow no cell.
 
 Each code cell runs in turn, in one namespace, from the notebook's own folder and with it
 on sys.path, as a kernel started there runs it. What a cell prints is printed under its
@@ -97,7 +98,7 @@ def run_notebook(notebook: Path, chosen: set[int] | None = None,
     """Run every code cell of `notebook` in turn, or those `chosen` names, from its folder, and
     each of `parameters` given as text right after its parameters cell: 0 once each cell ran,
     1 at the first that raised, its traceback printed, or when no cell is tagged parameters
-    for them to follow."""
+    for them to follow, or `chosen` leaves that cell out."""
     namespace: dict[str, object] = {"__name__": "__main__"}
     # Resolved before the chdir, so a path from the folder it was run in still names it.
     notebook = notebook.resolve()
@@ -105,6 +106,10 @@ def run_notebook(notebook: Path, chosen: set[int] | None = None,
     if parameters and tagged is None:
         print("--- no code cell tagged parameters for -p to follow: tag the notebook's "
               "parameters cell \"parameters\", as papermill finds it")
+        return 1
+    if parameters and chosen is not None and tagged not in chosen:
+        print(f"--- -p gives its parameters right after code cell {tagged}, tagged "
+              f"parameters, which --cells leaves out: add {tagged} to --cells")
         return 1
     # A kernel started in the notebook's folder imports what sits beside it.
     sys.path.insert(0, str(notebook.parent))
