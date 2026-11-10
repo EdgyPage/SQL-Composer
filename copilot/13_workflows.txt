@@ -1,9 +1,9 @@
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.5)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each a cell of the convert
+with sqlglot Composer 8.6, a Toolbox that writes Hive: the steps left, each a cell of the convert
 Workflow's notebook, in order. Load this file when the user asks to turn Hive into tables.
 File 16 promotes dev tables to prod; file 14 covers new tables, Table references, upgrades
 and changes to a Saved table; a step's own file, its Python.

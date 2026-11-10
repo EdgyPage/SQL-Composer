@@ -1,4 +1,4 @@
-# Copilot file 18: Scheduled runs (sqlglot Composer 8.5)
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 

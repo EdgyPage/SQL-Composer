@@ -1723,12 +1723,14 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      PROD, two names in `admin/databases.py`, into Database settings,
      `{"database": "mart_dev", ...}`, marking `"location_root"` in each for you to fill in.
      Until you fill it in, each new table's location stays a Decision, as in 8.4.
-   - If your Project was at 8.5, the 8.6 Upgrade carries it to 8.6: it gives `warehouse.py`
-     its `connect`, keeping your `conn = ...` line and what it imports, marked for you to
-     move into each notebook's `connect(...)` line, adds a `connect(...)` line to the setup cell of each notebook that
+   - If your Project was at 8.5, the 8.6 Upgrade carries it to 8.6: it writes `warehouse.py`
+     with its `connect`, adds a `connect(...)` line to the setup cell of each notebook that
      reaches the warehouse, and makes `scheduled_runs/`, the `scheduled_run` Template and
-     `admin/scheduled_runs.ipynb`. Fill in each notebook's `connect(...)` line with your
-     connection: until a notebook connects, its `query` and `execute` refuse.
+     `admin/scheduled_runs.ipynb`. If `conn` was still the Example database, each notebook is
+     connected to it, `connect(example_database)`, as `conn` was. If `conn` is your own, its
+     lines stay in `warehouse.py`, marked for you to move into each notebook's
+     `connect(...)` line: fill each in with your connection, since until a notebook connects,
+     its `query` and `execute` refuse.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
