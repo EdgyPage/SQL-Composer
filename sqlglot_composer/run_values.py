@@ -7,7 +7,9 @@ call is traced: while it runs, each read the Toolbox makes for it (latest_partit
 partition column, each table a Statement it sends through run_query reads) is noted, and the
 Statement's lineage draws a box for the call, with an arrow from each read. A function that
 fails leaves a placeholder in its value's place, with a Warning, so a dry run still shows the
-rest, and the Statement is never sent.
+rest, and the Statement is never sent. While project.build_run builds a Scheduled run, a
+Run value its run_values= names, by its function's name, gives that value instead, its
+function not called.
 
 today, latest_partition and hive_date help write such a function.
 """
@@ -16,7 +18,8 @@ from __future__ import annotations
 
 import datetime
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from .describe import printed_answer
@@ -52,8 +55,41 @@ class Traced:
     reads: list[TracedRead] = field(default_factory=list)
 
 
+@dataclass
+class ValuesGiven:
+    """The Run values project.build_run gives a value while it builds (Toolbox 8.6): the value
+    its run_values= gives each, by its function's name; how each is read for the function it
+    stands in for, read(name, value, function); each value used, as read, by its name; and the
+    name of each Run value met, called or given a value, in order."""
+
+    given: dict[str, object]
+    read: Callable[[str, object, Callable[..., object]], object]
+    used: dict[str, object] = field(default_factory=dict)
+    met: list[str] = field(default_factory=list)
+
+
 # The calls being traced, innermost last: note_read notes each read in each of them.
 _TRACING: list[Traced] = []
+# While project.build_run builds, the Run values it gives a value; None at any other time.
+_VALUES_GIVEN: ValuesGiven | None = None
+
+
+@contextmanager
+def values_given(given: dict[str, object],
+                 read: Callable[[str, object, Callable[..., object]], object]
+                 ) -> Iterator[ValuesGiven]:
+    """While the block runs, each Run value whose function's name `given` holds gives that
+    value in place of calling the function, a Script tag's and tag_text's too, as
+    read(name, value, function) reads it for that function. What it gives holds each value
+    used, as read, and the name of each Run value met while the block runs, in order.
+    Afterwards, each function is called again."""
+    global _VALUES_GIVEN  # one build at a time; the one before, if any, comes back after
+    before = _VALUES_GIVEN
+    _VALUES_GIVEN = ValuesGiven(dict(given), read)
+    try:
+        yield _VALUES_GIVEN
+    finally:
+        _VALUES_GIVEN = before
 
 
 def function_name(function: Callable[..., object]) -> str:
@@ -81,6 +117,13 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
     shown = ", ".join([*(repr(each) for each in arguments),
                        *(f"{name}={each!r}" for name, each in keywords.items())])
     traced = Traced(function_name(function), shown, tag)
+    name = getattr(function, "__name__", traced.function)
+    if _VALUES_GIVEN is not None:
+        _VALUES_GIVEN.met.append(name)
+    if _VALUES_GIVEN is not None and name in _VALUES_GIVEN.given:
+        value = _VALUES_GIVEN.read(name, _VALUES_GIVEN.given[name], function)
+        _VALUES_GIVEN.used.setdefault(name, value)
+        return value, traced, None
     _TRACING.append(traced)
     try:
         return function(*arguments, **keywords), traced, None

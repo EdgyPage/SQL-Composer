@@ -4,12 +4,12 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.5: start here
+# Copilot files for sqlglot Composer 8.6: start here
 
 **Read this file to choose the one Copilot file your task needs, then follow the steps below
 in order.**
 
-sqlglot Composer 8.5 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.6 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -60,6 +60,8 @@ you can ask it in plain words.
 - If you want a Script tag's day worked out at each run, such as the latest Partition a
   table holds, one answer for every table of a Workflow notebook, or a seed that copies only
   some Partitions, load file 17.
+- If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
+  paste what `project.describe_logic([...])` prints for the tables it uses.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -98,6 +100,9 @@ you can ask it in plain words.
 - `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
   value each time a table is written, such as a Script tag's day; answers for every table of
   a Workflow notebook; and seed limits, the Partitions a seed copies.
+- `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
+  papermill runs top to bottom: its parameters, the Statements it runs, from a
+  `project.describe_logic([...])` paste, and its Build cell.
 
 ## Fitting Copilot
 
@@ -117,7 +122,7 @@ you can ask it in plain words.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.5)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -127,7 +132,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -192,10 +197,9 @@ something and see its rows.
 - In a notebook in the Project's folder: `from sqlglot_composer import project`, then
   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
   warehouse.py.
-- warehouse.py holds `conn`, the connection the user sets once, and two functions over it:
-  `query(hive)` calls `conn.query`, running Hive that gives rows, and returns a pandas
-  DataFrame; `execute(hive)` calls `conn.execute`, running Hive that changes something, and
-  returns nothing. Nothing else in the Project reaches the warehouse.
+- warehouse.py holds `connect(connection)`, which each notebook's setup cell calls first;
+  `query(hive)`, running Hive that gives rows, returning a pandas DataFrame; and
+  `execute(hive)`, running Hive that changes something. Nothing else reaches the warehouse.
 - Each table read needs a Table reference: the references Workflow,
   admin/workflows/references/references.ipynb, runs
   `project.add_references(["ops.job_runs"], query=query)`, which writes
@@ -281,7 +285,7 @@ s = statement(
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.5)
+# Copilot file 02: Table references (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -291,7 +295,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -441,7 +445,7 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.5)
+# Copilot file 03: building a Statement (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -450,7 +454,7 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
 - `t`: a table, as its Table reference describes it: `job_runs`.
@@ -621,7 +625,7 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.5)
+# Copilot file 04: joins (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -631,7 +635,7 @@ match in another table, or a count of matches.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
   `equals(...)`.
 - `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.
@@ -786,7 +790,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.5)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -798,7 +802,7 @@ the rows of several Statements together.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Statement**: one Hive query; a **Condition**, a test on rows.
 - `t`: a table, as its Table reference describes it: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
@@ -954,7 +958,7 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.5)
+# Copilot file 06: saving a table (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1112,7 +1116,7 @@ def write() -> Statement:
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.5)
+# Copilot file 07: converting Hive (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1266,7 +1270,7 @@ s = statement(
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.5)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1421,7 +1425,7 @@ print(v)
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.5)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1569,7 +1573,7 @@ s = statement(
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.5)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1731,7 +1735,7 @@ s = statement(
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.5)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.6)
 
 **Use this file as reference while you follow file 15's steps: it says what each formula of
 an attached workbook becomes in Hive.**
@@ -1862,7 +1866,7 @@ FROM <database>.job_runs
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.5)
+# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.6)
 
 **Use this file as reference while you follow file 15's steps: it says what each Power Query
 step, whole-column total and Total Row of an attached workbook becomes in Hive.**
@@ -2008,12 +2012,12 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.5)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each a cell of the convert
+with sqlglot Composer 8.6, a Toolbox that writes Hive: the steps left, each a cell of the convert
 Workflow's notebook, in order. Load this file when the user asks to turn Hive into tables.
 File 16 promotes dev tables to prod; file 14 covers new tables, Table references, upgrades
 and changes to a Saved table; a step's own file, its Python.
@@ -2171,11 +2175,11 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.5)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
-Objective: take the user through a job on their own Project, with sqlglot Composer 8.5, a Toolbox that
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.6, a Toolbox that
 writes Hive: the steps left, each a cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
 change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file, its
@@ -2359,7 +2363,7 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 ===== 15_excel_workbook_steps.txt =====
 
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.5)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
 the Output section gives.**
@@ -2498,12 +2502,12 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 
 ===== 16_workflows_promote.txt =====
 
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.5)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database, with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each its cell of the
+Database, with sqlglot Composer 8.6, a Toolbox that writes Hive: the steps left, each its cell of the
 promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
 tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
 references, upgrades and changes to a Saved table; a step's own file, for the Python inside
@@ -2654,7 +2658,7 @@ project.promote(TABLES)
 
 ===== 17_run_values_and_seed_limits.txt =====
 
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.5)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 
@@ -2810,3 +2814,162 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
   table's own.
 - Each seed limit names a partition column.
 - The answers' step cell gives `tables=`, as its notebook does.
+
+===== 18_scheduled_runs.txt =====
+
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.6)
+
+**Follow the steps below in order, as written, adding none; reply as Output says.**
+
+Objective: fill in a Scheduled run's notebook, which project.new_scheduled_run made from its
+Template: its parameters cell, its connect(...) line, its # scheduled cell and its Build cell.
+Load this file when the user wants a notebook an outside scheduler, such as papermill, runs
+top to bottom, and pastes what `project.describe_logic([...])` printed. File 03 is for
+building a Statement of its own, file 17 for a Run value's function in building_blocks/.
+
+## Terms
+
+- **Scheduled run**: a notebook in scheduled_runs/<name>/, run top to bottom: the Build cell
+  prints the Hive and sends nothing; the Run cell sends it.
+- **Parameter**: a value the scheduler passes in, a name in the `# parameters` cell, read by
+  its type hint before anything is built.
+- **Logic function**: a function of a Table notebook's `# logic` cell, which gives a
+  Statement; `project.load("mart.team_days")` gives them. describe_logic prints each one's
+  signature and the first sentence of its docstring, headed by the table's name.
+- **Run value**: what a function gives each time the run is built, through
+  `run_value(function)`, such as the latest Partition a table holds.
+
+## Names for this objective, with their arguments
+
+- project.load(name)
+- project.build_run(statements, *, run_values=None, leave_out=None)
+- run_value(function, *arguments, **keywords)
+- latest_partition(column, query=None)
+- statement(*clauses, returns_all_rows=False)
+
+## Steps
+
+1. **Read the paste**: each logic function the user asks for, by its table and signature.
+   Call only those listed, with the arguments their signatures name. Done when each is
+   matched. Then step 2.
+2. **Write the parameters cell** by the Decision rules. Done when each has a hint. Then step 3.
+3. **Write the # scheduled cell**: `statements()`, a dict of each Statement by its name,
+   and any Run value's function. Done when each asked for is in it. Then step 4.
+4. **Write the Build cell**, with `run_values=` and `leave_out=` as the Decision rules say.
+   Then step 5.
+5. **Check** by the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- Each parameter is a name, its hint and its default: `RUN_DATE: datetime.date | None =
+  None`. The hints read: `datetime.date` (from "2026-11-01"), `int`, `float`, `bool` (from
+  "true" or "false"), `str`, each alone, in `list[...]` (items split at commas) or with
+  `| None`. Never a parameter with no hint, nor another hint. Keep `START_FROM: str = ""`.
+- A parameter the run can't do without gets `| None = None` only if the cell works one out
+  when it is None, as a Run value; else give a real default.
+- A logic function's arguments are given in the call, `team_days.week_totals(first, last)`,
+  with the parameters or Run values. A date parameter passed where the signature says `str`
+  is written `str(RUN_DATE)`.
+- A day worked out at each run is a function of the cell, taking nothing and reading the
+  parameters, passed as `run_value(week_first_day)`. For the latest Partition:
+  `latest_partition(job_events.dt, query)`, `query` from warehouse, which the setup cell
+  imports.
+- Name each SELECT by what its rows are: its rows come back as `results["week_totals"]`. A
+  write is named by its table's short name.
+- The build adds the write of each Project table the Statements read, all the way up, on that
+  table's own days, so never list those writes yourself. If the user says another run or job
+  writes a table, give it in `leave_out=["mart.job_day_facts"]`.
+- A parameter reaches only what `statements()` passes it to. A write the build adds is its
+  table's `write()`, which takes no arguments. To give a Run value inside it the user's value,
+  write `run_values={"period_end": RUN_DATE}`, keyed by that Run value's function's name.
+  Leave it `{}` unless the user names such a value.
+- A Statement of the user's own is composed in the cell with `statement(...)`, as file 03
+  says; a Guard it trips only warns there, so add no opt-out for it.
+- A run that failed printed `START_FROM = "mart.team_days"`: the scheduler passes that
+  value, and the build starts from that table's first write, or from that SELECT; never
+  write it into the cell.
+- The setup cell stays as the Template writes it, but its `connect(...)` line: the user's
+  connection, its `#` deleted.
+
+## Output
+
+1. The `# parameters` cell in a ```python block; then the `# scheduled` cell and, under its
+   `# Build` line, the Build cell, in one block; then the `connect(...)` line.
+2. In words: which writes the build will add, and the papermill line, such as
+   `papermill weekly.ipynb out.ipynb -p RUN_DATE 2026-11-01`.
+
+## Examples
+
+The paste:
+
+```text
+# mart.team_days: project.load("mart.team_days"), from the # logic cell of tables/mart__team_days/mart__team_days.ipynb
+def week_totals(first_day: str, last_day: str) -> Statement:
+    """Each team's events, runs, minutes and cost per week, from the days this table saved."""
+```
+
+Asked: each team's week, the week of WEEK, or of the latest day ops.job_events holds:
+
+```python
+# parameters
+import datetime
+
+START_FROM: str = ""  # a table or SELECT to start from, as a failed run prints it
+WEEK: datetime.date | None = None  # a day of the week, such as "2026-09-23"; None: the latest
+```
+
+```python
+# scheduled
+from sqlglot_composer import Statement, latest_partition, project, run_value
+from references.ops__job_events import job_events
+from warehouse import query
+
+
+def week_first_day() -> datetime.date:
+    """The Monday of WEEK's week, or of the latest day ops.job_events holds."""
+    day = WEEK if WEEK is not None else latest_partition(job_events.dt, query)
+    return day - datetime.timedelta(days=day.weekday())
+
+
+def week_last_day() -> datetime.date:
+    """The Sunday after week_first_day."""
+    return week_first_day() + datetime.timedelta(days=6)
+
+
+def statements() -> dict[str, Statement]:
+    """What this run sends, by name: the build adds the writes of each table they read."""
+    team_days = project.load("mart.team_days")
+    return {"week_totals": team_days.week_totals(run_value(week_first_day),
+                                                 run_value(week_last_day))}
+
+# Build
+built = project.build_run(statements, run_values={}, leave_out=[])
+```
+
+The setup cell's line: `connect(my_api.connect())`. The build adds the writes of the tables
+mart.team_days reads, then its own, before week_totals.
+
+A Statement of its own, the failed runs of RUN_DATE:
+
+```python
+import datetime
+
+from sqlglot_composer import FROM, SELECT, WHERE, Statement, equals, statement
+from references.ops__job_runs import job_runs
+
+RUN_DATE: datetime.date = datetime.date(2026, 9, 24)
+
+
+def statements() -> dict[str, Statement]:
+    """The day's failed runs."""
+    return {"failed_runs": statement(
+        SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs),
+        WHERE(equals(job_runs.dt, str(RUN_DATE)), equals(job_runs.status, "FAILED")))}
+```
+
+## Self-check
+
+- Each parameter has a hint the build reads, and `START_FROM` is kept.
+- Each logic function called is in the paste, with its arguments.
+- No write the build adds is listed in `statements()`.
+- `project.build_run` is given `statements`, with no brackets.

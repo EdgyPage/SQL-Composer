@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.6 - copy it, then edit your copy -->
 # Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -6,7 +6,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -115,5 +115,12 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch("team_failures")`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run("weekly_team")`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked

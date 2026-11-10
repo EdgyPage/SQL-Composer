@@ -15,6 +15,7 @@ from typing import NoReturn
 from .calculations import Ordering, need_column, ordered
 from .conditions import Condition
 from .refusals import is_count, refuse
+from .shared import items_of
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
@@ -55,9 +56,7 @@ def _given_as_a_list(items: object) -> list[object]:
     the one item given."""
     if items is None:
         return []
-    if isinstance(items, (list, tuple)):
-        return list(items)
-    return [items]
+    return items_of(items)
 
 
 def _refuse_text_for_a_column(call: str, keyword: str, given: object) -> NoReturn:

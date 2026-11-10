@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.6 - copy it, then edit your copy -->
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Lineage: write_daily_job_runs</title><style>
 body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
@@ -31,7 +31,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>Python step: changed in Python, saved by your own call</span>
+<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>Python step: changed in Python, saved by your own call or, given rows=, by a Scheduled run</span>
 <span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
@@ -81,7 +81,7 @@ SELECT
   runs_per_job.dt
 FROM runs_per_job</pre></section>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.5.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.6.</footer>
 <script>
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
 // It is plain JavaScript that any browser runs, with nothing to install or download.

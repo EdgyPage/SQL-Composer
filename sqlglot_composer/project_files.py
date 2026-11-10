@@ -1,5 +1,5 @@
 """The registry, and the kinds it lists: a Table folder, a Table reference, a Building block,
-a Building block's prod copy, and a Conversion folder.
+a Scheduled run, a Building block's prod copy, and a Conversion folder.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions in project.py use it. Each kind is one FileKind below, holding where it lives in the
@@ -25,11 +25,13 @@ from .unchecked import TIME_IN_A_NAME, TIME_SHOWN
 
 # The registry: the file a folder is a Project by, as start() writes it.
 REGISTRY = Path("admin") / "registry.csv"
-# The registry's columns: what a Project action made (a Table folder, a Table reference or a
-# Building block), the table (or the Building block's name, such as runs_per_job), when it was
-# made, and when it was archived, empty while it is in use.
+# The registry's columns: what a Project action made (a Table folder, a Table reference, a
+# Building block or a Scheduled run), the table (or the Building block's or the Scheduled run's
+# own name, such as runs_per_job), when it was made, and when it was archived, empty while it
+# is in use.
 REGISTRY_COLUMNS = ["kind", "table", "created_at", "removed_at"]
-# Where an archived Table folder, Table reference or Building block goes, named by the time.
+# Where an archived Table folder, Table reference, Building block or Scheduled run goes, named
+# by the time.
 REMOVED = "admin/removed"
 # The end of a Database module's first line: the Project actions know a file in references/ by
 # it as one they wrote, theirs to write again or remove, and not a Table reference.
@@ -78,7 +80,10 @@ class FileKind(NamedTuple):
     def found(self, root: Path) -> list[str]:
         """The stem of each one of this kind on disk in the Project at `root`, in order: each
         folder in its folder, or each .py file but __init__.py, and in references/ but the
-        Database modules."""
+        Database modules. A Project from before its folder was made, as scheduled_runs/ was in
+        8.6, has none."""
+        if not (root / self.folder).is_dir():
+            return []
         if self.is_folder:
             return sorted(path.name for path in (root / self.folder).iterdir()
                           if path.is_dir())
@@ -111,8 +116,15 @@ BUILDING_BLOCK = FileKind(
     by_table=False, remover="remove_block",
     named_as="the files in building_blocks/ are named as the Building block is, such as "
     "runs_per_job.py", writes_databases=False)
+# A Scheduled run's folder, holding the notebook an outside scheduler runs (Toolbox 8.6), named
+# as the run is, such as scheduled_runs/weekly/ holding weekly.ipynb.
+SCHEDULED_RUN = FileKind(
+    kind="scheduled_run", label="Scheduled run", folder="scheduled_runs", is_folder=True,
+    by_table=False, remover="remove_scheduled_run",
+    named_as="the folders in scheduled_runs/ are named as the Scheduled run is, such as "
+    "weekly", writes_databases=False)
 # Every kind, in the order check() and register() name them.
-KINDS = (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK)
+KINDS = (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK, SCHEDULED_RUN)
 # A Building block's prod copy, which only project.promote makes and archives, promoting it
 # again (Toolbox 8.5), so register() never adopts one, as it never does a Conversion folder.
 PROD_BLOCK = FileKind(
@@ -137,7 +149,8 @@ def table_stem(name: str) -> str:
 
 def kinds_named_by(name: str) -> tuple[FileKind, ...]:
     """The kinds a name given to register names: a table's, with a dot, such as "ops.jobs",
-    names its Table folder and Table reference; one with no dot names a Building block."""
+    names its Table folder and Table reference; one with no dot names a Building block and a
+    Scheduled run."""
     return tuple(kind for kind in KINDS if kind.by_table == ("." in name))
 
 

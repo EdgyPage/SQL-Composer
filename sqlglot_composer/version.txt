@@ -1,9 +1,9 @@
-sqlglot Composer 8.5
-exported 2026-11-06 07:09 from dev commit dd370f2f7c8cb6459a086d561525e5a941e864fa
+sqlglot Composer 8.6
+exported 2026-11-10 07:18 from dev commit d1757e59557ff8b92c53a8d32c69e13241854bd0
 # Each file of this folder, and a code worked out from its contents (its git hash),
 # so the import can warn about a file that differs. Written by the export: don't
 # edit it.
-d1492ebc25ff0f6267d5b6bf746c4c09c60c74cc  __init__.py
+0b702ee03cb8ecd4fa8ccf92ad907456051f199b  __init__.py
 bf67e8a07716ee46a32ccc793b67b00a030ecd26  admin.py
 3cb07d5453ff7c9b2cf0ecb89755c89b343c4428  calculations.py
 e7fce5f943af8d0e82f2f35c5a55d836d73f6e57  checks.py
@@ -13,31 +13,33 @@ c6810743aa114bba3973bbeec26d271b44344ec2  conditions.py
 3f7370fcfaaa5673236b5adf04b91b2d44832fa7  converting.py
 83f9164f14bc32ce8cb8f55f932d59c6d0bc69cc  decisions.py
 0e2e2addebecfe0c511fd2b8b1e91cf4d243ec13  describe.py
-b6c78eb4d35b4d80d718d2812602471be7422d69  engine.py
+25397fb71d260df1da08e315a0858faa7e26f7c0  engine.py
 901c20b09fa082c1c923af16f274ce45167cc91e  example_database.py
-f6891f2c206765c66bdc9875087775f5ee8572bd  examples.html
-f44c32d8eda5f5472638ee264617b9d3eaf310c6  how_to.html
+63e73cce3ab389806c0ac38515b9bdaa619ccab3  examples.html
+0bdf565d804bd9a060c29141b2039e916e839e41  how_to.html
 e99d0a850c0214b574835a3d36841439b210aca6  joins.py
 1a46237fa68fb0d6bff3af9598a65a087e73b35f  keys.py
 371289240f350cef5b9f88f2d98b68a9375e0688  kinds.py
-7e181711dbbabf9e33290fb398a35f1eccb93171  lineage.py
-8e42fb57a2790eabce22c9861716825bd8397f24  notebooks.py
-ab18f015aff274010e7a6c5a5b537eb3e1d09027  project.py
-c2a2a7f5e6180c60fb0aa7896495e036547936f3  project_files.py
-c924e94baf3fd17869be7e0010c67f7f3a6b652a  project_templates.py
+3066bbbc6e50155814993c76042fbb840719d644  lineage.py
+79bd848b5317728cdd6de00035ecd05b9ca34637  notebooks.py
+f832e630db24f041cffb0f2a364bac770cc68d1d  project.py
+699af03ef83711081019e364fb8c2a2e73c3818d  project_files.py
+07252fa387e5ff82a4f69d6a98524ca526b50771  project_lineage.py
+0be9a0eef8e799d50e40bd01bdb726d43768c507  project_templates.py
 09d22714f4792aecc16fa6abf781a721045d49ab  public.py
-9470422b2e0e14cdc62bf9755a07c583a0e9171f  python_steps.py
-8823ce80f026d50d5fc4df3c8a7850ecc764ef60  refusals.py
-e585cb1aba99dd884722621873d562c6c4cd3fc1  run_values.py
-a551b65b95d7ee876652b203c51a0c903f23b7c8  running.py
+d3365444000eb8bdb8a44d83215564960580f9cc  python_steps.py
+21622f5ed06d7ede2804a95da3cc02c4cfcb8772  refusals.py
+6099c0a741538dffa4ccd384611c40734dea7b9b  run_values.py
+dc5bdc77c5dbc205c1efefcd445bec549116d9d0  running.py
+70b352a7436e1b239e03ef0890d32d5180bdd4f6  scheduled_runs.py
 9eb56376fd2b13b03f9af870cc48a5c9eab44067  script_tags.py
-5e96a7a3bc1527b3d760ed7a526e97e8f7a5367a  shared.py
+2c6084032a8fae373ae2100b9118ac57b3ff8b21  shared.py
 4054fb34b9a3da6d0bdf2ac4cdadcf5370457ce1  stacking.py
 60c38989cda3d97c6f78e45c86cd35c172fc676c  tables.py
 0476634c9abdc3fc25f9a869e9755395754c45e1  trees.py
 538b2177b84c3982374ddc66285cc35651206030  unchecked.py
-c9974741111c1e3193d5c70fdf88ccbbd5f49723  upgrades.py
+f494cc5f9ef16879e6b269b30bccc463050d528b  upgrades.py
 15f2c4fbeb72411ef9326bedfa6d3579aa25d044  upkeep.py
-82ca3bdac5badd49caffb18053162fbc7d45fe32  windows.py
+1ed2ae0dd9d654d88d8c176fe24175c7a54f9589  windows.py
 ecd21739beffb7cc4652101ada082ef3bc241112  workflows.py
 6913280c2dd7eaa963fb4b399466eb095a49ee2c  writing.py

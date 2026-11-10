@@ -1,9 +1,9 @@
-# Copilot files for sqlglot Composer 8.5: start here
+# Copilot files for sqlglot Composer 8.6: start here
 
 **Read this file to choose the one Copilot file your task needs, then follow the steps below
 in order.**
 
-sqlglot Composer 8.5 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.6 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -54,6 +54,8 @@ you can ask it in plain words.
 - If you want a Script tag's day worked out at each run, such as the latest Partition a
   table holds, one answer for every table of a Workflow notebook, or a seed that copies only
   some Partitions, load file 17.
+- If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
+  paste what `project.describe_logic([...])` prints for the tables it uses.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -92,6 +94,9 @@ you can ask it in plain words.
 - `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
   value each time a table is written, such as a Script tag's day; answers for every table of
   a Workflow notebook; and seed limits, the Partitions a seed copies.
+- `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
+  papermill runs top to bottom: its parameters, the Statements it runs, from a
+  `project.describe_logic([...])` paste, and its Build cell.
 
 ## Fitting Copilot
 
