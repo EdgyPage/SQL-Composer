@@ -48,8 +48,12 @@ its key among them; each phase's message, with the run's folder and the agents' 
 out; and the files the loop puts beside them. Its `inputs_hash` is one hash of all of those,
 the commit left out, so a commit that changes none of them keeps it. Main's tree is built once
 per commit into `<temp>/usability-loop/cache/main/<commit>/`, and each scenario's warehouse
-and Project once per commit into `cache/scenarios/<commit>/<scenario>-<its files' hash>/`,
-then copied into each run; building a new commit's tree drops the other commits' caches.
+and Project once per commit into `cache/scenarios/<commit>/<scenario>-<hash>/`, the hash that
+of the scenario's files, any folder of dev's its Project is copied from and the files of any
+scenario it starts from, then copied into each run; building a new commit's tree drops the
+other commits' caches. Each is built into a folder of its own and renamed into place, and a
+prepare holds the cache's lock, `cache/prepare.lock`, while it builds, drops or copies, so
+prepares may run at once: one waits for another's lock, then refuses, naming it.
 `plan` says of each scenario whether it is memoized: as many runs as a round gives it (three
 for a dev scenario, one held out) passed with its inputs, and none failed. `prepare` refuses a
 memoized scenario, naming its runs, unless given `--fresh`.
@@ -58,7 +62,9 @@ memoized scenario, naming its runs, unless given `--fresh`.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
+import functools
 import hashlib
 import json
 import math
@@ -66,9 +72,11 @@ import re
 import shutil
 import sys
 import tempfile
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
@@ -93,6 +101,12 @@ PYTHON = OUTSIDE / "python" / "Scripts" / "python.exe"
 # Main's tree, built once per commit, and each scenario's warehouse and Project, set up once
 # per commit (Toolbox 8.6, ticket 11).
 CACHE = OUTSIDE / "cache"
+# The cache's lock, a folder in it held while a prepare builds, drops or copies from it, so
+# prepares may run at once; how long a prepare waits for another to let it go, in seconds,
+# and how often it looks.
+LOCK = "prepare.lock"
+LOCK_WAIT = 300.0
+LOCK_POLL = 0.5
 # The questions a run may ask before it counts as stuck.
 MOST_QUESTIONS = 5
 # The runs a round gives a scenario, by its split: memoized once that many passed with its
@@ -212,24 +226,28 @@ def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
         raise FileNotFoundError(f"There is no Python for the agents at {python}: make it as "
                                 "docs/usability-loop.md says, then prepare again.")
     with tempfile.TemporaryDirectory() as temporary:
-        inputs, main, place = the_inputs(chosen, cache or Path(temporary), main)
-        recorded = read_recorded_runs(RESULTS)
-        if not fresh and is_memoized(chosen, inputs["inputs_hash"], recorded):
-            raise ValueError(f"{plan_text(chosen, inputs['inputs_hash'], recorded)}. They show "
-                             "the docs were enough: prepare it with --fresh to run it again.")
-        make_the_run(chosen, run, main, place, python)
-    (run / "_loop" / "inputs.json").write_text(json.dumps(inputs, indent=1) + "\n",
+        cache_folder = cache or Path(temporary)
+        with hold_the_cache(cache_folder):
+            given = the_inputs(chosen, cache_folder, main)
+            inputs_hash = given.inputs["inputs_hash"]
+            recorded = read_recorded_runs(RESULTS)
+            if not fresh and is_memoized(chosen, inputs_hash, recorded):
+                raise ValueError(f"{plan_text(chosen, inputs_hash, recorded)}. They show the "
+                                 "docs were enough: prepare it with --fresh to run it again.")
+            make_the_run(chosen, run, given.main_tree, given.set_up, python)
+    (run / "_loop" / "inputs.json").write_text(json.dumps(given.inputs, indent=1) + "\n",
                                                encoding="utf-8")
     return run
 
 
-def make_the_run(chosen: Scenario, run: Path, main: Path, place: Path, python: Path) -> None:
+def make_the_run(chosen: Scenario, run: Path, main_tree: Path, set_up: Path,
+                 python: Path) -> None:
     """The run's folder: main's tree and the scenario's set-up copied in, the team's connection
     written and given to any Project, the notebook runner, and each phase's message."""
     (run / "_loop").mkdir(parents=True)
     (run / "my_work").mkdir()
-    shutil.copytree(main, run / "main")
-    shutil.copytree(place, run, dirs_exist_ok=True)
+    shutil.copytree(main_tree, run / "main")
+    shutil.copytree(set_up, run, dirs_exist_ok=True)
     write_the_team_connection(run)
     if has_a_project(chosen):
         connect_the_team(run / "my_project")
@@ -240,51 +258,99 @@ def make_the_run(chosen: Scenario, run: Path, main: Path, place: Path, python: P
     write_questions(run, [])
 
 
-def the_inputs(chosen: Scenario, cache: Path,
-               main: Path | None) -> tuple[dict[str, object], Path, Path]:
-    """What a run of the scenario is given now, as inputs.json holds it, with main's tree
-    (`main`, or the cache's for dev's commit) and the scenario's set-up in `cache`."""
+class RunInputs(NamedTuple):
+    """What a run of a scenario is given: its inputs, as inputs.json holds them, and the two
+    folders a run is copied from, main's tree and the scenario's set-up."""
+
+    inputs: dict[str, object]
+    main_tree: Path
+    set_up: Path
+
+
+def the_inputs(chosen: Scenario, cache: Path, main: Path | None) -> RunInputs:
+    """What a run of the scenario is given now, with main's tree (`main`, or the cache's for
+    dev's commit) and the scenario's set-up in `cache`. Called while the cache is held."""
     commit = dev_commit()
-    if main is None:
-        main = cached_main(cache, commit)
-    place = cached_scenario(chosen, cache, commit, main)
-    return inputs_of(chosen, main, place, commit), main, place
+    main_tree = main or cached_main(cache, commit)
+    set_up = cached_scenario(chosen, cache, commit, main_tree)
+    return RunInputs(inputs_of(chosen, main_tree, set_up, commit), main_tree, set_up)
+
+
+@contextlib.contextmanager
+def hold_the_cache(cache: Path) -> Iterator[None]:
+    """Hold the cache's lock, the folder `cache/prepare.lock`, made with mkdir, which only one
+    process can make, while a prepare builds, drops or copies from the cache; removed when it
+    is done, however it ends. Another prepare holding it is waited for, up to LOCK_WAIT
+    seconds, then refused, naming the lock."""
+    cache.mkdir(parents=True, exist_ok=True)
+    lock = cache / LOCK
+    give_up_at = time.monotonic() + LOCK_WAIT
+    while True:
+        try:
+            lock.mkdir()
+            break
+        except FileExistsError:
+            if time.monotonic() >= give_up_at:
+                raise TimeoutError(
+                    f"Another prepare has held the usability loop's cache for {LOCK_WAIT:g} "
+                    f"seconds: its lock is {lock}. Wait for that prepare to finish, then "
+                    "prepare again. If no prepare is running, one was stopped while it held "
+                    "the cache: delete that folder, then prepare again.") from None
+            time.sleep(LOCK_POLL)
+    try:
+        yield
+    finally:
+        lock.rmdir()
+
+
+def build_in_place(place: Path, build: Callable[[Path], None]) -> Path:
+    """`place`, built by `build` into a folder of this call's own beside it and then renamed
+    into place, so a build cut short, or one still going, is never taken for a whole one.
+    When `place` is there already, nothing is built; when another build reaches it first,
+    this one is discarded."""
+    if place.is_dir():
+        return place
+    place.parent.mkdir(parents=True, exist_ok=True)
+    own = Path(tempfile.mkdtemp(prefix=f"{place.name}.building-", dir=place.parent))
+    try:
+        build(own / place.name)
+        try:
+            (own / place.name).rename(place)
+        except OSError:
+            if not place.is_dir():
+                raise
+    finally:
+        shutil.rmtree(own, ignore_errors=True)
+    return place
 
 
 def cached_main(cache: Path, commit: str) -> Path:
     """Main's tree for `commit`, from the cache, built into it the first time; building it
     drops every other commit's cache."""
-    place = cache / "main" / commit
-    if not place.is_dir():
+    main_tree = cache / "main" / commit
+    if not main_tree.is_dir():
         drop_other_commits(cache, commit)
-        building = place.with_name(f"{commit}.building")
-        shutil.rmtree(building, ignore_errors=True)
-        build_main(building, commit)
-        building.rename(place)
-    return place
+    return build_in_place(main_tree, functools.partial(build_main, commit=commit))
 
 
 def drop_other_commits(cache: Path, commit: str) -> None:
-    """Remove each cached main tree and scenario set-up of a commit other than `commit`."""
+    """Remove each cached main tree and scenario set-up of a commit other than `commit`.
+    Called while the cache is held, so no other prepare is copying from one."""
     for kind in ("main", "scenarios"):
         if not (cache / kind).is_dir():
             continue
-        for folder in sorted((cache / kind).iterdir()):
+        for folder in (cache / kind).iterdir():
             if folder.name != commit:
                 shutil.rmtree(folder)
 
 
-def cached_scenario(chosen: Scenario, cache: Path, commit: str, main: Path) -> Path:
+def cached_scenario(chosen: Scenario, cache: Path, commit: str, main_tree: Path) -> Path:
     """The scenario's set-up for `commit`, from the cache, set up into it the first time: a
     folder laid out as a run is, holding the files the scenario gives, its team's warehouse
     and any Project its user starts from, the Project's connection not yet given."""
-    place = cache / "scenarios" / commit / f"{chosen.id}-{scenario_hash(chosen)[:12]}"
-    if not place.is_dir():
-        building = place.with_name(f"{place.name}.building")
-        shutil.rmtree(building, ignore_errors=True)
-        set_up_the_scenario(chosen, building, main)
-        building.rename(place)
-    return place
+    set_up = cache / "scenarios" / commit / f"{chosen.id}-{scenario_hash(chosen)[:12]}"
+    return build_in_place(set_up, functools.partial(set_up_the_scenario, chosen,
+                                                    main_tree=main_tree))
 
 
 def scenario_hash(chosen: Scenario) -> str:
@@ -298,19 +364,19 @@ def scenario_hash(chosen: Scenario) -> str:
     return text_hash(json.dumps(hashed, sort_keys=True))
 
 
-def set_up_the_scenario(chosen: Scenario, place: Path, main: Path) -> None:
-    """Into `place`: the files the scenario gives, its team's warehouse, having run its Hive,
+def set_up_the_scenario(chosen: Scenario, set_up: Path, main_tree: Path) -> None:
+    """Into `set_up`: the files the scenario gives, its team's warehouse, having run its Hive,
     and any Project its user starts from."""
-    (place / "_loop").mkdir(parents=True)
+    (set_up / "_loop").mkdir(parents=True)
     for given, source in chosen.given.items():
-        (place / given).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(chosen.folder / chosen.id / source, place / given)
-    warehouse = SavedWarehouse(place / "_loop" / "warehouse.json")
+        (set_up / given).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(chosen.folder / chosen.id / source, set_up / given)
+    warehouse = SavedWarehouse(set_up / "_loop" / "warehouse.json")
     for hive in chosen.hive_ran:
         warehouse.execute((chosen.folder / chosen.id / hive).read_text(encoding="utf-8"))
     warehouse.save()
     if has_a_project(chosen):
-        bring_in_the_project(chosen, place, main)
+        bring_in_the_project(chosen, set_up, main_tree)
 
 
 def write_the_team_connection(run: Path) -> None:
@@ -338,12 +404,12 @@ TEAMS_CONNECT = ('sys.path.append({run!r})  # the folder team_connection.py is i
                  "from team_connection import conn\nconnect(conn)")
 
 
-def bring_in_the_project(chosen: Scenario, place: Path, main: Path) -> None:
-    """The Project the scenario's user has already, as my_project/ in `place`: copied in, or
-    made by the reference end of the scenario it starts from, its tables in the place's
-    warehouse, with `main`'s copy of the Toolbox; its notebooks' connection is given in each
-    run, by connect_the_team."""
-    root = place / "my_project"
+def bring_in_the_project(chosen: Scenario, set_up: Path, main_tree: Path) -> None:
+    """The Project the scenario's user has already, as my_project/ in the set-up `set_up`:
+    copied in, or made by the reference end of the scenario it starts from, its tables in the
+    set-up's warehouse, with `main_tree`'s copy of the Toolbox; its notebooks' connection is
+    given in each run, by connect_the_team."""
+    root = set_up / "my_project"
     if chosen.start_from:
         import usability_scenario_files  # it imports this file
         from how_to_page import times_pinned
@@ -351,13 +417,13 @@ def bring_in_the_project(chosen: Scenario, place: Path, main: Path) -> None:
         # Each Project action's time pinned, as the scenarios' build pins it, so the Project
         # made is the same each time, and so is its hash in the inputs.
         with times_pinned():
-            usability_scenario_files.reference_end(chosen.start_from, place)
+            usability_scenario_files.reference_end(chosen.start_from, set_up)
     else:
         shutil.copytree(ROOT / chosen.project, root)
     if not (root / "sqlglot_composer").is_dir():
         # As a Project the user made holds it: the README has them copy it in. A test's main
         # tree has no Toolbox, so dev's own copy stands in.
-        toolbox = main / "sqlglot_composer"
+        toolbox = main_tree / "sqlglot_composer"
         if not toolbox.is_dir():
             toolbox = ROOT / "sqlglot_composer"
         shutil.copytree(toolbox, root / "sqlglot_composer",
@@ -498,33 +564,44 @@ def main_tree_hash(main: Path) -> str:
     return text_hash(json.dumps(tree_hashes(main, main_file_hash), sort_keys=True))
 
 
-def inputs_of(chosen: Scenario, main: Path, place: Path, commit: str) -> dict[str, object]:
+def named_main_files(messages: list[str], main_tree: Path) -> dict[str, str]:
+    """Each file of main's tree the phases' messages name, such as main/.github/README.md, by
+    its path from main's tree, and its hash, the export's stamp left out, in order of path."""
+    named = {}
+    for message in messages:
+        for path in NAMED_IN_MAIN.findall(message):
+            if (main_tree / path).is_file():
+                named[path] = main_file_hash(main_tree / path)
+    return dict(sorted(named.items()))
+
+
+def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
+              commit: str) -> dict[str, object]:
     """What a run of the scenario is given, as its inputs.json holds it: each thing hashed, and
     one hash of them all, `inputs_hash`, which leaves out dev's commit, so a commit that
     changes none of them keeps it. Each phase's message is hashed as written for no run in
     particular, so every run's is the same."""
     messages = [phase_message(phase, Path("<run>"), Path("<python>"), bool(chosen.given),
                               has_a_project(chosen)) for phase in chosen.phases]
-    named = {}
-    for message in messages:
-        for path in NAMED_IN_MAIN.findall(message):
-            if (main / path).is_file():
-                named[path] = main_file_hash(main / path)
     project = {}
     if has_a_project(chosen):
         # Its copy of the Toolbox is main's, which main's tree hashes already.
-        project = tree_hashes(place / "my_project",
+        project = tree_hashes(set_up / "my_project",
                               leave_out=("__pycache__", "sqlglot_composer"))
     given = {
-        "main": {"tree": main_tree_hash(main), "named": dict(sorted(named.items()))},
+        "main": {"tree": main_tree_hash(main_tree),
+                 "named": named_main_files(messages, main_tree)},
         "project": project,
-        "warehouse": file_hash(place / "_loop" / "warehouse.json"),
+        "warehouse": file_hash(set_up / "_loop" / "warehouse.json"),
         "scenario_files": tree_hashes(chosen.folder / chosen.id),
         "phases": [text_hash(message) for message in messages],
         "loop_files": {
             "run_notebook.py": file_hash(TOOLS / "notebook_runner.py"),
             "workflow_warehouse.py": file_hash(TOOLS / "workflow_warehouse.py"),
-            "team_connection.py": text_hash(TEAM_CONNECTION + TEAMS_CONN + TEAMS_CONNECT)},
+            "team_connection.py": text_hash(TEAM_CONNECTION),
+            # The lines that give a Project brought in the team's connection.
+            "warehouse.py's conn line": text_hash(TEAMS_CONN),
+            "each notebook's connect lines": text_hash(TEAMS_CONNECT)},
     }
     return {"scenario": chosen.id, "commit": commit, **given,
             "inputs_hash": text_hash(json.dumps(given, sort_keys=True))}
@@ -597,7 +674,9 @@ def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) 
     """Whether the scenario is memoized, as `plan_text` says it, its inputs worked out as
     `prepare` works them out, with main's tree and its set-up from `cache`."""
     with tempfile.TemporaryDirectory() as temporary:
-        inputs = the_inputs(chosen, cache or Path(temporary), main)[0]
+        cache_folder = cache or Path(temporary)
+        with hold_the_cache(cache_folder):
+            inputs = the_inputs(chosen, cache_folder, main).inputs
     return plan_text(chosen, inputs["inputs_hash"], read_recorded_runs(RESULTS))
 
 
