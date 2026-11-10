@@ -218,13 +218,16 @@ connect(your_connection), before it calls query or execute; until it does, they 
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
 back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which one sends each Statement, by calling
-run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute) for
-what changes something, as a write does. Let the two share one session, so a Session setting
-sent through execute holds for what is sent after it; and let each raise when the warehouse
-reports a failure, since the Toolbox knows a step failed only when your connection raises. Keep
-it importing nothing from references/, building_blocks/ or tables/, so any notebook or script
-of yours can import it.
+connect(example_database). You pick which of query and execute sends each Statement, by
+calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
+execute) for what changes something, as a write does; a Scheduled run's Run cell,
+built.run(query, execute), picks for each of its Statements the same way. You edit nothing
+here, unless your connection names its two calls another way: then change the calls query and
+execute make below, and the names connect checks for, ("query", "execute"), to yours. Let your
+connection's two calls share one session, so a Session setting sent through execute holds for
+what is sent after it; and let each raise when the warehouse reports a failure, since the
+Toolbox knows a step failed only when your connection raises. Keep it importing nothing from
+references/, building_blocks/ or tables/, so any notebook or script of yours can import it.
 """
 
 from typing import NoReturn
@@ -1340,9 +1343,10 @@ def remove_scheduled_run(name: str | list[str]) -> ProjectReport:
     >>> project.new_scheduled_run("weekly")
     Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
     Fill in its <...>: its parameters, its connection and the Statements it runs.
-    >>> project.remove_scheduled_run("weekly")  # the time it ran, as yyyymmdd-hhmmss
+    >>> project.remove_scheduled_run("weekly")
     Moved scheduled_runs/weekly/ to admin/removed/...-weekly/.
 
+    The ... in the folder's name is the time the removal ran, as yyyymmdd-hhmmss.
     scheduled_runs/weekly/ moves, whole, to a folder such as
     admin/removed/20261109-093000-weekly/, and its registry row is marked removed. Take it out
     of your scheduler too: the scheduler still names the notebook it ran. One the registry
@@ -7335,7 +7339,8 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     """Build a Scheduled run's Statements in order and print their Hive, sending none.
 
     >>> import os
-    >>> from sqlglot_composer import project
+    >>> from sqlglot_composer import FROM, SELECT, WHERE, equals, project, statement
+    >>> from sqlglot_composer.example_database import job_runs
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -7343,9 +7348,9 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     >>> project.new_scheduled_run("weekly")
     Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
     Fill in its <...>: its parameters, its connection and the Statements it runs.
-    >>> os.chdir("scheduled_runs/weekly")
-    >>> START_FROM = ""  # as the notebook's parameters cell sets it
-    >>> def statements():
+    >>> os.chdir("scheduled_runs/weekly")  # where the notebook runs
+    >>> START_FROM = ""  # stands in for the parameters cell, as if it had run
+    >>> def statements():  # as the scheduled cell defines it: here one SELECT
     ...     return {"failed_runs": statement(
     ...         SELECT(job_runs.run_id),
     ...         FROM(job_runs),
@@ -7379,16 +7384,19 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        logic function it came from, such as week_totals. It is called now, so each Run value
        is worked out now: one reading the warehouse needs connect(...) first.
        run_values={"period_end": RUN_DATE} gives each Run value whose function is named
-       period_end that value for this build, in place of what its function gives, a write()
-       that takes nothing among them. The value is read by the hint of what period_end gives
-       back, as a parameter is read by its own, so RUN_DATE's text, "2026-11-01", is a
-       datetime.date where period_end gives one; a function with no hint takes it as it is.
+       period_end that value for this build, in place of calling the function, in every
+       Statement built, the writes the build adds among them. Their write() takes no
+       arguments, so run_values= is how a parameter reaches the days they write. The value is
+       read by the hint of what period_end gives back, as a parameter is read by its own, so
+       RUN_DATE's text, "2026-11-01", is a datetime.date where period_end gives one; a
+       function with no hint takes it as it is.
        A value that can't be read, and a name no Statement's Run value has, are refused.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
-       read. leave_out=["mart.daily_job_runs"] leaves one out, with what only it reads; a
-       name it wouldn't add is refused, naming those it would.
+       read. leave_out=["mart.daily_job_runs"] leaves out that table's write, and the write
+       of each table added only because mart.daily_job_runs reads it; a name it wouldn't add
+       is refused, naming those it would.
     4. The order: all in lineage order, a writer before each that reads its table, as
        run_tables orders them; a loop is refused, naming its tables. A table's
        session_settings() are printed before its first write. A START_FROM parameter that
@@ -7453,11 +7461,16 @@ def export_project_lineage() -> ProjectReport:
     >>> project.new_scheduled_run("weekly")
     Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
     Fill in its <...>: its parameters, its connection and the Statements it runs.
-    >>> project.export_project_lineage()
+    >>> project.export_project_lineage()  # weekly is just made: its <...> aren't filled in
     Wrote admin/lineage/...-project.html and its Markdown twin, ...-project.md: 0 tables and
     1 Scheduled run.
     Not built, as the page shows: weekly: project.export_project_lineage(): cell 4 of
-    scheduled_runs/weekly/weekly.ipynb isn't Python yet, at its line 12: ...
+    scheduled_runs/weekly/weekly.ipynb isn't Python yet, at its line 13: ...
+
+    Here the new run still holds the Template's <...>, so it isn't built, and the page and the
+    last line say where: cell 4, its # scheduled cell, counting every cell from the top, the
+    text cell as 1, and line 13 of that cell, its "<RESULT_NAME>" line. Once its <...> are
+    filled in, it is built and drawn, the tables it writes named on the page.
 
     Run it by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run's notebook: it
     builds every run, so it is work no Scheduled run need do each time. It writes an HTML

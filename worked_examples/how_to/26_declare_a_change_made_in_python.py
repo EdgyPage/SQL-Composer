@@ -185,8 +185,8 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     # usual run, the median. The change is made in pandas, by add_minutes_over_median in
     # `building_blocks/run_speed.py`, and the rows are saved by your own call, in cell 3.
     #
-    # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3
-    # pull, change and save the rows; 4 its lineage.
+    # The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+    # which starts `# logic`; 3 pull, change and save the rows; 4 its lineage.
 
     # %%
     # 1. The Project and your query
@@ -317,8 +317,8 @@ The file `tables/mart__slow_runs/mart__slow_runs.ipynb`, after you fill it in:
     #
     # Each run that took more than 5 minutes over its job's usual run, from mart.run_speed.
     #
-    # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3
-    # try it; 4 its lineage.
+    # The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+    # which starts `# logic`; 3 try it; 4 its lineage.
 
     # %%
     # 1. The Project and your query

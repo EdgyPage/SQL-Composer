@@ -117,3 +117,80 @@ Built 2026-11-09.
   written again.
 - Left: the code-review skill (for the caller); ticket 12, the Upgrade the README and
   CHANGES.md describe; the stops above answered for tickets 07, 08, 11 and 12.
+
+### Cleanup before the round (2026-11-09)
+
+On dev at 3846ce9 (ticket 12 merged), before ticket 11's round. Behaviour unchanged: only
+texts a user reads, the Example projects regenerated from them.
+
+- **D491**: the README's `RUNS` bullet says the `# parameters` cell runs whole and, of the
+  other cells above `# scheduled`, only their imports, never their `connect(...)`, since
+  `admin/scheduled_runs.ipynb`'s first cell connects for them, nor a line of yours.
+- **D492**: README step 7: a plain run again is safe when each write is an
+  `INSERT_OVERWRITE`, printed as `INSERT OVERWRITE TABLE`, which replaces its Partitions or the
+  whole table; a run holding an `INSERT_INTO`, printed `INSERT INTO TABLE`, runs again only
+  with the `START_FROM` it printed. How-to 31 says "here, each write", pointing at the lines
+  its build printed, and the same of `INSERT_INTO`.
+- **D493**: the section opens "one notebook that writes the tables it needs".
+- **Stop 1** (WAREHOUSE_TEXT's "You pick which one sends"): it says which of query and
+  execute, and that a Scheduled run's Run cell, `built.run(query, execute)`, picks the same way.
+- **Stop 2** (connect's refusal against "you fill in nothing"): warehouse.py's text says you
+  edit nothing there unless your connection names its calls another way, and then what to
+  change, as the refusal does; the README's `warehouse.py` bullet says the same. The refusal
+  is unchanged.
+- **Stop 6** (the Template's `run_value`): its `# scheduled` comment says how a Run value goes
+  in, `week_totals(run_value(week_first_day), ...)`, and to import `run_value` from
+  sqlglot_composer there; weekly_team's copy of the comment matches. **Decided: no import added
+  to the Template's setup cell**, which would be an unused import in most runs.
+- **Stop 7** (weekly_team's `<RESULT_NAME>` and `RUN_DATE`): the Template's step 5 and Run
+  comment say `results` holds each SELECT's rows by the name `statements()` gives it, such as
+  `results["week_totals"]`, with no `<...>` in a code cell's comment; its Build comment says
+  RUN_DATE is a parameter of yours and what `leave_out=` leaves out, so weekly_team, which
+  keeps the Template's Build and Run cells, holds no leftover `<...>` and names no parameter
+  it lacks. **Decided: weekly_team doesn't fill its own Build and Run cells**: the journey
+  counts each cell filled as an action the user takes, and a Build and Run cell as written
+  need none. Its text cell is still the Template's, as a user's is (stop 14 of the second
+  read, answered: how-to 31 says you may cut it down). Stops 12 and 13 of the second read,
+  on weekly_team's own Build and Run comments, went with those cells.
+- **Stop 9** (the untagged parameters refusal's "View, then Cell Toolbar"): its fix says the
+  tag is the word papermill looks for, and how to add it in JupyterLab (the Property
+  Inspector) and in VS Code (Add Cell Tag), then to save.
+- **Stops 11, 12, 13** (build_run's docstring): its example imports what it uses (`FROM`,
+  `SELECT`, `WHERE`, `equals`, `statement`, and `job_runs` from the Example database), its
+  comments say what `START_FROM = ""` and `statements` stand in for; `run_values=` "in place of
+  calling the function, in every Statement built, the writes the build adds among them",
+  whose `write()` takes no arguments; `leave_out=` leaves out that table's write and each
+  added only because it reads it (the README's step 6 says the same).
+- **Stop 15** (export_project_lineage's example): a comment says the new run's `<...>` aren't
+  filled in, and a paragraph says how cell 4 and its line 13 are counted and what a filled-in
+  run gives. The line is 13 now, the Template's comment a line longer.
+- **Stop 16** (remove_scheduled_run's comment): moved off the call into a sentence saying the
+  `...` is the time the removal ran.
+- **The Table notebooks' "The code cells"**: "1 the Project and your query, connected by
+  `connect(...)`", matching the cell's heading, in the ten Example sources, how-tos 06 and 26
+  and project_templates' module docstring (the Template's own list already said connect).
+  **Decided: `to_8_6` writes it too** (`upgrades._code_cells_line_as_8_6`), so an upgraded
+  Example project still equals today's: where a Table notebook's text cell holds the list as
+  8.2 to 8.5's Example projects wrote it, it becomes 8.6's, in a fixed three-line form the
+  sources now use; a list of your own is left. CHANGES.md's "To update from 8.5" says so.
+- **Copilot file 18**'s `run_values=` bullet, the second read's stop: a write the build adds is
+  its table's `write()`, taking no arguments, and `run_values=` gives a Run value inside it the
+  user's value.
+- **The beginner reader again**, on just these texts
+  ([report](../reports/beginner-reader-cleanup.md)), 20 stops. Mended: the failing doctest's
+  line (19); the `RUNS` bullet (7); `INSERT_INTO` introduced by its printed Hive, and a table
+  with no Partitions (6, 8, the how-to saying a passed-over SELECT's rows aren't in
+  `results`); warehouse.py's "which one" and what to change (1 to 4); the Template's Run
+  value and Build comments (10, 11); weekly_team's own Build and Run comments (12, 13), gone
+  with those cells, as above;
+  build_run's comments and wrap (16 to 18); "your query" matching the heading (9); file 18's
+  bullet (20). Answered: 5, the README's `leave_out=` and `run_values=` lines, clear on a
+  second read and left as the build_run docstring words them; 14, above; 15, VS Code's
+  command, left as named.
+- **The README's 8.6 Update bullet**, after ticket 12's review (87f70cef, merged in): only
+  the Toolbox's notebooks are connected; a notebook of your own that imports from warehouse,
+  and one of the Toolbox's whose import can't be connected, are marked to connect by hand; and
+  where `conn` was the Example database, a line importing `conn` or reading `warehouse.conn`
+  is marked, as CHANGES.md's "To update from 8.5" says.
+- Tests: the whole suite passes on the merge with dev at 87f70cef (exit 0), its snapshot
+  written again.

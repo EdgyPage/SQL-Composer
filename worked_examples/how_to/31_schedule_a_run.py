@@ -367,8 +367,13 @@ written as it runs.
 If one fails, the run stops there, prints the tables it wrote before it and a line such as
 `START_FROM = "mart.team_days"`, and raises its error, so the scheduler sees the notebook fail.
 Run it again with that value, `-p START_FROM mart.team_days`, and the build passes over each
-Statement before that table's first write. A plain run again, `START_FROM` left `""`, is safe
-too: each write replaces the Partitions it fills.
+Statement before that table's first write. A SELECT it passes over isn't sent, so its rows
+aren't in `results`: here team_day, sent first, is passed over, and only a plain run gives
+`results["team_day"]`. A plain run again, `START_FROM` left `""`, is safe too: here, each
+write is an INSERT_OVERWRITE, as each `INSERT OVERWRITE TABLE` line the build printed in step
+5 shows, which replaces the Partitions it fills. A write made with INSERT_INTO, printed as
+`INSERT INTO TABLE`, adds its rows each time it is sent, so a run holding one runs again only
+with the `START_FROM` it printed.
 
 Done when your scheduler runs it with the parameters it needs. Then step 8.
 
