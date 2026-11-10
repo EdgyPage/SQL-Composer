@@ -10151,7 +10151,7 @@ GROUP BY
   CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), &#x27;MO&#x27;) AS STRING),
   job_events.job_id;</pre>
 <pre class="python">run_query(starts_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>job_id</th><th>starts</th></tr>
 <tr><td>2026-09-07</td><td>1</td><td>3</td></tr>
 <tr><td>2026-09-07</td><td>2</td><td>1</td></tr>
@@ -10163,7 +10163,7 @@ GROUP BY
 <tr><td>2026-09-21</td><td>2</td><td>4</td></tr>
 <tr><td>2026-09-21</td><td>3</td><td>1</td></tr>
 </table></div>
-<p>Pasted into your own notebook, this <code>run_query</code>, and each <code>run_query</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The week and month results were worked out in pandas from the same rows, to show what the Hive gives. The subtotals below run on the Example database as they are. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
+<p>The Example database runs each week here as it is, as your warehouse does. A month is different: pasted into your own notebook, step 4&#x27;s <code>run_query</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive, since the Example database runs Hive with sqlglot, which has no TRUNC. Its result was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 <p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. For Thursday 2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14 itself. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
 <p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
 <p>Done when the result holds the weeks of 2026-09-07, 2026-09-14 and 2026-09-21. Then step 4.</p>
@@ -10208,7 +10208,7 @@ GROUP BY
     GROUP_BY(&quot;week&quot;),
 )
 run_query(jobs_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-07</td><td>3</td></tr>
 <tr><td>2026-09-14</td><td>3</td></tr>
@@ -10443,7 +10443,7 @@ statement(
     GROUP_BY(&quot;week&quot;),
 )
 run_query(days_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>days</th></tr>
 <tr><td>2026-09-07</td><td>3</td></tr>
 <tr><td>2026-09-14</td><td>7</td></tr>
