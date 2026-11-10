@@ -194,8 +194,9 @@ def test_a_failure_halfway_stops_the_rest_and_its_start_from_reruns_the_rest(
     assert results == {}
 
 
-def test_a_failed_select_reruns_from_the_last_table_first_written_before_it(
-        run: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_failed_select_reruns_from_itself_sending_no_write_again(
+        run: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
     def failing_query(hive: str) -> pd.DataFrame:
         raise RuntimeError("the query timed out")
 
@@ -209,8 +210,28 @@ def test_a_failed_select_reruns_from_the_last_table_first_written_before_it(
         "3 of 3: busiest         failed: see below. The Statements after it weren't sent.",
         "This run wrote each table before it: mart.team_jobs and mart.teams.",
         "To send it and the rest, run this notebook again with the parameter:",
-        'START_FROM = "mart.teams"',
+        'START_FROM = "busiest"',
     ]
+    # The rerun sends the SELECT alone: no write is sent again, so an INSERT_INTO before it
+    # doesn't add its rows twice.
+    monkeypatch.setitem(globals(), "START_FROM", "busiest")
+    rerun = project.build_run(statements)
+    assert ('START_FROM is "busiest": the 2 Statements before it are passed over, as the run '
+            "before sent them:") in " ".join(capsys.readouterr().out.split())
+    sent: list[str] = []
+
+    def answering_query(hive: str) -> pd.DataFrame:
+        sent.append(hive)
+        return pd.DataFrame({"team": ["data"], "jobs": [1]})
+
+    results = rerun.run(answering_query, sent.append)
+    assert [hive.split()[0] for hive in sent] == ["SELECT"]
+    assert capsys.readouterr().out.splitlines() == [
+        '3 of 3: busiest  worked: 1 row, in results["busiest"]',
+        'Sent 1 Statement in order. results holds the rows of busiest, by name, as '
+        'results["busiest"].',
+    ]
+    assert list(results) == ["busiest"]
 
 
 def test_a_tables_session_settings_go_before_its_first_write(

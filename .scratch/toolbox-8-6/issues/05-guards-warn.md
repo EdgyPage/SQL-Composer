@@ -72,3 +72,23 @@ Built 2026-11-09.
   refused in the cell.
 - Left: the beginner reader on the new Warning and docstring text (the definition of done's
   item 4), and the docs (ticket 10).
+
+### The code review (2026-11-09)
+
+The review of ticket 05 and of tickets 02 to 04's fixes, mended in
+`fix(8.6): tickets 05 and 06's code review, and D481`:
+
+- `refusals._GUARDS_WARN` is one value, a `GuardsWarnIn` (the run's notebook's `names` and
+  each Guard `let_through`), or None outside a build, in place of a stack of tuples, as only
+  one build runs at a time; `guards_warn_in` puts back the one before it, if any.
+- `run_values.values_given(given, read)` gives a `ValuesGiven`: each value `used`, as read,
+  and each Run value `met`, noted by `run_values` itself, so `read` only reads. `_GIVEN`,
+  `_READERS` and `_MET` are one value, `_VALUES_GIVEN`, or None outside a build.
+- `build_scheduled_run`'s inner `read` is gone: it passes
+  `partial(_run_value_read, call=call)`, and reads `.used` and `.met` from what
+  `values_given` gave.
+- `_value_read`'s sentinels: `_EMPTY` is gone. Each caller asks `_is_missing(hint, given)`
+  (left empty, its hint without `| None`) first; `_value_read` gives None for one left empty
+  and `_UNREAD`, the one sentinel the type readers already give, for one it can't read.
+  Answered: a result type would be a class for two callers to study, where one sentinel,
+  the readers' own, reads in one pass.

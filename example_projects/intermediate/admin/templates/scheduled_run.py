@@ -62,7 +62,7 @@
 # | None, such as list[datetime.date] for "2026-11-01,2026-11-08".
 import datetime  # for a datetime.date hint
 
-START_FROM: str = ""  # a table to start from, as a run that failed prints it; "" sends all
+START_FROM: str = ""  # a table or SELECT to start from, as a failed run prints it; "" sends all
 # RUN_DATE: datetime.date | None = None  # such as "2026-11-01", passed in as text
 
 # %%

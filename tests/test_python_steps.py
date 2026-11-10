@@ -212,8 +212,9 @@ def test_run_and_to_hive_refuse_it_since_it_sends_nothing(a_project: Path, call:
             to_hive(step)
     message = " ".join(str(refused.value).split())
     assert f"What happened: {call} was given a Python step, which sends nothing." in message
-    assert "The Toolbox never moves its data." in message
+    assert "or, given rows=, that a Scheduled run's built.run saves" in message
     assert "pass the step to export_lineage(...)" in message
+    assert "or give it rows= and send it in a Scheduled run" in message
     assert sent == []
 
 
@@ -275,8 +276,8 @@ def test_its_section_says_it_is_a_change_made_in_python_and_where_it_lives(
     section = markdown_file.read_text(encoding="utf-8").split("## margin\n", 1)[1]
     assert section.startswith(
         "\nA Python step: a change made in Python, outside any Statement, and saved by your "
-        "own call. The Toolbox can't see inside it, so its columns can't be followed through "
-        "it, and it never moved its data. It reads ops.job_runs.run_id, "
+        "own call or, given rows=, by a Scheduled run. The Toolbox can't see inside it, so its "
+        "columns can't be followed through it. It reads ops.job_runs.run_id, "
         "ops.job_runs.duration_mins and ops.job_runs.dt, and writes mart.run_margins.\n\n"
         "### Where it lives\n\n"
         "Changed in Python by `building_blocks/margins.py:add_margin`, line 12. Open the "

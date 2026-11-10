@@ -368,11 +368,13 @@ def _refuse_a_python_step(call: str, why: str) -> NoReturn:
     """Refuse a Python step given to `call`, which sends or writes Hive: it has none."""
     refuse(
         what=f"{call} was given a Python step, which sends nothing.",
-        why=f"{why}: python_step(...) only declares a change you make in Python and save with "
-        "your own call, so Lineage can show it. The Toolbox never moves its data.",
+        why=f"{why}: python_step(...) declares a change you make in Python and save with your "
+        "own call, or, given rows=, that a Scheduled run's built.run saves, so Lineage can "
+        "show it.",
         fix="Save the rows with your own call, as you do now, and pass the step to "
-        "export_lineage(...) with your Statements. show_hive(step) prints comment lines saying "
-        "what it is, and in a Table notebook's write() project.run_tables passes over it.",
+        "export_lineage(...) with your Statements; or give it rows= and send it in a "
+        "Scheduled run. show_hive(step) prints comment lines saying what it is, and in a "
+        "Table notebook's write() project.run_tables passes over it.",
     )
 
 
