@@ -82,3 +82,30 @@ Built 2026-11-09.
 - For the merge with tickets 05 and 06: `_print_build`'s loop over the steps moved into
   `step_texts`; their changes to `_print_build` sit around it.
 - Tests: `tests/test_run_lineage_and_describe_logic.py`.
+
+### The code review (2026-11-09)
+
+- **`<name>.hql`'s header from one source, not the build's printed text**: `BuiltRun` keeps
+  `run_values_read_from` (what `run_values=` gave), and `scheduled_runs.lines_before_steps`
+  gives what the build prints before its first Statement: `parameter_lines`, then the Run
+  values given and the Statements START_FROM passes over, which `_print_build` prints and
+  `write_run_hive` writes. So the header no longer follows a change in `_print_build`'s
+  wording by parsing it, and nothing else the build printed slips in.
+- `_export_run_lineage_one` and `_export_run_hive_one` are one `_export_run_one(name,
+  function, write)`; `BUILT_AS` is `_built_as(it)`.
+- Names: `_logic_described` is `_logic_function_lines`; `describe_logic`'s `listed` and
+  `described` are `table_names` and `lines`; `shown` is `notebook`; `write_run_hive`'s
+  `before` and `pieces` are `build_lines` and `texts`. `check_there_is_one` tests
+  `isinstance(name, str)` once.
+- `describe_logic` gives an `async def` at the cell's top level, as `async def ...`.
+- **Answers the review on the first sentence**: `describe_logic` gives the docstring's first
+  sentence, on one line, rather than its first line, as decided above: the Toolbox's own
+  docstrings, and the Example's `mart.team_days`, wrap their first sentence, so a first line
+  would cut it off.
+- From ticket 09 (by the coordinator): the build's printout and `<name>.hql` show the Session
+  setting "dynamic_partitions" once, after the heading of the first step that fills
+  Partitions, and `built.run` now sends it there (was: first, before every step), both
+  through `scheduled_runs._first_filling_partitions`; a write's Hive is shown without it
+  (`running.statement_text`, which `hive_to_show` now uses). The scheduled_run Template's,
+  `describe_logic`'s and a refusal's example call is
+  `week_totals(FIRST_DAY, LAST_DAY)`, true of the Example's `mart.team_days`.

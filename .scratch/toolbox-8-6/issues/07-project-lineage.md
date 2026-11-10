@@ -79,3 +79,33 @@ Built 2026-11-09.
 - Private names made shared: `lineage.shortened`, `notebooks.first_line`,
   `project.one_line_message`.
 - Tests: `tests/test_project_lineage.py`.
+
+### The code review (2026-11-09)
+
+- **A Table folder whose logic fails is no longer passed over silently by `check()`**: it is
+  named on one line, "Passed over, as its logic doesn't load: mart.teams: name 'team_job'
+  is not defined", the line the Project lineage's report gives, both through
+  `project_lineage.passed_over_lines`. **Decided: not one whose logic isn't there yet**
+  (`failing_logic_lines`): a logic cell not Python yet, as a Template's `<...>` left makes
+  it, and a notebook not there, which check() already reports as registered but not there.
+  Naming every new table still to fill in turned the all-clear line of the README and the
+  how-tos into a line per table, for what blocks nothing the user can mend but by filling it
+  in. This replaces "passed over silently" above.
+- **A name a cell above `# scheduled` defines**: `built_run_of` still runs only those cells'
+  imports, never `connect(...)` nor the user's lines. A NameError for a name one of them
+  defines (a def, a class or an assignment, read by `ast`) is refused as a NameError naming
+  it, saying only the imports above `# scheduled` are run and to move it into the
+  `# scheduled` cell; a name defined nowhere is raised as Python raises it. Said in
+  `built_run_of`'s and `export_project_lineage`'s docstrings, and CHANGES.md.
+- **One way per job in `project_lineage.py`**: `NamedStatement`, a NamedTuple, for each
+  (Statement, name) pair; `project_tables(registry, call) -> ProjectTables` (its writes,
+  those passed over and the loop, `names_in_a_loop` called once there) for both `check()` and
+  the page; `_reads_of_each_table`, the one walk over `tables_read`, which the arrows, the
+  columns and `loop_lines` read; `_table_rows` (`TableRow`) and `_report_parts`
+  (`ReportPart`) for what both files show; `_warnings_silenced`, the one
+  `catch_warnings`. `ProjectLineage.written` became `reads`, by the table written.
+- Names: `_kind_line` is `_kind_label`; `e = html.escape` is gone; a run's writers are kept
+  with `dict.fromkeys`. Renamed: `project_writes` is `project_tables`; `loop_lines` takes
+  the `ProjectTables`.
+- From ticket 09 (by the coordinator): `admin/scheduled_runs.ipynb` gains `NEW_RUNS = []` and
+  `project.new_scheduled_run(NEW_RUNS)`, with a sentence in its text cell.

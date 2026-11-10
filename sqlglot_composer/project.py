@@ -451,21 +451,26 @@ ADMIN_NOTEBOOKS = {
     "scheduled_runs": (
         "# Scheduled runs, by hand\n\nWhat no Scheduled run does each time it runs, since it "
         "would be work for nothing each time: run these cells by hand, when you want them. "
-        "`project.check()` reports a loop among your tables, two or more each waiting on "
-        "another so that none can be written first, naming the logic cell to mend, and "
-        "changes nothing. `project.export_project_lineage()` writes "
-        "`lineage/<time>-project.html` and its Markdown twin: every Saved table, what reads "
-        "it, and which Scheduled runs write it, a table more than one writes marked and a loop "
-        "drawn red. It builds each Scheduled run as its Build cell does, with its parameters' "
-        "defaults, and sends nothing. Name Scheduled runs in `RUNS` for each one's own: "
-        "`project.export_run_lineage(RUNS)` writes its lineage into its folder's `lineage/`, "
-        "and `project.export_run_hive(RUNS)` its built Hive, in order, into `<name>.hql` "
-        "beside its notebook, to read, never to edit. Name tables in `TABLES` for "
-        "`project.describe_logic(TABLES)`: each logic function of their Table notebooks, "
-        "its hints and its docstring's first sentence, to paste under Copilot file 18. Each "
-        "list left empty is passed over. The cell under the Project's path connects to the "
-        "warehouse: a Run value that reads the warehouse needs it even to build.",
+        "Name each Scheduled run to make in `NEW_RUNS`, such as `[\"weekly\"]`: "
+        "`project.new_scheduled_run(NEW_RUNS)` makes `scheduled_runs/<name>/<name>.ipynb` "
+        "from the Template, for you to fill in its `<...>`. `project.check()` reports a loop "
+        "among your tables, two or more each waiting on another so that none can be written "
+        "first, naming the logic cell to mend, and changes nothing. "
+        "`project.export_project_lineage()` writes `lineage/<time>-project.html` and its "
+        "Markdown twin: every Saved table, what reads it, and which Scheduled runs write it, "
+        "a table more than one writes marked and a loop drawn red. It builds each Scheduled "
+        "run as its Build cell does, with its parameters' defaults, and sends nothing. Name "
+        "Scheduled runs in `RUNS` for each one's own: `project.export_run_lineage(RUNS)` "
+        "writes its lineage into its folder's `lineage/`, and `project.export_run_hive(RUNS)` "
+        "its built Hive, in order, into `<name>.hql` beside its notebook, to read, never to "
+        "edit. Name tables in `TABLES` for `project.describe_logic(TABLES)`: each logic "
+        "function of their Table notebooks, its hints and its docstring's first sentence, to "
+        "paste under Copilot file 18. Each list left empty is passed over. The cell under the "
+        "Project's path connects to the warehouse: a Run value that reads the warehouse needs "
+        "it even to build.",
         [f"from warehouse import connect\n{CONNECT_LINES}",
+         'NEW_RUNS = []  # Scheduled runs to make, such as ["weekly"]\n'
+         "if NEW_RUNS:\n    print(project.new_scheduled_run(NEW_RUNS))",
          "project.check()  # a loop among your tables, and what else needs you",
          "project.export_project_lineage()  # every Saved table, and the runs that write each",
          'RUNS = []  # Scheduled runs, for each one\'s lineage and Hive, such as ["weekly"]\n'
@@ -1939,8 +1944,9 @@ def check() -> ProjectReport:
     such as which Table reference changed after the Reference sheet was last written; a loop
     among the Project's tables, two or more each waiting on another so that none can be
     written first, naming each table in it and the notebook whose # logic cell to mend, which
-    it finds by loading each Table folder's logic, as run_tables does, a Table folder whose
-    logic doesn't load yet passed over; each
+    it finds by loading each Table folder's logic, as run_tables does; each Table folder whose
+    logic fails, passed over in looking for a loop, with what stops it, though not one whose
+    logic cell still holds a <...> from its Template; each
     batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
@@ -1972,9 +1978,10 @@ def check() -> ProjectReport:
     lines += _workflow_lines(root)
     lines += _databases_lines(root)
     # project_lineage imports this file, so it is read here, when check() runs.
-    from .project_lineage import loop_lines
+    from .project_lineage import failing_logic_lines, loop_lines, project_tables
 
-    lines += loop_lines(registry)
+    tables = project_tables(registry, "project.check()")
+    lines += loop_lines(tables) + failing_logic_lines(tables.passed_over)
     if not lines:
         lines = ["Every Table folder, Table reference, Building block and Scheduled run is "
                  "registered, and each one registered is there."]
@@ -7463,6 +7470,11 @@ def export_project_lineage() -> ProjectReport:
     be written first, is drawn red, its tables listed at the top; project.check() names the
     logic cell to mend.
 
+    Of the cells above a run's # scheduled cell only the imports run, never their connect(...)
+    nor your own lines, so a constant or a function one of them defines isn't there when the
+    run is built: a # scheduled cell that uses one shows, on the page, the refusal naming it,
+    to move into the # scheduled cell.
+
     A Run value is worked out as each Statement is built, so one that reads the warehouse
     needs connect(...) first, as the notebook's first cell has it; one that fails changes
     nothing drawn. A run that doesn't build, as one with a <...> left, and a Table folder whose
@@ -7534,18 +7546,22 @@ def export_run_lineage(name: str | list[str]) -> ProjectReport:
     Here a short Template stands in for a Table notebook of yours, and the Scheduled run's
     one Statement is its write().
     """
-    return _run_for_each_name(name, "project.export_run_lineage", _export_run_lineage_one)
-
-
-def _export_run_lineage_one(name: str) -> ProjectReport:
-    """export_run_lineage for one Scheduled run."""
-    call = _action_call("export_run_lineage", name)
-    root = _project_root(call)
-    check_there_is_one(root, SCHEDULED_RUN, name, call)
     # project_lineage imports this file, so it is read here, when the lineage is written.
     from .project_lineage import write_run_lineage
 
-    return ProjectReport(write_run_lineage(root, name, call))
+    return _run_for_each_name(name, "project.export_run_lineage", _export_run_one,
+                              "export_run_lineage", write_run_lineage)
+
+
+def _export_run_one(name: str, function: str,
+                    write: Callable[[Path, str, str], list[str]]) -> ProjectReport:
+    """export_run_lineage or export_run_hive, `function`, for one Scheduled run: `write`
+    writes its file, given the Project's folder, the run's name and the call, and gives what
+    the report says."""
+    call = _action_call(function, name)
+    root = _project_root(call)
+    check_there_is_one(root, SCHEDULED_RUN, name, call)
+    return ProjectReport(write(root, name, call))
 
 
 def export_run_hive(name: str | list[str]) -> ProjectReport:
@@ -7617,28 +7633,21 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     Here a short Template stands in for a Table notebook of yours, and the Scheduled run's
     one Statement is its write().
     """
-    return _run_for_each_name(name, "project.export_run_hive", _export_run_hive_one)
-
-
-def _export_run_hive_one(name: str) -> ProjectReport:
-    """export_run_hive for one Scheduled run."""
-    call = _action_call("export_run_hive", name)
-    root = _project_root(call)
-    check_there_is_one(root, SCHEDULED_RUN, name, call)
     # project_lineage imports this file, so it is read here, when the file is written.
     from .project_lineage import write_run_hive
 
-    return ProjectReport(write_run_hive(root, name, call))
+    return _run_for_each_name(name, "project.export_run_hive", _export_run_one,
+                              "export_run_hive", write_run_hive)
 
 
 def check_there_is_one(root: Path, kind: FileKind, name: object, call: str) -> None:
     """Refuse a name with no Table folder or Scheduled run, `kind`, in the Project at `root`,
     naming the close ones, or else each one there is."""
     names = [kind.name_of(stem) for stem in kind.found(root)]
-    if isinstance(name, str) and name in names:
-        return
     close: list[str] = []
     if isinstance(name, str):
+        if name in names:
+            return
         close = difflib.get_close_matches(name, names, n=3)
     if close:
         fix = f"Did you mean {in_words(close, last='or')}?"
@@ -7684,13 +7693,14 @@ def describe_logic(names: str | list[str]) -> ProjectReport:
 
     Run it by hand, from admin/scheduled_runs.ipynb, and paste what it gives under Copilot
     file 18, so Copilot fills in a Scheduled run's # scheduled cell from your tables' logic:
-    project.load("mart.team_days").week_totals(WEEK). For each table it reads the # logic cell
-    of its Table notebook, as last saved, and gives each function that cell defines, at its
-    top level: def, its name and its arguments, with their type hints and defaults, and its
-    return hint, as written there, then its docstring's first sentence, on one line, or
-    "... # no docstring". A function the cell imports, such as one from a Building block, is
-    left out, as is one defined inside another, so the list is the table's own logic. It
-    reads the cell and runs nothing, so it needs no connection, and changes no file.
+    project.load("mart.team_days").week_totals(FIRST_DAY, LAST_DAY). For each table it reads
+    the # logic cell of its Table notebook, as last saved, and gives each function that cell
+    defines, at its top level: def (async def for one written so), its name and its
+    arguments, with their type hints and defaults, and its return hint, as written there,
+    then its docstring's first sentence, on one line, or "... # no docstring". A function the
+    cell imports, such as one from a Building block, is left out, as is one defined inside
+    another, so the list is the table's own logic. It reads the cell and runs nothing, so it
+    needs no connection, and changes no file.
 
     `names` is one table's name, or a list of them, each described in turn, a blank line
     between. A name with no Table folder is refused, naming the close ones, before any is
@@ -7699,35 +7709,38 @@ def describe_logic(names: str | list[str]) -> ProjectReport:
     In the example above, a one-line Template stands in for a notebook of yours.
     """
     call = f"project.describe_logic({_names_as_written(names)})"
-    listed = [names]
+    table_names = [names]
     if isinstance(names, (list, tuple)):
-        listed = _names_in_list(names, "project.describe_logic")
+        table_names = _names_in_list(names, "project.describe_logic")
     root = _project_root(call)
-    for name in listed:
+    for name in table_names:
         check_there_is_one(root, TABLE_FOLDER, name, call)
-    described: list[str] = []
-    for name in listed:
-        if described:
-            described.append("")
-        described += _logic_described(root, name, call)
-    return ProjectReport(described)
+    lines: list[str] = []
+    for name in table_names:
+        if lines:
+            lines.append("")
+        lines += _logic_function_lines(root, name, call)
+    return ProjectReport(lines)
 
 
-def _logic_described(root: Path, name: str, call: str) -> list[str]:
+def _logic_function_lines(root: Path, name: str, call: str) -> list[str]:
     """One table's logic functions, as describe_logic gives them: a line naming the table and
-    its notebook, then each function the logic cell defines at its top level, its def line
-    and its docstring's first sentence."""
-    shown = table_notebook(table_stem(name))
-    tree = ast.parse(_checked_logic(root, shown, call))
+    its notebook, then each function the logic cell defines at its top level, an async def
+    among them, its def line and its docstring's first sentence."""
+    notebook = table_notebook(table_stem(name))
+    tree = ast.parse(_checked_logic(root, notebook, call))
     lines = [f"# {name}: project.load({python_literal(name)}), from the {LOGIC} cell of "
-             f"{shown}"]
+             f"{notebook}"]
     for node in tree.body:
-        if not isinstance(node, ast.FunctionDef):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         returns = ""
         if node.returns is not None:
             returns = f" -> {ast.unparse(node.returns)}"
-        lines.append(f"def {node.name}({ast.unparse(node.args)}){returns}:")
+        async_word = ""
+        if isinstance(node, ast.AsyncFunctionDef):
+            async_word = "async "
+        lines.append(f"{async_word}def {node.name}({ast.unparse(node.args)}){returns}:")
         docstring = ast.get_docstring(node)
         if docstring:
             lines.append(f'    """{_first_sentence(docstring)}"""')

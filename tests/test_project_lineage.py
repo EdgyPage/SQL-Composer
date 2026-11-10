@@ -168,12 +168,23 @@ def test_check_says_nothing_of_a_loop_when_there_is_none(started: Path) -> None:
     assert "loop" not in repr(project.check())
 
 
-def test_check_passes_over_a_table_whose_logic_doesnt_load_yet(started: Path) -> None:
+def test_check_passes_over_a_table_whose_logic_isnt_filled_in_yet(started: Path) -> None:
     project.new_table("mart.not_yet")  # the saved_table Template, its <...> left
     make_a_loop(started)
     report = repr(project.check())
     assert "A loop among your tables" in report
-    assert "mart.not_yet:" not in report
+    assert "mart.not_yet" not in report
+
+
+def test_check_names_a_table_whose_logic_fails_on_a_line(started: Path) -> None:
+    spelt_wrong = LOGIC["mart.teams"].replace("FROM(team_jobs)", "FROM(team_job)")
+    notebooks.write_notebook(started / "tables" / "mart__teams" / "mart__teams.ipynb",
+                             [("code", f"# logic\n{spelt_wrong}")])
+    report = repr(project.check())
+    # Passed over in looking for a loop, but named, with what stops it, on one line.
+    passed_over = [line for line in report.splitlines() if "mart.teams" in line]
+    assert passed_over == [
+        "Passed over, as its logic doesn't load: mart.teams: name 'team_job' is not defined"]
 
 
 # --- export_project_lineage -------------------------------------------------------------------
@@ -315,6 +326,32 @@ def test_only_the_imports_of_the_cells_above_are_run(started: Path) -> None:
     notebooks.write_cell_text(notebook, 3, setup)
     built, _ = toolbox_module("project_lineage").built_run_of(started, "weekly", "the test")
     assert built.steps[-1].name == "busiest"
+
+
+def test_a_name_defined_above_the_scheduled_cell_is_refused_saying_to_move_it(
+        started: Path) -> None:
+    notebook = new_run(started, "weekly", scheduled='''# scheduled
+def statements():
+    return {"busiest": project.load(TABLE).busiest()}
+''')
+    cells = notebooks.read_cells(notebook)
+    notebooks.write_cell_text(notebook, 3, cells[2][1] + '\nTABLE = "mart.teams"\n')
+    with pytest.raises(NameError) as refused:
+        toolbox_module("project_lineage").built_run_of(started, "weekly", "the test")
+    message = " ".join(str(refused.value).split())
+    assert ("the test: the # scheduled cell of scheduled_runs/weekly/weekly.ipynb needs "
+            "TABLE, which a cell above it defines") in message
+    assert "only the imports of the cells above # scheduled are run" in message
+    assert "Move TABLE into the # scheduled cell" in message
+
+
+def test_a_name_defined_nowhere_is_raised_as_python_raises_it(started: Path) -> None:
+    new_run(started, "weekly", scheduled='''# scheduled
+def statements():
+    return {"busiest": project.load(NOWHERE).busiest()}
+''')
+    with pytest.raises(NameError, match="^name 'NOWHERE' is not defined$"):
+        toolbox_module("project_lineage").built_run_of(started, "weekly", "the test")
 
 
 # --- admin/scheduled_runs.ipynb ---------------------------------------------------------------
