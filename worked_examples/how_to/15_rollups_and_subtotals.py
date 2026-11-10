@@ -102,12 +102,12 @@ GROUP BY
 7  2026-09-21       2       4
 8  2026-09-21       3       1
 
-Pasted into your own notebook, this `run_query`, and each `run_query` of a week or a month
-below, stops with a RuntimeError saying the Example database can't run this Hive: the Example
-database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The week and month results
-were worked out in pandas from the same rows, to show what the Hive gives. The subtotals below
-run on the Example database as they are. Your warehouse runs the Hive as it is, and Check it
-worked below runs on the Example database too.
+The Example database runs each week here as it is, as your warehouse does. A month is
+different: pasted into your own notebook, step 4's `run_query` stops with a RuntimeError saying
+the Example database can't run this Hive, since the Example database runs Hive with sqlglot,
+which has no TRUNC. Its result was worked out in pandas from the same rows, to show what the
+Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the
+Example database too.
 
 The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so
 it is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. For
@@ -582,49 +582,23 @@ from sqlglot_composer import (
 job_events = example_database.job_events
 job_owners = example_database.job_owners
 
-# The Example database can't run week_start or month_start, so the page and the doctest
-# get each such Statement's result from these, worked out in pandas from rows read with
-# Statements it can run.
+# The Example database can't run month_start, so the page and the doctest get its
+# Statement's result from this, worked out in pandas from rows read with a Statement it can
+# run.
 
 
-def every_event() -> pd.DataFrame:
-    """Every event over the 14 days, each with its week and month, as week_start and
-    month_start give them."""
+def every_start() -> pd.DataFrame:
+    """Every run's start over the 14 days, each with its month, as month_start gives it."""
     events = run_query(
         statement(SELECT(all_columns(job_events)), FROM(job_events),
                   WHERE(between(job_events.dt, "2026-09-11", "2026-09-24"))),
         example_database.query,
     )
-    days = pd.to_datetime(events.dt)
-    monday = days - pd.to_timedelta(days.dt.weekday, unit="D")
-    return events.assign(week=monday.dt.strftime("%Y-%m-%d"),
-                         month=days.dt.strftime("%Y-%m-01"))
-
-
-def every_start() -> pd.DataFrame:
-    events = every_event()
-    return events[events.event_type == "start"]
-
-
-def starts_per_week_in_pandas() -> pd.DataFrame:
-    """starts_per_week's result, computed in pandas, not by running this Hive."""
-    return every_start().groupby(["week", "job_id"], as_index=False).size().rename(
-        columns={"size": "starts"})
+    starts = events[events.event_type == "start"]
+    return starts.assign(month=pd.to_datetime(starts.dt).dt.strftime("%Y-%m-01"))
 
 
 def starts_per_month_in_pandas() -> pd.DataFrame:
     """starts_per_month's result, computed in pandas, not by running this Hive."""
     return every_start().groupby(["month", "job_id"], as_index=False).size().rename(
         columns={"size": "starts"})
-
-
-def jobs_per_week_in_pandas() -> pd.DataFrame:
-    """jobs_per_week's result, computed in pandas, not by running this Hive."""
-    return every_start().groupby("week", as_index=False).job_id.nunique().rename(
-        columns={"job_id": "jobs_that_ran"})
-
-
-def days_per_week_in_pandas() -> pd.DataFrame:
-    """days_per_week's result, computed in pandas, not by running this Hive."""
-    return every_event().groupby("week", as_index=False).dt.nunique().rename(
-        columns={"dt": "days"})

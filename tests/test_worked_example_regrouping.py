@@ -1,7 +1,8 @@
 """Worked example 2, re-grouping: the Guard refuses adding up distinct counts by the week.
 
-The example gives its results computed in pandas, for where the Example database can't run
-week_start; `sqlglot_checks/test_sqlglot_worked_examples.py` checks its Hive against them.
+The example also gives its results computed in pandas;
+`sqlglot_checks/test_sqlglot_worked_examples.py` checks its Hive, run on the Example database,
+against them.
 """
 
 from __future__ import annotations

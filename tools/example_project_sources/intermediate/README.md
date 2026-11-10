@@ -37,6 +37,13 @@ which finished the batch: its folder is in `admin/workflows/convert/finished/tea
 folder's `conversion/` keeps the statement it came from, and its notebook the cells that
 compare the two.
 
+And a Scheduled run, `weekly_team`, a notebook a scheduler runs top to bottom each week: it
+adds up a week of `mart.team_days` with `week_totals`, and its build writes the three tables
+that week reads first, `mart.job_day_costs` and `mart.job_day_facts`, then `mart.team_days`.
+Its parameter `WEEK`, a day of the week to add up, is passed in as text, such as
+`"2026-09-23"`; left as None, a Run value of the run's own, `week_first_day`, takes the week of
+the latest day `ops.job_events` holds.
+
 Rows can come in late here, a bill a day or two after its day, so the three tables that count
 or add up rows per day write their last 3 days again on each run, and a day written again
 replaces itself. The number 3 is written once, in `building_blocks/days_rewritten.py`, which
@@ -55,7 +62,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `sqlglot_composer/` | you: copy it in from the download, before you run anything | nothing: never edit a file inside it |
 | the notebook `project.start()` was run from | by hand, in Jupyter; not kept here | nothing |
 | `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it; each notebook gives it the Example database with `connect(example_database)` |
-| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove and run_tables, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | each notebook's line `connect(...)`, at its top, that reaches the warehouse: the Example database |
+| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove, run_tables and scheduled_runs, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | each notebook's line `connect(...)`, at its top, that reaches the warehouse: the Example database |
 | `admin/databases.py`, the Dev Database and Prod Database | `project.start()` | `DEV`, `mart` |
 | `admin/sent.csv`, a row for each change a notebook sends to the warehouse | `project.start()` | nothing: nothing was sent |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()` | nothing |
@@ -72,6 +79,9 @@ file, the Project action that made it, and what was filled in by hand.
 | `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and its Decisions, answered in the convert Workflow's decisions cell; and its first cell's `connect(...)`, with the Example database |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `<db>__<table>.hql` in each Table folder, such as `tables/mart__job_day_costs/mart__job_day_costs.hql`, the table's Hive: each step its notebook's logic sends, in the order they are sent, to read at a glance and to commit | its notebook's `export_hive()` cell, the one after its lineage cell, which writes the file again each time it runs | nothing: never edit it. To change it, edit the notebook's logic, save the notebook, and run its `export_hive()` cell again |
+| `scheduled_runs/weekly_team/weekly_team.ipynb`, the Scheduled run | `project.new_scheduled_run("weekly_team")` | its `# parameters` cell's `WEEK`, its `# scheduled` cell's Run values and `statements()`, and its setup cell's `connect(...)`, with the Example database |
+| `scheduled_runs/weekly_team/weekly_team.hql`, the run's Hive: each Statement its Build cell builds, in the order its Run cell sends them, with its parameters' defaults, to read | `project.export_run_hive("weekly_team")`, run by hand from `admin/scheduled_runs.ipynb` | nothing: never edit it, nor send it, since the run builds its Hive again each time. To change it, edit the notebook and export it again |
+| `scheduled_runs/weekly_team/lineage/`, the run's Lineage | `project.export_run_lineage("weekly_team")`, run by hand from `admin/scheduled_runs.ipynb` | nothing |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | `admin/workflows/convert/team_failures.hql`, the Hive the ops team wrote | you, saved beside the convert notebook | nothing: convert reads it where it is |
 | `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: `batch.md`, naming the script and what each statement became, and `written.json`, moved here once its table passed its compare |

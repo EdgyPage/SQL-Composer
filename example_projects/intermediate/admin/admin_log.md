@@ -116,3 +116,10 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run("weekly_team")`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
