@@ -2,6 +2,180 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.6
+
+8.6 has each notebook give warehouse.py its own connection, so each picks the account it runs
+as at its top, and adds Scheduled runs: a notebook an outside scheduler runs top to bottom,
+writing the tables it needs in order and reading back what it is for, its Hive built in one
+cell and sent in the next.
+
+### To update from 8.5
+
+- **Copy in 8.6's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.6.md`. A Project 8.3 or 8.4 last wrote upgrades straight to 8.6 the
+  same way, each step in turn.
+- **warehouse.py is written as 8.6 writes it**, with `connect`, and its `query` and `execute`
+  passing each Hive string to the connection a notebook gives `connect(...)`; the file as it
+  was is kept in `admin/removed/`.
+  - If its `conn` was still the Example database, as `project.start()` set it, each notebook
+    below is connected to the Example database, `connect(example_database)`, as `conn` was:
+    nothing to do by hand. At work, write your connection in each one's `connect(...)` in its
+    place.
+  - If `conn` is your own, each line of yours, `conn = ...` (in a `try` or an `if` too) and
+    what it imports, with your comments beside them, is kept in warehouse.py as you wrote it,
+    under a comment, never rewritten, and marked `# UPGRADE 8.6:`; each notebook's line is
+    left as `# connect(your_connection)`.
+  - If you wrote warehouse.py's `query` or `execute` yourself, the file is kept as it is and
+    marked: add a `connect(connection)` that keeps the connection they use, as the
+    warehouse.py `project.start()` writes in an empty folder does. A `connect` of your own is
+    kept and marked the same way.
+- **Each notebook of the Toolbox's that reaches the warehouse gains `connect`** in its
+  `from warehouse import` line, and the connect lines under it: each Workflow notebook,
+  written again with each name and step cell you gave kept, `admin/check_references.ipynb`
+  and each Table notebook, whose text cell's list of its code cells, where it is as the Example
+  projects wrote it, now says cell 1 connects. `admin/run_tables.ipynb` gains its cell that connects, under the
+  Project's path, and its last cell loses its commented-out import; `admin/remove.ipynb`
+  gains `SCHEDULED_RUNS = []`, keeping what you named; each admin notebook's text is 8.6's.
+  The `saved_table` and `quality_checks` Templates, if still as 8.5 wrote them, are written
+  again with cell 1's `connect(...)`; one you changed is marked.
+- **A notebook of your own** that imports from warehouse and doesn't connect is marked at
+  that import, as is one of the Toolbox's whose import the Upgrade can't connect, such as one
+  inside a `try`. A `.py` file of yours, such as a Run value's function in
+  `building_blocks/`, is left: a module runs on the connection of the notebook that imports
+  it. But where `conn` was the Example database, the new warehouse.py has no `conn`: each
+  line of yours, in a `.py` file or a notebook, that imports `conn` from warehouse, or reads
+  `warehouse.conn`, is marked: use `example_database` in its place, or `query` and
+  `execute`. A prod copy's
+  record in `promoted.json`, and an open batch's `written.json`, follow each file the Upgrade
+  changed that was still as promote or convert wrote it, so `project.check()` doesn't report
+  it as edited by hand.
+- **What you do by hand, if `conn` was your own:** fill in each notebook's `connect(...)`
+  line with your connection, such as `connect(my_api.connect())`, or the lines that import a
+  connection kept in a file outside the Project, as the comment above that line shows; then
+  delete your old lines from warehouse.py. Meanwhile `from warehouse import conn` and
+  `connect(conn)` in a notebook connect it as before. Until a notebook connects, its `query`
+  and `execute` refuse with "No connection: call connect(...) first".
+- **Made for you**: `scheduled_runs/`, the `scheduled_run` Template in `admin/templates/`
+  and `admin/scheduled_runs.ipynb`, whose cells you run by hand for your Scheduled runs; its
+  `connect(...)` line is filled in as the others are.
+
+### What's new
+
+- **`connect(...)` in warehouse.py.** warehouse.py no longer sets `conn` when it is imported:
+  each notebook that reaches the warehouse imports `connect` in its setup cell, near its top,
+  and its line `connect(your_connection)` gives warehouse.py the connection that notebook uses, such as
+  `connect(example_database)` in the Example projects. Until a notebook connects, `query` and
+  `execute` refuse with "No connection: call connect(...) first", so a notebook never runs on
+  a connection another notebook set. A Project from before 7.0, with a send.py and no
+  warehouse.py, writes one: copy the warehouse.py `project.start()` writes into a new folder,
+  move your connection into each notebook's `connect(...)` line, then delete send.py.
+- **A `scheduled_runs/` folder.** `project.start()` makes `scheduled_runs/` beside `tables/`,
+  and the `scheduled_run` Template in `admin/templates/`; run again in an older Project, it
+  adds both.
+- **Scheduled runs.** `project.new_scheduled_run("weekly")` makes
+  `scheduled_runs/weekly/weekly.ipynb`, a Scheduled run: a notebook an outside scheduler, such
+  as papermill, runs top to bottom. You fill in its `<...>` lines: its parameters, its
+  `connect(...)` line and, in its `# scheduled` cell, `statements()`, the Statements it runs.
+  `project.remove_scheduled_run("weekly")` moves one into `admin/removed/`, deleting nothing,
+  and `admin/remove.ipynb` gains `SCHEDULED_RUNS = []` for the names to remove.
+- **`register` and `check()` know a Scheduled run.** `project.check()` reports a folder in
+  `scheduled_runs/` the registry doesn't list, with `project.register("weekly")`, which adopts
+  it, and one the registry lists that isn't there, with `project.remove_scheduled_run(...)`.
+  Its all-clear line now reads "Every Table folder, Table reference, Building block and
+  Scheduled run is registered, and each one registered is there."
+- **The parameters cell.** A Scheduled run's `# parameters` cell, tagged `parameters` so
+  papermill puts the values it is given after it, holds each value a run is given, each with
+  its type hint, such as `START_FROM: str = ""` and `RUN_DATE: datetime.date | None = None`.
+  A scheduler passes text, so each is read by its hint (`datetime.date` from `2026-11-01`,
+  `int`, `float`, `bool` from `true` or `false`, `str`, each in `list[...]` or with `| None`)
+  before anything is built, and a value that can't be read, a hint outside those or a value
+  left empty without `| None` is refused, naming the parameter, its hint and the value. A
+  parameter cell of your own beside it is yours: it isn't read.
+- **`project.build_run(statements)`** builds a run, in a Scheduled run's notebook: it reads
+  the parameters, then calls your `statements()` and adds, before them, the writes of each
+  Project table they read, all the way up, in lineage order, each table before the tables
+  that read it. `run_values={"period_end": END}` gives a Run value of that function's name
+  for this run in place of calling it; `leave_out=["mart.team_days"]` leaves a table out, and
+  what only it reads; `START_FROM = "<table>"` passes over each Statement before that table's
+  first write, and `START_FROM = "<SELECT's name>"` each before that SELECT. It prints the
+  parameters, then each Statement's Hive under a heading such as
+  `-- 3 of 7: mart.team_days (read by week_totals)`, and sends nothing. A Run value's function
+  that reads the warehouse, such as a table's latest Partition, is called as it builds, so
+  its notebook connects first.
+- **Guards only warn in a Scheduled run's own cell.** While `project.build_run(statements)`
+  calls the run's `statements()`, a Guard tripped by a Statement the run's own notebook composes
+  warns, with its what, why, fix and opt-out, and the build lists each one it let through, with
+  its line, so a quick Statement needs no opt-out. Those let through are the Guards Hive runs
+  past as written: adding up what doesn't add up, a WHERE on a LEFT_JOIN's or a FULL_JOIN's
+  table, a write whose Key is unproven, and ORDER_BY in a Derived table. Load limits, the
+  other Guards and every other refusal still refuse there, and a Statement from a Table
+  notebook's logic, through `project.load`, keeps every Guard.
+- **`results = built.run(query, execute)`, a Scheduled run's Run cell**, sends each Statement
+  `project.build_run` built, in its order, printing a line as each works, such as
+  `2 of 4: mart.team_jobs  worked`: each write, Admin statement and Unchecked statement through
+  `run_execute` and your execute, each SELECT through `run_query` and your query, its rows kept
+  in `results` by its name, as `results["week_totals"]`; nothing is saved to a file. The
+  Session setting "dynamic_partitions" goes once, before the first write that fills
+  Partitions from its rows, and a table's `session_settings()` before its first write, as the
+  build printed them.
+  The first that fails stops the rest and raises its error, so the scheduler sees the notebook
+  fail, once it has printed the tables written before it and the line to rerun from it, such
+  as `START_FROM = "mart.teams"`, or, for a SELECT that failed, its name, so the rerun sends
+  no write before it again. A Python step given `rows=`, the SELECT its function takes,
+  as `python_step(add_margin, reads=[...], writes=margins, rows=rows())`, has its table
+  written: its rows pulled through your query, given to the function, and what it gives back
+  saved through your execute, each value cast to its column's type. One with no `rows=` is
+  refused before anything is sent.
+- **The Project's lineage, by hand.** `project.export_project_lineage()` writes an HTML page
+  and its Markdown twin into `admin/lineage/`: every Saved table as a box, an arrow from each
+  table to each that reads it, each Scheduled run that writes a table named on it, a table
+  more than one run writes marked, and a loop drawn red, its tables listed at the top. It
+  builds each Scheduled run as its Build cell does, sending nothing; a run that doesn't
+  build is shown on the page with why. Of the cells above a run's `# scheduled` cell, the
+  `# parameters` cell runs, but of the others only the imports, never their `connect(...)`,
+  so a name one of those others defines and the `# scheduled` cell uses is refused, saying to
+  move it into that cell. `project.check()` now reports a loop among your tables, naming each
+  and the logic cell to mend, and each Table folder whose logic fails, with what stops it, a
+  typo Python can't read among them, though not one still holding a `<...>` from its
+  Template. Both are cells of the new `admin/scheduled_runs.ipynb`, run by hand, never by a
+  Scheduled run, whose `NEW_RUNS = []` names Scheduled runs for
+  `project.new_scheduled_run(...)` to make.
+- **One run's lineage and Hive, and a table's logic described, by hand.**
+  `project.export_run_lineage("weekly")` builds that Scheduled run as its Build cell does,
+  with its parameters' defaults, sending nothing, and writes its lineage into
+  `scheduled_runs/weekly/lineage/`, named by the time and the run.
+  `project.export_run_hive("weekly")` writes its built Hive, in order, each Statement headed
+  as the build prints it, into `scheduled_runs/weekly/weekly.hql`, to read, never to edit:
+  the run builds its Hive again each time it runs.
+  `project.describe_logic(["mart.team_days"])` lists each function of a table's logic cell,
+  its hints and its docstring's first sentence, to paste into Copilot. Each takes one name or
+  a list, and each is a cell of `admin/scheduled_runs.ipynb`.
+- **A Scheduled run in the intermediate Example project.**
+  `example_projects/intermediate/scheduled_runs/weekly_team/` adds up a week of
+  `mart.team_days` with its logic's `week_totals`, the week given by its parameter
+  `WEEK: datetime.date | None = None`, or, left as None, by a Run value of its own, the week of
+  the latest day `ops.job_events` holds; its build writes `mart.job_day_costs`,
+  `mart.job_day_facts` and `mart.team_days` first. Its built Hive, `weekly_team.hql`, and its
+  `lineage/` were exported by hand, as `admin/scheduled_runs.ipynb` exports them.
+- **The Example database runs week_start**, where it stopped saying its executor has no
+  NEXT_DAY: its NEXT_DAY gives the first day after the given one that falls on the named day,
+  `'MO'`, `'MON'` or `'MONDAY'` in any case, as Hive's does. So `weekly_team` runs on it, and
+  the how-tos and the Example gallery show each week's result from it, not from pandas.
+  month_start still can't run there: it has no TRUNC.
+- **The docs say connect and Scheduled runs.** The README gains a Scheduled runs section, its
+  cells, making one, the parameters and their hints, the build and the run, `START_FROM`,
+  Guards only warning in the run's own cell, the cells of `admin/scheduled_runs.ipynb` and
+  scheduling the notebook with papermill or your own scheduler; its file list names
+  `admin/lineage/` and a run's `.hql` and `lineage/`. A new how-to, "Schedule a run", makes
+  one in the Intermediate Example project, builds it, runs it and exports its Hive, and
+  "Declare a change made in Python" says a Scheduled run writes a Python step's table given
+  `rows=`.
+- **Copilot file 18, `copilot/18_scheduled_runs.txt`**, fills in a Scheduled run's cells from
+  what `project.describe_logic([...])` prints: the parameters cell and its hints,
+  `statements()`, the Build cell's `run_values=` and `leave_out=`, and `START_FROM`.
+  `00_start_here.txt` names it.
+
 ## 8.5
 
 8.5 takes away steps you do by hand in the Workflows, each doing what it did before: the

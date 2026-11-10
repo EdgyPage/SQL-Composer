@@ -1,4 +1,4 @@
-# sqlglot Composer 8.5 - copy it, then edit your copy
+# sqlglot Composer 8.6 - copy it, then edit your copy
 """<DB>.<TABLE> - TODO: say in one line what one row is.
 
 project.reference_from_logic("<DB>.<TABLE>") writes this file again from the table's logic,

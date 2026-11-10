@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.6 - copy it, then edit your copy -->
 # mart.team_failures against ops_reports.team_failures
 
 Below, the Statement is mart.team_failures's rows, and the original ops_reports.team_failures's.

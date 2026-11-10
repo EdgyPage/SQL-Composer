@@ -1,4 +1,4 @@
-# sqlglot Composer 8.5 - copy it, then edit your copy
+# sqlglot Composer 8.6 - copy it, then edit your copy
 """databases - the settings of the two Databases you own: DEV, where
 you build and check tables, and PROD, where tables other people rely on are written. Set each
 once; the Workflows read them.

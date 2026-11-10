@@ -368,11 +368,13 @@ def _refuse_a_python_step(call: str, why: str) -> NoReturn:
     """Refuse a Python step given to `call`, which sends or writes Hive: it has none."""
     refuse(
         what=f"{call} was given a Python step, which sends nothing.",
-        why=f"{why}: python_step(...) only declares a change you make in Python and save with "
-        "your own call, so Lineage can show it. The Toolbox never moves its data.",
+        why=f"{why}: python_step(...) declares a change you make in Python and save with your "
+        "own call, or, given rows=, that a Scheduled run's built.run saves, so Lineage can "
+        "show it.",
         fix="Save the rows with your own call, as you do now, and pass the step to "
-        "export_lineage(...) with your Statements. show_hive(step) prints comment lines saying "
-        "what it is, and in a Table notebook's write() project.run_tables passes over it.",
+        "export_lineage(...) with your Statements; or give it rows= and send it in a "
+        "Scheduled run. show_hive(step) prints comment lines saying what it is, and in a "
+        "Table notebook's write() project.run_tables passes over it.",
     )
 
 
@@ -519,7 +521,7 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        hive = _hive_to_show(s, frame)
+        hive = hive_to_show(s, frame)
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}"
             if name:
@@ -531,9 +533,10 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     return HiveText(text)
 
 
-def _hive_to_show(s: object, frame: FrameType) -> str:
+def hive_to_show(s: object, frame: FrameType | None) -> str:
     """What show_hive prints for one of the things it is given, or the refusal of what isn't
-    one: `frame` is its caller's."""
+    one: `frame` is its caller's, or None when the Toolbox gives it a Statement it built, as
+    a Scheduled run's build does."""
     if kinds.kind(s) == kinds.SETTINGS:
         return settings_text(s)
     if kinds.kind(s) == kinds.UNCHECKED:
@@ -542,7 +545,14 @@ def _hive_to_show(s: object, frame: FrameType) -> str:
         return python_step_text(s)
     need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
-    return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
+    return "\n".join([*settings_needed(s), statement_text(s)])
+
+
+def statement_text(s: Statement) -> str:
+    """A Statement's Hive as show_hive prints it, less the Session setting it needs: its Admin
+    notes, then its Hive. A Scheduled run's build prints a write's so, as built.run sends
+    "dynamic_partitions" once, before the first write that needs it."""
+    return "\n".join([*admin_notes(s), to_hive(s) + ";"])
 
 
 # --- Hive kept in a file ---------------------------------------------------------------------
@@ -587,8 +597,8 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py.
-    Next: set conn, your connection, in warehouse.py.
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\\n# logic\\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\\n"
@@ -654,7 +664,7 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     name = name_in(frame, s)
     path = here / f"{name or 'statement'}{_HIVE_FILE_END}"
     # \n line endings on every computer, so a file written again matches the one committed.
-    path.write_text(_hive_to_show(s, frame) + "\n", encoding="utf-8", newline="\n")
+    path.write_text(hive_to_show(s, frame) + "\n", encoding="utf-8", newline="\n")
     from .project import ProjectReport  # project.py imports this file
 
     if name is None:
@@ -679,14 +689,20 @@ def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
               f"{folder.name}.ipynb, beside this file. Edit the logic there, not this file: "
               "each export_hive() writes it again, from the notebook as last saved. It holds "
               f"{held}.")
-    pieces_of_the_file = ["\n".join("-- " + line
-                                    for line in textwrap.wrap(header, width=_HEADER_WIDTH))]
+    pieces_of_the_file = [hive_file_header(header)]
     for position, (_, heading, sent) in enumerate(steps, start=1):
         pieces_of_the_file.append(f"-- {position} of {len(steps)}: {heading}\n"
-                                  f"{_hive_to_show(sent, frame)}")
+                                  f"{hive_to_show(sent, frame)}")
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(pieces_of_the_file) + "\n", encoding="utf-8", newline="\n")
     return ProjectReport([f"Wrote {path.name} beside its notebook, the Hive of {held}."])
+
+
+def hive_file_header(text: str) -> str:
+    """Text as the comment lines a .hql file the Toolbox writes starts with: each line starts
+    with -- and is at most _HEADER_WIDTH wide after it. export_hive and
+    project.export_run_hive write them."""
+    return "\n".join("-- " + line for line in textwrap.wrap(text, width=_HEADER_WIDTH))
 
 
 def _notebooks_table_folder(here: Path) -> Path:

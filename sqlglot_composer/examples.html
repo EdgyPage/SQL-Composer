@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.5: Example gallery</title>
+<title>sqlglot Composer 8.6: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,12 +23,11 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.5: Example gallery</h1>
+<h1>sqlglot Composer 8.6: Example gallery</h1>
 <p>Every Worked example on one page: 14 Worked examples on their own, and the
-151 examples from the Toolbox's docstrings. Each shows its Python and, for each
+159 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
-that ship inside the Toolbox, or computed in pandas where the Example database can't
-run it. Press Ctrl+F to search the page.</p>
+that ship inside the Toolbox. Press Ctrl+F to search the page.</p>
 <p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
 this one in the <code>sqlglot_composer</code> folder: the first, Start a Project, starts one.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's last day, so
@@ -39,8 +38,7 @@ to get the results shown.</p>
 <p>To paste a docstring's example, first run <code>from sqlglot_composer import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
 examples on their own are scripts the Toolbox's makers keep, which the download doesn't hold, so
-each entry shows the Python that builds its Statements, but not
-the pandas that computes a result the Example database can't run. A script plays a Table
+each entry shows the Python that builds its Statements. A script plays a Table
 notebook's logic cell: in a Project, its lines would go in a Table notebook, the Table reference
 it imports in <code>references/</code> and the Building block in <code>building_blocks/</code>,
 and its
@@ -74,7 +72,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#today"><code>today</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#export_hive"><code>export_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#seed_copy"><code>seed_copy</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#script_tag"><code>script_tag</code></a>, <a href="#hive_date"><code>hive_date</code></a>, <a href="#latest_partition"><code>latest_partition</code></a>, <a href="#run_value"><code>run_value</code></a>, <a href="#tag_text"><code>tag_text</code></a>, <a href="#database_settings"><code>database_settings</code></a>, <a href="#compare_hive"><code>compare_hive</code></a>, <a href="#compare_with_original"><code>compare_with_original</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.batch_tables"><code>project.batch_tables</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.compare_batch"><code>project.compare_batch</code></a>, <a href="#project.convert"><code>project.convert</code></a>, <a href="#project.do_next"><code>project.do_next</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_run_value"><code>project.new_run_value</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.promote"><code>project.promote</code></a>, <a href="#project.promoted_tables"><code>project.promoted_tables</code></a>, <a href="#project.reference_from_logic"><code>project.reference_from_logic</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_conversion"><code>project.remove_conversion</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.run_workflow"><code>project.run_workflow</code></a>, <a href="#project.scan_hive"><code>project.scan_hive</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.table_reference"><code>project.table_reference</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a>, <a href="#project.write_decisions"><code>project.write_decisions</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#today"><code>today</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#export_hive"><code>export_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#seed_copy"><code>seed_copy</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#script_tag"><code>script_tag</code></a>, <a href="#hive_date"><code>hive_date</code></a>, <a href="#latest_partition"><code>latest_partition</code></a>, <a href="#run_value"><code>run_value</code></a>, <a href="#tag_text"><code>tag_text</code></a>, <a href="#database_settings"><code>database_settings</code></a>, <a href="#compare_hive"><code>compare_hive</code></a>, <a href="#compare_with_original"><code>compare_with_original</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.batch_tables"><code>project.batch_tables</code></a>, <a href="#project.build_run"><code>project.build_run</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.compare_batch"><code>project.compare_batch</code></a>, <a href="#project.convert"><code>project.convert</code></a>, <a href="#project.describe_logic"><code>project.describe_logic</code></a>, <a href="#project.do_next"><code>project.do_next</code></a>, <a href="#project.export_project_lineage"><code>project.export_project_lineage</code></a>, <a href="#project.export_run_hive"><code>project.export_run_hive</code></a>, <a href="#project.export_run_lineage"><code>project.export_run_lineage</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_run_value"><code>project.new_run_value</code></a>, <a href="#project.new_scheduled_run"><code>project.new_scheduled_run</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.promote"><code>project.promote</code></a>, <a href="#project.promoted_tables"><code>project.promoted_tables</code></a>, <a href="#project.reference_from_logic"><code>project.reference_from_logic</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_conversion"><code>project.remove_conversion</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_scheduled_run"><code>project.remove_scheduled_run</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.run_workflow"><code>project.run_workflow</code></a>, <a href="#project.scan_hive"><code>project.scan_hive</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.table_reference"><code>project.table_reference</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a>, <a href="#project.write_decisions"><code>project.write_decisions</code></a>, <a href="#scheduled_runs.BuiltRun.run"><code>scheduled_runs.BuiltRun.run</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -1315,7 +1313,7 @@ SELECT
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>6</td></tr>
 </table></div></div>
@@ -1334,7 +1332,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>3</td></tr>
 </table></div></div>
@@ -1456,10 +1454,10 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported. Both are read from the folder&#x27;s version.txt, the one place the version is written.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;8.5&#x27;</pre>
+<pre class="output">&#x27;8.6&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 8.5, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 8.6, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -2087,7 +2085,10 @@ WHERE
 GROUP BY
   CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p>A calculation may be named by its output name, such as GROUP_BY(&quot;week&quot;), and the Toolbox repeats it, since Hive can&#x27;t group by a name given in SELECT. For subtotal rows added to the groups&#x27; rows, pass rollup(...), cube(...) or grouping_sets(...), with any plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no NEXT_DAY.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>week</th><th>runs</th></tr>
+<tr><td>2026-09-21</td><td>9</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>GROUP_BY</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>week_start</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
@@ -3098,7 +3099,7 @@ WHERE
 <p class="label">Hive</p>
 <pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p>Hive has no function for the Monday of a week, so this takes the first Monday after the day a week earlier: in the example above, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;: CAST(... AS STRING) makes it text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved table&#x27;s column for it is always typed &quot;string&quot;. It works on any column of dates, a partition column or not, whose days are written as Hive&#x27;s date functions read them, like &quot;2026-09-25&quot;.</p>
-<p class="label">week_start(job_runs.dt) on each day of the Example database, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">week_start(job_runs.dt) on each day of the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>week_start(dt)</th></tr>
 <tr><td>2026-09-23</td><td>2026-09-21</td></tr>
 <tr><td>2026-09-24</td><td>2026-09-21</td></tr>
@@ -3447,8 +3448,8 @@ WHERE
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">_ = Path(&quot;admin/templates/short.py&quot;).write_text(
     &quot;# %%\n# logic\n&quot;
     &quot;from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n&quot;
@@ -3628,14 +3629,16 @@ GROUP BY
 <pre class="output">-- Python step: changed in Python by add_hours in a notebook, line 1 of its cell. It reads
 -- ops.job_runs.run_id and ops.job_runs.duration_mins, and writes mart.run_hours. Nothing is
 -- sent for it: your own call saves its rows.</pre>
-<p>Some steps are easier in pandas than in a Statement. You pull the rows with a Statement, change them with a function of your own, and save them to a table with your own call, as your work&#x27;s API does. The Toolbox moves none of that data. python_step tells it what happened, so the Lineage of your tables doesn&#x27;t stop at the gap: <code>function</code> is the function that made the change, <code>reads</code> the columns of the table the rows came from that the function uses or carries through to the rows it saves (a Table reference stands for every one of its columns), and <code>writes</code> the table its rows were saved to.</p>
+<p>Some steps are easier in pandas than in a Statement. You pull the rows with a Statement, change them with a function of your own, and save them to a table with your own call, as your work&#x27;s API does. The Toolbox moves none of that data, except in a Scheduled run, below. python_step tells it what happened, so the Lineage of your tables doesn&#x27;t stop at the gap: <code>function</code> is the function that made the change, <code>reads</code> the columns of the table the rows came from that the function uses or carries through to the rows it saves (a Table reference stands for every one of its columns), and <code>writes</code> the table its rows were saved to.</p>
 <p>Where the function lives is read from the function itself: its file, from your Project&#x27;s folder (or, outside a Project, the folder it is in), its name and its first line. Keep it in a file of building_blocks/, which project.new_block(...) makes, so its line stays put; one defined in a Table notebook&#x27;s logic cell, as project.load runs it, is named by that notebook; one defined in a cell you run is named by its notebook when JupyterLab tells the Toolbox the notebook&#x27;s name, and otherwise as &quot;in a notebook&quot;; its line is a line of the cell. A lambda, or anything else that isn&#x27;t a function written with def, is refused, since it has no name or file to find it by.</p>
 <p>It sends nothing. export_lineage draws it as one step it can&#x27;t see inside, from the columns it read to the table it wrote, with a section of the report naming the function, such as &quot;changed in Python by <code>building_blocks/margins.py:add_margin</code>, line 12&quot;. show_hive prints comment lines saying what it is, run_query and run_execute refuse it, and a Table notebook&#x27;s write() may give it beside its Statements: project.run_tables passes over it, but still puts it in order.</p>
+<p><code>rows</code> is the SELECT whose rows the function takes, such as the rows() of its Table notebook&#x27;s logic: python_step(add_margin, reads=[...], writes=margins, rows=rows()). Given it, a Scheduled run writes the table itself: built.run(query, execute) sends rows through your query, gives the DataFrame to the function, and saves what it gives back to <code>writes</code> through your execute, overwriting each Partition its rows fill. Without it, the step is only declared, and a Scheduled run refuses it before sending anything.</p>
 <p class="names">Toolbox names used: <code>python_step</code>, <code>Table</code>, <code>show_hive</code></p>
 </section>
 <section class="entry" id="PythonStep">
 <h3><code>PythonStep</code></h3>
-<p class="why">A change made in Python and saved by your own call, made by python_step(...).</p>
+<p class="why">A change made in Python, saved by you or, given rows=, by a Scheduled run.</p>
+<p>python_step(...) makes one.</p>
 <pre class="python">import pandas as pd</pre>
 <pre class="python">def add_hours(runs: pd.DataFrame) -&gt; pd.DataFrame:
     return runs.assign(hours=runs.duration_mins / 60)</pre>
@@ -4011,8 +4014,8 @@ WHERE
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;admin/databases.py&quot;).write_text(  # only to stand in for filling it in
     &#x27;DEV = {&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;, &#x27;
@@ -4460,8 +4463,8 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
@@ -4484,8 +4487,8 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;,
@@ -4499,6 +4502,46 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p>It reads the batch&#x27;s record, admin/workflows/convert/&lt;name&gt;/written.json, which convert writes, or admin/workflows/convert/finished/&lt;name&gt;/written.json once compare_batch has finished the batch, so the convert Workflow&#x27;s notebook writes them with project.run_tables(tables=project.batch_tables(NAME), execute=execute). With seeded=True, it gives only those that read themselves, which the Workflow seeds first. It refuses a name no batch has.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
 </section>
+<section class="entry" id="project.build_run">
+<h3><code>project.build_run</code></h3>
+<p class="why">Build a Scheduled run&#x27;s Statements in order and print their Hive, sending none.</p>
+<pre class="python">import os</pre>
+<pre class="python">from sqlglot_composer import FROM, SELECT, WHERE, equals, project, statement</pre>
+<pre class="python">from sqlglot_composer.example_database import job_runs</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<pre class="python">os.chdir(&quot;scheduled_runs/weekly&quot;)  # where the notebook runs</pre>
+<pre class="python">START_FROM = &quot;&quot;  # stands in for the parameters cell, as if it had run</pre>
+<pre class="python">def statements():  # as the scheduled cell defines it: here one SELECT
+    return {&quot;failed_runs&quot;: statement(
+        SELECT(job_runs.run_id),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
+    )}</pre>
+<pre class="python">built = project.build_run(statements)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Parameters, as this run uses them:
+  START_FROM = &quot;&quot;
+-- 1 of 1: failed_runs
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;;
+Built 1 Statement in order, and sent nothing: results = built.run(query, execute) sends
+them.</pre>
+<p>It is the Build cell of a Scheduled run&#x27;s notebook, which project.new_scheduled_run makes, and runs in that notebook, as a scheduler runs it, from its folder. Give it the function of the # scheduled cell, statements, not what it gives, with no brackets: it reads the parameters first, then calls it.</p>
+<p>1. The parameters: each name in the notebook&#x27;s # parameters cell is read by its type hint, as the notebook holds it, and given back to it: &quot;2026-11-01&quot;, as a scheduler passes it for a datetime.date, is that date. A value that can&#x27;t be read, a parameter with no hint or a hint it doesn&#x27;t read, and one left empty whose hint has no | None are refused, naming it. It prints each as used, first. 2. The Statements: statements() gives a dict of them by name, or a list, each a SELECT, a write, an Admin statement, an Unchecked statement or a Python step; anything else is refused. A SELECT&#x27;s rows come back by its name: its key in a dict, and in a list the logic function it came from, such as week_totals. It is called now, so each Run value is worked out now: one reading the warehouse needs connect(...) first. run_values={&quot;period_end&quot;: RUN_DATE} gives each Run value whose function is named period_end that value for this build, in place of calling the function, in every Statement built, the writes the build adds among them. Their write() takes no arguments, so run_values= is how a parameter reaches the days they write. The value is read by the hint of what period_end gives back, as a parameter is read by its own, so RUN_DATE&#x27;s text, &quot;2026-11-01&quot;, is a datetime.date where period_end gives one; a function with no hint takes it as it is. A value that can&#x27;t be read, and a name no Statement&#x27;s Run value has, are refused. 3. The tables they read: each table of this Project with a Table folder that a Statement reads, and each its writes read, all the way up, has its Table notebook&#x27;s write() added, through project.load, before what reads it; a table outside the Project is only read. leave_out=[&quot;mart.daily_job_runs&quot;] leaves out that table&#x27;s write, and the write of each table added only because mart.daily_job_runs reads it; a name it wouldn&#x27;t add is refused, naming those it would. 4. The order: all in lineage order, a writer before each that reads its table, as run_tables orders them; a loop is refused, naming its tables. A table&#x27;s session_settings() are printed before its first write. A START_FROM parameter that names a table, as a run that failed prints it, passes over each Statement before that table&#x27;s first write; one that names a SELECT, as a run whose SELECT failed prints it, passes over each Statement before that SELECT. 5. The Guards: while statements() runs, a Guard tripped by a Statement this notebook&#x27;s own code composes only warns, with its what, why and fix and its opt-out named, so a quick Statement needs no opt-out; the build lists each one it let through, with its line, and builds the Statement as you wrote it. These are the Guards Hive runs past as written: adding up what doesn&#x27;t add up, a WHERE on a LEFT_JOIN&#x27;s or a FULL_JOIN&#x27;s table, a write whose Key is unproven, and ORDER_BY in a Derived table. Still refused here: each Load limit; a Guard Hive would refuse anyway, as a column GROUP_BY leaves out; one whose Statement can&#x27;t be written as you wrote it: a calculation with no name, a comparison with None, NaN or infinity, a control character, a time of day for a day, a join with no ON= or a write whose columns don&#x27;t line up; and every refusal of a mistake, such as a column not in its table or a value of the wrong type. A Statement from a Table notebook&#x27;s logic, through project.load, keeps every Guard, as code anywhere else does.</p>
+<p>It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its Hive, and gives back the built run, which built.run(query, execute) sends.</p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>project.start</code>, <code>project.new_scheduled_run</code></p>
+</section>
 <section class="entry" id="project.check">
 <h3><code>project.check</code></h3>
 <p class="why">Report what the registry gets wrong, and the call that mends each.</p>
@@ -4506,16 +4549,16 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each file of a prod copy project.promote wrote that was changed or deleted by hand since; the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can, and why a step is due when its files can say, such as which Table reference changed after the Reference sheet was last written; each batch the convert Workflow finished, as done; and last, since they block nothing, each line of a Table reference marked # proposed, a proposal the Toolbox made that is used as it is until you accept it, and each <code># CONVERSION:</code> mark project.convert left for you, each with its file and line. Where a decision step deciding Keys waits on two tables or more with a proposed Key, the DECISIONS it prints to paste offers &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;}, which accepts each.</p>
-<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
+<p>It reports each Table folder, Table reference, Building block and Scheduled run the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each file of a prod copy project.promote wrote that was changed or deleted by hand since; the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can, and why a step is due when its files can say, such as which Table reference changed after the Reference sheet was last written; a loop among the Project&#x27;s tables, two or more each waiting on another so that none can be written first, naming each table in it and the notebook whose # logic cell to mend, which it finds by loading each Table folder&#x27;s logic, as run_tables does, and building its write(), which works out each of its Run values, so one that reads the warehouse reads it through the connection of the notebook check() runs in; each Table folder whose logic fails, passed over in looking for a loop, with what stops it, a typo Python can&#x27;t read among them, though not one whose logic cell still holds a &lt;...&gt; from its Template, at the line Python stops on; each batch the convert Workflow finished, as done; and last, since they block nothing, each line of a Table reference marked # proposed, a proposal the Toolbox made that is used as it is until you accept it, and each <code># CONVERSION:</code> mark project.convert left for you, each with its file and line. Where a decision step deciding Keys waits on two tables or more with a proposed Key, the DECISIONS it prints to paste offers &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;}, which accepts each.</p>
+<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference, remove_block or remove_scheduled_run.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.compare_batch">
@@ -4525,8 +4568,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;,
@@ -4560,8 +4603,8 @@ The Statement and the original give the same rows: 4 rows each.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;,
@@ -4599,6 +4642,36 @@ DECISIONS = {
 <p>The batch keeps batch.md, where each script is and what each statement became, Hive given as text in scripts/, and written.json, each file it wrote, in admin/workflows/convert/&lt;name&gt;/: a SET line becomes the Session settings of the writes after it, a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR nothing, and any other statement an Unchecked statement, with its names in dev. Run again, it writes afresh each file still as it wrote it; it keeps one you changed, and writes a fresh copy of it into the batch&#x27;s folder, under fresh/, for you to compare; and with overwrite=True it writes over each, kept as it was in admin/removed/. A batch whose tables have all passed project.compare_batch is finished, in admin/workflows/convert/finished/&lt;name&gt;/, and its name is refused. project.batch_tables(name) gives the Saved tables a batch made, for run_tables.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code></p>
 </section>
+<section class="entry" id="project.describe_logic">
+<h3><code>project.describe_logic</code></h3>
+<p class="why">List each table&#x27;s logic functions, their hints and docstrings, for Copilot.</p>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
+    &quot;# %%\n# logic\nimport datetime\n\n&quot;
+    &quot;def write() -&gt; str:\n    &#x27;&#x27;&#x27;What writes the table.&#x27;&#x27;&#x27;\n    return &#x27;it&#x27;\n\n&quot;
+    &quot;def week_totals(week_start: datetime.date, teams: list[str]) -&gt; str:\n&quot;
+    &quot;    &#x27;&#x27;&#x27;Each team&#x27;s runs in the week from week_start. And more.&#x27;&#x27;&#x27;\n&quot;
+    &quot;    return &#x27;its totals&#x27;\n&quot;)</pre>
+<pre class="python">_ = project.new_table(&quot;mart.team_days&quot;, template=&quot;plain&quot;)</pre>
+<pre class="python">project.describe_logic(&quot;mart.team_days&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output"># mart.team_days: project.load(&quot;mart.team_days&quot;), from the # logic cell of
+tables/mart__team_days/mart__team_days.ipynb
+def write() -&gt; str:
+    &quot;&quot;&quot;What writes the table.&quot;&quot;&quot;
+def week_totals(week_start: datetime.date, teams: list[str]) -&gt; str:
+    &quot;&quot;&quot;Each team&#x27;s runs in the week from week_start.&quot;&quot;&quot;</pre>
+<p>Run it by hand, from admin/scheduled_runs.ipynb, and paste what it gives under Copilot file 18, so Copilot fills in a Scheduled run&#x27;s # scheduled cell from your tables&#x27; logic: project.load(&quot;mart.team_days&quot;).week_totals(FIRST_DAY, LAST_DAY). For each table it reads the # logic cell of its Table notebook, as last saved, and gives each function that cell defines, at its top level: def (async def for one written so), its name and its arguments, with their type hints and defaults, and its return hint, as written there, then its docstring&#x27;s first sentence, on one line, or &quot;... # no docstring&quot;. A function the cell imports, such as one from a Building block, is left out, as is one defined inside another, so the list is the table&#x27;s own logic. It reads the cell and runs nothing, so it needs no connection, and changes no file.</p>
+<p><code>names</code> is one table&#x27;s name, or a list of them, each described in turn, a blank line between. A name with no Table folder is refused, naming the close ones, before any is described; so is a logic cell that isn&#x27;t Python yet, as project.load refuses it.</p>
+<p>In the example above, a one-line Template stands in for a notebook of yours.</p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
+</section>
 <section class="entry" id="project.do_next">
 <h3><code>project.do_next</code></h3>
 <p class="why">Run the next steps it can of each Workflow you have started.</p>
@@ -4606,8 +4679,8 @@ DECISIONS = {
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">notebook = Path(&quot;admin/workflows/new_table/new_table.ipynb&quot;)</pre>
 <pre class="python">_ = notebook.write_text(notebook.read_text(encoding=&quot;utf-8&quot;).replace(
@@ -4625,6 +4698,126 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p>It runs each step that changes only files and has a call of its own, in order, up to the first it can&#x27;t run for you: a decision, a call to the warehouse, a step done by hand, or one only its cell runs. A Workflow is started once its notebook&#x27;s names cell, in admin/workflows/&lt;name&gt;/, names what it works on, such as TABLES = [&quot;mart.daily_job_runs&quot;]: save the notebook, then run this. A step whose done function, read from the Project&#x27;s files, says it is done is passed over, and so is each step before it, though the files can&#x27;t tell of some. A step of Decisions still open, such as a Table reference&#x27;s Key, is named until it is made, whatever ran after it. A Workflow none of whose steps the files can tell of is named at its first step. So running it again does nothing more. It reports each step it ran, and the next step left for you, with its call; it never sends anything to the warehouse. <code>workflow</code> names one Workflow, such as &quot;new_table&quot;, to run only its steps.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
+<section class="entry" id="project.export_project_lineage">
+<h3><code>project.export_project_lineage</code></h3>
+<p class="why">Draw every Saved table, what reads it and which Scheduled runs write it.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<pre class="python">project.export_project_lineage()  # weekly is just made: its &lt;...&gt; aren&#x27;t filled in</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote admin/lineage/...-project.html and its Markdown twin, ...-project.md: 0 tables and
+1 Scheduled run.
+Not built, as the page shows: weekly: project.export_project_lineage(): cell 4 of
+scheduled_runs/weekly/weekly.ipynb isn&#x27;t Python yet, at its line 13: ...</pre>
+<p>Here the new run still holds the Template&#x27;s &lt;...&gt;, so it isn&#x27;t built, and the page and the last line say where: cell 4, its # scheduled cell, counting every cell from the top, the text cell as 1, and line 13 of that cell, its &quot;&lt;RESULT_NAME&gt;&quot; line. Once its &lt;...&gt; are filled in, it is built and drawn, the tables it writes named on the page.</p>
+<p>Run it by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run&#x27;s notebook: it builds every run, so it is work no Scheduled run need do each time. It writes an HTML page and its Markdown twin into admin/lineage/, named by the time, such as admin/lineage/20261109-093000-project.html, and changes no other file.</p>
+<p>Each table is a box: each Table folder the registry lists, each table a write of the Project writes, and each table they read that the Project doesn&#x27;t write, marked so. An arrow runs from a table to each table whose write reads it. Each Table folder&#x27;s write() comes through project.load, as run_tables reads it. Each Scheduled run is built as its Build cell builds it, with its parameters&#x27; defaults, sending nothing: its parameters cell, the imports above its # scheduled cell, that cell and the Build cell&#x27;s call run, from the run&#x27;s folder. Each table a run writes, those the build adds included, names the run on its box, and a table more than one run writes is marked: two runs may write one table, so it is shown, never refused. A loop, tables each waiting on another, so that none can be written first, is drawn red, its tables listed at the top; project.check() names the logic cell to mend.</p>
+<p>Of the cells above a run&#x27;s # scheduled cell, the # parameters cell runs, but of the others only the imports, never their connect(...) nor your own lines, so a constant or a function one of those others defines isn&#x27;t there when the run is built: a # scheduled cell that uses one shows, on the page, the refusal naming it, to move into the # scheduled cell.</p>
+<p>A Run value is worked out as each Statement is built, so one that reads the warehouse needs connect(...) first, as the notebook&#x27;s first cell has it; one that fails changes nothing drawn. A run that doesn&#x27;t build, as one with a &lt;...&gt; left, and a Table folder whose logic doesn&#x27;t load are shown on the page with why, and named here.</p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_scheduled_run</code></p>
+</section>
+<section class="entry" id="project.export_run_hive">
+<h3><code>project.export_run_hive</code></h3>
+<p class="why">Write one Scheduled run&#x27;s built Hive, in order, into its folder, to read.</p>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">_ = Path(&quot;admin/templates/short.py&quot;).write_text(
+    &quot;# %%\n# logic\n&quot;
+    &quot;from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n&quot;
+    &quot;from sqlglot_composer.example_database import jobs\n&quot;
+    &quot;names = Table(&#x27;mart.job_teams&#x27;, columns={&#x27;job_id&#x27;: &#x27;bigint&#x27;, &#x27;team&#x27;: &#x27;string&#x27;},\n&quot;
+    &quot;              location=&#x27;/data/your_team/mart.db/job_teams&#x27;)\n&quot;
+    &quot;def write():\n&quot;
+    &quot;    return statement(INSERT_OVERWRITE(names), SELECT(jobs.job_id, jobs.team),\n&quot;
+    &quot;                     FROM(jobs))\n&quot;)</pre>
+<pre class="python">_ = project.new_table(&quot;mart.job_teams&quot;, template=&quot;short&quot;)</pre>
+<pre class="python">_ = project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<pre class="python">notebook = Path(&quot;scheduled_runs/weekly/weekly.ipynb&quot;)</pre>
+<pre class="python">text = notebook.read_text(encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">for placeholder, value in [(&quot;&lt;RESULT_NAME&gt;&quot;, &quot;teams&quot;),
+                           (&quot;&lt;SAVED_TABLE&gt;&quot;, &quot;mart.job_teams&quot;),
+                           (&quot;&lt;LOGIC_FUNCTION&gt;&quot;, &quot;write()&quot;)]:
+    text = text.replace(placeholder, value)</pre>
+<pre class="python">_ = notebook.write_text(text, encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">project.export_run_hive(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote scheduled_runs/weekly/weekly.hql: the Hive of 1 Statement, in the order the run
+sends it, built as its Build cell builds it, with the defaults of its # parameters cell,
+sending nothing. It is to read, never to edit: the notebook builds its Hive again
+each time it runs.</pre>
+<pre class="python">print(Path(&quot;scheduled_runs/weekly/weekly.hql&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
+<p class="label">Python shows</p>
+<pre class="output">-- The Hive of the Scheduled run weekly, generated by project.export_run_hive(&quot;weekly&quot;)
+-- from weekly.ipynb, beside this file, built as its Build cell builds it, with the
+-- defaults of its # parameters cell, sending nothing. It is to read, never to edit or to
+-- send: the notebook builds its Hive again each time it runs, its Run values worked out
+-- then, so this file is never what is sent. To change it, edit the notebook, save it and
+-- call project.export_run_hive(&quot;weekly&quot;) again. It holds 1 Statement.
+--
+-- Parameters, as this run uses them:
+--   START_FROM = &quot;&quot;
+
+-- 1 of 1: mart.job_teams
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs;</pre>
+<p>Run it by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run&#x27;s notebook. It builds the run as project.export_run_lineage does, sending nothing, with each parameter&#x27;s default, and writes scheduled_runs/&lt;name&gt;/&lt;name&gt;.hql beside its notebook: first, as comment lines, what the build printed before its first Statement, such as each parameter as used and the Run values run_values= gave; then each Statement in the order the run sends it, headed as the build prints it, such as -- 3 of 7: mart.team_days (read by week_totals), a table&#x27;s session_settings() before its first write, and its Hive, as show_hive shows it. The file is to read and to commit, never to edit or to send: the run builds its Hive fresh each time, from its logic, so a Run value is worked out as it runs. A Run value is worked out here too, as the file is written, so one that reads the warehouse needs connect(...) first, as admin/scheduled_runs.ipynb&#x27;s first cell has it. Written again, it is the same text when nothing changed. It changes no other file and adds no Admin log entry, as export_hive adds none. A run whose build is refused is refused as the build refuses it; a name with no Scheduled run is refused, naming the close ones. <code>name</code> may be a list of the runs&#x27; names, each written in turn.</p>
+<p>Here a short Template stands in for a Table notebook of yours, and the Scheduled run&#x27;s one Statement is its write().</p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.new_scheduled_run</code></p>
+</section>
+<section class="entry" id="project.export_run_lineage">
+<h3><code>project.export_run_lineage</code></h3>
+<p class="why">Draw one Scheduled run&#x27;s lineage, built as its notebook&#x27;s defaults give it.</p>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">_ = Path(&quot;admin/templates/short.py&quot;).write_text(
+    &quot;# %%\n# logic\n&quot;
+    &quot;from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n&quot;
+    &quot;from sqlglot_composer.example_database import jobs\n&quot;
+    &quot;names = Table(&#x27;mart.job_teams&#x27;, columns={&#x27;job_id&#x27;: &#x27;bigint&#x27;, &#x27;team&#x27;: &#x27;string&#x27;},\n&quot;
+    &quot;              location=&#x27;/data/your_team/mart.db/job_teams&#x27;)\n&quot;
+    &quot;def write():\n&quot;
+    &quot;    return statement(INSERT_OVERWRITE(names), SELECT(jobs.job_id, jobs.team),\n&quot;
+    &quot;                     FROM(jobs))\n&quot;)</pre>
+<pre class="python">_ = project.new_table(&quot;mart.job_teams&quot;, template=&quot;short&quot;)</pre>
+<pre class="python">_ = project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<pre class="python">notebook = Path(&quot;scheduled_runs/weekly/weekly.ipynb&quot;)</pre>
+<pre class="python">text = notebook.read_text(encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">for placeholder, value in [(&quot;&lt;RESULT_NAME&gt;&quot;, &quot;teams&quot;),
+                           (&quot;&lt;SAVED_TABLE&gt;&quot;, &quot;mart.job_teams&quot;),
+                           (&quot;&lt;LOGIC_FUNCTION&gt;&quot;, &quot;write()&quot;)]:
+    text = text.replace(placeholder, value)</pre>
+<pre class="python">_ = notebook.write_text(text, encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">project.export_run_lineage(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote scheduled_runs/weekly/lineage/...-weekly.html and its Markdown twin,
+...-weekly.md: the lineage of 1 Statement, mart.job_teams, built as its Build cell builds
+it, with the defaults of its # parameters cell, sending nothing.</pre>
+<p>Run it by hand, from admin/scheduled_runs.ipynb, never from a Scheduled run&#x27;s notebook: a run writes no lineage as it runs, since that would be work for nothing each time. It builds the run as project.export_project_lineage does, sending nothing: its parameters cell, so each parameter has its default, the imports above its # scheduled cell, that cell, and its Build cell&#x27;s project.build_run(...), with its run_values= and leave_out=, from the run&#x27;s folder. A Run value is worked out now, so one that reads the warehouse needs connect(...) first, as admin/scheduled_runs.ipynb&#x27;s first cell has it.</p>
+<p>It draws every Statement the run sends, the writes its build adds included, as export_lineage draws them, and writes the HTML page and its Markdown twin into the run&#x27;s folder&#x27;s lineage/, named by the time and the run, such as scheduled_runs/weekly/lineage/20261109-093000-weekly.html, so each export adds to the run&#x27;s past lineage. Each table&#x27;s session_settings() are in the footer. A Statement that makes no column from another, such as create_table(...)&#x27;s, isn&#x27;t drawn, and the report names it. It changes no other file and adds no Admin log entry, as export_lineage adds none. A run whose build is refused, as one with a &lt;...&gt; left, is refused as the build refuses it; a name with no Scheduled run is refused, naming the close ones. <code>name</code> may be a list of the runs&#x27; names, each written in turn.</p>
+<p>Here a short Template stands in for a Table notebook of yours, and the Scheduled run&#x27;s one Statement is its write().</p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.new_scheduled_run</code></p>
+</section>
 <section class="entry" id="project.load">
 <h3><code>project.load</code></h3>
 <p class="why">A Table notebook&#x27;s or Conversion&#x27;s logic, its functions by name, from anywhere.</p>
@@ -4632,8 +4825,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
     &quot;# %%\n# logic\ndef write() -&gt; str:\n    return &#x27;what writes it&#x27;\n&quot;)</pre>
@@ -4656,8 +4849,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -4674,8 +4867,8 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">_ = project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <pre class="python">project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;)</pre>
 <p class="label">Python shows</p>
@@ -4708,6 +4901,23 @@ def period_end() -&gt; datetime.date | int | str:
 <p>Any other kind of Run value, such as the last day of last month, is a function you write in building_blocks/run_values.py yourself: it takes nothing, and gives a date, a number or text.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
 </section>
+<section class="entry" id="project.new_scheduled_run">
+<h3><code>project.new_scheduled_run</code></h3>
+<p class="why">Make a Scheduled run, a notebook an outside scheduler runs, from its Template.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<p><code>name</code> is the Scheduled run&#x27;s name, a Python name such as &quot;weekly&quot;: its folder is scheduled_runs/weekly/, holding weekly.ipynb, which an outside scheduler, such as papermill, runs top to bottom. The notebook is made from admin/templates/scheduled_run.py, with &lt;NAME&gt; filled in; fill in every other &lt;...&gt; yourself. Its cells, top to bottom: the parameters cell, whose first line is # parameters, tagged parameters, as papermill finds it, holding the values the scheduler passes in, START_FROM among them; setup, which connects; the run&#x27;s own cell, # scheduled, whose statements() gives what it sends; then Build, project.build_run(statements), which prints the Hive and sends nothing, and Run, which sends it. It registers the folder and logs it. It refuses a name already taken, by a folder in scheduled_runs/ or by the registry, a name Python can&#x27;t import, and a folder outside a Project, and never touches the warehouse.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
 <section class="entry" id="project.new_table">
 <h3><code>project.new_table</code></h3>
 <p class="why">Make a Table folder for a Saved table: its notebook, lineage/ and reference.</p>
@@ -4715,8 +4925,8 @@ def period_end() -&gt; datetime.date | int | str:
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4734,8 +4944,8 @@ Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV and PROD</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;)
@@ -4766,8 +4976,8 @@ doesn&#x27;t build its write() yet: project.load(&quot;mart_dev.daily_runs&quot;
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">try:
     project.promoted_tables(&quot;mart_dev.daily_runs&quot;)
 except ValueError as refused:
@@ -4786,8 +4996,8 @@ promoted.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">_ = project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <pre class="python">_ = project.new_table(&quot;mart_dev.daily_runs&quot;)</pre>
 <pre class="python">notebook = Path(&quot;tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb&quot;)</pre>
@@ -4820,8 +5030,8 @@ location: the folder its files go in.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.add_references([&quot;ops.run_alerts&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.
@@ -4839,13 +5049,13 @@ Restart the kernel of a notebook that imported references, to see a table added 
 </section>
 <section class="entry" id="project.register">
 <h3><code>project.register</code></h3>
-<p class="why">Adopt a Table folder, Table reference or Building block made by hand.</p>
+<p class="why">Adopt a Table folder, Table reference, Building block or Scheduled run you made.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.register(&quot;ops.jobs&quot;)</pre>
@@ -4856,7 +5066,7 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Registered building_blocks/runs_per_job.py.</pre>
 <p>check() then stops reporting it.</p>
-<p>Given a table&#x27;s name, such as &quot;ops.jobs&quot;, it adds a registry row for tables/ops__jobs/ and for references/ops__jobs.py, whichever is there and isn&#x27;t registered yet. Given a Building block&#x27;s name, a name with no dot such as &quot;runs_per_job&quot;, it adds one for building_blocks/runs_per_job.py: that is how a Building block written by hand before 7.0 joins the registry, since new_block refuses a name already taken. It logs what it adopted, and refuses when there is nothing to adopt.</p>
+<p>Given a table&#x27;s name, such as &quot;ops.jobs&quot;, it adds a registry row for tables/ops__jobs/ and for references/ops__jobs.py, whichever is there and isn&#x27;t registered yet. Given a name with no dot, such as &quot;runs_per_job&quot; or &quot;weekly&quot;, it adds one for building_blocks/runs_per_job.py or scheduled_runs/weekly/, whichever is there: that is how a Building block written by hand before 7.0 joins the registry, since new_block refuses a name already taken. It logs what it adopted, and refuses when there is nothing to adopt.</p>
 <p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4867,8 +5077,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -4887,8 +5097,8 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;,
@@ -4910,8 +5120,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4927,6 +5137,26 @@ Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it
 <p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code></p>
 </section>
+<section class="entry" id="project.remove_scheduled_run">
+<h3><code>project.remove_scheduled_run</code></h3>
+<p class="why">Move a Scheduled run&#x27;s folder into admin/removed/, deleting nothing.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<pre class="python">project.remove_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved scheduled_runs/weekly/ to admin/removed/...-weekly/.</pre>
+<p>The ... in the folder&#x27;s name is the time the removal ran, as yyyymmdd-hhmmss. scheduled_runs/weekly/ moves, whole, to a folder such as admin/removed/20261109-093000-weekly/, and its registry row is marked removed. Take it out of your scheduler too: the scheduler still names the notebook it ran. One the registry lists but that was deleted by hand only has its row marked.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_scheduled_run</code></p>
+</section>
 <section class="entry" id="project.remove_table">
 <h3><code>project.remove_table</code></h3>
 <p class="why">Move a Table folder into admin/removed/, named by the time, deleting nothing.</p>
@@ -4934,8 +5164,8 @@ Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4955,8 +5185,8 @@ Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">project.run_tables()</pre>
 <p class="label">Python shows</p>
 <pre class="output">No Table folder to run: make one with project.new_table(...).</pre>
@@ -4970,8 +5200,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">notebook = Path(&quot;admin/workflows/references/references.ipynb&quot;)</pre>
 <pre class="python">_ = notebook.write_text(notebook.read_text(encoding=&quot;utf-8&quot;).replace(
@@ -5015,8 +5245,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">print(project.scan_hive(&#x27;&#x27;&#x27;
     SELECT r.job_id, COUNT(*) AS runs
     FROM ops.job_runs r
@@ -5038,9 +5268,9 @@ Found:
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets its notebooks, a notebook per Workflow in admin/workflows/, the Templates in admin/templates/, admin/databases.py, admin/sent.csv, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then set conn, your connection, in warehouse.py, and make your first Table folder from admin/workflows/new_table/new_table.ipynb.</p>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/, scheduled_runs/ and warehouse.py beside them: admin/ gets its notebooks, a notebook per Workflow in admin/workflows/, the Templates in admin/templates/, admin/databases.py, admin/sent.csv, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Each notebook it writes that reaches the warehouse has a line connect(...) at its top, under its from warehouse import line, for you to fill in with your connection: each notebook runs on its own, so each connects, and until it does, query and execute refuse. Then make your first Table folder from admin/workflows/new_table/new_table.ipynb.</p>
 <p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>
@@ -5056,8 +5286,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/mart__daily_runs.py&quot;).write_text(
     &#x27;from sqlglot_composer import Table\n\n&#x27;
@@ -5075,13 +5305,13 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
-<pre class="output">Upgraded the Project from 7.1 to 8.5.
+<pre class="output">Upgraded the Project from 7.1 to 8.6.
 7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
@@ -5090,9 +5320,10 @@ Next: set conn, your connection, in warehouse.py.</pre>
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
 8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
 8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
+8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
 Read each step&#x27;s checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
     admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-    admin/upgrade_8.4.md and admin/upgrade_8.5.md.</pre>
+    admin/upgrade_8.4.md, admin/upgrade_8.5.md and admin/upgrade_8.6.md.</pre>
 <p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds; a Project made before 8.0, which has no such notebook until its first Upgrade, runs it in admin/check_project.ipynb, which imports project already. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark: its checklist, which the last line names, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
 <p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
@@ -5104,8 +5335,8 @@ Read each step&#x27;s checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py.
-Next: set conn, your connection, in warehouse.py.</pre>
+tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
 <pre class="python">_ = project.add_references(&quot;ops.team_notes&quot;, query=example_database.query)</pre>
 <pre class="python">print(project.write_decisions({&quot;ops.team_notes&quot;: {&quot;key&quot;: None}}))</pre>
 <p class="label">Python shows</p>
@@ -5118,6 +5349,46 @@ Each Decision of ops.team_notes is made.</pre>
 <p>Nothing is written if any answer matches no Decision: a table with no Table reference, a kind other than location, key, types, tags and seed, a &quot;types&quot;, &quot;tags&quot; or &quot;seed&quot; that isn&#x27;t a dict, a seed limit on a column that isn&#x27;t a partition column, a column the table doesn&#x27;t have, or a tag its TAGS doesn&#x27;t hold. The refusal names each one, and the name it may have meant, as in &quot;ops.job_runs: &#x27;keys&#x27; is no kind of answer; ...; did you mean key?&quot;.</p>
 <p>DECISIONS[&quot;all_tables&quot;] answers for every table the Workflow&#x27;s notebook names, which <code>tables</code> gives, as each Workflow&#x27;s step cell does: project.batch_tables(NAME) in convert&#x27;s notebook, project.promoted_tables(TABLES) in promote&#x27;s, and TABLES in the others. It takes &quot;tags&quot;, each written into each table that holds it, and &quot;seed&quot;, the limits of the seed&#x27;s copy. It loads first, and a table&#x27;s own answer overwrites it, kind by kind and, for tags, tag by tag: {&quot;all_tables&quot;: {&quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}, &quot;mart_dev.weekly_ops&quot;: {&quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-25&#x27;&quot;}}}. Its &quot;key&quot; takes only &quot;proposed&quot;, which accepts each table&#x27;s proposed Key; a table&#x27;s own &quot;key&quot; wins, and a table with no proposal keeps its Key open, named in the report. The report says which tables each of its answers was written into. Any other Key, and a type, which is each table&#x27;s own, is refused under all_tables, naming the tables to answer it for; so is a tag no table of <code>tables</code> holds, and all_tables with no <code>tables</code>. So is &quot;location_root&quot;, 8.4&#x27;s folder every table&#x27;s own went under: since 8.5 it is a Database setting, in admin/databases.py, which places each table with no location of its own as it is written.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
+</section>
+<section class="entry" id="scheduled_runs.BuiltRun.run">
+<h3><code>scheduled_runs.BuiltRun.run</code></h3>
+<p class="why">Send each Statement the build made, in its order, and give back each SELECT&#x27;s rows.</p>
+<pre class="python">import os</pre>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/,
+building_blocks/, tables/, scheduled_runs/ and warehouse.py.
+Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
+<pre class="python">project.new_scheduled_run(&quot;weekly&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made scheduled_runs/weekly/: weekly.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<pre class="python">os.chdir(&quot;scheduled_runs/weekly&quot;)</pre>
+<pre class="python">START_FROM = &quot;&quot;  # as the notebook&#x27;s parameters cell sets it</pre>
+<pre class="python">def statements():
+    return {&quot;failed_runs&quot;: statement(
+        SELECT(job_runs.run_id),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
+    )}</pre>
+<pre class="python">built = project.build_run(statements)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Parameters, as this run uses them:
+...</pre>
+<pre class="python">results = built.run(example_database.query, example_database.execute)</pre>
+<p class="label">Python shows</p>
+<pre class="output">1 of 1: failed_runs  worked: 1 row, in results[&quot;failed_runs&quot;]
+Sent 1 Statement in order. results holds the rows of failed_runs, by name, as
+results[&quot;failed_runs&quot;].</pre>
+<pre class="python">results[&quot;failed_runs&quot;]</pre>
+<p class="label">Python shows</p>
+<pre class="output">   run_id
+0     102</pre>
+<p>It is the Run cell of a Scheduled run&#x27;s notebook: results = built.run(query, execute), your own two functions, from warehouse.py. Each Statement goes in the order the build printed: a SELECT through run_query and your query, its rows kept in results by its name; a write, an Admin statement or an Unchecked statement through run_execute and your execute. It prints a line as each one works, numbered as the build numbered it. The Session setting &quot;dynamic_partitions&quot; is sent once, before the first write that fills Partitions from its rows, and a table&#x27;s session_settings() before its first write, as the build printed them.</p>
+<p>A Python step given rows= (help(python_step)) writes its table: its rows= SELECT is sent through your query, the function is given the DataFrame, and what it gives back is saved to its table through your execute, each value cast to its column&#x27;s type. A Python step with no rows= is refused before anything is sent.</p>
+<p>The first that fails stops the rest: it prints the tables this run wrote before it, and the parameter that sends the rest, such as START_FROM = &quot;mart.team_days&quot;, or a SELECT&#x27;s name, as START_FROM = &quot;week_totals&quot;, for a SELECT that failed, so a rerun sends no write before it again; then it raises the error your query or execute raised, so the scheduler sees the notebook fail. Rerun with that START_FROM, or run it all again: each write writes its table again. It writes no lineage and no file of its own; an Admin or Unchecked statement is logged in the Admin log by run_execute, as anywhere.</p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_scheduled_run</code>, <code>project.build_run</code></p>
 </section>
 </main>
 <script>

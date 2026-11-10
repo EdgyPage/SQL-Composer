@@ -21,9 +21,10 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from .notebooks import read_cells, read_cells_if_readable, write_cell_text, write_notebook
+from .project_templates import CONNECT_LINES, CONNECT_PLACEHOLDER
 from .shared import counted
 
 if TYPE_CHECKING:  # workflows.py imports this file, so its name is for the hints alone
@@ -393,6 +394,51 @@ def execute(hive: str) -> None:
     """Run a Hive string that changes something, such as a write, and give back nothing."""
     conn.execute(hive)
 '''
+# The warehouse.py 8.2's start() wrote, and 8.3's to 8.5's, which 8.6 writes again, with
+# connect, where conn is still the Example database.
+WAREHOUSE_TEXT_8_2 = \
+    '''"""warehouse - your connection to the warehouse, conn, and its two calls.
+
+Why: every notebook in the Project reaches the warehouse through query and execute, so a change
+to how you reach it is made here, once.
+
+Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
+them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something:
+whatever it gives back, execute drops. Until you do, conn is the Example database, which the
+how-tos run on. You
+pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
+a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
+two share one session, so a Session setting sent through execute holds for what is sent after
+it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
+failed only when your connection raises. Keep it importing nothing from references/,
+building_blocks/ or tables/, so any notebook or script of yours can import it; a connection
+kept in a file outside the Project is imported as the comment above conn shows.
+"""
+
+import pandas as pd
+
+from sqlglot_composer import example_database
+
+# Your connection to the warehouse. At work, replace example_database with your own, such as
+# conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
+# execute(sql) runs Hive that changes something. A connection kept in a file outside the
+# Project, such as team_connection.py, is imported by these lines, written in place of the
+# line below that sets conn to example_database:
+#     import sys
+#     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+#     from team_connection import conn
+conn = example_database
+
+
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return conn.query(hive)
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    conn.execute(hive)
+'''
 # The warehouse.py 7.2's start() wrote, which 8.0 writes again where it is still as it was.
 WAREHOUSE_TEXT_7_2 = '''"""warehouse - your two calls to the warehouse, query and execute.
 
@@ -469,7 +515,7 @@ def to_8_0(upgrade: Upgrade) -> None:
     convert Workflow's notebook, which is marked to convert it again as a batch; and each line
     of yours that calls finish_conversion, which 8.0 no longer has, is marked."""
     # project.py imports this file, so its names are read here, when the step runs.
-    from .project import DATABASES, WAREHOUSE, WAREHOUSE_TEXT, admin_notebook_cells
+    from .project import DATABASES, WAREHOUSE, admin_notebook_cells
 
     for name in RETIRED_IN_8_0:
         if (upgrade.root / "admin" / f"{name}.ipynb").exists():
@@ -480,7 +526,8 @@ def to_8_0(upgrade: Upgrade) -> None:
             upgrade.rewrite_notebook(relative, admin_notebook_cells(name))
     warehouse = upgrade.root / WAREHOUSE
     if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_7_2:
-        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
+        # 8.0's own, so each later step finds the warehouse.py the version before it wrote.
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT_8_0)
     upgrade.add_what_start_makes()
     databases = upgrade.root / DATABASES
     for start, what in DATABASE_MARKS.items():
@@ -714,13 +761,14 @@ def to_8_2(upgrade: Upgrade) -> None:
     partitioned table's Key on its latest Partition, and a warehouse.py still as 8.0 wrote it
     gets 8.2's, which says how to import a connection kept outside the Project."""
     # project.py imports this file, so its names are read here, when the step runs.
-    from .project import WAREHOUSE, WAREHOUSE_TEXT, admin_notebook_cells
+    from .project import WAREHOUSE, admin_notebook_cells
 
     if (upgrade.root / CHECK_REFERENCES).exists():
         upgrade.rewrite_notebook(CHECK_REFERENCES, admin_notebook_cells("check_references"))
     warehouse = upgrade.root / WAREHOUSE
     if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_8_0:
-        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
+        # 8.2's own, which 8.6's step reads conn from.
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT_8_2)
     for path in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
         if path.stem == path.parent.name:
             _add_the_hive_cell(upgrade, path.relative_to(upgrade.root).as_posix())
@@ -793,7 +841,8 @@ def _name_new_tables_notebook(upgrade: Upgrade, table: str) -> None:
 
 def _write_workflow_notebooks_again(upgrade: Upgrade) -> None:
     """Write each Workflow notebook again as this version writes it, kept in admin/removed/
-    first, each name its names cell gave and each step cell you wrote in kept."""
+    first, each name its names cell gave and each step cell you wrote in kept, and the
+    connection its setup cell gives in place of its line to fill in."""
     # project.py and workflows.py import this file, so their names are read here, when it runs.
     from . import workflows
     from .project import WORKFLOW_PATH_LINES
@@ -801,8 +850,22 @@ def _write_workflow_notebooks_again(upgrade: Upgrade) -> None:
     for workflow in workflows.WORKFLOWS:
         path = workflows.notebook_path(upgrade.root, workflow)
         if path.is_file():
-            cells = _workflow_cells_with_yours(upgrade.root, workflow, WORKFLOW_PATH_LINES)
+            connection = _connection_given(path)
+            path_lines = _filled("\n".join(WORKFLOW_PATH_LINES), connection).split("\n")
+            cells = _workflow_cells_with_yours(upgrade.root, workflow, path_lines)
             upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+
+
+def _connection_given(path: Path) -> str | None:
+    """The lines a notebook's setup cell gives its connection with, in place of its line to
+    fill in, under the comment 8.6 writes above it: None where there is no such comment, or
+    the line is still to fill in."""
+    above = CONNECT_LINES.removesuffix(CONNECT_PLACEHOLDER)
+    for kind, text in read_cells_if_readable(path) or []:
+        if kind == "code" and above in text:
+            lines = text.split(above, 1)[1].strip("\n")
+            return None if lines in ("", CONNECT_PLACEHOLDER) else lines
+    return None
 
 
 def to_8_3(upgrade: Upgrade) -> None:
@@ -1072,6 +1135,620 @@ def _first_dev_block_import(path: Path) -> tuple[int, int] | None:
     return None
 
 
+def to_8_6(upgrade: Upgrade) -> None:
+    """8.5 to 8.6: each notebook gives warehouse.py its connection at its top, with
+    connect(...), so warehouse.py is written as 8.6's project.start() writes it, holding
+    connect, query and execute, kept in admin/removed/ first. Where its conn was still the
+    Example database, as start() set it, each Toolbox notebook is connected to the Example
+    database, as conn was, and each line of yours importing conn, which the new warehouse.py
+    hasn't, is marked. Where conn is your own, each line of yours, its comments too, stays in
+    warehouse.py as you wrote it, marked to move into each notebook's connect(...), whose line
+    is left for you to fill in; a warehouse.py whose query, execute or connect you wrote
+    yourself is kept as it is, and marked.
+
+    Each notebook of the Toolbox's that reaches the warehouse gains its setup cell's
+    connect(...): each Workflow notebook is written again, each name given and each step cell
+    you wrote in kept; each Table notebook and check_references.ipynb gain connect after
+    their import from warehouse and the lines under it, a Table notebook's list of its code
+    cells, where it is as the Example projects wrote it, saying cell 1 connects;
+    run_tables.ipynb gains its cell that
+    connects; remove.ipynb gains SCHEDULED_RUNS, keeping what you named; and each admin
+    notebook's text is 8.6's. Each Template still as 8.5 wrote it is written again, and one you
+    changed is marked; each is left with its line to fill in, as start() writes it. The Project
+    gets scheduled_runs/, the scheduled_run Template and admin/scheduled_runs.ipynb. A notebook
+    that imports from warehouse and doesn't connect, yours or one whose import the step can't
+    read, is marked to connect; a .py file of yours is left, as a module runs on the connection
+    of the notebook that imports it. A prod copy's record, and an open batch's, follow each
+    file this step changed that was still as promote or convert wrote it."""
+    connection = _write_warehouse_as_8_6(upgrade)
+    hashes = _recorded_files(upgrade.root)
+    _write_workflow_notebooks_again(upgrade)
+    _write_admin_notebooks_as_8_6(upgrade)
+    for notebook in _table_notebooks(upgrade.root):
+        _connect_notebook(upgrade, notebook.relative_to(upgrade.root).as_posix())
+    _write_templates_again(upgrade, TEMPLATES_BEFORE_8_6, TEMPLATE_MARK_8_6)
+    files_before = set(_searched_files(upgrade.root))
+    upgrade.add_what_start_makes()
+    if connection is not None:
+        _fill_connect_lines(upgrade, connection, files_before)
+        _mark_imports_of_conn(upgrade)
+    _mark_notebooks_not_connecting(upgrade, connection)
+    _rehash_records(upgrade, hashes)
+
+
+# The lines a setup cell's connect(...) line is filled with where warehouse.py's conn was the
+# Example database, as 8.0 to 8.5's start() set it, and as the Example projects fill theirs.
+EXAMPLE_CONNECTION = "from sqlglot_composer import example_database\nconnect(example_database)"
+# The two lines of a warehouse.py before 8.6 that make conn the Example database.
+_EXAMPLE_CONN = ["from sqlglot_composer import example_database", "conn = example_database"]
+# The comment 8.6 puts above your connection's lines, kept in warehouse.py.
+KEPT_CONNECTION_HEADING = ("# Your connection, as this file made it before 8.6, kept by "
+                           "project.upgrade(): each\n# notebook now gives its connection to "
+                           "connect(...), at its top.")
+_MOVE_YOUR_CONNECTION = ("8.6 takes your connection in each notebook, not here: in each "
+                         "notebook's setup cell, write it in place of the line "
+                         "# connect(your_connection), as connect(...) given what these lines "
+                         "make, with the imports it needs, then delete these lines; meanwhile "
+                         "`from warehouse import conn` and `connect(conn)` there connect it as "
+                         "before")
+_WRITE_CONNECT = ("8.6's notebooks import connect from here and call it at their top, and this "
+                  "warehouse.py of yours has none: add connect(connection), which keeps the "
+                  "connection query and execute use, as project.start() writes it in an empty "
+                  "folder's warehouse.py, keeping your own code")
+_CHECK_YOUR_CONNECT = ("8.6's notebooks each call connect(...) at their top with their "
+                       "connection, and this connect is your own, not 8.6's: make it take that "
+                       "connection and keep it for query and execute, as connect does in the "
+                       "warehouse.py project.start() writes in an empty folder, keeping your "
+                       "own code")
+_CONNECT_HERE = ("8.6's query and execute refuse until this notebook connects: import connect "
+                 "with them, and call connect(...) with your connection under this line")
+_CONNECT_AS_CONN_WAS = ", such as connect(example_database), as warehouse.py's conn was"
+_CONN_GONE = ("8.6's warehouse.py has no conn, which was the Example database: here, import it "
+              "as `from sqlglot_composer import example_database` and use it in conn's place, "
+              "or call warehouse's query and execute, which use the connection the notebook "
+              "running this gave connect(...)")
+_CONNECTED = ("connected each Toolbox notebook that reaches the warehouse to the Example "
+              "database, as warehouse.py's conn was: at work, write your connection in each "
+              "one's connect(...) in its place")
+# A notebook's import from warehouse on one line that has no connect, such as `from warehouse
+# import query`, and one that has.
+_WAREHOUSE_IMPORT = re.compile(r"^from warehouse import (?!.*\bconnect\b)(?P<names>[\w, ]+?)"
+                               r"(?P<comment>\s*#.*)?$")
+_CONNECT_IMPORT = re.compile(r"^\s*from warehouse import .*\bconnect\b", re.MULTILINE)
+# A Table notebook's list of its code cells in its text cell, as 8.2 to 8.5's Example projects
+# wrote it, and as 8.6's write it, saying cell 1 connects.
+_CODE_CELLS_LINE = re.compile(
+    r"^The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 "
+    r"try it;\n4 its lineage; 5 its Hive, in (?P<hql>\S+\.hql); 6 its rows in the Reference "
+    r"sheet\.$", re.MULTILINE)
+_CODE_CELLS_LINE_8_6 = ("The code cells: 1 the Project and your query, connected by "
+                        "`connect(...)`; 2 the logic,\nwhich starts `# logic`; 3 try it; 4 its "
+                        "lineage; 5 its Hive, in \\g<hql>;\n6 its rows in the Reference sheet.")
+_REACHES_THE_WAREHOUSE = re.compile(r"^\s*(from warehouse import|import warehouse\b)")
+# Each Template as 8.2 to 8.5 wrote it, by its hash, which 8.6 writes again with cell 1's
+# connect(...).
+TEMPLATES_BEFORE_8_6 = {
+    "quality_checks": "ab32b05a8b4ce6fffe988aa04ca39dcc1e4f6636c218c332407e302f9ea46049",
+    "saved_table": "6976d2bb354e2fffd67101da012a9ce3d7ef320060a3e53b3b9338aed881bf3d",
+}
+TEMPLATE_MARK_8_6 = ("8.6's Table notebooks connect in cell 1: copy its `from warehouse import "
+                     "connect, query` and the connect(...) lines under it, and the text's line "
+                     "on cell 1, from this Template as project.start() writes it in an empty "
+                     "folder's admin/templates/")
+
+
+class _YourStatement(NamedTuple):
+    """A statement of yours in a warehouse.py from before 8.6, kept as you wrote it: the lines
+    above it, comments and blank lines; its own lines; and whether it sets conn. A comment of
+    yours above one of the Toolbox's statements, or at the file's end, is one with no lines of
+    its own."""
+
+    above: list[str]
+    lines: list[str]
+    sets_conn: bool
+
+
+def _comment_above_conn(text: str) -> list[str]:
+    """The comment lines right above `conn = example_database` in a warehouse.py the Toolbox
+    wrote."""
+    lines = text.split("\n")
+    end = lines.index(_EXAMPLE_CONN[1])
+    start = end
+    while start > 0 and lines[start - 1].startswith("#"):
+        start -= 1
+    return lines[start:end]
+
+
+# The comments 8.0's and 8.2's warehouse.py put above conn: the Toolbox's, not yours, and
+# untrue once conn is gone.
+_TOOLBOX_CONN_COMMENTS = [_comment_above_conn(WAREHOUSE_TEXT_8_2),
+                          _comment_above_conn(WAREHOUSE_TEXT_8_0)]
+
+
+def _write_warehouse_as_8_6(upgrade: Upgrade) -> str | None:
+    """Write warehouse.py as 8.6's start() writes it, keeping your connection's lines and
+    marking them, or mark one whose calls or connect are yours: the lines each notebook's
+    connect(...) is filled with, the Example database's where conn was it, else None. A
+    Project with no warehouse.py gets 8.6's."""
+    from .project import WAREHOUSE, WAREHOUSE_TEXT  # project.py imports this file
+
+    path = upgrade.root / WAREHOUSE
+    if not path.is_file():
+        upgrade.add(WAREHOUSE, WAREHOUSE_TEXT)
+        return None
+    text = path.read_text(encoding="utf-8")
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        tree = ast.Module(body=[], type_ignores=[])
+    connect = _function_named(tree, "connect")
+    if connect is not None:
+        if not _is_8_6s_connect(connect):
+            upgrade.mark(WAREHOUSE, _first_line(connect), _CHECK_YOUR_CONNECT)
+        return None
+    yours = _your_statements(tree, text)
+    if yours is None or not any(statement.sets_conn for statement in yours):
+        query = _function_named(tree, "query")
+        upgrade.mark(WAREHOUSE, 1 if query is None else _first_line(query), _WRITE_CONNECT)
+        return None
+    if _is_the_example_connection(yours):
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
+        upgrade.changed.append(_CONNECTED)
+        return EXAMPLE_CONNECTION
+    _write_warehouse_keeping_yours(upgrade, yours)
+    return None
+
+
+def _function_named(tree: ast.Module, name: str) -> ast.FunctionDef | None:
+    """The function a module's top level defines by `name`, the last if it defines it twice,
+    as Python keeps the last; None if it defines none."""
+    last = None
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            last = node
+    return last
+
+
+def _is_8_6s_connect(function: ast.FunctionDef) -> bool:
+    """Whether a warehouse.py's connect is 8.6's, as project.WAREHOUSE_TEXT writes it, compared
+    without its docstring."""
+    from .project import WAREHOUSE_TEXT  # project.py imports this file
+
+    for node in ast.parse(WAREHOUSE_TEXT).body:
+        if isinstance(node, ast.FunctionDef) and node.name == "connect":
+            return _without_docstring(function) == _without_docstring(node)
+    return False
+
+
+def _your_statements(tree: ast.Module, text: str) -> list[_YourStatement] | None:
+    """Each statement of a warehouse.py from before 8.6 that 8.6's doesn't hold, with the
+    comments and blank lines above it: all but its docstring, its import of pandas, its query
+    and execute, and the comment 8.0 or 8.2 wrote above conn; each comment of yours above one
+    of those, or at the end, too. None when its query or execute isn't as 8.0 to 8.5 wrote
+    it."""
+    calls = {node.name: node for node in ast.parse(WAREHOUSE_TEXT_8_2).body
+             if isinstance(node, ast.FunctionDef)}
+    lines = text.split("\n")
+    yours = []
+    end_of_last = 0
+    for number, node in enumerate(tree.body):
+        above = _without_toolbox_conn_comments(lines[end_of_last:_first_line(node) - 1])
+        own = lines[_first_line(node) - 1:node.end_lineno]
+        end_of_last = node.end_lineno
+        is_docstring = (number == 0 and isinstance(node, ast.Expr)
+                        and isinstance(node.value, ast.Constant))
+        if isinstance(node, ast.FunctionDef) and node.name in calls:
+            if _without_docstring(node) != _without_docstring(calls.pop(node.name)):
+                return None
+            own = []
+        elif is_docstring or own == ["import pandas as pd"]:
+            own = []
+        if own or "".join(above).strip():
+            sets_conn = bool(own) and "conn" in _names_set_at_module_level(node)
+            yours.append(_YourStatement(above, own, sets_conn))
+    after = _without_toolbox_conn_comments(lines[end_of_last:])
+    if "".join(after).strip():
+        yours.append(_YourStatement(after, [], False))
+    return yours if not calls else None
+
+
+def _without_toolbox_conn_comments(lines: list[str]) -> list[str]:
+    """Lines of a warehouse.py with the comment 8.0 or 8.2 wrote above conn taken out, where
+    they hold it as the Toolbox wrote it."""
+    for comment in _TOOLBOX_CONN_COMMENTS:
+        for start in range(len(lines) - len(comment) + 1):
+            if lines[start:start + len(comment)] == comment:
+                return lines[:start] + lines[start + len(comment):]
+    return lines
+
+
+def _is_the_example_connection(yours: list[_YourStatement]) -> bool:
+    """Whether your statements are only the two lines that make conn the Example database, as
+    start() wrote them, with no comment of yours."""
+    statements = ["\n".join(statement.lines) for statement in yours if statement.lines]
+    with_comments = [statement for statement in yours if "".join(statement.above).strip()]
+    return statements == _EXAMPLE_CONN and not with_comments
+
+
+def _write_warehouse_keeping_yours(upgrade: Upgrade, yours: list[_YourStatement]) -> None:
+    """Write warehouse.py as 8.6's start() writes it, with each of your statements, and the
+    comments and blank lines above them, kept as you wrote them under KEPT_CONNECTION_HEADING,
+    after its import of pandas, and one mark above the first that sets conn."""
+    from .project import WAREHOUSE, WAREHOUSE_TEXT  # project.py imports this file
+
+    kept_lines: list[str] = []
+    conn_at = 0
+    for statement in yours:
+        kept_lines += statement.above
+        if statement.sets_conn and not conn_at:
+            conn_at = len(kept_lines) + 1  # counted from 1
+        kept_lines += statement.lines
+    while not kept_lines[0].strip():
+        kept_lines.pop(0)
+        conn_at -= 1
+    while not kept_lines[-1].strip():
+        kept_lines.pop()
+    imports = "import pandas as pd\n"
+    before, after = WAREHOUSE_TEXT.split(imports, 1)
+    top = f"{before}{imports}\n{KEPT_CONNECTION_HEADING}\n"
+    upgrade.rewrite(WAREHOUSE, top + "\n".join(kept_lines) + "\n" + after)
+    upgrade.mark(WAREHOUSE, top.count("\n") + conn_at, _MOVE_YOUR_CONNECTION)
+
+
+def _first_line(node: ast.stmt) -> int:
+    """A statement's first line, counted from 1: its first decorator's, if it has one."""
+    decorators = getattr(node, "decorator_list", [])
+    return min([node.lineno, *[each.lineno for each in decorators]])
+
+
+def _without_docstring(function: ast.FunctionDef) -> list[str]:
+    """A function as Python reads it, its docstring left out, to compare two: its arguments,
+    what it gives back, and each statement of its body."""
+    body = function.body
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]
+    return [ast.dump(function.args), ast.dump(function.returns) if function.returns else "",
+            *[ast.dump(statement) for statement in body]]
+
+
+def _names_set_at_module_level(statement: ast.stmt) -> set[str]:
+    """The names a top-level statement sets at the module's level: its own, as
+    _names_it_sets gives them, and those of each statement nested in it, such as in a try or
+    an if; never one set in a def or a class."""
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return set()
+    names = _names_it_sets(statement)
+    nested: list[ast.stmt] = []
+    for child in ast.iter_child_nodes(statement):
+        if isinstance(child, ast.excepthandler):
+            nested += child.body
+        elif isinstance(child, ast.stmt):
+            nested.append(child)
+    for child in nested:
+        names |= _names_set_at_module_level(child)
+    return names
+
+
+def _names_it_sets(statement: ast.stmt) -> set[str]:
+    """The names one statement sets itself, nothing nested in it: an import's, an
+    assignment's, a for's, a with's `as`."""
+    if isinstance(statement, (ast.Import, ast.ImportFrom)):
+        return {(alias.asname or alias.name).split(".")[0] for alias in statement.names}
+    targets: list[ast.expr] = []
+    if isinstance(statement, ast.Assign):
+        targets = statement.targets
+    elif isinstance(statement, (ast.AnnAssign, ast.AugAssign, ast.For)):
+        targets = [statement.target]
+    elif isinstance(statement, ast.With):
+        targets = [item.optional_vars for item in statement.items if item.optional_vars]
+    names = set()
+    for target in targets:
+        names |= {name.id for name in ast.walk(target) if isinstance(name, ast.Name)}
+    return names
+
+
+def _warehouse_imports(text: str) -> list[ast.Import | ast.ImportFrom]:
+    """Each statement at the top level of a cell's code that imports from warehouse, or imports
+    warehouse; none in code Python can't read. A cell's %magic and !command lines are read as
+    blank, so each line keeps its number."""
+    try:
+        tree = ast.parse(_without_magics(text))
+    except SyntaxError:
+        return []
+    imports: list[ast.Import | ast.ImportFrom] = []
+    for statement in tree.body:
+        from_warehouse = (isinstance(statement, ast.ImportFrom)
+                          and statement.module == "warehouse")
+        of_warehouse = isinstance(statement, ast.Import) and "warehouse" in {
+            alias.name for alias in statement.names}
+        if from_warehouse or of_warehouse:
+            imports.append(statement)
+    return imports
+
+
+def _has_connect(cells: list[tuple[str, str]]) -> bool:
+    """Whether a notebook's code cells connect: import connect from warehouse, on one line or
+    over several, or call warehouse.connect(...)."""
+    for kind, text in cells:
+        if kind != "code":
+            continue
+        if _CONNECT_IMPORT.search(text) or "warehouse.connect(" in text:
+            return True
+        for statement in _warehouse_imports(text):
+            if "connect" in {alias.name for alias in statement.names}:
+                return True
+    return False
+
+
+def _connected_cells(cells: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """A notebook's cells with its setup cell connecting, as 8.6 writes it: its first import
+    from warehouse given connect, `from warehouse import query` becoming `from warehouse
+    import connect, query`, or, one over several lines or of the module, followed by `from
+    warehouse import connect`; and the connect lines under it. One that connects already, or
+    whose import from warehouse Python can't read where it is, as in a try, is as given."""
+    if _has_connect(cells):
+        return list(cells)
+    connected = list(cells)
+    for number, (kind, text) in enumerate(cells):
+        lines = text.split("\n")
+        one_line = [at for at, line in enumerate(lines) if _WAREHOUSE_IMPORT.match(line)]
+        statements = _warehouse_imports(text) if kind == "code" else []
+        if kind == "code" and one_line:
+            match = _WAREHOUSE_IMPORT.match(lines[one_line[0]])
+            lines[one_line[0]] = (f"from warehouse import connect, {match.group('names')}"
+                                  f"{match.group('comment') or ''}\n{CONNECT_LINES}")
+        elif statements:
+            last = statements[0].end_lineno - 1
+            lines[last] += f"\nfrom warehouse import connect\n{CONNECT_LINES}"
+        else:
+            continue
+        connected[number] = (kind, "\n".join(lines))
+        break
+    return connected
+
+
+def _filled(text: str, connection: str | None) -> str:
+    """A cell's text with its line to fill in, # connect(your_connection), filled with
+    `connection`, if given."""
+    if connection is None:
+        return text
+    return "\n".join(connection if line == CONNECT_PLACEHOLDER else line
+                     for line in text.split("\n"))
+
+
+def _code_cells_line_as_8_6(cells: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """A Table notebook's cells with its text cell's list of the code cells, where it is as
+    8.2 to 8.5's Example projects wrote it, saying cell 1 connects, as 8.6's says."""
+    written = []
+    for kind, text in cells:
+        if kind == "markdown":
+            text = _CODE_CELLS_LINE.sub(_CODE_CELLS_LINE_8_6, text)
+        written.append((kind, text))
+    return written
+
+
+def _connect_notebook(upgrade: Upgrade, relative: str) -> None:
+    """Connect a notebook's setup cell, as 8.6 writes it, kept in the archive first, and
+    have its text cell's list of the code cells say cell 1 connects; one Jupyter couldn't
+    open is left."""
+    cells = read_cells_if_readable(upgrade.root / relative)
+    if cells is None:
+        return
+    connected = _code_cells_line_as_8_6(_connected_cells(cells))
+    if connected != cells:
+        upgrade.rewrite_notebook(relative, connected,
+                                 f"connected {relative} with connect(...), at its top")
+
+
+def _fill_connect_lines(upgrade: Upgrade, connection: str, files_before: set[Path]) -> None:
+    """Fill in the line to fill in of each Toolbox notebook with `connection`, such as one an
+    earlier step wrote as this Toolbox writes it, kept in the archive first. A Template is
+    left with its line, as start() writes it."""
+    for path in _toolbox_notebooks(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        cells = read_cells_if_readable(path) or []
+        filled = [(kind, _filled(text, connection)) for kind, text in cells]
+        if filled == cells:
+            continue
+        if (upgrade.archive / relative).exists() or path not in files_before:
+            write_notebook(path, filled)  # kept in the archive by this step, or added by it
+        else:
+            upgrade.rewrite_notebook(relative, filled,
+                                     f"connected {relative} to the Example database")
+
+
+def _table_notebooks(root: Path) -> list[Path]:
+    """Each Table notebook of the Project, tables/<stem>/<stem>.ipynb."""
+    return [path for path in sorted((root / "tables").glob("*/*.ipynb"))
+            if path.stem == path.parent.name]
+
+
+def _toolbox_notebooks(root: Path) -> list[Path]:
+    """Each notebook of the Project the Toolbox writes that is there: each Table notebook,
+    each admin notebook and each Workflow notebook."""
+    from . import workflows  # it imports this file
+    from .project import ADMIN_NOTEBOOKS  # project.py imports this file
+
+    admin = [root / "admin" / f"{name}.ipynb" for name in ADMIN_NOTEBOOKS]
+    workflow = [workflows.notebook_path(root, each) for each in workflows.WORKFLOWS]
+    return [path for path in [*_table_notebooks(root), *admin, *workflow] if path.is_file()]
+
+
+def _write_admin_notebooks_as_8_6(upgrade: Upgrade) -> None:
+    """Write each admin notebook start() writes with its text as 8.6 writes it, its first cell
+    (in 8.5 and 8.6 the only text cell each has); check_references connected; run_tables with
+    its cell that connects; and remove with SCHEDULED_RUNS, each name you gave kept."""
+    from .project import ADMIN_NOTEBOOKS, admin_notebook_cells  # project.py imports this file
+
+    for name in ADMIN_NOTEBOOKS:
+        relative = f"admin/{name}.ipynb"
+        path = upgrade.root / relative
+        cells = read_cells_if_readable(path) if path.is_file() else None
+        if not cells:
+            continue
+        fresh = admin_notebook_cells(name)
+        new_cells = list(cells)
+        if new_cells[0][0] == "markdown":
+            new_cells[0] = fresh[0]
+        if name == "run_tables":
+            new_cells = _run_tables_with_connecting_cell(new_cells, fresh)
+        elif name == "remove":
+            new_cells = _remove_with_scheduled_runs(new_cells, fresh)
+        else:
+            new_cells = _connected_cells(new_cells)
+        if new_cells != cells:
+            upgrade.rewrite_notebook(relative, new_cells)
+
+
+def _run_tables_with_connecting_cell(cells: list[tuple[str, str]],
+                                     fresh: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """run_tables' cells with 8.6's cell that connects after the Project's path, and the
+    import its last cell had commented out taken out, as that cell imports execute; as given
+    where it connects already."""
+    if _has_connect(cells):
+        return list(cells)
+    without_import = [(kind, text.replace(_RUN_TABLES_IMPORT_8_5, "")) for kind, text in cells]
+    return [*without_import[:2], fresh[2], *without_import[2:]]
+
+
+# The line run_tables' last cell began with before 8.6, whose cell that connects imports
+# execute.
+_RUN_TABLES_IMPORT_8_5 = "# from warehouse import query, execute\n"
+
+
+def _remove_with_scheduled_runs(cells: list[tuple[str, str]],
+                                fresh: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """remove's cells with each list 8.6's names cell holds and it lacks added under the
+    ones you named, and each cell 8.6 has that it lacks added last."""
+    names = fresh[2][1].split("\n")
+    new_cells = list(cells)
+    for number, (kind, text) in enumerate(cells):
+        if kind == "code" and "\nTABLES =" in f"\n{text}":
+            names_given = {line.split(" =")[0] for line in text.split("\n")}
+            lacking = [line for line in names if line.split(" =")[0] not in names_given]
+            new_cells[number] = (kind, "\n".join([text, *lacking]))
+    texts = {text for _, text in new_cells}
+    return new_cells + [cell for cell in fresh[3:] if cell[1] not in texts]
+
+
+class _Record(NamedTuple):
+    """A record of the files promote or convert wrote: its file; what it holds, as read; and
+    each list of files in it, each file's hash by the file, a dict within what it holds."""
+
+    path: Path
+    content: object
+    file_lists: list[dict[str, str]]
+
+
+def _records(root: Path) -> list[_Record]:
+    """Each record of the files promote or convert wrote, with their hashes: promoted.json, a
+    list for each prod copy, and each open batch's written.json; one that isn't JSON is passed
+    over."""
+    from .workflows import BATCH_RECORD, BATCHES, PROMOTED  # workflows.py imports this file
+
+    records = []
+    for path in [root / PROMOTED, *sorted((root / BATCHES).glob(f"*/{BATCH_RECORD}"))]:
+        try:
+            content = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        # A batch's record is one entry; promoted.json holds an entry for each prod copy.
+        entries = [content]
+        if path.name != BATCH_RECORD and isinstance(content, dict):
+            entries = list(content.values())
+        file_lists = [entry["files"] for entry in entries
+                      if isinstance(entry, dict) and isinstance(entry.get("files"), dict)]
+        records.append(_Record(path, content, file_lists))
+    return records
+
+
+def _recorded_files(root: Path) -> dict[str, str]:
+    """The hash of each file a record names that is still as promote or convert wrote it, by
+    the file."""
+    from .project import _hash  # project.py imports this file
+
+    unchanged = {}
+    for record in _records(root):
+        for files in record.file_lists:
+            for relative, recorded in files.items():
+                path = root / relative
+                if path.is_file() and _hash(path.read_bytes()) == recorded:
+                    unchanged[relative] = recorded
+    return unchanged
+
+
+def _rehash_records(upgrade: Upgrade, before: dict[str, str]) -> None:
+    """Write each record again with the new hash of each file this step changed that was, before
+    it, still as promote or convert wrote it, so check() and convert read the file as theirs."""
+    from .project import _hash  # project.py imports this file
+
+    for record in _records(upgrade.root):
+        changed = False
+        for files in record.file_lists:
+            for relative, recorded in files.items():
+                path = upgrade.root / relative
+                if before.get(relative) == recorded and path.is_file():
+                    files[relative] = _hash(path.read_bytes())
+                    changed = changed or files[relative] != recorded
+        if changed:
+            # As promote and convert write a record.
+            upgrade.rewrite(record.path.relative_to(upgrade.root).as_posix(),
+                            json.dumps(record.content, indent=1, sort_keys=True))
+
+
+def _mark_imports_of_conn(upgrade: Upgrade) -> None:
+    """Mark each line of yours that imports conn from warehouse, or reads warehouse.conn, in a
+    .py file or a notebook's code cell: 8.6's warehouse.py, written where conn was the Example
+    database, has no conn. Code Python can't read is passed over, as calls_to passes it."""
+    from .project import WAREHOUSE  # project.py imports this file
+
+    for path in _searched_files(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        if relative == WAREHOUSE:
+            continue
+        for cell, kind, text in _texts_of(path):
+            lines = _lines_reading_conn(text) if kind == "code" else []
+            for line in reversed(lines):  # from the bottom, so each line keeps its number
+                upgrade.mark(relative, line, _CONN_GONE, cell=cell)
+
+
+def _lines_reading_conn(text: str) -> list[int]:
+    """Each line of code, counted from 1, that imports conn from warehouse or reads
+    warehouse.conn: an import's first line; none in code Python can't read."""
+    try:
+        tree = ast.parse(_without_magics(text))
+    except SyntaxError:
+        return []
+    lines = set()
+    for node in ast.walk(tree):
+        imports_conn = (isinstance(node, ast.ImportFrom) and node.module == "warehouse"
+                        and "conn" in {alias.name for alias in node.names})
+        reads_conn = (isinstance(node, ast.Attribute) and node.attr == "conn"
+                      and isinstance(node.value, ast.Name) and node.value.id == "warehouse")
+        if imports_conn or reads_conn:
+            lines.add(node.lineno)
+    return sorted(lines)
+
+
+def _mark_notebooks_not_connecting(upgrade: Upgrade, connection: str | None) -> None:
+    """Mark the first import from warehouse of each notebook that imports from it and doesn't
+    connect: a notebook of yours, or a Toolbox notebook whose import _connected_cells can't
+    read where it is, as in a try or a cell Python can't read."""
+    mark_text = _CONNECT_HERE + (_CONNECT_AS_CONN_WAS if connection is not None else "")
+    for path in _searched_files(upgrade.root):
+        cells = read_cells_if_readable(path) if path.suffix == ".ipynb" else None
+        if not cells or _has_connect(cells):
+            continue
+        for cell, (kind, text) in enumerate(cells, 1):
+            lines = text.split("\n") if kind == "code" else []
+            reaching = [at for at, line in enumerate(lines, 1)
+                        if _REACHES_THE_WAREHOUSE.match(line)]
+            if reaching:
+                relative = path.relative_to(upgrade.root).as_posix()
+                upgrade.mark(relative, reaching[0], mark_text, cell=cell)
+                break
+
+
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
-                                               "8.5": to_8_5}
+                                               "8.5": to_8_5, "8.6": to_8_6}

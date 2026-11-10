@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.6 - copy it, then edit your copy -->
 # Batch team_failures
 
 1 script, each read where it is: admin/workflows/convert/team_failures.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
