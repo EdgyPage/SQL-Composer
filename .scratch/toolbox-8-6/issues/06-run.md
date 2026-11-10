@@ -78,3 +78,33 @@ Built 2026-11-09.
 - Left: the how-to "Declare a change made in Python", the README and Copilot file 18 don't yet
   show `rows=` or `built.run` (ticket 10). CONTEXT.md's Python step now says a Scheduled run
   writes one's table.
+
+### The code review (2026-11-09)
+
+The review of ticket 06, mended in `fix(8.6): tickets 05 and 06's code review, and D481`:
+
+- **Decided: a SELECT that fails reruns from itself.** `START_FROM` now names a table, whose
+  first write the rerun starts from, or a SELECT, by its name (`RunStep.start_from_name`, its
+  table or its `result`); a table is looked for first. The failed SELECT prints
+  `START_FROM = "busiest"`, so the rerun sends no write before it again, and an `INSERT_INTO`
+  before it can't add its rows twice. The build's passed-over line says `before it` for a
+  SELECT, `before its first write` for a table. A name no step writes and no SELECT has is
+  refused, naming both. Only a failed step with neither, an Admin or Unchecked statement
+  writing no table, still names the table whose first write comes last before it
+  (`_last_table_first_written_before`), as no name reaches it. Test:
+  `test_a_failed_select_reruns_from_itself_sending_no_write_again`. `build_run`'s docstring,
+  `built.run`'s, the scheduled_run Template's `START_FROM` comment and CHANGES.md say so.
+- One rule for a table's Session settings: `scheduled_runs.settings_before_each(built)`, the
+  settings sent before each step, which `run_built` sends and the build prints (and
+  `step_texts`, ticket 08's). `last` is `last_table_written` there. `_rerun_lines`' own
+  first-write search is `_last_table_first_written_before`, and its docstring now says what
+  it gives. `RunStep.heading` gives the heading without `--`; the build prints `-- ` before
+  it, and lists a step passed over by it as it is.
+- `kinds.kind(step.statement) == kinds.PYTHON` is `RunStep.is_python_step`.
+- What callers need of a `PythonStep` are functions of `python_steps.py`, as `step_where` and
+  `step_columns_read` are: `step_rows`, `is_partitioned`, and `changed_rows`, which calls the
+  step's function and checks what it gives back, so `saving_hive` now takes a checked
+  `pd.DataFrame`. Answered, not changed: methods on `PythonStep` would show in its `help()`,
+  a public class; and `saving_hive` lives beside `PythonStep`, so its fields are that module's
+  own, while a Table's `_columns` and `_partitioned_by` are read as its fields throughout the
+  Toolbox, which has no other way to them.

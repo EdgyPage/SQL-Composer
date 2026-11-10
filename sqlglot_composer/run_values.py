@@ -55,38 +55,41 @@ class Traced:
     reads: list[TracedRead] = field(default_factory=list)
 
 
+@dataclass
+class ValuesGiven:
+    """The Run values project.build_run gives a value while it builds (Toolbox 8.6): the value
+    its run_values= gives each, by its function's name; how each is read for the function it
+    stands in for, read(name, value, function); each value used, as read, by its name; and the
+    name of each Run value met, called or given a value, in order."""
+
+    given: dict[str, object]
+    read: Callable[[str, object, Callable[..., object]], object]
+    used: dict[str, object] = field(default_factory=dict)
+    met: list[str] = field(default_factory=list)
+
+
 # The calls being traced, innermost last: note_read notes each read in each of them.
 _TRACING: list[Traced] = []
-# While project.build_run builds (Toolbox 8.6), the value its run_values= gives each Run value,
-# by its function's name, given in place of calling the function; how each such value is read
-# for the function it stands in for, innermost last; and, for each build, the name of each Run
-# value met, called or given a value, in order.
-_GIVEN: dict[str, object] = {}
-_READERS: list[Callable[[str, object, Callable[..., object]], object]] = []
-_MET: list[list[str]] = []
+# While project.build_run builds, the Run values it gives a value; None at any other time.
+_VALUES_GIVEN: ValuesGiven | None = None
 
 
 @contextmanager
 def values_given(given: dict[str, object],
                  read: Callable[[str, object, Callable[..., object]], object]
-                 ) -> Iterator[list[str]]:
+                 ) -> Iterator[ValuesGiven]:
     """While the block runs, each Run value whose function's name `given` holds gives that
     value in place of calling the function, a Script tag's and tag_text's too, as
-    read(name, value, function) reads it for that function; the list it gives holds the name
-    of each Run value met while the block runs, in order. Afterwards, each function is called
-    again."""
-    run_values_met: list[str] = []
-    before = dict(_GIVEN)
-    _GIVEN.update(given)
-    _READERS.append(read)
-    _MET.append(run_values_met)
+    read(name, value, function) reads it for that function. What it gives holds each value
+    used, as read, and the name of each Run value met while the block runs, in order.
+    Afterwards, each function is called again."""
+    global _VALUES_GIVEN  # one build at a time; the one before, if any, comes back after
+    before = _VALUES_GIVEN
+    _VALUES_GIVEN = ValuesGiven(dict(given), read)
     try:
-        yield run_values_met
+        yield _VALUES_GIVEN
     finally:
-        _MET.remove(run_values_met)
-        _READERS.remove(read)
-        _GIVEN.clear()
-        _GIVEN.update(before)
+        _VALUES_GIVEN = before
 
 
 def function_name(function: Callable[..., object]) -> str:
@@ -115,10 +118,12 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
                        *(f"{name}={each!r}" for name, each in keywords.items())])
     traced = Traced(function_name(function), shown, tag)
     name = getattr(function, "__name__", traced.function)
-    for met in _MET:
-        met.append(name)
-    if name in _GIVEN:
-        return _READERS[-1](name, _GIVEN[name], function), traced, None
+    if _VALUES_GIVEN is not None:
+        _VALUES_GIVEN.met.append(name)
+    if _VALUES_GIVEN is not None and name in _VALUES_GIVEN.given:
+        value = _VALUES_GIVEN.read(name, _VALUES_GIVEN.given[name], function)
+        _VALUES_GIVEN.used.setdefault(name, value)
+        return value, traced, None
     _TRACING.append(traced)
     try:
         return function(*arguments, **keywords), traced, None

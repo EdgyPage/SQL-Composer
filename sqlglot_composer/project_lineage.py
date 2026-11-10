@@ -252,7 +252,7 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
             runs.append(RunSection(name, [], error))
             continue
         steps = built.passed_over + built.steps
-        headings = [step.heading(number, len(steps)).removeprefix("-- ")
+        headings = [step.heading(number, len(steps))
                     for number, step in enumerate(steps, start=1)]
         runs.append(RunSection(name, headings, None))
         for step in steps:

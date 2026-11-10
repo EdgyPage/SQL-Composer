@@ -7380,7 +7380,8 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        run_tables orders them; a loop is refused, naming its tables. A table's
        session_settings() are printed before its first write. A START_FROM parameter that
        names a table, as a run that failed prints it, passes over each Statement before that
-       table's first write.
+       table's first write; one that names a SELECT, as a run whose SELECT failed prints it,
+       passes over each Statement before that SELECT.
     5. The Guards: while statements() runs, a Guard tripped by a Statement this notebook's own
        code composes only warns, with its what, why and fix and its opt-out named, so a quick
        Statement needs no opt-out; the build lists each one it let through, with its line, and

@@ -45,7 +45,8 @@ as at its top.
   that read it. `run_values={"period_end": END}` gives a Run value of that function's name
   for this run in place of calling it; `leave_out=["mart.team_days"]` leaves a table out, and
   what only it reads; `START_FROM = "<table>"` passes over each Statement before that table's
-  first write. It prints the parameters, then each Statement's Hive under a heading such as
+  first write, and `START_FROM = "<SELECT's name>"` each before that SELECT. It prints the
+  parameters, then each Statement's Hive under a heading such as
   `-- 3 of 7: mart.team_days (read by week_totals)`, and sends nothing. A Run value's function
   that reads the warehouse, such as a table's latest Partition, is called as it builds, so
   its notebook connects first.
@@ -66,7 +67,8 @@ as at its top.
   rows, and a table's `session_settings()` before its first write, as the build printed them.
   The first that fails stops the rest and raises its error, so the scheduler sees the notebook
   fail, once it has printed the tables written before it and the line to rerun from it, such
-  as `START_FROM = "mart.teams"`. A Python step given `rows=`, the SELECT its function takes,
+  as `START_FROM = "mart.teams"`, or, for a SELECT that failed, its name, so the rerun sends
+  no write before it again. A Python step given `rows=`, the SELECT its function takes,
   as `python_step(add_margin, reads=[...], writes=margins, rows=rows())`, has its table
   written: its rows pulled through your query, given to the function, and what it gives back
   saved through your execute, each value cast to its column's type. One with no `rows=` is
