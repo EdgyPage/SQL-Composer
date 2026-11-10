@@ -21,6 +21,7 @@ import inspect
 import json
 import re
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from types import FrameType
 from typing import NamedTuple, NoReturn
@@ -34,7 +35,7 @@ from .notebooks import PARAMETERS, PARAMETERS_TAG, parameters_cell
 from .project import (LOGIC_FUNCTION, TableLogic, load, logic_functions_marked,
                       project_folder, writes_of)
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
-from .python_steps import PythonStep, saving_hive
+from .python_steps import PythonStep, changed_rows, is_partitioned, saving_hive, step_rows
 from .refusals import GuardLetThrough, guards_warn_in, need_warehouse_call, refuse
 from .run_values import values_given
 from .running import hive_to_show, run_execute, run_query, settings_needed
@@ -50,8 +51,6 @@ _DATE_TEXT = re.compile(r"\d{4}-\d{2}-\d{2}")
 _WHOLE_NUMBER = re.compile(r"[+-]?\d+")
 # What reading a value gives when it can't be read as its hint's type.
 _UNREAD = object()
-# What reading a value gives when it is left empty, None or "", and its hint has no | None.
-_EMPTY = object()
 
 
 class Hint(NamedTuple):
@@ -220,8 +219,7 @@ def _is_none(node: ast.expr) -> bool:
 def _read_value(name: str, hint: Hint, given: object, call: str) -> object:
     """A parameter's value read by its hint, from text as a scheduler passes it or from the
     value itself: refused, naming the parameter, its hint and the value, when it can't be."""
-    value = _value_read(hint, given)
-    if value is _EMPTY:
+    if _is_missing(hint, given):
         refuse(
             what=f"{call}: the parameter {name}, {with_article(hint.shown)}, was left empty: "
             f"it was given {python_literal(given)}.",
@@ -231,19 +229,23 @@ def _read_value(name: str, hint: Hint, given: object, call: str) -> object:
             f"hint {hint.shown} | None and read None in the # scheduled cell.",
             error=ValueError,
         )
+    value = _value_read(hint, given)
     if value is _UNREAD:
         _refuse_unread(name, hint, given, call)
     return value
 
 
+def _is_missing(hint: Hint, given: object) -> bool:
+    """Whether a value is left empty where its hint has no | None, so the run has none."""
+    return _is_left_empty(hint, given) and not hint.may_be_none
+
+
 def _value_read(hint: Hint, given: object) -> object:
     """A value read by its hint, from text as a scheduler passes it or from the value itself:
-    None for one left empty where the hint has | None, _EMPTY for one left empty where it
-    hasn't, and _UNREAD for one that can't be read."""
+    None for one left empty, and _UNREAD for one that can't be read. Its callers refuse one
+    left empty where the hint has no | None first, as _is_missing tells."""
     if _is_left_empty(hint, given):
-        if hint.may_be_none:
-            return None
-        return _EMPTY
+        return None
     read = TYPES_READ[hint.each].read
     if not hint.is_list:
         return read(given)
@@ -379,7 +381,7 @@ def _run_value_read(name: str, given: object, function: Callable[..., object],
     if hint is None:
         return given
     value = _value_read(hint, given)
-    if value is _EMPTY or value is _UNREAD:
+    if _is_missing(hint, given) or value is _UNREAD:
         refuse(
             what=f"{call}: run_values= gives {name} {python_literal(given)}, which can't be "
             f"read as {with_article(hint.shown)}, what {name}() gives back.",
@@ -433,10 +435,21 @@ class RunStep(NamedTuple):
     table: str | None
     read_by: list[str]
 
+    @property
+    def is_python_step(self) -> bool:
+        """Whether its Statement is a Python step, whose table the run writes from rows."""
+        return kinds.kind(self.statement) == kinds.PYTHON
+
+    @property
+    def start_from_name(self) -> str | None:
+        """What START_FROM names it by, to start a rerun from it: the table it writes, or a
+        SELECT's name; None for a step with neither."""
+        return self.table or self.result
+
     def heading(self, position: int, count: int) -> str:
-        """Its heading, as the build prints it: -- 3 of 7: mart.team_days (read by
-        week_totals)."""
-        heading = f"-- {position} of {count}: {self.name}"
+        """Its heading, such as 3 of 7: mart.team_days (read by week_totals): the build prints
+        it after --, above its Hive, and lists a step START_FROM passes over by it."""
+        heading = f"{position} of {count}: {self.name}"
         if self.read_by:
             heading += f" (read by {in_words(self.read_by)})"
         return heading
@@ -512,11 +525,13 @@ class BuiltRun:
         Python step with no rows= is refused before anything is sent.
 
         The first that fails stops the rest: it prints the tables this run wrote before it,
-        and the parameter that sends the rest, such as START_FROM = "mart.team_days", then
-        raises the error your query or execute raised, so the scheduler sees the notebook
-        fail. Rerun with that START_FROM, or run it all again: each write writes its table
-        again. It writes no lineage and no file of its own; an Admin or Unchecked statement is
-        logged in the Admin log by run_execute, as anywhere.
+        and the parameter that sends the rest, such as START_FROM = "mart.team_days", or a
+        SELECT's name, as START_FROM = "week_totals", for a SELECT that failed, so a rerun
+        sends no write before it again; then it raises the error your query or execute
+        raised, so the scheduler sees the notebook fail. Rerun with that START_FROM, or run it
+        all again: each write writes its table again. It writes no lineage and no file of its
+        own; an Admin or Unchecked statement is logged in the Admin log by run_execute, as
+        anywhere.
         """
         return run_built(self, query, execute)
 
@@ -530,21 +545,14 @@ def build_scheduled_run(statements: Callable[[], object], run_values: dict[str, 
     parameters = use_parameters(notebook, _path_in_project(notebook, root), frame.f_globals,
                                 call)
     print("\n".join(parameter_lines(parameters)))
-    run_values_used: dict[str, object] = {}
-
-    def read(name: str, given: object, function: Callable[..., object]) -> object:
-        value = _run_value_read(name, given, function, call)
-        run_values_used.setdefault(name, value)
-        return value
-
-    with values_given(run_values, read) as run_values_met:
+    with values_given(run_values, partial(_run_value_read, call=call)) as run_values_given:
         given, guards_let_through = _given_by(statements, frame.f_globals)
         steps = _given_steps(given, call)
         added, settings = _added_writes(root, steps, leave_out, call)
-    _check_values_given_were_met(run_values, run_values_met, call)
+    _check_values_given_were_met(run_values, run_values_given.met, call)
     ordered = _steps_in_order(steps + added, call)
     passed_over, sent = _split_at_start_from(ordered, _start_from(parameters), call)
-    built = BuiltRun(parameters, sent, passed_over, settings, run_values_used,
+    built = BuiltRun(parameters, sent, passed_over, settings, run_values_given.used,
                      guards_let_through)
     _print_build(built, run_values)
     return built
@@ -799,24 +807,30 @@ def _start_from(parameters: list[Parameter]) -> str:
 
 def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
                          ) -> tuple[list[RunStep], list[RunStep]]:
-    """The steps before the first write of the table START_FROM names, passed over, and the
-    rest, sent; with START_FROM empty, none passed over. A table no step writes is refused."""
+    """The steps before the one START_FROM names, passed over, and the rest, sent: the first
+    write of the table it names, or else the SELECT it names; with START_FROM empty, none
+    passed over. A name no step writes or gives its rows by is refused."""
     if not start_from:
         return [], ordered
     for position, step in enumerate(ordered):
         if step.table == start_from:
             return ordered[:position], ordered[position:]
-    written = list(dict.fromkeys(step.table for step in ordered if step.table))
-    if written:
-        fix = (f"Give it one of the tables this run writes, {in_words(written)}, or \"\" to "
-               "send them all.")
+    for position, step in enumerate(ordered):
+        if step.result == start_from:
+            return ordered[:position], ordered[position:]
+    names = list(dict.fromkeys(step.start_from_name for step in ordered
+                               if step.start_from_name))
+    if names:
+        fix = (f"Give it a table this run writes or one of its SELECTs, {in_words(names)}, or "
+               "\"\" to send them all.")
     else:
-        fix = "This run writes no table: give START_FROM \"\"."
+        fix = "This run writes no table and has no SELECT: give START_FROM \"\"."
     refuse(
         what=f"{call}: START_FROM is {python_literal(start_from)}, which no Statement of this "
-        "run writes.",
-        why="START_FROM names the table a rerun starts from, as a run that failed prints it: "
-        "the Statements before its first write are passed over.",
+        "run writes and no SELECT of it is named.",
+        why="START_FROM names where a rerun starts, as a run that failed prints it: a table, "
+        "whose first write it starts from, or a SELECT, by its name; the Statements before it "
+        "are passed over.",
         fix=fix,
         error=ValueError,
     )
@@ -825,16 +839,15 @@ def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
 def step_texts(built: BuiltRun) -> list[str]:
     """Each Statement the built run sends, in order, as the build prints it: its heading, such
     as -- 3 of 7: mart.team_days (read by week_totals), a table's Session settings before its
-    first write, and its Hive, as show_hive shows it. project.export_run_hive writes them."""
+    first write, as settings_before_each says, and its Hive, as show_hive shows it.
+    project.export_run_hive writes them."""
     count = len(built.passed_over) + len(built.steps)
+    settings_before = settings_before_each(built)
     texts = []
-    last = ""
-    for position, step in enumerate(built.steps, start=len(built.passed_over) + 1):
-        lines = [step.heading(position, count)]
-        if kinds.kind(step.statement) != kinds.PYTHON:
-            if step.table and step.table != last and step.table in built.settings:
-                lines.append(hive_to_show(built.settings[step.table], None))
-            last = step.table or last
+    for index, step in enumerate(built.steps):
+        lines = [f"-- {step.heading(len(built.passed_over) + index + 1, count)}"]
+        if settings_before[index] is not None:
+            lines.append(hive_to_show(settings_before[index], None))
         lines.append(hive_to_show(step.statement, None))
         texts.append("\n".join(lines))
     return texts
@@ -854,17 +867,37 @@ def _print_build(built: BuiltRun, run_values: dict[str, object]) -> None:
         print(line)
     count = len(built.passed_over) + len(built.steps)
     if built.passed_over:
-        print(f"START_FROM is {python_literal(built.steps[0].table)}: the "
-              f"{counted(len(built.passed_over), 'Statement')} before its first write "
+        start = built.steps[0]
+        before = "before its first write" if start.table else "before it"
+        print(f"START_FROM is {python_literal(start.start_from_name)}: the "
+              f"{counted(len(built.passed_over), 'Statement')} {before} "
               f"{singular_or_plural(len(built.passed_over), 'is', 'are')} passed over, as the "
               "run before sent them:")
         for position, step in enumerate(built.passed_over, start=1):
-            print(f"  {step.heading(position, count).removeprefix('-- ')}")
+            print(f"  {step.heading(position, count)}")
     for text in step_texts(built):
         print(text)
     _print_guards_let_through(built.guards_let_through)
     print(f"Built {counted(len(built.steps), 'Statement')} in order, and sent nothing: "
           "results = built.run(query, execute) sends them.")
+
+
+def settings_before_each(built: BuiltRun) -> list[SessionSettings | None]:
+    """The Session settings sent just before each step the run sends, in order, as the build
+    prints them and built.run sends them: a table's session_settings() before its first write,
+    and again before its next write after another table's; None before every other step. A
+    Python step's table gets none: the Hive that saves its rows needs only
+    "dynamic_partitions", which built.run sends first."""
+    settings_before: list[SessionSettings | None] = []
+    last_table_written = ""
+    for step in built.steps:
+        if step.is_python_step:
+            settings_before.append(None)
+            continue
+        is_new_table = bool(step.table) and step.table != last_table_written
+        settings_before.append(built.settings.get(step.table) if is_new_table else None)
+        last_table_written = step.table or last_table_written
+    return settings_before
 
 
 def _print_guards_let_through(let_through: list[GuardLetThrough]) -> None:
@@ -899,22 +932,18 @@ def run_built(built: BuiltRun, query: Callable[[str], pd.DataFrame],
     results: dict[str, pd.DataFrame] = {}
     count = len(built.passed_over) + len(built.steps)
     width = max(len(step.name) for step in built.steps)
-    last = ""
+    settings_before = settings_before_each(built)
     for index, step in enumerate(built.steps):
         position = len(built.passed_over) + index + 1
         shown = f"{position} of {count}: {step.name:<{width}}"
-        is_python = kinds.kind(step.statement) == kinds.PYTHON
         try:
-            # A table's Session settings before its first write, as the build printed them.
-            if not is_python and step.table != last and step.table in built.settings:
-                run_execute(built.settings[step.table], execute)
+            if settings_before[index] is not None:
+                run_execute(settings_before[index], execute)
             worked = _send_step(step, query, execute, results)
         except Exception:
             print(f"{shown}  failed: see below. The Statements after it weren't sent.")
             print("\n".join(_rerun_lines(built, index)))
             raise
-        if not is_python:
-            last = step.table or last
         print(f"{shown}  {worked}")
     print(_run_end_line(built, results))
     return results
@@ -944,7 +973,7 @@ def _check_python_steps_have_rows(steps: list[RunStep]) -> None:
     """Refuse a Python step with no rows=, whose rows the run can't pull, before anything is
     sent."""
     lacking = [step.table for step in steps
-               if kinds.kind(step.statement) == kinds.PYTHON and step.statement._rows is None]
+               if step.is_python_step and step_rows(step.statement) is None]
     if not lacking:
         return
     refuse(
@@ -965,8 +994,8 @@ def _fills_partitions(step: RunStep) -> bool:
     """Whether a step fills Partitions from its rows, so the Session setting
     "dynamic_partitions" is sent before it: a write whose show_hive names it, or a Python step
     saving to a partitioned table."""
-    if kinds.kind(step.statement) == kinds.PYTHON:
-        return bool(step.statement._writes._partitioned_by)
+    if step.is_python_step:
+        return is_partitioned(step.statement)
     return kinds.kind(step.statement) == kinds.WRITE and bool(settings_needed(step.statement))
 
 
@@ -974,14 +1003,13 @@ def _send_step(step: RunStep, query: Callable[[str], pd.DataFrame],
                execute: Callable[[str], None], results: dict[str, pd.DataFrame]) -> str:
     """Send one step, a SELECT's rows put in `results` by its name, and give back what its
     line says once it worked."""
-    kind = kinds.kind(step.statement)
-    if kind == kinds.READ:
+    if kinds.kind(step.statement) == kinds.READ:
         rows = run_query(step.statement, query)
         results[step.result] = rows
         return f"worked: {counted(len(rows), 'row')}, in results[{python_literal(step.result)}]"
-    if kind == kinds.PYTHON:
-        rows = run_query(step.statement._rows, query)
-        changed = step.statement._function(rows)
+    if step.is_python_step:
+        rows = run_query(step_rows(step.statement), query)
+        changed = changed_rows(step.statement, rows, RUN_CALL)
         hive = saving_hive(step.statement, changed, RUN_CALL)
         if hive is None:
             return "worked: its function gave back no rows, so nothing was saved"
@@ -993,32 +1021,36 @@ def _send_step(step: RunStep, query: Callable[[str], pd.DataFrame],
 
 def _rerun_lines(built: BuiltRun, failed: int) -> list[str]:
     """What the run prints when its step at `failed` failed: the tables it wrote before it,
-    and the START_FROM that sends the rest. That is its own table, or, for a step that writes
-    none, the table whose first write comes last before it, so a rerun sends it again; ""
-    when no table's first write comes before it."""
-    failed_table = built.steps[failed].table
+    and the START_FROM line that sends the rest from it. START_FROM names the failed step's
+    own table, or a SELECT's name, so the rerun sends no write before it again."""
+    failed_step = built.steps[failed]
     written = list(dict.fromkeys(step.table for step in built.steps[:failed]
-                                 if step.table and step.table != failed_table))
+                                 if step.table and step.table != failed_step.table))
     if written:
         lines = [f"This run wrote each table before it: {in_words(written)}."]
     else:
         lines = ["This run wrote no table before it."]
-    every = built.passed_over + built.steps
-    failed_at = len(built.passed_over) + failed
-    # Each table's first write, by its place in the run, in the order they come.
-    first_writes: dict[str, int] = {}
-    for position, step in enumerate(every):
-        if step.table and step.table not in first_writes:
-            first_writes[step.table] = position
-    start_from = ""
-    for table, position in first_writes.items():
-        if position <= failed_at:
-            start_from = table
-    if failed_table:
-        start_from = failed_table
+    start_from = failed_step.start_from_name
+    if start_from is None:
+        start_from = _last_table_first_written_before(built, failed)
     lines.append("To send it and the rest, run this notebook again with the parameter:")
     lines.append(f"{START_FROM} = {python_literal(start_from)}")
     return lines
+
+
+def _last_table_first_written_before(built: BuiltRun, failed: int) -> str:
+    """For a failed step START_FROM can't name, an Admin or Unchecked statement that writes no
+    table: the table whose first write comes last before it, which a rerun starts from and
+    writes again; "", which sends them all, when no table's first write comes before it."""
+    every = built.passed_over + built.steps
+    failed_at = len(built.passed_over) + failed
+    first_written: list[str] = []
+    for step in every[:failed_at]:
+        if step.table and step.table not in first_written:
+            first_written.append(step.table)
+    if not first_written:
+        return ""
+    return first_written[-1]
 
 
 def _run_end_line(built: BuiltRun, results: dict[str, pd.DataFrame]) -> str:

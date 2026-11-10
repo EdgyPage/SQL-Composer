@@ -948,10 +948,10 @@ def _about_unchecked(s: UncheckedStatement) -> str:
 
 def _about_python_step(s: PythonStep) -> str:
     """What a Python step's section says of it: that it is a change made in Python, which the
-    Toolbox can't see inside and never sent, and what it read and wrote."""
+    Toolbox can't see inside, who saves it, and what it read and wrote."""
     return ("A Python step: a change made in Python, outside any Statement, and saved by your "
-            "own call. The Toolbox can't see inside it, so its columns can't be followed "
-            f"through it, and it never moved its data. {step_about(s)}")
+            "own call or, given rows=, by a Scheduled run. The Toolbox can't see inside it, so "
+            f"its columns can't be followed through it. {step_about(s)}")
 
 
 # What a Python step's section says under its heading, Where it lives, after where.
@@ -1526,7 +1526,8 @@ summary{cursor:pointer} table{border-collapse:collapse}\
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>\
 &#9888; Unchecked statement: Hive written by hand, not checked</span>
 <span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>\
-Python step: changed in Python, saved by your own call</span>
+Python step: changed in Python, saved by your own call or, given rows=, \
+by a Scheduled run</span>
 <span>solid arrow: carries a value · dotted: a column read by a condition, or a condition \
 deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag \
 pans</span>
