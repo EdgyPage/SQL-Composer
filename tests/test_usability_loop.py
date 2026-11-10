@@ -9,8 +9,12 @@ key, failing on the check meant to catch each wrong end.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import json
+import re
+import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import notebook_runner
@@ -43,7 +47,8 @@ def chosen(tmp_path: Path) -> usability_loop.Scenario:
     (folder / "T1" / "scenario.json").write_text(json.dumps({
         "id": "T1", "split": "dev", "title": "a test scenario",
         "phases": [{"role": "technical", "job": "Copy mart.daily_fails into mart_dev.fails."},
-                   {"role": "non_technical", "job": "Fill in the workbook."}],
+                   {"role": "non_technical",
+                    "job": "Fill in the workbook, as main/copilot/07_convert_hive.txt says."}],
         "hive_ran": ["ran.hql"], "given": {"from_your_team/daily.hql": "daily.hql"}}),
         encoding="utf-8")
     warehouse = SavedWarehouse(tmp_path / "key_warehouse.json")
@@ -66,6 +71,15 @@ def main_tree(tmp_path: Path) -> Path:
         (main / "copilot" / name).write_text(
             (usability_loop.ROOT / "copilot" / name).read_text(encoding="utf-8"),
             encoding="utf-8")
+    return main
+
+
+@pytest.fixture(scope="session")
+def built_main(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Main's tree, built from dev's last commit once for the session, as it takes a while
+    (Toolbox 8.6, ticket 11)."""
+    main = tmp_path_factory.mktemp("built") / "main"
+    usability_loop.build_main(main, usability_loop.dev_commit())
     return main
 
 
@@ -274,13 +288,199 @@ def test_an_attached_tables_total_row_is_named_as_the_excel_eval_names_it(
     assert "Total Row: Total | =SUBTOTAL(109,runs[fails])" in attached
 
 
-def test_a_run_built_from_dev_holds_mains_tree(tmp_path: Path) -> None:
-    main = tmp_path / "main"
-    usability_loop.build_main(main)
-    assert (main / "sqlglot_composer" / "version.txt").is_file()
-    assert (main / ".github" / "README.md").is_file()
-    assert (main / "copilot" / "formula_workbook.xlsx").is_file()
-    assert not (main / "tools").exists() and not (main / ".scratch").exists()
+def test_a_run_built_from_dev_holds_mains_tree(built_main: Path) -> None:
+    assert (built_main / "sqlglot_composer" / "version.txt").is_file()
+    assert (built_main / ".github" / "README.md").is_file()
+    assert (built_main / "copilot" / "formula_workbook.xlsx").is_file()
+    assert not (built_main / "tools").exists() and not (built_main / ".scratch").exists()
+
+
+def test_mains_tree_hashes_the_same_whenever_it_was_built(built_main: Path,
+                                                          tmp_path: Path) -> None:
+    # Toolbox 8.6, ticket 11: the export stamps when it ran, and from which commit, in
+    # version.txt and the README; the tree's hash leaves the stamp out, so a commit that
+    # changes nothing main ships keeps it.
+    hashed = usability_loop.main_tree_hash(built_main)
+    again = tmp_path / "main"
+    shutil.copytree(built_main, again)
+    version = again / "sqlglot_composer" / "version.txt"
+    text = version.read_text(encoding="utf-8")
+    stamp = re.search(r"exported [^\n]*", text)[0]
+    version.write_text(text.replace(stamp, f"exported 2027-01-01 00:00 from dev commit "
+                                           f"{'0' * 40}"), encoding="utf-8", newline="\n")
+    assert usability_loop.main_tree_hash(again) == hashed
+    (again / "copilot" / "00_start_here.txt").write_text("changed\n", encoding="utf-8")
+    assert usability_loop.main_tree_hash(again) != hashed
+
+
+# --- Inputs recorded, and memoized (Toolbox 8.6, ticket 11) ----------------------------------
+
+
+def _inputs(run: Path) -> dict[str, object]:
+    return json.loads((run / "_loop" / "inputs.json").read_text(encoding="utf-8"))
+
+
+def test_a_run_records_its_inputs_the_same_for_each_run_given_the_same(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    first = usability_loop.prepare(chosen, tmp_path / "run_1", main=main_tree,
+                                   python=Path(sys.executable))
+    second = usability_loop.prepare(chosen, tmp_path / "run_2", main=main_tree,
+                                    python=Path(sys.executable))
+    inputs = _inputs(first)
+    assert inputs["scenario"] == "T1" and inputs["commit"] == usability_loop.dev_commit()
+    assert sorted(inputs["scenario_files"]) == ["daily.hql", "key.json", "ran.hql",
+                                                "scenario.json"]
+    assert len(inputs["phases"]) == 2 and inputs["project"] == {}
+    # The files of main the phases name: the README every message names, absent from this
+    # tree, and the Copilot file phase 2's job names.
+    assert list(inputs["main"]["named"]) == ["copilot/07_convert_hive.txt"]
+    assert len(inputs["inputs_hash"]) == 64
+    assert _inputs(second)["inputs_hash"] == inputs["inputs_hash"]
+
+
+@pytest.mark.parametrize("changed", ["a file of main", "a file of the scenario"])
+def test_a_runs_inputs_hash_changes_with_any_of_its_inputs(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, changed: str) -> None:
+    before = usability_loop.prepare(chosen, tmp_path / "run_1", main=main_tree,
+                                    python=Path(sys.executable))
+    if changed == "a file of main":
+        (main_tree / "copilot" / "07_convert_hive.txt").write_text("changed\n",
+                                                                    encoding="utf-8")
+    else:
+        (chosen.folder / "T1" / "daily.hql").write_text("SELECT 2 AS x", encoding="utf-8")
+    after = usability_loop.prepare(chosen, tmp_path / "run_2", main=main_tree,
+                                   python=Path(sys.executable))
+    assert _inputs(after)["inputs_hash"] != _inputs(before)["inputs_hash"]
+
+
+def test_a_project_brought_in_is_recorded_file_by_file_without_the_toolbox(
+        tmp_path: Path, main_tree: Path) -> None:
+    folder = tmp_path / "scenarios"
+    (folder / "T2").mkdir(parents=True)
+    (folder / "T2" / "scenario.json").write_text(json.dumps({
+        "id": "T2", "split": "dev", "title": "a Project brought in",
+        "phases": [{"role": "technical", "job": "Change my_project."}],
+        "project": "example_projects/starter"}), encoding="utf-8")
+    (folder / "T2" / "key.json").write_text("{}", encoding="utf-8")
+    chosen = usability_loop.read_scenario("T2", folder)
+    run = usability_loop.prepare(chosen, tmp_path / "run", main=main_tree,
+                                 python=Path(sys.executable))
+    recorded = _inputs(run)["project"]
+    assert "admin/registry.csv" in recorded and "warehouse.py" in recorded
+    assert not [path for path in recorded if path.startswith("sqlglot_composer/")]
+    assert (run / "my_project" / "sqlglot_composer").is_dir()
+
+
+def _fake_build(builds: list[str]) -> Callable[[Path, str], None]:
+    """A stand-in for build_main that notes each commit it builds and writes a README."""
+    def build(into: Path, commit: str) -> None:
+        builds.append(commit)
+        (into / ".github").mkdir(parents=True)
+        (into / ".github" / "README.md").write_text("# main\n", encoding="utf-8")
+    return build
+
+
+def test_a_cache_builds_mains_tree_once_per_commit_and_each_warehouse_once_per_scenario(
+        chosen: usability_loop.Scenario, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    builds: list[str] = []
+    monkeypatch.setattr(usability_loop, "build_main", _fake_build(builds))
+    set_ups: list[str] = []
+    set_up = usability_loop.set_up_the_scenario
+
+    def counted_set_up(chosen: usability_loop.Scenario, place: Path, main: Path) -> None:
+        set_ups.append(chosen.id)
+        set_up(chosen, place, main)
+
+    monkeypatch.setattr(usability_loop, "set_up_the_scenario", counted_set_up)
+    cache = tmp_path / "cache"
+    (cache / "main" / ("0" * 40)).mkdir(parents=True)  # another commit's, dropped
+    runs = [usability_loop.prepare(chosen, tmp_path / f"run_{number}", cache=cache,
+                                   python=Path(sys.executable)) for number in (1, 2)]
+    commit = usability_loop.dev_commit()
+    assert builds == [commit] and len(set_ups) == 1
+    assert sorted(path.name for path in (cache / "main").iterdir()) == [commit]
+    for run in runs:
+        assert (run / "main" / ".github" / "README.md").is_file()
+        connection = (run / "team_connection.py").read_text(encoding="utf-8")
+        assert repr(str(run / "_loop" / "warehouse.json")) in connection
+    # Each run has a copy of its own: what one writes, no other run sees.
+    SavedWarehouse(runs[0] / "_loop" / "warehouse.json").execute(END)
+    third = usability_loop.prepare(chosen, tmp_path / "run_3", cache=cache,
+                                   python=Path(sys.executable))
+    assert "mart_dev.fails" not in json.loads(
+        (third / "_loop" / "warehouse.json").read_text(encoding="utf-8"))
+    assert _inputs(third)["inputs_hash"] == _inputs(runs[0])["inputs_hash"]
+
+
+RESULTS_HEAD = ("| date | scenario | split | run | result | questions | note |\n"
+                "|---|---|---|---|---|---|---|\n"
+                "| 2026-11-06 | T1 | dev | 2026-11-06-T1-1 | pass | 0 | 8.5 round; 5 actions "
+                "|\n")
+
+
+def _row(run: str, result: str, inputs: str, scenario: str = "T1") -> str:
+    return (f"| 2026-11-10 | {scenario} | dev | {run} | {result} | 0 | a round; 3 actions; "
+            f"inputs {inputs[:16]} |\n")
+
+
+@pytest.mark.parametrize(("rows", "memoized", "said"), [
+    pytest.param(["a pass", "b pass", "c pass"], True,
+                 "T1: memoized: 3 runs passed with these inputs", id="three_passed"),
+    pytest.param(["a pass", "b pass"], False, "T1: run it: 2 of 3 runs passed", id="two"),
+    pytest.param(["a pass", "b pass", "c pass", "d fail"], False, "T1: run it: d failed",
+                 id="one_failed"),
+    pytest.param([], False, "T1: run it: no run recorded with these inputs", id="none"),
+])
+def test_plan_says_whether_a_scenario_is_memoized_naming_its_runs(
+        chosen: usability_loop.Scenario, tmp_path: Path, rows: list[str], memoized: bool,
+        said: str) -> None:
+    inputs = "ab" * 32
+    results = tmp_path / "results.md"
+    text = RESULTS_HEAD + _row("e", "pass", "cd" * 32) + _row("f", "pass", inputs, "T9")
+    for each in rows:
+        run, result = each.split()
+        text += _row(run, result, inputs)
+    results.write_text(text, encoding="utf-8")
+    recorded = usability_loop.read_recorded_runs(results)
+    assert usability_loop.is_memoized(chosen, inputs, recorded) is memoized
+    planned = usability_loop.plan_text(chosen, inputs, recorded)
+    assert planned.startswith(said) and inputs[:16] in planned
+    if memoized:
+        assert planned.endswith("a, b and c")
+
+
+def test_a_held_out_scenario_is_memoized_by_one_run_that_passed(
+        chosen: usability_loop.Scenario, tmp_path: Path) -> None:
+    held_out = dataclasses.replace(chosen, split="held_out")
+    inputs = "ab" * 32
+    results = tmp_path / "results.md"
+    results.write_text(RESULTS_HEAD + _row("a", "pass", inputs), encoding="utf-8")
+    recorded = usability_loop.read_recorded_runs(results)
+    assert usability_loop.is_memoized(held_out, inputs, recorded)
+
+
+def test_a_recorded_run_names_its_inputs_and_a_memoized_scenario_isnt_prepared_unless_fresh(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
+    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+    for number in (1, 2, 3):
+        run = usability_loop.prepare(chosen, tmp_path / f"T1-{number}", main=main_tree,
+                                     python=Path(sys.executable))
+        _finish(run)
+        row = usability_loop.record(usability_loop.score(chosen, run), run, chosen)
+        assert f"; inputs {_inputs(run)['inputs_hash'][:16]} |" in row
+    with pytest.raises(ValueError, match="--fresh"):
+        usability_loop.prepare(chosen, tmp_path / "T1-4", main=main_tree,
+                               python=Path(sys.executable))
+    assert not (tmp_path / "T1-4").exists()
+    again = usability_loop.prepare(chosen, tmp_path / "T1-5", main=main_tree,
+                                   python=Path(sys.executable), fresh=True)
+    assert (again / "_loop" / "inputs.json").is_file()
+    planned = usability_loop.plan(chosen, cache=None, main=main_tree)
+    assert planned.startswith("T1: memoized: 3 runs passed")
+    assert planned.endswith("T1-1, T1-2 and T1-3")
 
 
 @pytest.mark.parametrize("path_first", [True, False], ids=["path first", "path last"])
@@ -316,9 +516,39 @@ def test_the_runner_lists_each_code_cell_by_its_number_and_first_line(
     assert capsys.readouterr().out == "1: import pathlib\n2: # names\n"
 
 
+def _tagged_notebook(path: Path, tagged: bool = True) -> Path:
+    """A notebook whose first code cell is its parameters cell, tagged as papermill finds it
+    when `tagged`, and whose second prints what WEEK is."""
+    tags = {"tags": ["parameters"]} if tagged else {}
+    cells = [{"cell_type": "code", "metadata": tags,
+              "source": ["# parameters\n", "WEEK = None"]},
+             {"cell_type": "code", "metadata": {}, "source": ["print(repr(WEEK))"]}]
+    path.write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    return path
+
+
+def test_the_runner_gives_each_parameter_as_text_after_the_parameters_cell(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Toolbox 8.6, ticket 11: as papermill's -p puts a cell after the cell tagged parameters,
+    # so a Scheduled run is run as a scheduler runs it.
+    notebook = _tagged_notebook(tmp_path / "run.ipynb")
+    assert notebook_runner.main([str(notebook), "-p", "WEEK", "2026-09-16"]) == 0
+    shown = capsys.readouterr().out
+    assert "--- parameters given: WEEK" in shown and "'2026-09-16'" in shown
+    assert notebook_runner.main(["-p", "WEEK", "2026-09-16", str(notebook)]) == 0
+
+
+def test_the_runner_refuses_a_parameter_with_no_tagged_cell_to_follow(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    notebook = _tagged_notebook(tmp_path / "run.ipynb", tagged=False)
+    assert notebook_runner.main([str(notebook), "-p", "WEEK", "2026-09-16"]) == 1
+    assert "no code cell tagged parameters" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("arguments", [[], ["a.ipynb", "b.ipynb"], ["--cells", "a.ipynb"],
-                                       ["a.ipynb", "--list", "--cells", "1"]],
-                         ids=["no path", "two paths", "no cells", "both"])
+                                       ["a.ipynb", "--list", "--cells", "1"],
+                                       ["a.ipynb", "-p", "WEEK"]],
+                         ids=["no path", "two paths", "no cells", "both", "no value"])
 def test_the_runner_says_how_to_run_it_when_its_arguments_dont_fit(
         arguments: list[str], capsys: pytest.CaptureFixture[str]) -> None:
     assert notebook_runner.main(arguments) == 2

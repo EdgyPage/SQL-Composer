@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import io
 import json
 import shutil
 import sys
@@ -32,6 +33,7 @@ from openpyxl.worksheet.table import Table as ExcelTable
 TOOLS = Path(__file__).resolve().parent
 sys.path[:0] = [str(TOOLS.parent)]
 
+import notebook_runner  # noqa: E402
 import usability_loop  # noqa: E402
 from how_to_page import project_on_the_path, times_pinned  # noqa: E402
 from workflow_warehouse import SavedWarehouse  # noqa: E402
@@ -354,6 +356,71 @@ WHERE r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 1) AND <PARM="PERIOD_END"/>
 """
 RUN_LOG_RAN = RUN_LOG.replace('<PARM="PERIOD_END"/>', "'2026-09-24'")
 
+# W8's warehouse (Toolbox 8.6, ticket 11): the three tables of the intermediate Example project
+# a Scheduled run of mart.team_days writes, created as each one's Table notebook's step 1
+# creates them, holding no row yet.
+TEAM_TABLES_MADE = """CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_costs (
+  job_id BIGINT,
+  cost_cents BIGINT,
+  PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (dt STRING)
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/job_day_costs';
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_facts (
+  job_id BIGINT,
+  team STRING,
+  events BIGINT,
+  runs BIGINT,
+  minutes BIGINT,
+  PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (dt STRING)
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/job_day_facts';
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_days (
+  team STRING,
+  events BIGINT,
+  runs BIGINT,
+  minutes BIGINT,
+  cost_cents BIGINT,
+  PRIMARY KEY (team, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (dt STRING)
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/team_days';
+"""
+# W8's week, as its scheduler passes it: a day of the week, as text.
+TEAM_WEEK = "2026-09-16"
+# mart.team_days for each day of that week, Monday 2026-09-14 to Sunday 2026-09-20, worked out
+# from the ops tables themselves, as the three Table notebooks' logic says they are written:
+# each job's events, runs and minutes per day beside its team that day, its costs that day
+# joined on, each team's day added up.
+TEAM_WEEK_DAYS = """WITH facts AS (
+  SELECT e.job_id, o.team, COUNT(*) AS events,
+         SUM(CASE WHEN e.event_type = 'start' THEN 1 ELSE 0 END) AS runs,
+         SUM(CASE WHEN e.event_type IN ('finish', 'fail') THEN e.minutes ELSE 0 END) AS minutes,
+         e.dt
+  FROM ops.job_events e
+  LEFT JOIN ops.job_owners o ON o.job_id = e.job_id AND o.dt = e.dt
+  WHERE e.dt BETWEEN '2026-09-14' AND '2026-09-20'
+  GROUP BY e.job_id, o.team, e.dt
+),
+costs AS (
+  SELECT c.job_id, SUM(c.cost_cents) AS cost_cents,
+         CONCAT(SUBSTR(c.dt, 1, 4), '-', SUBSTR(c.dt, 5, 2), '-', SUBSTR(c.dt, 7, 2)) AS dt
+  FROM ops.region_costs c
+  WHERE c.dt BETWEEN '20260914' AND '20260920'
+  GROUP BY c.job_id,
+           CONCAT(SUBSTR(c.dt, 1, 4), '-', SUBSTR(c.dt, 5, 2), '-', SUBSTR(c.dt, 7, 2))
+)
+SELECT f.team, SUM(f.events) AS events, SUM(f.runs) AS runs, SUM(f.minutes) AS minutes,
+       SUM(k.cost_cents) AS cost_cents, f.dt
+FROM facts f
+LEFT JOIN costs k ON k.job_id = f.job_id AND k.dt = f.dt
+GROUP BY f.team, f.dt
+"""
+
 # --- The scenarios ----------------------------------------------------------------------------
 
 
@@ -393,7 +460,7 @@ def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
 def scenarios() -> dict[str, Built]:
     """Each scenario, by its id: the Workflow ones, then the Excel ones."""
     return {**workflow_scenarios(), **run_value_scenarios(), **new_table_scenarios(),
-            **excel_scenarios(), **held_out_workflow_scenarios()}
+            **scheduled_run_scenarios(), **excel_scenarios(), **held_out_workflow_scenarios()}
 
 
 def workflow_scenarios() -> dict[str, Built]:
@@ -513,6 +580,35 @@ def new_table_scenarios() -> dict[str, Built]:
             key=lambda: {"tables": {f"{DEV}.runs_per_day": table_key(
                 [], RUNS_PER_DAY.replace("BETWEEN '2026-09-23' AND '2026-09-24'",
                                          "= '2026-09-23'"))}}),
+    }
+
+
+def scheduled_run_scenarios() -> dict[str, Built]:
+    """Each Scheduled run scenario (Toolbox 8.6, ticket 11), by its id."""
+    run = "team_week"
+    return {
+        "W8": Built({
+            "id": "W8", "split": "dev",
+            "title": "a Scheduled run of a week's breakdown, its week given as text",
+            "phases": [technical(
+                "Your team's Project, my_project, saves each team's numbers per day in "
+                "mart.team_days, written from mart.job_day_facts and mart.job_day_costs, and "
+                "mart.team_days's logic has week_totals, each team's totals for a week. Your "
+                "team's scheduler must be able to add up any week again: make it a Scheduled "
+                f"run of your own, {run}, with the Toolbox. The scheduler gives it WEEK, a day "
+                f"of the week to add up, as text, such as {TEAM_WEEK}. Each run writes "
+                "mart.team_days for each day of WEEK's week, Monday to Sunday, and no other "
+                "day, each table mart.team_days reads written for those days first, then "
+                "gives back week_totals for that week. Build it and read its Hive, then run "
+                "it top to bottom as the scheduler does, which passes WEEK as text: run its "
+                f"notebook with run_notebook.py, adding `-p WEEK {TEAM_WEEK}`.")],
+            "hive_ran": ["tables_made.hql"], "project": "example_projects/intermediate"},
+            {"tables_made.hql": TEAM_TABLES_MADE},
+            key=lambda: {"tables": {"mart.team_days": table_key([], TEAM_WEEK_DAYS)},
+                         "files": [{"path": f"scheduled_runs/{run}/{run}.ipynb",
+                                    "holds": ["WEEK"]},
+                                   {"path": "admin/registry.csv",
+                                    "holds": [f"scheduled_run,{run}"]}]}),
     }
 
 
@@ -781,6 +877,76 @@ def reference_h1(root: Path, warehouse: SavedWarehouse) -> None:
     finish("promote", warehouse)
 
 
+# W8's Scheduled run, its two cells as its user fills them in: WEEK a parameter, and the week's
+# days written by each table's write_days, each table before what reads it, then week_totals.
+TEAM_WEEK_CELLS = {
+    "# parameters": '''# parameters
+# The values a scheduler passes in, each a name, its type hint and its default. A scheduler
+# passes text, which the Build cell reads by the hint, and refuses a value it can't read.
+import datetime  # for a datetime.date hint
+
+START_FROM: str = ""  # a table or SELECT to start from, as a failed run prints it; "" sends all
+WEEK: datetime.date = datetime.date(2026, 9, 21)  # a day of the week, such as "2026-09-16"
+''',
+    "# scheduled": '''# scheduled
+# The Statements this run sends, each by its name: a SELECT's rows come back in results by it.
+
+
+def week_days() -> tuple[str, str]:
+    """The Monday and the Sunday of WEEK's week."""
+    monday = WEEK - datetime.timedelta(days=WEEK.weekday())
+    return str(monday), str(monday + datetime.timedelta(days=6))
+
+
+def statements() -> dict[str, Statement]:
+    """Each day of WEEK's week written, each table before the one that reads it, then the
+    week's totals."""
+    first_day, last_day = week_days()
+    team_days = project.load("mart.team_days")
+    return {
+        "job_day_costs": project.load("mart.job_day_costs").write_days(first_day, last_day),
+        "job_day_facts": project.load("mart.job_day_facts").write_days(first_day, last_day),
+        "team_days": team_days.write_days(first_day, last_day),
+        "week_totals": team_days.week_totals(first_day, last_day),
+    }
+''',
+}
+
+
+def reference_w8(root: Path, warehouse: SavedWarehouse) -> None:
+    """W8's end: team_week made, its two cells typed in as its user fills them in, then run
+    top to bottom as its scheduler runs it, WEEK given as text. Its connection is the team's
+    already: the run gave the Project's Template it."""
+    project.new_scheduled_run("team_week")
+    notebook = root / "scheduled_runs" / "team_week" / "team_week.ipynb"
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if kind == "code" and notebooks.first_line(text) in TEAM_WEEK_CELLS:
+            notebooks.write_cell_text(notebook, number,
+                                      TEAM_WEEK_CELLS[notebooks.first_line(text)])
+    run_as_the_scheduler(notebook, WEEK=TEAM_WEEK)
+
+
+def run_as_the_scheduler(notebook: Path, **parameters: str) -> None:
+    """Run a Scheduled run's notebook top to bottom with the runner a run holds, as its
+    scheduler runs it, each parameter given as text; failing unless every cell ran. As in a
+    scheduler's Python of its own, the team's connection is imported afresh, from this run's
+    folder alone: a folder another run put on Python's path, as a Project from before 8.6
+    does, is left off it meanwhile, and the path is given back afterwards."""
+    path = list(sys.path)
+    sys.path[:] = [entry for entry in path
+                   if not (Path(entry) / "team_connection.py").is_file()]
+    sys.modules.pop("team_connection", None)
+    printed = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(printed):
+            ran = notebook_runner.run_notebook(notebook, parameters=parameters)
+    finally:
+        sys.path[:] = path
+        sys.modules.pop("team_connection", None)
+    if ran != 0:
+        raise AssertionError(printed.getvalue())
+
+
 def without_upgrade_marks(text: str) -> str:
     """The text without its lines marked # UPGRADE, as a user takes each out once done."""
     return "".join(line for line in text.splitlines(keepends=True)
@@ -829,7 +995,8 @@ RUNS_KEY = {"ops.job_runs": ["run_id"]}
 JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
-    "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "H1": reference_h1,
+    "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "W8": reference_w8,
+    "H1": reference_h1,
     "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),
