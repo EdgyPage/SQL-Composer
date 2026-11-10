@@ -50,6 +50,12 @@ GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
     # converted table's proposed Key is accepted, as a user accepts one (ticket 07).
     "8.5": {"intermediate": ("admin/workflows/convert/team_failures.hql", "README.md",
                              "references/mart__team_failures.py")},
+    # 8.6's ticket 09: the intermediate's Scheduled run, made with new_scheduled_run, which
+    # registers it, and filled in, its Hive exported by hand; and both READMEs, which name
+    # admin/'s scheduled_runs notebook, the intermediate's its run too.
+    "8.6": {"starter": ("README.md",),
+            "intermediate": ("README.md", "admin/registry.csv",
+                             "scheduled_runs/weekly_team/")},
 }
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
