@@ -22,12 +22,14 @@ cell and sent in the next.
     below is connected to the Example database, `connect(example_database)`, as `conn` was:
     nothing to do by hand. At work, write your connection in each one's `connect(...)` in its
     place.
-  - If `conn` is your own, each line of yours, `conn = ...` and what it imports, is kept in
-    warehouse.py as you wrote it, under a comment, never rewritten, and marked
-    `# UPGRADE 8.6:`; each notebook's line is left as `# connect(your_connection)`.
+  - If `conn` is your own, each line of yours, `conn = ...` (in a `try` or an `if` too) and
+    what it imports, with your comments beside them, is kept in warehouse.py as you wrote it,
+    under a comment, never rewritten, and marked `# UPGRADE 8.6:`; each notebook's line is
+    left as `# connect(your_connection)`.
   - If you wrote warehouse.py's `query` or `execute` yourself, the file is kept as it is and
     marked: add a `connect(connection)` that keeps the connection they use, as the
-    warehouse.py `project.start()` writes in an empty folder does.
+    warehouse.py `project.start()` writes in an empty folder does. A `connect` of your own is
+    kept and marked the same way.
 - **Each notebook of the Toolbox's that reaches the warehouse gains `connect`** in its
   `from warehouse import` line, and the connect lines under it: each Workflow notebook,
   written again with each name and step cell you gave kept, `admin/check_references.ipynb`
@@ -37,8 +39,13 @@ cell and sent in the next.
   The `saved_table` and `quality_checks` Templates, if still as 8.5 wrote them, are written
   again with cell 1's `connect(...)`; one you changed is marked.
 - **A notebook of your own** that imports from warehouse and doesn't connect is marked at
-  that import. A `.py` file of yours, such as a Run value's function in `building_blocks/`,
-  is left: a module runs on the connection of the notebook that imports it. A prod copy's
+  that import, as is one of the Toolbox's whose import the Upgrade can't connect, such as one
+  inside a `try`. A `.py` file of yours, such as a Run value's function in
+  `building_blocks/`, is left: a module runs on the connection of the notebook that imports
+  it. But where `conn` was the Example database, the new warehouse.py has no `conn`: each
+  line of yours, in a `.py` file or a notebook, that imports `conn` from warehouse, or reads
+  `warehouse.conn`, is marked: use `example_database` in its place, or `query` and
+  `execute`. A prod copy's
   record in `promoted.json`, and an open batch's `written.json`, follow each file the Upgrade
   changed that was still as promote or convert wrote it, so `project.check()` doesn't report
   it as edited by hand.

@@ -1003,10 +1003,14 @@ def test_8_6_connects_each_notebook_to_the_example_database_as_conn_was(
         assert f"\n{EXAMPLE_CONNECTION}" in code, notebook
         assert CONNECT_PLACEHOLDER not in code.split("\n"), notebook
     assert (copy / "scheduled_runs").is_dir()
-    assert (copy / "admin" / "templates" / "scheduled_run.py").is_file()
+    # Each Template, written again or added, is left as start() writes it: its line to fill in.
+    for template in ("saved_table", "quality_checks", "scheduled_run"):
+        text = (copy / "admin" / "templates" / f"{template}.py").read_text(encoding="utf-8")
+        assert CONNECT_PLACEHOLDER in text.split("\n"), template
+        assert "connect(example_database)" not in text.split("\n"), template
     checklist = (copy / "admin" / "upgrade_8.6.md").read_text(encoding="utf-8")
-    assert ("- connected each notebook that reaches the warehouse to the Example database, "
-            "as warehouse.py's conn was") in checklist
+    assert ("- connected each Toolbox notebook that reaches the warehouse to the Example "
+            "database, as warehouse.py's conn was") in checklist
 
 
 def test_8_6_keeps_your_connection_in_warehouse_py_and_marks_it_to_move(
@@ -1052,6 +1056,158 @@ def test_8_6_marks_a_warehouse_py_whose_calls_you_wrote_yourself(
     assert UPGRADE_MARK_LINE.sub(b"", text.encode("utf-8")).decode("utf-8") == mine
     (mark,) = [line for line in text.split("\n") if line.startswith("# UPGRADE")]
     assert mark.startswith(f"# UPGRADE {STEP_8_6}: 8.6's notebooks import connect from here")
+
+
+def test_8_6_keeps_your_comments_with_the_lines_of_yours_they_sit_by(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    warehouse = copy / "warehouse.py"
+    yours = ("# The team's library, installed by IT\nimport my_api\n\n"
+             "# The prod host: ask Sam before changing it\n"
+             'conn = my_api.connect(host="hive.example")')
+    text = warehouse.read_text(encoding="utf-8")
+    shared = "\n# Both calls share one session\n\ndef query"
+    warehouse.write_text(text.replace("from sqlglot_composer import example_database\n", "")
+                         .replace("conn = example_database", yours)
+                         .replace("\n\ndef query", shared), encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    lines = warehouse.read_text(encoding="utf-8").split("\n")
+    at = lines.index(upgrades.KEPT_CONNECTION_HEADING.split("\n")[-1])
+    # Each comment of yours kept where it sat, the mark right above the line setting conn.
+    assert lines[at + 1:at + 7] == [
+        "# The team's library, installed by IT", "import my_api", "",
+        "# The prod host: ask Sam before changing it", lines[at + 5],
+        'conn = my_api.connect(host="hive.example")']
+    assert lines[at + 5].startswith(f"# UPGRADE {STEP_8_6}: 8.6 takes your connection")
+    assert lines[at + 7:at + 9] == ["", "# Both calls share one session"]
+    # The comment 8.2 wrote above conn is the Toolbox's, and goes with its conn.
+    assert "#     from team_connection import conn" not in lines
+    assert not [line for line in lines if line.startswith("# Your connection to the warehouse. "
+                                                          "At work, replace example_database")]
+
+
+def test_8_6_keeps_a_conn_set_in_a_try_and_marks_it_to_move(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    warehouse = copy / "warehouse.py"
+    yours = ("try:\n    from team_connection import conn\nexcept ImportError:\n"
+             "    conn = example_database")
+    text = warehouse.read_text(encoding="utf-8")
+    warehouse.write_text(text.replace("conn = example_database", yours), encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    text = warehouse.read_text(encoding="utf-8")
+    assert "def connect(connection: object) -> None:" in text
+    lines = text.split("\n")
+    at = lines.index("try:")
+    assert lines[at - 1].startswith(f"# UPGRADE {STEP_8_6}: 8.6 takes your connection in each "
+                                    "notebook")
+    assert "\n".join(lines[at:at + 4]) == yours
+    assert "from sqlglot_composer import example_database" in lines
+
+
+def test_8_6_marks_a_connect_of_your_own_in_warehouse_py(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    warehouse = copy / "warehouse.py"
+    mine = ("import my_api\n\nconn = None\n\n\ndef connect() -> None:\n    global conn\n"
+            "    conn = my_api.connect()\n\n\ndef query(hive: str) -> object:\n"
+            "    return conn.query(hive)\n\n\ndef execute(hive: str) -> None:\n"
+            "    conn.execute(hive)\n")
+    warehouse.write_text(mine, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    text = warehouse.read_text(encoding="utf-8")
+    assert UPGRADE_MARK_LINE.sub(b"", text.encode("utf-8")).decode("utf-8") == mine
+    lines = text.split("\n")
+    at = lines.index("def connect() -> None:")
+    assert lines[at - 1].startswith(f"# UPGRADE {STEP_8_6}: 8.6's notebooks each call "
+                                    "connect(...)")
+
+
+def test_8_6_leaves_8_6s_own_connect_in_warehouse_py(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    warehouse = copy / "warehouse.py"
+    # 8.6's, its connect's docstring reworded: still 8.6's connect.
+    text = project.WAREHOUSE_TEXT
+    at = text.index('"""', text.index("def connect(")) + 3
+    ours = f"{text[:at]}Yours, reworded: {text[at:]}"
+    warehouse.write_text(ours, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert warehouse.read_text(encoding="utf-8") == ours
+
+
+def test_8_6_marks_each_import_of_conn_once_warehouse_py_has_none(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    helpers = copy / "building_blocks" / "helpers.py"
+    helpers.write_text("from warehouse import (\n    conn,\n)\n\n\ndef rows() -> object:\n"
+                       "    return conn.query('SELECT 1')\n", encoding="utf-8")
+    other = copy / "building_blocks" / "other.py"
+    other.write_text("import warehouse\n\nTABLES = warehouse.conn.query('SHOW TABLES')\n",
+                     encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert re.search(r"^conn\b", (copy / "warehouse.py").read_text(encoding="utf-8"),
+                     re.MULTILINE) is None
+    for path, line in ((helpers, "from warehouse import ("),
+                       (other, "TABLES = warehouse.conn.query('SHOW TABLES')")):
+        lines = path.read_text(encoding="utf-8").split("\n")
+        at = lines.index(line)
+        mark = f"# UPGRADE {STEP_8_6}: 8.6's warehouse.py has no conn"
+        assert lines[at - 1].startswith(mark), path
+    checklist = (copy / "admin" / "upgrade_8.6.md").read_text(encoding="utf-8")
+    assert ("- [ ] building_blocks/helpers.py, line 1: 8.6's warehouse.py has no conn"
+            in checklist)
+
+
+def test_8_6_connects_a_table_notebook_whose_import_is_over_several_lines(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    notebook = copy / "tables" / "mart__team_day" / "mart__team_day.ipynb"
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if kind == "code" and "\nfrom warehouse import query" in text:
+            notebooks.write_cell_text(notebook, number, text.replace(
+                "from warehouse import query", "from warehouse import (\n    query,\n)"))
+    monkeypatch.chdir(copy)
+    said = repr(project.upgrade())
+    assert f"{STEP_8_6}: nothing to change by hand." in said
+    code = _code(notebook)
+    assert "from warehouse import (\n    query,\n)\nfrom warehouse import connect\n" in code
+    assert f"\n{EXAMPLE_CONNECTION}" in code
+
+
+def test_8_6_marks_a_table_notebook_it_cant_connect(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    notebook = copy / "tables" / "mart__team_day" / "mart__team_day.ipynb"
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if kind == "code" and "\nfrom warehouse import query" in text:
+            notebooks.write_cell_text(notebook, number, text.replace(
+                "from warehouse import query",
+                "try:\n    from warehouse import query\nexcept ImportError:\n    query = None"))
+            cell = number
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    lines = notebooks.read_cells(notebook)[cell - 1][1].split("\n")
+    at = lines.index("    from warehouse import query")
+    assert lines[at - 1].startswith(f"    # UPGRADE {STEP_8_6}: 8.6's query and execute refuse "
+                                    "until this notebook connects")
+
+
+def test_8_6_rewrites_each_admin_notebooks_one_text_cell() -> None:
+    # The step writes each admin notebook's first cell as 8.6's: in 8.5 and 8.6 it is the only
+    # text cell each has.
+    for name in project.ADMIN_NOTEBOOKS:
+        kinds = [kind for kind, _ in project.admin_notebook_cells(name)]
+        assert kinds.count("markdown") == 1 and kinds[0] == "markdown", name
+        frozen = UPGRADE_FROM / "8.5" / "starter" / "admin" / f"{name}.ipynb"
+        if frozen.is_file():
+            kinds = [kind for kind, _ in notebooks.read_cells(frozen)]
+            assert kinds.count("markdown") == 1 and kinds[0] == "markdown", name
 
 
 def test_8_6_keeps_the_connection_a_workflow_notebook_gives(

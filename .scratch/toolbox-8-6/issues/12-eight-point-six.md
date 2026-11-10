@@ -24,7 +24,7 @@ The user named 8.6 (map, "The version").
 Built 2026-11-09.
 
 - `upgrades.to_8_6`, `"8.6"` in STEPS, in order:
-  1. **warehouse.py** (`_warehouse_as_8_6`), read with `ast`: its statements other than its
+  1. **warehouse.py** (`_write_warehouse_as_8_6`), read with `ast`: its statements other than its
      docstring, `import pandas as pd` and a `query` and `execute` as 8.0 to 8.5 wrote them
      (compared without their docstrings) are "yours". **Decided: three cases.** Yours exactly
      `from sqlglot_composer import example_database` and `conn = example_database`, as
@@ -43,7 +43,7 @@ Built 2026-11-09.
      connection)`), names and step cells kept. **Decided: it now keeps the connection a
      notebook's setup cell gives** (`_connection_given`: the lines under 8.6's comment, in
      place of the placeholder), for every step from now on, so 8.7's rewrite won't drop it.
-  3. **Admin notebooks** (`_admin_notebooks_as_8_6`): each text cell 8.6's (check_project's
+  3. **Admin notebooks** (`_write_admin_notebooks_as_8_6`): each text cell 8.6's (check_project's
      new text); check_references' `from warehouse import query` gains connect and the
      connect lines; run_tables gains 8.6's connecting cell after the path and loses
      `# from warehouse import query, execute`; remove gains `SCHEDULED_RUNS = []` under the
@@ -55,7 +55,7 @@ Built 2026-11-09.
      (`TEMPLATES_BEFORE_8_6`) written again; one you changed marked (`TEMPLATE_MARK_8_6`).
   6. `add_what_start_makes()`: `scheduled_runs/`, the `scheduled_run` Template,
      `admin/scheduled_runs.ipynb`; a notebook it adds is filled as in 1.
-  7. **Decided: records follow** (`_records_follow`): a file `promoted.json` or an open batch's
+  7. **Decided: records follow** (`_rehash_records`): a file `promoted.json` or an open batch's
      `written.json` names, still as promote or convert wrote it before the step, gets its new
      hash, so check() doesn't call a connected prod copy "Edited by hand".
   8. **Decided: a notebook of yours** (any other .ipynb) importing from warehouse without
@@ -81,3 +81,63 @@ Built 2026-11-09.
   notebook of yours marked and a module not; a promoted record following).
 - D470 closed. Not run here: the `code-review` skill and the beginner reader (CHANGES.md, the
   README's Update bullet), for the caller.
+
+### The code review (2026-11-09)
+
+Standards and Spec axes on 3846ce9. The rule each mend follows: an Upgrade never loses your
+code, and never leaves a Project that can't run without a `# UPGRADE 8.6:` mark saying why
+and what to do. Mended in the commit after 3a30e3a, each test first:
+- **Your comments kept.** `_your_statements` gives each statement of yours with the comment
+  and blank lines above it (`_YourStatement`), and a comment of yours above the Toolbox's
+  own statements, or at the end, as one with no lines of its own; each is kept where it sat.
+  The comment 8.0 or 8.2 wrote above conn is the Toolbox's, untrue once conn is gone, and is
+  left out (`_TOOLBOX_CONN_COMMENTS`). A comment of yours in a warehouse.py otherwise as
+  start() wrote it makes it the kept case, not the Example case, so nothing is lost.
+- **A `connect` of your own marked.** `_is_8_6s_connect` compares it, without its docstring,
+  with `project.WAREHOUSE_TEXT`'s; yours is left and marked at `def connect`
+  (`_CHECK_YOUR_CONNECT`). 8.6's is left unmarked, as before.
+- **`from warehouse import conn` where conn is gone.** Decided: mark, not a kept `conn`, so
+  warehouse.py stays exactly what start() writes. In the Example case only (in the kept case
+  conn stays live; in the own-calls case the file is unchanged), `_mark_imports_of_conn`
+  marks each line of yours, in a `.py` file or a notebook's code cell, that imports conn from
+  warehouse (over several lines too) or reads `warehouse.conn` (`_CONN_GONE`). Code Python
+  can't read is passed over, as `calls_to` passes it.
+- **Toolbox notebooks' other import forms.** Aliased (`import query as q`) already matched.
+  `_connected_cells` now connects a top-level import over several lines, parenthesised, or
+  `import warehouse`, by adding `from warehouse import connect` and the connect lines after
+  it (`_warehouse_imports`, by `ast`). One it still can't connect, inside a `try` or in a
+  cell Python can't read, is marked: `_mark_notebooks_not_connecting` now marks every
+  notebook that reaches the warehouse and doesn't connect, the Toolbox's included
+  (`_CONNECT_HERE`). `_has_connect` reads a connect import over several lines too.
+- **conn set in a `try` or an `if`.** `_names_set_at_module_level` reads the statements
+  nested in a top-level one, never in a def or a class, so it is the kept case, marked above
+  its first line.
+- **D494.** `_CONNECTED` says "each Toolbox notebook".
+- **Names.** `_write_warehouse_as_8_6`, `_your_statements`, `_function_named` (for
+  `_defined`), `_names_set_at_module_level` and `_names_it_sets`,
+  `_write_admin_notebooks_as_8_6`, `_run_tables_with_connecting_cell`, `_rehash_records`,
+  `_mark_notebooks_not_connecting`; the locals `there`, `said`, `kept`, `found`, `given` and
+  `written` renamed for what they hold. `CONNECT_LINES` and `CONNECT_PLACEHOLDER` are
+  imported once, at the top (project_templates imports nothing). `_has_connect` is the one
+  check that a notebook connects. Fewer hops for the connection: each part of the step
+  connects with the line to fill in, and one pass at the end, `_fill_connect_lines`, fills
+  each Toolbox notebook with the Example connection (kept in the archive first where no
+  earlier part of the step wrote it); the connection reaches only that pass and the mark
+  pass. `_YourStatement` and `_Record` are NamedTuples. Records now follow the marks too:
+  `_rehash_records` runs last.
+- **A Project with no warehouse.py** gets 8.6's (`upgrade.add`), since every notebook now
+  imports connect from it.
+
+Answered:
+- **Admin notebooks' other text cells:** none. In 8.5 and 8.6 each admin notebook has one
+  text cell, its first, which the step writes as 8.6's;
+  `test_8_6_rewrites_each_admin_notebooks_one_text_cell` holds it, so a version that adds a
+  second shows up there.
+- **Templates' connect line:** already one rule. `_fill_connect_line` read only notebooks, so
+  no Template, `scheduled_run` included, was filled; checked on the frozen 8.5 starter. Now
+  `_fill_connect_lines` fills only Toolbox notebooks, and the Example-connection test holds
+  `saved_table`, `quality_checks` and `scheduled_run` with their line to fill in, as start()
+  writes them (ticket 01).
+- Not run here: the beginner reader on the new marks and CHANGES.md's words, for the caller.
+  The README template's Update bullet ("each notebook is connected to it") is the docs
+  agent's to reword as D494 reworded `_CONNECTED`.
