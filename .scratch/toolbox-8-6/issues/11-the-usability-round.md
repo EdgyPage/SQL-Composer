@@ -1,7 +1,7 @@
 # The usability round
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12
 Size: M
 
@@ -153,3 +153,16 @@ scenario for a technical user, from the intermediate Example project as `my_proj
   In-process, a Project from before 8.6 (H2's) leaves its run's folder first on Python's
   path, so the reference end runs the notebook with no other run's `team_connection.py` on
   it, as a scheduler's own Python would.
+
+### The round (2026-11-09)
+
+- W1 and W8, three fresh Haiku runs each, on main's tree built from dev at 8.6 (e2776efc),
+  prepared one at a time: **6 of 6 passed, no question asked**. Recorded in
+  `.scratch/usability-loop/results.md`'s "The 8.6 round", each row ending with its inputs
+  hash; afterwards `plan W1 W8` answers memoized for both, so the next round gives neither to
+  an agent until an input changes.
+- Found, none failing a run, listed there for a later round: the README's Scheduled runs never
+  name `write_days` for a run of a chosen period, nor that a write in `statements()` takes the
+  place of the one the build adds; parameter defaults and `run_value` against reading the
+  parameter unsaid; W1's 8.5 frictions again; and the harness: the runs' agents share the
+  session's scratchpad.

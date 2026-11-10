@@ -168,6 +168,30 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Decisions so far
 
+- [01 connect](issues/01-connect.md): warehouse.py's `connect(connection)`; query and execute
+  refuse until it runs; each notebook that reaches the warehouse has `# connect(...)` to fill.
+- [02 new_scheduled_run](issues/02-new-scheduled-run.md): `scheduled_runs/<name>/<name>.ipynb`
+  from a Template, registered; `remove_scheduled_run`.
+- [03 Parameters](issues/03-parameters.md): the tagged `# parameters` cell, each read by its
+  hint from text, refused by name.
+- [04 build_run](issues/04-build-run.md): given the `statements` function; upstream writes
+  added, `leave_out=`, `run_values=` read by the Run value's own hint, START_FROM.
+- [05 Guards warn](issues/05-guards-warn.md): only the Guards Hive runs past as written, only in
+  the run's own cell.
+- [06 built.run](issues/06-run.md): results by name; a Python step saved given `rows=` (a new
+  `python_step` argument); START_FROM names a table or a SELECT.
+- [07 Project lineage](issues/07-project-lineage.md): `export_project_lineage`, loops in
+  `check()`, `admin/scheduled_runs.ipynb`.
+- [08 Run lineage](issues/08-run-lineage-and-describe-logic.md): `export_run_lineage`,
+  `export_run_hive`, `describe_logic`.
+- [09 Example](issues/09-example-and-journey.md): `weekly_team`, a journey of 10 actions; the
+  Example database runs NEXT_DAY.
+- [10 Docs](issues/10-the-docs.md): README's Scheduled runs, how-to 31, Copilot file 18, two
+  beginner-reader rounds.
+- [11 Round](issues/11-the-usability-round.md): inputs recorded and memoized; 6 of 6 passed.
+- [12 8.6](issues/12-eight-point-six.md): `to_8_6`, which loses none of your code and marks
+  what it can't connect; version 8.6.
+
 ## Not yet specified
 
 ## Out of scope
