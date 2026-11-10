@@ -423,8 +423,17 @@ _Avoid_: audit trail, history
 ### Reading and loading
 
 **Lineage**:
-The record of which table columns feed each output column of a Statement.
+The record of which table columns feed each output column of a Statement. It is a
+Statement's, column by column: the drawing of a whole Project's tables is its **Project
+lineage**.
 _Avoid_: provenance, trace, data flow
+
+**Project lineage**:
+The drawing of every Saved table of a Project, the tables each one's write reads, and the
+Scheduled runs that write it, a table more than one run writes marked and a loop among them
+drawn red: table by table, with no columns. Written by hand, by
+`project.export_project_lineage()` into `admin/lineage/`, never by a Scheduled run (2026-11-09).
+_Avoid_: dependency graph, DAG, data map
 
 **Partition**:
 A slice of a table: the rows that share one value of each column the table is partitioned by.

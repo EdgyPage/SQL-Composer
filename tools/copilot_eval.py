@@ -125,43 +125,64 @@ REFUSED_EVENTS = ("os.system", "os.exec", "os.spawn", "os.posix_spawn", "os.star
                   "os.fork", "subprocess.Popen", "socket.", "urllib.Request", "ctypes.",
                   "webbrowser.open")
 
-WAREHOUSE = '''"""warehouse - the stand-in Project's two calls, both to the Example database."""
+# The stand-in Project's warehouse.py, shaped as 8.6 writes one: connect, then query and
+# execute through the connection it was given. Each block the files hold runs as a notebook
+# cell under a setup cell that has connected to the Example database, so it starts connected.
+WAREHOUSE = '''"""warehouse - the stand-in Project's connect and its two calls, connected to the
+Example database, as each notebook's connect(example_database) line connects it."""
 
 import pandas as pd
 
 from sqlglot_composer import example_database
 
+# The connection a notebook gave connect(...): the Example database, as its setup cell gives.
+_connection = example_database
+
+
+def connect(connection: object) -> None:
+    global _connection
+    _connection = connection
+
 
 def query(hive: str) -> pd.DataFrame:
-    return example_database.query(hive)
+    return _connection.query(hive)
 
 
 def execute(hive: str) -> None:
-    example_database.execute(hive)
+    _connection.execute(hive)
 '''
 
-# A Workflow task's Project's warehouse.py: its two calls go to a warehouse that keeps each
-# write (tools/workflow_warehouse.py). An answer's run_query and run_execute are called by
-# the names scored_run_query and scored_run_execute, the same functions, which pass on what
-# they are given: load refuses a logic cell that calls either by its own name.
-WORKFLOW_WAREHOUSE = '''"""warehouse - a Workflow task's Project's two calls, to a warehouse
-that keeps each write."""
+# A Workflow task's Project's warehouse.py, shaped as 8.6 writes one: its two calls go to the
+# connection the notebook's setup cell gives connect(...), a warehouse that keeps each write
+# (tools/workflow_warehouse.py), as NOTEBOOK_IMPORTS connects it. An answer's run_query and
+# run_execute are called by the names scored_run_query and scored_run_execute, the same
+# functions, which pass on what they are given: load refuses a logic cell that calls either by
+# its own name.
+WORKFLOW_WAREHOUSE = '''"""warehouse - a Workflow task's Project's connect and its two calls,
+to a warehouse that keeps each write."""
 
 import pandas as pd
 
 from sqlglot_composer import run_execute as scored_run_execute
 from sqlglot_composer import run_query as scored_run_query
-from {conn_module} import conn
 
-__all__ = ["execute", "query", "scored_run_execute", "scored_run_query"]
+__all__ = ["connect", "execute", "query", "scored_run_execute", "scored_run_query"]
+
+# The connection this notebook gave connect(...): None until it connects.
+_connection = None
+
+
+def connect(connection: object) -> None:
+    global _connection
+    _connection = connection
 
 
 def query(hive: str) -> pd.DataFrame:
-    return conn.query(hive)
+    return _connection.query(hive)
 
 
 def execute(hive: str) -> None:
-    conn.execute(hive)
+    _connection.execute(hive)
 '''
 
 CONTRACT = {
@@ -173,10 +194,12 @@ CONTRACT = {
              "order, its names cell first, filled in.",
 }
 # What a Workflow notebook's cells above its names cell give each cell after them: the
-# Toolbox's names, and the user's query and execute.
+# Toolbox's names, the user's query and execute, and the setup cell's connect(...) line,
+# filled in with the task's warehouse, from the module named for the task's Project.
 NOTEBOOK_IMPORTS = ("from sqlglot_composer import admin, hive_settings, project, run_execute, "
-                    "run_query, show_hive\nfrom warehouse import execute, query, "
-                    "scored_run_execute, scored_run_query\n")
+                    "run_query, show_hive\nfrom warehouse import connect, execute, query, "
+                    "scored_run_execute, scored_run_query\nfrom {conn_module} import conn\n"
+                    "connect(conn)\n")
 # A Workflow task's Project's Dev and Prod Databases, filled in in its admin/databases.py.
 DEV_DATABASE = "mart_dev"
 PROD_DATABASE = "mart"
@@ -674,8 +697,9 @@ def _project_for(task: Task, warehouse: Warehouse) -> Path:
     """A Project of its own for a Workflow task's cells, in a new folder beside the stand-in
     Project, the folder the scorer works in, started: its Databases filled in, a Table
     reference for each Example database table the task names, as add_references writes it,
-    and the task's files. Its warehouse.py sends to `warehouse`, through a module named for the
-    Project's folder, which files_left_by takes out once the cells have run."""
+    and the task's files. Its notebooks connect warehouse.py to `warehouse`, which a module
+    named for the Project's folder holds as `conn` (NOTEBOOK_IMPORTS), and which files_left_by
+    takes out once the cells have run."""
     beside = Path.cwd().parent
     root = beside / f"workflow_{len(list(beside.glob('workflow_*')))}"
     root.mkdir()
@@ -684,8 +708,7 @@ def _project_for(task: Task, warehouse: Warehouse) -> Path:
     sys.modules[conn_module.__name__] = conn_module
     with contextlib.chdir(root):
         project.start()
-        (root / "warehouse.py").write_text(
-            WORKFLOW_WAREHOUSE.replace("{conn_module}", conn_module.__name__), encoding="utf-8")
+        (root / "warehouse.py").write_text(WORKFLOW_WAREHOUSE, encoding="utf-8")
         databases = root / "admin" / "databases.py"
         text = databases.read_text(encoding="utf-8")
         text = text.replace('"<DEV_DATABASE>"', f'"{DEV_DATABASE}"')
@@ -705,12 +728,14 @@ def _project_for(task: Task, warehouse: Warehouse) -> Path:
 
 def _run_cells(task: Task, code: str, root: Path, name: str) -> None:
     """Run a Workflow notebook's cells from its folder, as the notebook runs them, after the
-    cells above its names cell: as a logic cell, which gives nothing."""
+    cells above its names cell, its connect(...) line among them: as a logic cell, which gives
+    nothing."""
     folder = root / "admin" / "workflows" / str(task.workflow)
     folder.mkdir(parents=True, exist_ok=True)
     renamed = ast.unparse(_SendersRenamed().visit(ast.parse(code)))
+    above = NOTEBOOK_IMPORTS.replace("{conn_module}", f"eval_conn_{root.name}")
     with contextlib.chdir(folder):
-        loaded(NOTEBOOK_IMPORTS + renamed, name, "None", root)
+        loaded(above + renamed, name, "None", root)
 
 
 class _SendersRenamed(ast.NodeTransformer):

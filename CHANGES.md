@@ -5,7 +5,31 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 ## 8.6
 
 8.6 has each notebook give warehouse.py its own connection, so each picks the account it runs
-as at its top.
+as at its top, and adds Scheduled runs: a notebook an outside scheduler runs top to bottom,
+writing the tables it needs in order and reading back what it is for, its Hive built in one
+cell and sent in the next.
+
+### To update from 8.5
+
+- **Copy in 8.6's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.6.md`. A Project 8.3 or 8.4 last wrote upgrades straight to 8.6 the
+  same way, each step in turn.
+- **warehouse.py gains `connect`**: its `query` and `execute` are written as 8.6 writes them,
+  passing each Hive string to the connection a notebook gives `connect(...)`. Your
+  `conn = ...` line, and what it imports, are kept, never rewritten, and marked
+  `# UPGRADE 8.6:` for you to move into each notebook's `connect(...)` line.
+- **Each notebook that reaches the warehouse gains a `connect(...)` line** in its setup
+  cell, under its `from warehouse import` line: each Workflow notebook,
+  `admin/check_references.ipynb`, `admin/run_tables.ipynb` and each Table notebook.
+- **What you do by hand: fill in each notebook's `connect(...)` line** with your connection,
+  such as `connect(my_api.connect())`, or the lines that import a connection kept in a file
+  outside the Project, as warehouse.py's comment shows; then delete the old `conn = ...` line
+  from warehouse.py. Until a notebook connects, its `query` and `execute` refuse with "No
+  connection: call connect(...) first".
+- **Made for you**: `scheduled_runs/`, the `scheduled_run` Template in `admin/templates/`
+  and `admin/scheduled_runs.ipynb`, whose cells you run by hand for your Scheduled runs. Fill
+  in its `connect(...)` line too.
 
 ### What's new
 
@@ -79,13 +103,15 @@ as at its top.
   table to each that reads it, each Scheduled run that writes a table named on it, a table
   more than one run writes marked, and a loop drawn red, its tables listed at the top. It
   builds each Scheduled run as its Build cell does, sending nothing; a run that doesn't
-  build is shown on the page with why. Of the cells above a run's `# scheduled` cell only the
-  imports run, never its `connect(...)`, so a name one of them defines and the `# scheduled`
-  cell uses is refused, saying to move it into that cell. `project.check()` now reports a
-  loop among your tables, naming each and the logic cell to mend, and each Table folder whose
-  logic fails, with what stops it, though not one still holding a `<...>` from its Template. Both are cells of the new
-  `admin/scheduled_runs.ipynb`, run by hand, never by a Scheduled run, whose `NEW_RUNS = []`
-  names Scheduled runs for `project.new_scheduled_run(...)` to make.
+  build is shown on the page with why. Of the cells above a run's `# scheduled` cell, the
+  `# parameters` cell runs, but of the others only the imports, never their `connect(...)`,
+  so a name one of those others defines and the `# scheduled` cell uses is refused, saying to
+  move it into that cell. `project.check()` now reports a loop among your tables, naming each
+  and the logic cell to mend, and each Table folder whose logic fails, with what stops it, a
+  typo Python can't read among them, though not one still holding a `<...>` from its
+  Template. Both are cells of the new `admin/scheduled_runs.ipynb`, run by hand, never by a
+  Scheduled run, whose `NEW_RUNS = []` names Scheduled runs for
+  `project.new_scheduled_run(...)` to make.
 - **One run's lineage and Hive, and a table's logic described, by hand.**
   `project.export_run_lineage("weekly")` builds that Scheduled run as its Build cell does,
   with its parameters' defaults, sending nothing, and writes its lineage into
@@ -108,6 +134,18 @@ as at its top.
   `'MO'`, `'MON'` or `'MONDAY'` in any case, as Hive's does. So `weekly_team` runs on it, and
   the how-tos and the Example gallery show each week's result from it, not from pandas.
   month_start still can't run there: it has no TRUNC.
+- **The docs say connect and Scheduled runs.** The README gains a Scheduled runs section, its
+  cells, making one, the parameters and their hints, the build and the run, `START_FROM`,
+  Guards only warning in the run's own cell, the cells of `admin/scheduled_runs.ipynb` and
+  scheduling the notebook with papermill or your own scheduler; its file list names
+  `admin/lineage/` and a run's `.hql` and `lineage/`. A new how-to, "Schedule a run", makes
+  one in the Intermediate Example project, builds it, runs it and exports its Hive, and
+  "Declare a change made in Python" says a Scheduled run writes a Python step's table given
+  `rows=`.
+- **Copilot file 18, `copilot/18_scheduled_runs.txt`**, fills in a Scheduled run's cells from
+  what `project.describe_logic([...])` prints: the parameters cell and its hints,
+  `statements()`, the Build cell's `run_values=` and `leave_out=`, and `START_FROM`.
+  `00_start_here.txt` names it.
 
 ## 8.5
 

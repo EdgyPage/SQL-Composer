@@ -77,6 +77,17 @@ which writes the page again.**
   - **fiddling** (red, a flag), a step done by hand though the code knows the answer.
 
 Toolbox 8.0 takes each Workflow's fiddling to nothing.
+
+Each Workflow notebook connects at its top: its setup cell's `connect(...)` line gives
+warehouse.py the connection its permission steps send through, and until it is filled in,
+their `query` and `execute` refuse. A step that only touches files runs without it.
+
+A **Scheduled run** is not a Workflow: it is a notebook of its own in `scheduled_runs/`, which
+an outside scheduler runs top to bottom, with no decision to wait on. Its Build cell,
+`project.build_run(statements)`, adds the write of each table its Statements read, in lineage
+order, and prints their Hive, sending nothing; its Run cell, `built.run(query, execute)`,
+sends them. The README's Scheduled runs section, and the how-to "Schedule a run", walk
+through one.
 """
 
 

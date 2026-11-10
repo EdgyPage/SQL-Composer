@@ -93,9 +93,13 @@ it, and what you fill in:
 - `warehouse.py`: `project.start()`. You fill in nothing: each notebook gives it your
   connection with `connect(...)`, in its first code cells, as step 8 shows.
 - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
-  run_tables.ipynb and remove.ipynb: `project.start()`. You fill in the names some ask for in
-  their names cell, such as the tables to remove, and run them. Calling the same Project
-  action from any notebook of the Project does just the same.
+  run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for
+  your Scheduled runs: `project.start()`. You fill in the names some ask for in their names
+  cell, such as the tables to remove, and run them. Calling the same Project action from any
+  notebook of the Project does just the same.
+- `admin/lineage/`, the Project's lineage, every Saved table, what reads it and which
+  Scheduled runs write it: `project.export_project_lineage()`, run by hand from
+  admin/scheduled_runs.ipynb. You fill in nothing.
 - `admin/workflows/`, a folder per Workflow, an ordered list of steps that takes the Project to
   one end goal, such as new_table/, references/ and convert/, each holding its notebook:
   `project.start()`. You name what the Workflow works on in its notebook's names cell, such as
@@ -118,7 +122,8 @@ it, and what you fill in:
   run: `project.start()`, then each Project action adds an entry. You fill in nothing.
 - admin/registry.csv, the registry, the list of what each Project action made:
   `project.start()`, then each Project action that makes or archives a Table folder, a Table
-  reference, a Building block or a Conversion folder adds a row. You fill in nothing.
+  reference, a Building block, a Scheduled run or a Conversion folder adds a row. You fill in
+  nothing.
 - admin/project_version.txt, the Toolbox version that last wrote the Project:
   `project.start()`, then `project.upgrade()`. You fill in nothing.
 - admin/workflows/convert/<name>/, a Conversion folder per batch of someone else's Hive you
@@ -158,13 +163,22 @@ it, and what you fill in:
 - `lineage/`, beside the notebook you run it from, such as start.ipynb: the Lineage of a
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.
+- `scheduled_runs/<name>/<name>.ipynb`, a Scheduled run, a notebook an outside scheduler runs
+  top to bottom: `project.new_scheduled_run("<name>")`. You fill in its `<...>` lines: its
+  parameters, its connection and the Statements it runs, as
+  [Schedule a run](#schedule_a_run) shows.
+- `scheduled_runs/<name>/<name>.hql`, the run's built Hive, in order, and
+  `scheduled_runs/<name>/lineage/`, its Lineage: `project.export_run_hive("<name>")` and
+  `project.export_run_lineage("<name>")`, run by hand from admin/scheduled_runs.ipynb. You
+  fill in nothing: edit the run's notebook and export again.
 - `admin/removed/`, what you archive: `project.remove_table(...)`,
-  `project.remove_reference(...)` and `project.remove_block(...)` move a file or folder here
-  rather than delete it, as does `project.remove_conversion(...)` with a Conversion folder;
+  `project.remove_reference(...)`, `project.remove_block(...)` and
+  `project.remove_scheduled_run(...)` move a file or folder here rather than delete it, as
+  does `project.remove_conversion(...)` with a Conversion folder;
   `project.upgrade()` keeps here each file as it was before it changed it, and
   `project.convert(..., overwrite=True)` each file it writes over.
 
-`references/`, `building_blocks/` and `tables/` are empty for now. Each Project action
+`references/`, `building_blocks/`, `tables/` and `scheduled_runs/` are empty for now. Each Project action
 writes over nothing of yours: most refuse a file or folder that is already there, and convert,
 run again, writes a fresh copy of a file you changed into its batch's folder. Each logs what it
 did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
