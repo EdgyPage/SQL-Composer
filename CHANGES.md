@@ -91,6 +91,13 @@ as at its top.
   `project.describe_logic(["mart.team_days"])` lists each function of a table's logic cell,
   its hints and its docstring's first sentence, to paste into Copilot. Each takes one name or
   a list, and each is a cell of `admin/scheduled_runs.ipynb`.
+- **A Scheduled run in the intermediate Example project.**
+  `example_projects/intermediate/scheduled_runs/weekly_team/` adds up a week of
+  `mart.team_days` with its logic's `week_totals`, the week given by its parameter
+  `WEEK: datetime.date | None = None`, or, left as None, by a Run value of its own, the week of
+  the latest day `ops.job_events` holds; its build writes `mart.job_day_costs`,
+  `mart.job_day_facts` and `mart.team_days` first. Its built Hive, `weekly_team.hql`, and its
+  `lineage/` were exported by hand, as `admin/scheduled_runs.ipynb` exports them.
 
 ## 8.5
 

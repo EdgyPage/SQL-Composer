@@ -20,12 +20,21 @@ Each action a journey takes for the user is counted too (Toolbox 8.5, ticket 01)
 typed into a names or decisions cell, each cell run, each file saved by hand and each hand edit.
 KNOWN_ACTIONS holds the count of the journeys 8.5 is measured on, which only falls: a journey
 taking more fails, naming what it took.
+
+A Scheduled run has its journey here too (Toolbox 8.6, ticket 09), in a copy of the
+intermediate Example project: the run made and its cells filled in as the user does, then run
+top to bottom as a scheduler runs it, each parameter given as text in a cell after the
+parameters cell, as papermill gives it; once more with a warehouse that fails a write, and again
+from the START_FROM that run printed. Its actions are counted in KNOWN_ACTIONS too.
 """
 
 from __future__ import annotations
 
 import ast
+import contextlib
 import csv
+import datetime
+import io
 import re
 import shutil
 import sys
@@ -34,11 +43,15 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import example_project
+import notebook_runner
+import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
+from sqlglot.executor import env as executor_env
 from workflow_warehouse import Warehouse
 
-from sqlglot_composer import project
+from sqlglot_composer import project, to_hive
 
 FILL_IN = toolbox_module("decisions").FILL_IN
 # Each notebook's line for the user's connection, and the stand-in's, filled in as the user
@@ -76,6 +89,8 @@ KNOWN_FIDDLING = {
 KNOWN_ACTIONS: dict[str, int] = {
     "test_promote_a_seeded_table_limiting_its_prod_seed": 17,
     "test_convert_the_users_batch_with_run_values_through_the_runner": 12,
+    # Toolbox 8.6, ticket 09: a Scheduled run, made, filled in, read and scheduled.
+    "test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_failure": 10,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -1326,3 +1341,218 @@ def _answer_each_upgrade_mark(root: Path) -> None:
 def test_every_workflow_has_a_journey() -> None:
     named = {workflow.name for workflow in toolbox_module("workflows").WORKFLOWS}
     assert set(KNOWN_FIDDLING) == named
+
+
+# --- a Scheduled run --------------------------------------------------------------------------
+
+# The intermediate Example project's Scheduled run, which its journey makes again as the user
+# made it, each cell it fills typed from the source the Example project's is filled from.
+WEEKLY = "weekly_team"
+# The tables its build writes, in its order, each read by the next, and its SELECT's name.
+WEEKLY_WRITES = ["mart.job_day_costs", "mart.job_day_facts", "mart.team_days"]
+WEEK_TOTALS = "week_totals"
+# A day of the week the scheduler passes, as text, and the Monday that starts that week.
+WEEK = "2026-09-23"
+MONDAY = "2026-09-21"
+# The first line of the cell papermill puts after a tagged parameters cell, and of the Build
+# cell, the last the user runs before scheduling the run.
+INJECTED = "# Parameters"
+BUILD = "# Build:"
+# Hive's days of the week, as NEXT_DAY names them.
+WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+
+
+@dataclass
+class ScheduledRunJourney:
+    """A Scheduled run of a Project, made, filled in and run as the user does, and then by a
+    scheduler, each of the user's actions noted in the Project's `actions`."""
+
+    started: Started
+    name: str
+
+    @property
+    def folder(self) -> Path:
+        return self.started.root / "scheduled_runs" / self.name
+
+    @property
+    def notebook(self) -> Path:
+        return self.folder / f"{self.name}.ipynb"
+
+    def took(self, kind: str, what: str) -> None:
+        """Note one action taken for the user in this Scheduled run."""
+        self.started.actions.append(("scheduled_run", kind, what))
+
+    def make(self) -> None:
+        """Make the run, as the user does in a cell of their own: no notebook holds one."""
+        self.took("ran", f'project.new_scheduled_run("{self.name}")')
+        project.new_scheduled_run(self.name)
+
+    def type_cell(self, first_line: str, text: str, what: str) -> None:
+        """Type the whole text of the code cell starting `first_line`, and save the notebook."""
+        cells = notebooks.read_cells(self.notebook)
+        number = example_project.cell_starting(cells, first_line) + 1
+        self.took("typed", what)
+        notebooks.write_cell_text(self.notebook, number, text)
+
+    def run_to_the_build(self) -> str:
+        """Run each code cell down to the Build cell, as the Template's step 4 says, to read
+        the Hive before anything is sent: what the cells printed."""
+        self.started.monkeypatch.chdir(self.folder)
+        namespace: dict[str, object] = {"__name__": "__main__"}
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            for number, source in enumerate(notebook_runner.code_cells(self.notebook), 1):
+                self.took("ran", f"cell {number}")
+                notebook_runner.run_cell(source, namespace)
+                if source.startswith(BUILD):
+                    return printed.getvalue()
+        raise AssertionError(f"{self.notebook} has no Build cell")
+
+    def run_as_a_scheduler(self, **parameters: str) -> tuple[str, dict[str, object],
+                                                             Exception | None]:
+        """Run every code cell top to bottom, in a Python of its own, as papermill does: each
+        parameter given as text in a cell put after the parameters cell. What it printed, its
+        names, and what it raised, or None."""
+        forget_the_projects_modules()  # a scheduler starts a Python of its own
+        self.started.monkeypatch.chdir(self.folder)
+        given = "\n".join(f"{name} = {value!r}" for name, value in parameters.items())
+        cells = []
+        for source in notebook_runner.code_cells(self.notebook):
+            cells.append(source)
+            if notebooks.first_line(source) == "# parameters":
+                cells.append(f"{INJECTED}\n{given}")
+        namespace: dict[str, object] = {"__name__": "__main__"}
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            try:
+                for source in cells:
+                    notebook_runner.run_cell(source, namespace)
+            except Exception as error:  # the scheduler sees the notebook fail
+                return printed.getvalue(), namespace, error
+        return printed.getvalue(), namespace, None
+
+
+class FailingOneWrite:
+    """The stand-in warehouse, failing each write of one table, as a warehouse at work fails
+    a write when it loses a node."""
+
+    def __init__(self, warehouse: Warehouse, table: str) -> None:
+        self.warehouse = warehouse
+        self.table = table
+
+    def query(self, hive: str) -> pd.DataFrame:
+        return self.warehouse.query(hive)
+
+    def execute(self, hive: str) -> None:
+        if f"INSERT OVERWRITE TABLE {self.table} " in hive:
+            raise RuntimeError(f"The warehouse lost a node while writing {self.table}.")
+        self.warehouse.execute(hive)
+
+
+def _next_day(day: str, weekday: str) -> str:
+    """Hive's NEXT_DAY(day, 'MO'): the first Monday after `day`, as text. week_start writes
+    it, and the Example database's executor has none, so the stand-in is taught it for the
+    journey, as Hive at work knows it."""
+    start = datetime.date.fromisoformat(str(day)[:10])
+    ahead = (WEEKDAYS.index(weekday.upper()[:2]) - start.weekday() - 1) % 7 + 1
+    return (start + datetime.timedelta(days=ahead)).isoformat()
+
+
+@pytest.fixture
+def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                 request: pytest.FixtureRequest) -> Iterator[Started]:
+    """The intermediate Example project as committed, less its Scheduled run, which a journey
+    makes again; the tables the run writes created in the stand-in warehouse, as each Table
+    notebook's step 1 created them, and the stand-in given to the run's connect(...) from a
+    file outside the Project. At the end, a measured journey took the actions KNOWN_ACTIONS
+    counts."""
+    forget_the_projects_modules()
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    root = tmp_path / "intermediate"
+    shutil.copytree(ROOT / "example_projects" / "intermediate", root)
+    sys.path.insert(0, str(root))
+    monkeypatch.chdir(root)
+    project.remove_scheduled_run(WEEKLY)
+    warehouse = Warehouse(database="ops")
+    conn = types.ModuleType("journey_conn")
+    conn.conn = warehouse
+    monkeypatch.setitem(sys.modules, "journey_conn", conn)
+    for table in WEEKLY_WRITES:
+        warehouse.execute(to_hive(project.load(table).create()))
+    monkeypatch.setitem(executor_env.ENV, "NEXTDAY", _next_day)
+    journeyed = Started(root, monkeypatch, warehouse, {})
+    yield journeyed
+    forget_the_projects_modules()
+    _check_the_actions_taken(request.node.name, journeyed.actions)
+
+
+def _week_totals_of(warehouse: Warehouse) -> list[list[object]]:
+    """Each team's week, added up from mart.team_days' rows, as week_totals adds them up."""
+    days = warehouse.rows_of("mart.team_days")
+    week = days[days.dt.between(MONDAY, "2026-09-27")].groupby("team", as_index=False)[
+        ["events", "runs", "minutes", "cost_cents"]].sum()
+    week.insert(0, "week", MONDAY)
+    return week.sort_values("team").values.tolist()
+
+
+def _week_totals_given_back(names: dict[str, object]) -> list[list[object]]:
+    """The rows of week_totals the run gave back in results, by team."""
+    results = names["results"]
+    assert isinstance(results, dict), results
+    return results[WEEK_TOTALS].sort_values("team").values.tolist()
+
+
+def test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_failure(
+        intermediate: Started) -> None:
+    # Toolbox 8.6, ticket 09: the intermediate Example project's weekly_team, made and filled
+    # in as the user does, each cell its Template left them typed, and its Hive read in the
+    # Build cell; then run top to bottom by a scheduler, WEEK given as text.
+    run = ScheduledRunJourney(intermediate, WEEKLY)
+    run.make()
+    run.took("typed", "the setup cell's connect(...)")
+    _edit_notebook(run.notebook, lambda text: text.replace(CONNECT_PLACEHOLDER, CONNECTED),
+                   CONNECT_PLACEHOLDER)
+    for first_line, text in example_project.scheduled_run_cells("intermediate", WEEKLY).items():
+        run.type_cell(first_line, text, f"the {first_line} cell")
+    example = ROOT / "example_projects" / "intermediate" / "scheduled_runs" / WEEKLY
+    connected = [(kind, text.replace(CONNECTED, example_project.EXAMPLE_CONNECTION))
+                 for kind, text in notebooks.read_cells(run.notebook)]
+    assert connected == notebooks.read_cells(example / f"{WEEKLY}.ipynb")
+    printed = run.run_to_the_build()
+    assert "  WEEK = None" in printed
+    for number, table in enumerate(WEEKLY_WRITES, 1):
+        assert f"-- {number} of 4: {table} (read by " in printed
+    assert "-- 4 of 4: week_totals" in printed
+    assert f"team_days.dt BETWEEN '{MONDAY}' AND '2026-09-27'" in printed
+    assert not intermediate.warehouse.executed[len(WEEKLY_WRITES):], "the build sent some"
+
+    run.took("scheduled", f'the notebook, WEEK passed as "{WEEK}"')
+    printed, names, error = run.run_as_a_scheduler(WEEK=WEEK)
+    assert error is None, printed
+    assert f'WEEK = datetime.date(2026, 9, 23), read as datetime.date | None from "{WEEK}"' \
+        in printed
+    for table in WEEKLY_WRITES:
+        assert not intermediate.warehouse.rows_of(table).empty, table
+    assert _week_totals_given_back(names), "week_totals gave back no row"
+    assert _week_totals_given_back(names) == _week_totals_of(intermediate.warehouse)
+
+    # The next week's run, by the scheduler alone: the warehouse fails mart.team_days' write,
+    # so the scheduler sees the notebook fail, and the run printed its START_FROM.
+    conn = sys.modules["journey_conn"]
+    conn.conn = FailingOneWrite(intermediate.warehouse, "mart.team_days")
+    printed, names, error = run.run_as_a_scheduler(WEEK=WEEK)
+    assert isinstance(error, RuntimeError) and "lost a node" in str(error), error
+    assert "3 of 4: mart.team_days" in printed and "failed: see below." in printed
+    assert 'START_FROM = "mart.team_days"' in printed
+    assert "results" not in names
+    # The user runs it again from there, once the warehouse is mended: only mart.team_days'
+    # write and the SELECT after it are sent.
+    conn.conn = intermediate.warehouse
+    sent_before = len(intermediate.warehouse.executed)
+    run.took("scheduled", 'the notebook once more, START_FROM passed as "mart.team_days"')
+    printed, names, error = run.run_as_a_scheduler(WEEK=WEEK, START_FROM="mart.team_days")
+    assert error is None, printed
+    sent = intermediate.warehouse.executed[sent_before:]
+    assert [hive for hive in sent if "INSERT OVERWRITE TABLE mart.team_days" in hive], sent
+    assert not [hive for hive in sent if "TABLE mart.job_day_" in hive], sent
+    assert _week_totals_given_back(names) == _week_totals_of(intermediate.warehouse)
