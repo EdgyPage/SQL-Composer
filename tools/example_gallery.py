@@ -21,9 +21,9 @@ The page holds two kinds of Worked example:
   docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, as it can't run week_start, a pandas result from the Worked example that builds the
-same Hive stands in, labelled as such. Everything is plain HTML; a few lines of script add a
-filter box.
+Statement, as it can't run month_start, and a Worked example that builds the same Hive has a
+pandas result, that result stands in, labelled as such. Everything is plain HTML; a few lines
+of script add a filter box.
 """
 
 from __future__ import annotations
@@ -416,10 +416,8 @@ def docstring_entry(names: list[str], doc: str,
 
 
 def week_start_on_each_day(names: list[str]) -> str:
-    """week_start's example builds no Statement, so show what it gives on each day.
-
-    The Example database runs it where it can; where it can't, pandas computes it.
-    """
+    """week_start's example builds no Statement, so show what it gives on each day, run on
+    the Example database."""
     if names != ["week_start"]:
         return ""
     from statements import regrouping
@@ -431,13 +429,9 @@ def week_start_on_each_day(names: list[str]) -> str:
         toolbox.FROM(runs),
         toolbox.WHERE(toolbox.between(runs.dt, regrouping.FIRST_DAY, regrouping.LAST_DAY)),
     )
-    shown = "week_start(job_runs.dt) on each day of the Example database"
-    try:
-        weeks = sqlglot_composer.run_query(s, example_database.query)
-    except (RuntimeError, ValueError):
-        weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
-        shown += f", {PANDAS_LABEL}"
-    return label(shown) + table_html(weeks.rename(columns={"week": "week_start(dt)"}))
+    weeks = sqlglot_composer.run_query(s, example_database.query)
+    return (label("week_start(job_runs.dt) on each day of the Example database")
+            + table_html(weeks.rename(columns={"week": "week_start(dt)"})))
 
 
 def used_by_html(found: list[list[tuple[str, str]]]) -> str:

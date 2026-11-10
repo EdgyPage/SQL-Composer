@@ -7810,7 +7810,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7857,6 +7857,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -7939,7 +7943,7 @@ Done: each convert batch below.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -8056,6 +8060,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -8285,7 +8296,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8332,6 +8343,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -8642,7 +8657,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8689,6 +8704,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -9277,7 +9296,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9324,6 +9343,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -9672,7 +9695,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9719,6 +9742,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -10005,7 +10032,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10052,6 +10079,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -10120,7 +10151,7 @@ GROUP BY
   CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), &#x27;MO&#x27;) AS STRING),
   job_events.job_id;</pre>
 <pre class="python">run_query(starts_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>job_id</th><th>starts</th></tr>
 <tr><td>2026-09-07</td><td>1</td><td>3</td></tr>
 <tr><td>2026-09-07</td><td>2</td><td>1</td></tr>
@@ -10132,7 +10163,7 @@ GROUP BY
 <tr><td>2026-09-21</td><td>2</td><td>4</td></tr>
 <tr><td>2026-09-21</td><td>3</td><td>1</td></tr>
 </table></div>
-<p>Pasted into your own notebook, this <code>run_query</code>, and each <code>run_query</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The week and month results were worked out in pandas from the same rows, to show what the Hive gives. The subtotals below run on the Example database as they are. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
+<p>The Example database runs each week here as it is, as your warehouse does. A month is different: pasted into your own notebook, step 4&#x27;s <code>run_query</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive, since the Example database runs Hive with sqlglot, which has no TRUNC. Its result was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 <p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. For Thursday 2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14 itself. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
 <p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
 <p>Done when the result holds the weeks of 2026-09-07, 2026-09-14 and 2026-09-21. Then step 4.</p>
@@ -10177,7 +10208,7 @@ GROUP BY
     GROUP_BY(&quot;week&quot;),
 )
 run_query(jobs_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-07</td><td>3</td></tr>
 <tr><td>2026-09-14</td><td>3</td></tr>
@@ -10412,7 +10443,7 @@ statement(
     GROUP_BY(&quot;week&quot;),
 )
 run_query(days_per_week, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>days</th></tr>
 <tr><td>2026-09-07</td><td>3</td></tr>
 <tr><td>2026-09-14</td><td>7</td></tr>
@@ -10473,7 +10504,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10520,6 +10551,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -10799,7 +10834,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10846,6 +10881,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -11101,7 +11140,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11148,6 +11187,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -11355,7 +11398,7 @@ run_changes = Table(
 )</pre>
 <pre class="python">_ = project.register(&quot;mart.run_changes&quot;)</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -11472,6 +11515,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -11693,7 +11743,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11740,6 +11790,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -12752,7 +12806,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12799,6 +12853,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -12845,7 +12903,7 @@ project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12962,6 +13020,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13191,7 +13256,7 @@ GROUP BY
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 134 lines</summary>
+<details><summary>Show its 141 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13308,6 +13373,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13503,7 +13575,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13550,6 +13622,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -13606,7 +13682,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13723,6 +13799,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14277,7 +14360,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14324,6 +14407,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -14375,7 +14462,7 @@ To accept every proposed Key, write in the decisions cell: &quot;all_tables&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14492,6 +14579,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14920,7 +15014,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14967,6 +15061,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -15225,7 +15323,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15272,6 +15370,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -15321,7 +15423,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -15438,6 +15540,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15630,7 +15739,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15677,6 +15786,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -15866,7 +15979,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15913,6 +16026,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -15964,7 +16081,7 @@ job_events = ops.job_events  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 125 lines</summary>
+<details><summary>Show its 132 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16081,6 +16198,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16204,7 +16328,7 @@ changed</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 140 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16321,6 +16445,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16494,7 +16625,7 @@ Wrote references/mart__slow_runs.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 141 lines</summary>
+<details><summary>Show its 148 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16611,6 +16742,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17067,7 +17205,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -17114,6 +17252,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -17163,7 +17305,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17280,6 +17422,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17757,7 +17906,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -17804,6 +17953,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -18572,7 +18725,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 80 files</p>
+<p class="label">It writes 84 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18619,6 +18772,10 @@ references/ops__region_budgets.py
 references/ops__region_costs.py
 references/ops__team_notes.py
 references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
 tables/mart__budget_overruns/mart__budget_overruns.hql
@@ -18690,7 +18847,7 @@ PROD = {&quot;database&quot;: &quot;mart_prod&quot;, &quot;location_root&quot;: 
 admin/templates/saved_table.py.
 Wrote references/mart__weekly_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -18807,6 +18964,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
 
