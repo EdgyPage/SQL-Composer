@@ -187,6 +187,20 @@ def test_check_names_a_table_whose_logic_fails_on_a_line(started: Path) -> None:
         "Passed over, as its logic doesn't load: mart.teams: name 'team_job' is not defined"]
 
 
+def test_check_names_a_table_whose_logic_has_a_typo_python_cant_read(started: Path) -> None:
+    # A SyntaxError on a line with no <...> left is a typo of yours, not a Template not
+    # filled in yet, so it is named as a failing one is (D489).
+    typo = LOGIC["mart.teams"].replace("FROM(team_jobs)", "FROM(team_jobs")
+    notebooks.write_notebook(started / "tables" / "mart__teams" / "mart__teams.ipynb",
+                             [("code", f"# logic\n{typo}")])
+    report = repr(project.check())
+    passed_over = [line for line in report.splitlines() if "mart.teams" in line]
+    assert len(passed_over) == 1
+    assert passed_over[0].startswith(
+        "Passed over, as its logic doesn't load: mart.teams: project.load(\"mart.teams\"): "
+        "the logic cell of tables/mart__teams/mart__teams.ipynb isn't Python yet")
+
+
 # --- export_project_lineage -------------------------------------------------------------------
 
 
@@ -341,7 +355,8 @@ def statements():
     message = " ".join(str(refused.value).split())
     assert ("the test: the # scheduled cell of scheduled_runs/weekly/weekly.ipynb needs "
             "TABLE, which a cell above it defines") in message
-    assert "only the imports of the cells above # scheduled are run" in message
+    assert ("of the cells above # scheduled only the # parameters cell and the others' "
+            "imports are run") in message
     assert "Move TABLE into the # scheduled cell" in message
 
 

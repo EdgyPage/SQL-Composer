@@ -83,12 +83,14 @@ still in it, as new_table writes one, is left out until it is filled in.
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
-your tables; build_run sends nothing, and reads the warehouse only through a Run value's
-function that reads it, such as a table's latest Partition; the rest never touch the
-warehouse. start, new_table, new_block, new_run_value, new_scheduled_run, remove_table,
-remove_reference, remove_block, remove_scheduled_run, register, add_references and upgrade,
-the Project actions, each add an entry to admin/admin_log.md, the log that also keeps every
-Admin statement run inside the Project. The rest add no entry of their own: check and load
+your tables; build_run, export_project_lineage, export_run_lineage, export_run_hive and check
+send nothing, and read the warehouse only through a Run value's function that reads it, such
+as a table's latest Partition, worked out as they build each write, through the connection of
+the notebook they run in; the rest never touch the warehouse. start, new_table, new_block,
+new_run_value, new_scheduled_run, remove_table, remove_reference, remove_block,
+remove_scheduled_run, register, add_references and upgrade, the Project actions, each add an
+entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
+Project. The rest add no entry of their own: check and load
 change no file, nor does describe_logic; export_project_lineage writes only its two files
 in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
 export_run_hive only <name>.hql; refresh_reference_sheet writes the Reference sheet and the
@@ -1944,9 +1946,12 @@ def check() -> ProjectReport:
     such as which Table reference changed after the Reference sheet was last written; a loop
     among the Project's tables, two or more each waiting on another so that none can be
     written first, naming each table in it and the notebook whose # logic cell to mend, which
-    it finds by loading each Table folder's logic, as run_tables does; each Table folder whose
-    logic fails, passed over in looking for a loop, with what stops it, though not one whose
-    logic cell still holds a <...> from its Template; each
+    it finds by loading each Table folder's logic, as run_tables does, and building its
+    write(), which works out each of its Run values, so one that reads the warehouse reads it
+    through the connection of the notebook check() runs in; each Table folder whose logic
+    fails, passed over in looking for a loop, with what stops it, a typo Python can't read
+    among them, though not one whose logic cell still holds a <...> from its Template, at the
+    line Python stops on; each
     batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
@@ -7470,10 +7475,10 @@ def export_project_lineage() -> ProjectReport:
     be written first, is drawn red, its tables listed at the top; project.check() names the
     logic cell to mend.
 
-    Of the cells above a run's # scheduled cell only the imports run, never their connect(...)
-    nor your own lines, so a constant or a function one of them defines isn't there when the
-    run is built: a # scheduled cell that uses one shows, on the page, the refusal naming it,
-    to move into the # scheduled cell.
+    Of the cells above a run's # scheduled cell, the # parameters cell runs, but of the others
+    only the imports, never their connect(...) nor your own lines, so a constant or a function
+    one of those others defines isn't there when the run is built: a # scheduled cell that
+    uses one shows, on the page, the refusal naming it, to move into the # scheduled cell.
 
     A Run value is worked out as each Statement is built, so one that reads the warehouse
     needs connect(...) first, as the notebook's first cell has it; one that fails changes
@@ -7625,6 +7630,8 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     by week_totals), a table's session_settings() before its first write, and its Hive, as
     show_hive shows it. The file is to read and to commit, never to edit or to send: the run
     builds its Hive fresh each time, from its logic, so a Run value is worked out as it runs.
+    A Run value is worked out here too, as the file is written, so one that reads the
+    warehouse needs connect(...) first, as admin/scheduled_runs.ipynb's first cell has it.
     Written again, it is the same text when nothing changed. It changes no other file and
     adds no Admin log entry, as export_hive adds none. A run whose build is refused is
     refused as the build refuses it; a name with no Scheduled run is refused, naming the

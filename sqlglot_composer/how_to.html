@@ -103,6 +103,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <li data-for="upgrade_your_project_to_a_new_toolbox_version"><a href="#upgrade_your_project_to_a_new_toolbox_version">28. Upgrade your Project to a new Toolbox version</a></li>
 <li data-for="follow_a_workflow"><a href="#follow_a_workflow">29. Follow a Workflow</a></li>
 <li data-for="set_your_database_settings"><a href="#set_your_database_settings">30. Set your Database settings</a></li>
+<li data-for="schedule_a_run"><a href="#schedule_a_run">31. Schedule a run</a></li>
 </ul>
 </div>
 </nav>
@@ -163,8 +164,8 @@ warehouse.py</pre>
 <p>Done when it says <code>Started a Project</code>. Then step 6.</p>
 <h5>6. Know every file of a Project</h5>
 <p>Goal: know which call makes each file, and what you fill in. Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action: a one-time change to the Project&#x27;s files, recorded in the Admin log. Make each file with its Project action, never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You fill in nothing: each notebook gives it your connection with <code>connect(...)</code>, in its first code cells, as step 8 shows.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it. Convert, promote, new_table and references open with four cells, run in order: the names cell, &quot;Run up to your Decisions&quot;, the decisions cell, where you answer, and &quot;Run the rest&quot;. Each step&#x27;s own cell is below them, under Step by step, to run one step on purpose; in upgrade and change_a_saved_table, run each step&#x27;s cell in turn. <code>project.do_next()</code> runs only the steps that change files, and <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
-<p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You fill in nothing: each notebook gives it your connection with <code>connect(...)</code>, in its first code cells, as step 8 shows.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for your Scheduled runs: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/lineage/</code>, the Project&#x27;s lineage, every Saved table, what reads it and which Scheduled runs write it: <code>project.export_project_lineage()</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it. Convert, promote, new_table and references open with four cells, run in order: the names cell, &quot;Run up to your Decisions&quot;, the decisions cell, where you answer, and &quot;Run the rest&quot;. Each step&#x27;s own cell is below them, under Step by step, to run one step on purpose; in upgrade and change_a_saved_table, run each step&#x27;s cell in turn. <code>project.do_next()</code> runs only the steps that change files, and <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block, a Scheduled run or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.ipynb</code>, a Scheduled run, a notebook an outside scheduler runs top to bottom: <code>project.new_scheduled_run(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines: its parameters, its connection and the Statements it runs, as <a href="#schedule_a_run">Schedule a run</a> shows.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.hql</code>, the run&#x27;s built Hive, in order, and <code>scheduled_runs/&lt;name&gt;/lineage/</code>, its Lineage: <code>project.export_run_hive(&quot;&lt;name&gt;&quot;)</code> and <code>project.export_run_lineage(&quot;&lt;name&gt;&quot;)</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing: edit the run&#x27;s notebook and export again.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code>, <code>project.remove_block(...)</code> and <code>project.remove_scheduled_run(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
+<p><code>references/</code>, <code>building_blocks/</code>, <code>tables/</code> and <code>scheduled_runs/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
 <p class="label">Python prints</p><pre class="output">2026-09-25 09:00:00, Project action
@@ -17187,6 +17188,8 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
   Usual fix:      Write the change as a function with def and a name, in a Building block (project.new_block(...) makes one), and pass it: python_step(add_margin, reads=[sales.price, sales.cost], writes=margins).
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Write the change with <code>def</code> and a name, in a Building block that <code>project.new_block</code> made.</p>
+<h5>A Scheduled run without its rows</h5>
+<p>A Scheduled run, a notebook an outside scheduler runs, writes a Python step&#x27;s table itself, but only when the step is given <code>rows=</code>, the SELECT its function takes, as <code>python_step(add_minutes_over_median, reads=[...], writes=..., rows=rows())</code>: its rows are pulled through your query, given to the function, and what it gives back is saved through your execute. A step with no <code>rows=</code> is refused before the run sends anything. Give it <code>rows=</code>, or leave its table out of the run, <code>leave_out=[&quot;mart.run_speed&quot;]</code>, and save it from its own notebook, as cell 3 does: <a href="#schedule_a_run">Schedule a run</a>.</p>
 <h4>Next</h4>
 <ul><li>Compare the Lineage before and after you change the function: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>More of what pandas does with the rows <code>run_query</code> gives back: <a href="#look_across_rows">Look across rows</a>.</li><li>The gallery&#x27;s <a href="examples.html#python_step"><code>python_step</code></a> and <a href="examples.html#export_lineage"><code>export_lineage</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>between</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>python_step</code>, <code>example_database</code>, <code>project.new_table</code>, <code>project.new_block</code>, <code>project.load</code>, <code>project.run_tables</code></p>
@@ -19051,6 +19054,522 @@ except ValueError as refused:
 <h4>Next</h4>
 <ul><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: each table placed under DEV&#x27;s root, then promoted under PROD&#x27;s.</li><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li></ul>
 <p class="names">Toolbox names used: <code>database_settings</code>, <code>project.new_table</code></p>
+</section>
+<section class="entry" id="schedule_a_run">
+<h3>31. Schedule a run <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Make a Scheduled run: a notebook in your Project that an outside scheduler, such as papermill or your team&#x27;s, runs top to bottom, writing the tables it needs in order and reading back what you asked for. You name the Statements it is for, from your Table notebooks&#x27; logic; its Build cell adds the writes of each table they read, all the way up, and prints their Hive, sending nothing; its Run cell sends them. Each value the scheduler passes in is a Parameter, read by its type hint before anything is built.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>If one job of your scheduler should write a few tables and read back one result, not run the whole Project, make a Scheduled run for it, as the steps below do.</li><li>If you want the run&#x27;s Hive to read before it is ever sent, build it, as step 5 does: nothing is sent until the Run cell.</li><li>If a run failed partway, run it again with the <code>START_FROM</code> it printed, as step 7 says.</li><li>If you want the run&#x27;s lineage, or its Hive in a file to commit, export them by hand, as step 8 does: a Scheduled run writes neither when it runs.</li></ul>
+<h4>Steps</h4>
+<h5>1. Start from the Intermediate Example project</h5>
+<p>Goal: a Project with Saved tables for a run to write. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, then connects, as each notebook does at its top, to the Example database, which stands in for your warehouse:</p>
+<pre class="python">import shutil
+from pathlib import Path
+import sqlglot_composer
+download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
+_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p class="label">It writes 84 files</p>
+<pre class="file">README.md
+admin/admin_log.md
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/databases.py
+admin/new_block.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove.ipynb
+admin/run_tables.ipynb
+admin/scheduled_runs.ipynb
+admin/sent.csv
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/team_failures.hql
+admin/workflows/new_table/new_table.ipynb
+admin/workflows/promote/promote.ipynb
+admin/workflows/references/references.ipynb
+admin/workflows/upgrade/upgrade.ipynb
+building_blocks/costs_per_job.py
+building_blocks/days_rewritten.py
+building_blocks/events_per_job.py
+building_blocks/owner_on_day.py
+references/mart.py
+references/mart__budget_overruns.py
+references/mart__job_day_costs.py
+references/mart__job_day_facts.py
+references/mart__job_events_checks.py
+references/mart__job_notes.py
+references/mart__team_days.py
+references/mart__team_failures.py
+references/ops.py
+references/ops__job_events.py
+references/ops__job_owners.py
+references/ops__region_budgets.py
+references/ops__region_costs.py
+references/ops__team_notes.py
+references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
+tables/mart__budget_overruns/mart__budget_overruns.ipynb
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
+tables/mart__job_day_costs/mart__job_day_costs.ipynb
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
+tables/mart__job_day_facts/mart__job_day_facts.ipynb
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
+tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
+tables/mart__job_notes/mart__job_notes.ipynb
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
+tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
+tables/mart__team_failures/conversion/in_dev.hql
+tables/mart__team_failures/conversion/scan.md
+tables/mart__team_failures/conversion/statement.hql
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
+tables/mart__team_failures/mart__team_failures.ipynb
+warehouse.py</pre>
+<pre class="python">from sqlglot_composer import example_database, project, statement
+from warehouse import connect, execute, query
+connect(example_database)</pre>
+<p>Done when the folder you work in holds the Project&#x27;s scheduled_runs/ folder. Then step 2.</p>
+<h5>2. See what a table&#x27;s logic offers</h5>
+<p>Goal: the functions a run can call. A Saved table&#x27;s Table notebook has a logic cell, the cell that starts <code># logic</code>, whose functions each give a Statement. <code>project.describe_logic</code> lists them, each with what it takes and the first sentence of what it does, and runs nothing:</p>
+<pre class="python">print(project.describe_logic(&quot;mart.team_days&quot;))</pre>
+<p class="label">Python prints</p><pre class="output"># mart.team_days: project.load(&quot;mart.team_days&quot;), from the # logic cell of tables/mart__team_days/mart__team_days.ipynb
+def create() -&gt; Statement:
+    &quot;&quot;&quot;Step 1: create mart.team_days from its Table reference, if it isn&#x27;t there yet.&quot;&quot;&quot;
+def rows(first_day: str, last_day: str) -&gt; list[Clause]:
+    &quot;&quot;&quot;The clauses every step below shares: each team&#x27;s numbers per day of job_day_facts, the table in FROM.&quot;&quot;&quot;
+def preview() -&gt; Statement:
+    &quot;&quot;&quot;Step 2: the rows write() would save, as a SELECT to run and check first.&quot;&quot;&quot;
+def write_days(first_day: str, last_day: str) -&gt; Statement:
+    &quot;&quot;&quot;Every day from first_day to last_day, in one write.&quot;&quot;&quot;
+def write() -&gt; Statement:
+    &quot;&quot;&quot;Step 3, every run, once the two tables it reads have written the same days: the last 3 days, ending on DAY, in one write.&quot;&quot;&quot;
+def week_totals(first_day: str, last_day: str) -&gt; Statement:
+    &quot;&quot;&quot;Each team&#x27;s events, runs, minutes and cost per week, from the days this table saved.&quot;&quot;&quot;
+def team_day_from_job_events(day: str) -&gt; Statement:
+    &quot;&quot;&quot;Each team&#x27;s events, runs and minutes for a day, from ops.job_events and ops.job_owners themselves, through the Building blocks mart.job_day_facts saves: so it runs on the Example database.&quot;&quot;&quot;</pre>
+<p>This run calls two of them: write(), which saves mart.team_days&#x27;s last 3 days, ending on the day its own logic cell names, and team_day_from_job_events(day), a SELECT of each team&#x27;s numbers for the day you give it. At work a run would read back the table it just wrote; here the SELECT reads ops tables, since the Example database holds no mart table to read. Paste the same list into a Copilot chat, after Copilot file 18, and Copilot fills in the run for you.</p>
+<p>Done when you know the functions the run calls. Then step 3.</p>
+<h5>3. Make the run</h5>
+<p>Goal: the run&#x27;s notebook. <code>project.new_scheduled_run</code> makes it from the scheduled_run Template in admin/templates/, in a folder of its own under scheduled_runs/, and registers it:</p>
+<pre class="python">print(project.new_scheduled_run(&quot;team_day&quot;))</pre>
+<p class="label">Python prints</p><pre class="output">Made scheduled_runs/team_day/: team_day.ipynb, from admin/templates/scheduled_run.py.
+Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 132 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: wrote references/mart__team_failures.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;team_day&quot;)`
+- Files: created scheduled_runs/team_day/ (team_day.ipynb)
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<p class="note">It writes <code>scheduled_runs/team_day/team_day.ipynb</code> too.</p>
+<p>In your Project, admin/scheduled_runs.ipynb makes the same call: name the run in its cell <code>NEW_RUNS = [&quot;team_day&quot;]</code> and run that cell. Its <code>TABLES = [&quot;mart.team_days&quot;]</code> cell runs step 2&#x27;s <code>project.describe_logic</code> the same way.</p>
+<p>Done when scheduled_runs/team_day/team_day.ipynb is there. Then step 4.</p>
+<h5>4. Fill in its cells</h5>
+<p>Goal: a run that builds. Open team_day.ipynb in Jupyter. Its cells run top to bottom:</p>
+<ul><li><code># parameters</code>, tagged &quot;parameters&quot;, papermill&#x27;s tag: each value the scheduler passes in, a name, its type hint and its default. A scheduler passes text, so each is read by its hint: <code>datetime.date</code> from <code>&quot;2026-09-24&quot;</code>, <code>int</code>, <code>float</code>, <code>bool</code> from &quot;true&quot; or &quot;false&quot;, and <code>str</code>, each alone, in <code>list[...]</code> (its items split at commas) or with <code>| None</code>. Keep <code>START_FROM</code>.</li><li>the setup cell: the Project on Python&#x27;s path, the Toolbox, and your connection in its <code>connect(...)</code> line.</li><li><code># scheduled</code>: <code>statements()</code>, which gives the Statements the run is for, each by its name; a SELECT&#x27;s rows come back by it.</li><li>the Build cell, <code>project.build_run(statements, ...)</code>, and the Run cell, <code>built.run(query, execute)</code>.</li></ul>
+<p>Fill in a parameter, <code>READ_DAY</code>, the connection and the two Statements, by these rules:</p>
+<ul><li>A parameter reaches only what <code>statements()</code> passes it to: here the SELECT. write() takes nothing, so it writes the days its own logic cell names, whatever READ_DAY is.</li><li>team_day_from_job_events takes its day as text, <code>day: str</code>, so <code>str(READ_DAY)</code> gives it the date as &#x27;2026-09-23&#x27;.</li><li>Each Statement&#x27;s name is the key of the dict: a SELECT&#x27;s rows come back by it, and a write&#x27;s is only a label, since the build heads each write by its table.</li></ul>
+<p>Once every <code>&lt;...&gt;</code> is gone, you may cut its text cell down to what the run is for, as here:</p>
+<p class="label">The file <code>scheduled_runs/team_day/team_day.ipynb</code>, after you fill it in</p>
+<pre class="python"># %% [markdown]
+# # Scheduled run: team_day
+#
+# Each day: mart.team_days written, with the tables it reads, then each team&#x27;s numbers
+# for READ_DAY read back, as results[&quot;team_day&quot;].
+
+# %%
+# parameters
+# The values a scheduler passes in, each a name, its type hint and its default. A scheduler
+# passes text, which the Build cell reads by the hint, and refuses a value it can&#x27;t read. The
+# hints it reads: datetime.date, int, float, bool, str, each alone, in list[...] or with
+# | None, such as list[datetime.date] for &quot;2026-11-01,2026-11-08&quot;.
+import datetime  # for a datetime.date hint
+
+START_FROM: str = &quot;&quot;  # a table or SELECT to start from, as a failed run prints it; &quot;&quot; sends all
+READ_DAY: datetime.date = datetime.date(2026, 9, 24)  # the day to read back, such as &quot;2026-09-24&quot;
+
+# %%
+# Setup: the Project on Python&#x27;s path, the Toolbox and your connection
+import pathlib
+import sys
+sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
+
+from sqlglot_composer import Statement, project, statement
+from warehouse import connect, execute, query
+
+from sqlglot_composer import example_database
+connect(example_database)
+
+# %%
+# scheduled
+# The Statements this run sends, each by its name: a SELECT&#x27;s rows come back in results by it.
+
+
+def statements() -&gt; dict[str, Statement]:
+    &quot;&quot;&quot;What this run sends, by name: the build adds the writes of each table they read.&quot;&quot;&quot;
+    team_days = project.load(&quot;mart.team_days&quot;)
+    return {
+        &quot;team_days&quot;: team_days.write(),
+        &quot;team_day&quot;: team_days.team_day_from_job_events(str(READ_DAY)),
+    }
+
+# %%
+# Build: the Statements, in order, and their Hive, printed; nothing sent
+built = project.build_run(statements, run_values={}, leave_out=[])
+
+# %%
+# Run: each one sent, in the build&#x27;s order
+results = built.run(query, execute)</pre>
+<p>At work, the setup cell&#x27;s connection is yours, in place of the Example database. Done when no code cell holds a <code>&lt;...&gt;</code>. Then step 5.</p>
+<h5>5. Build it</h5>
+<p>Goal: the run&#x27;s Hive, in order, to read before anything is sent. Run the cells down to the Build cell. Jupyter runs a notebook in its own folder, so the lines below move there first, as opening the notebook would, then run its cells, the setup cell&#x27;s connection already made above. A scheduler passes <code>READ_DAY</code> as text, which papermill puts in a cell after the parameters cell, as the line <code>READ_DAY = &quot;2026-09-23&quot;</code> here stands in for:</p>
+<pre class="python">import datetime
+import os
+os.chdir(&quot;scheduled_runs/team_day&quot;)
+START_FROM: str = &quot;&quot;
+READ_DAY: datetime.date = datetime.date(2026, 9, 24)
+READ_DAY = &quot;2026-09-23&quot;  # as a scheduler passes it: text
+def statements():
+    team_days = project.load(&quot;mart.team_days&quot;)
+    return {
+        &quot;team_days&quot;: team_days.write(),
+        &quot;team_day&quot;: team_days.team_day_from_job_events(str(READ_DAY)),
+    }
+built = project.build_run(statements, run_values={}, leave_out=[])</pre>
+<p class="label">Python prints</p><pre class="output">Parameters, as this run uses them:
+  START_FROM = &quot;&quot;
+  READ_DAY = datetime.date(2026, 9, 23), read as datetime.date from &quot;2026-09-23&quot;
+-- 1 of 4: team_day
+WITH events_per_job AS (
+  SELECT
+    job_events.job_id,
+    job_events.dt,
+    COUNT(*) AS events,
+    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COALESCE(
+      SUM(
+        CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
+      ),
+      0
+    ) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-23&#x27;
+  GROUP BY
+    job_events.job_id,
+    job_events.dt
+)
+SELECT
+  job_owners.team,
+  SUM(events_per_job.events) AS events,
+  SUM(events_per_job.runs) AS runs,
+  SUM(events_per_job.minutes) AS minutes
+FROM events_per_job
+LEFT JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = events_per_job.dt
+  AND job_owners.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-23&#x27;
+GROUP BY
+  job_owners.team;
+-- 2 of 4: mart.job_day_costs (read by mart.team_days)
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+WITH costs_per_job AS (
+  SELECT
+    region_costs.job_id,
+    SUM(region_costs.cost_cents) AS cost_cents,
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 5, 2),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 7, 2)
+    ) AS dt
+  FROM ops.region_costs AS region_costs
+  WHERE
+    region_costs.dt BETWEEN &#x27;20260922&#x27; AND &#x27;20260924&#x27;
+  GROUP BY
+    region_costs.job_id,
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 5, 2),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 7, 2)
+    )
+)
+INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt)
+SELECT
+  costs_per_job.job_id,
+  costs_per_job.cost_cents,
+  costs_per_job.dt
+FROM costs_per_job;
+-- 3 of 4: mart.job_day_facts (read by mart.team_days)
+WITH events_per_job AS (
+  SELECT
+    job_events.job_id,
+    job_events.dt,
+    COUNT(*) AS events,
+    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COALESCE(
+      SUM(
+        CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
+      ),
+      0
+    ) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_events.job_id,
+    job_events.dt
+)
+INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)
+SELECT
+  events_per_job.job_id,
+  job_owners.team,
+  events_per_job.events,
+  events_per_job.runs,
+  events_per_job.minutes,
+  events_per_job.dt
+FROM events_per_job
+LEFT JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = events_per_job.dt
+  AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;;
+-- 4 of 4: mart.team_days
+INSERT OVERWRITE TABLE mart.team_days PARTITION(dt)
+SELECT
+  job_day_facts.team,
+  SUM(job_day_facts.events) AS events,
+  SUM(job_day_facts.runs) AS runs,
+  SUM(job_day_facts.minutes) AS minutes,
+  SUM(job_day_costs.cost_cents) AS cost_cents,
+  job_day_facts.dt
+FROM mart.job_day_facts AS job_day_facts
+LEFT JOIN mart.job_day_costs AS job_day_costs
+  ON job_day_costs.job_id = job_day_facts.job_id
+  AND job_day_costs.dt = job_day_facts.dt
+  AND job_day_costs.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
+WHERE
+  job_day_facts.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_day_facts.dt,
+  job_day_facts.team;
+Built 4 Statements in order, and sent nothing: results = built.run(query, execute) sends them.</pre>
+<p>It printed each parameter as used, <code>READ_DAY</code> read as a date from the text it was given, then each Statement under a heading, in the order the run sends them. You named two; the build added the writes of mart.job_day_costs and mart.job_day_facts, the two Saved tables mart.team_days&#x27;s write reads, before it, each as its own Table notebook&#x27;s write() writes it, on its own days: READ_DAY reaches none of them. Each table is written after the tables it reads, and the SELECT, which reads only ops tables, can go first.</p>
+<p>Done when it prints each Statement&#x27;s Hive and says it sent nothing. Then step 6.</p>
+<h5>6. Run it</h5>
+<p>Goal: the Statements sent and the SELECT&#x27;s rows back. The Run cell sends each in the build&#x27;s order, each write through your <code>execute</code> and each SELECT through your <code>query</code>, printing a line as each works. The Session setting &quot;dynamic_partitions&quot; goes once, before the first write that fills its Partitions from its rows, as the build printed it under that write&#x27;s heading, and holds for every write after it; the Example database prints the first line of each change it is given, <code>execute: ...</code>, and writes nothing:</p>
+<pre class="python">results = built.run(query, execute)</pre>
+<p class="label">Python prints</p><pre class="output">1 of 4: team_day            worked: 2 rows, in results[&quot;team_day&quot;]
+execute: SET hive.exec.dynamic.partition=true
+execute: SET hive.exec.dynamic.partition.mode=nonstrict
+execute: WITH costs_per_job AS (
+2 of 4: mart.job_day_costs  worked
+execute: WITH events_per_job AS (
+3 of 4: mart.job_day_facts  worked
+execute: INSERT OVERWRITE TABLE mart.team_days PARTITION(dt)
+4 of 4: mart.team_days      worked
+Sent 4 Statements in order. results holds the rows of team_day, by name, as results[&quot;team_day&quot;].</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<pre class="python">results[&quot;team_day&quot;]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>events</th><th>runs</th><th>minutes</th></tr>
+<tr><td>data</td><td>2</td><td>1</td><td>12</td></tr>
+<tr><td>finance</td><td>2</td><td>1</td><td>18</td></tr>
+</table></div>
+<p>Done when it ends with no error, and <code>results[&quot;team_day&quot;]</code> holds each team&#x27;s numbers. Then step 7.</p>
+<h5>7. Schedule it</h5>
+<p>Goal: the scheduler runs the notebook. Have your scheduler run team_day.ipynb top to bottom, from its own folder, passing each parameter as text. With papermill, which runs a notebook and saves a copy of it with each cell&#x27;s output, that is a command such as &quot;papermill team_day.ipynb runs/team_day_2026-09-23.ipynb -p READ_DAY 2026-09-23&quot;, typed in a terminal opened in scheduled_runs/team_day/. Its &quot;-p READ_DAY 2026-09-23&quot; passes READ_DAY as text, which the Build cell reads as a date, as in step 5. papermill finds the parameters cell by its tag: in JupyterLab, the cell&#x27;s tags are in the right sidebar&#x27;s Property Inspector; the Template&#x27;s cell has it already. The saved copy is the run&#x27;s record: what the build printed, each parameter as used first, and each line the run printed. Nothing else is written as it runs.</p>
+<p>If one fails, the run stops there, prints the tables it wrote before it and a line such as <code>START_FROM = &quot;mart.team_days&quot;</code>, and raises its error, so the scheduler sees the notebook fail. Run it again with that value, <code>-p START_FROM mart.team_days</code>, and the build passes over each Statement before that table&#x27;s first write. A plain run again, <code>START_FROM</code> left <code>&quot;&quot;</code>, is safe too: each write replaces the Partitions it fills.</p>
+<p>Done when your scheduler runs it with the parameters it needs. Then step 8.</p>
+<h5>8. Export its Hive and lineage by hand</h5>
+<p>Goal: the run&#x27;s Hive in a file to read and commit, and its lineage. Neither is written as the run runs, since that would be work for nothing each time: admin/scheduled_runs.ipynb holds the cells that write them, by hand, from the Project&#x27;s top. <code>project.export_run_hive</code> builds the run as its Build cell does, with its parameters&#x27; defaults, and writes its Hive into team_day.hql beside its notebook, to read, never to edit or to send:</p>
+<pre class="python">os.chdir(&quot;../..&quot;)
+print(project.export_run_hive(&quot;team_day&quot;))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote scheduled_runs/team_day/team_day.hql: the Hive of 4 Statements, in the order the run sends them, built as its Build cell builds them, with the defaults of its # parameters cell, sending nothing. It is to read, never to edit: the notebook builds its Hive again each time it runs.</pre>
+<p class="note">It writes <code>scheduled_runs/team_day/team_day.hql</code> too.</p>
+<p><code>project.export_run_lineage(&quot;team_day&quot;)</code> writes its lineage into the run&#x27;s lineage/ folder the same way, and <code>project.export_project_lineage()</code> draws every Saved table of the Project, with the Scheduled runs that write each.</p>
+<p>Done when scheduled_runs/team_day/ holds team_day.hql. Then check it worked, below.</p>
+<h4>Check it worked</h4>
+<p>Before you go on, check that:</p>
+<ul><li>scheduled_runs/team_day/ holds team_day.ipynb, and no code cell holds a <code>&lt;...&gt;</code>;</li><li>its Build cell prints each parameter as used, then each Statement&#x27;s Hive, and sends nothing;</li><li>its Run cell ends with no error, and <code>results</code> holds each SELECT&#x27;s rows by its name;</li><li><code>project.check()</code> says every Scheduled run is registered.</li></ul>
+<h4>Common mistakes</h4>
+<h5>A parameter with no type hint</h5>
+<p>The Build cell reads each parameter by its hint, so one written <code>READ_DAY = &quot;2026-09-24&quot;</code>, with no hint, is refused before anything is built, naming it. Give it a hint, <code>READ_DAY: datetime.date = ...</code>.</p>
+<h5>A value that can&#x27;t be read</h5>
+<p>A scheduler that passes <code>READ_DAY</code> as <code>&quot;23/09/2026&quot;</code> is refused, naming <code>READ_DAY</code>, its hint and the value: a <code>datetime.date</code> is read from a day written as 2026-09-23 alone, year, month and day. Nothing is built or sent.</p>
+<h5>Expecting a parameter to move the tables the build adds</h5>
+<p>A parameter reaches only what <code>statements()</code> passes it to. Each write the build adds is its Table notebook&#x27;s write(), on the days its logic gives it, so here mart.job_day_facts writes its own last 3 days whatever READ_DAY is. To move a write&#x27;s days with the run, pass the parameter in yourself, as an argument, such as <code>team_days.write_days(str(READ_DAY), str(READ_DAY))</code>; or, where its days are a Run value, give that Run value the parameter by its function&#x27;s name, <code>run_values={&quot;period_end&quot;: READ_DAY}</code>, which reaches the write the build adds too.</p>
+<h5>A table another run writes</h5>
+<p>The build adds each table the Statements read, so two runs may write the same table. It is shown, never refused: <code>project.export_project_lineage()</code> marks a table more than one run writes. If another run writes it, leave it out here, <code>leave_out=[&quot;mart.job_day_facts&quot;]</code>, and the build adds none of what only it reads.</p>
+<h5>Composing a quick Statement</h5>
+<p>A Statement composed in the run&#x27;s own <code># scheduled</code> cell, with <code>statement(...)</code>, is built even where a Guard would refuse it elsewhere, when Hive runs it as written, such as a WHERE on a LEFT_JOIN&#x27;s table: it only warns, and the build lists each one it let through, with its line. Why: a run&#x27;s own cell is for quick Statements you mean as written, and a Table notebook&#x27;s logic is where a Statement others build on is checked in full. So a Statement from a Table notebook&#x27;s logic, through <code>project.load</code>, keeps every Guard, and a Load limit, which stops a read of too much, still refuses anywhere.</p>
+<h5>Editing the .hql file</h5>
+<p>team_day.hql is what the run built when you exported it: the run builds its Hive again each time it runs, and never reads the file. Edit the notebook, save it, and export again.</p>
+<h4>Next</h4>
+<ul><li><a href="#declare_a_change_made_in_python">Declare a change made in Python</a>: a Python step&#x27;s table, which a Scheduled run writes too, given <code>rows=</code>.</li><li><a href="#follow_lineage">Follow lineage</a>: a Statement&#x27;s Lineage, column by column.</li></ul>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.load</code>, <code>project.new_scheduled_run</code>, <code>project.build_run</code>, <code>project.export_run_hive</code>, <code>project.describe_logic</code></p>
 </section>
 </main>
 <script>

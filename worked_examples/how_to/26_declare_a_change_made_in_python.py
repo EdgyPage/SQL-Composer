@@ -501,6 +501,17 @@ ValueError:
 
 Write the change with `def` and a name, in a Building block that `project.new_block` made.
 
+### A Scheduled run without its rows
+
+A Scheduled run, a notebook an outside scheduler runs, writes a Python step's table itself,
+but only when the step is given `rows=`, the SELECT its function takes, as
+`python_step(add_minutes_over_median, reads=[...], writes=..., rows=rows())`: its rows
+are pulled through your query, given to the function, and what it gives back is saved
+through your execute. A step with no `rows=` is refused before the run sends anything. Give
+it `rows=`, or leave its table out of the run, `leave_out=["mart.run_speed"]`, and save it
+from its own notebook, as cell 3 does:
+[Schedule a run](#schedule_a_run).
+
 ## Next
 
 - Compare the Lineage before and after you change the function:

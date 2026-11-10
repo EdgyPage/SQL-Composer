@@ -10,8 +10,9 @@ notebook. Each Table
 folder's writes come through project.load, as run_tables gathers them. Each Scheduled run is
 built from outside its notebook by built_run_of, as its Build cell builds it with the
 notebook's defaults, sending nothing: a Run value is worked out, so the warehouse is read for
-Run values only. Of the cells above a run's # scheduled cell only the imports are run, so a
-name one of them defines, used in the # scheduled cell, is refused, saying to move it there. A
+Run values only. Of the cells above a run's # scheduled cell, the # parameters cell runs, but
+of the others only the imports, so a name one of those others defines, used in the
+# scheduled cell, is refused, saying to move it there. A
 run that can't be built, as one with a <...> left, is shown on the page with why, never
 raised.
 """
@@ -33,7 +34,7 @@ from .clauses import Statement
 from .lineage import (lineage_footer, names_in_a_loop, scripts_commit, shortened, tables_read,
                       tables_written, write_lineage)
 from .notebooks import PARAMETERS, SCHEDULED, first_line, read_cells
-from .project import load, one_line_message, run_logic, writes_of
+from .project import PLACEHOLDER, load, one_line_message, run_logic, writes_of
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry, table_notebook, table_stem
 from .python_steps import PythonStep
 from .refusals import refuse
@@ -78,8 +79,9 @@ def built_run_of(root: Path, name: str, call: str) -> tuple[BuiltRun, str]:
     the notebook, so build_run finds the notebook there. A Run value is worked out now, through
     the connection of the notebook you call this from.
 
-    Since only the imports of the cells above the # scheduled cell are run, a constant or a
-    function one of them defines isn't there: a # scheduled cell that uses one is refused,
+    Since, of the cells above the # scheduled cell, the # parameters cell runs, but of the
+    others only the imports, a constant or a function one of those others defines isn't
+    there: a # scheduled cell that uses one is refused,
     naming it and saying to move it into the # scheduled cell.
 
     Refused, as `call` says: no notebook; no # scheduled cell; a code cell it runs that isn't
@@ -114,11 +116,11 @@ def _refuse_a_name_not_run(name: str, shown: str, call: str) -> NoReturn:
     """Refuse a name the # scheduled cell uses that a cell above it defines, which isn't run."""
     refuse(
         what=f"{call}: the {SCHEDULED} cell of {shown} needs {name}, which a cell above it "
-        f"defines, but built from outside its notebook only the imports of the cells above "
-        f"{SCHEDULED} are run, so {name} isn't defined.",
-        why="The run is built here as its Build cell builds it, sending nothing, so the "
-        "cells above its # scheduled cell never run but for their imports: their "
-        "connect(...) and your own lines are left out.",
+        f"defines, but built from outside its notebook, of the cells above {SCHEDULED} only "
+        f"the # parameters cell and the others' imports are run, so {name} isn't defined.",
+        why="The run is built here as its Build cell builds it, sending nothing, so of the "
+        "cells above its # scheduled cell but the # parameters cell, only the imports run: "
+        "their connect(...) and your own lines are left out.",
         fix=f"Move {name} into the {SCHEDULED} cell of {shown}, so the run builds the same in "
         "its notebook and from outside it, then call this again.",
         error=NameError,
@@ -283,10 +285,14 @@ def failing_logic_lines(passed_over: dict[str, Exception]) -> list[str]:
 
 def _is_logic_not_there_yet(error: Exception) -> bool:
     """Whether a Table folder's logic didn't load only because it isn't there yet: its logic
-    cell isn't Python yet, as a <...> left from its Template stops it (project.load refuses
-    that from Python's SyntaxError), or its notebook isn't there, which project.check reports
-    as registered but not there."""
-    return isinstance(error, FileNotFoundError) or isinstance(error.__context__, SyntaxError)
+    cell isn't Python yet because a <...> left from its Template stops it (project.load
+    refuses that from Python's SyntaxError, at the line holding it), or its notebook isn't
+    there, which project.check reports as registered but not there. A SyntaxError at a line
+    holding no <...>, a typo of yours, is a failure, and reported."""
+    if isinstance(error, FileNotFoundError):
+        return True
+    cause = error.__context__
+    return isinstance(cause, SyntaxError) and bool(PLACEHOLDER.search(cause.text or ""))
 
 
 def _reads_of_each_table(statements: list[NamedStatement]) -> dict[str, list[str]]:

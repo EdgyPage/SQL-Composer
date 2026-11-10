@@ -52,7 +52,7 @@ job_day_events = Table(
 ACTIONS = frozenset(project.__all__) - {"load", "check"}
 # Names the files call that the user's own code defines, or Python has.
 OWN_CALLS = frozenset({"connect", "query", "execute", "rows", "preview", "write", "create",
-                       "converted", "recent_runs"}) | frozenset(dir(builtins))
+                       "converted", "recent_runs", "statements"}) | frozenset(dir(builtins))
 # Hive's own functions, which file 07 quotes from the Hive it converts: allowed as Hive's
 # words in backticks, so a file writing COUNT(x) as a Toolbox name would pass this test; the
 # block tests, which run the code, are what catch it.
@@ -88,7 +88,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(18)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(19)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -122,10 +122,11 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
         assert part in text, part
     # The Excel files write Hive, no Toolbox code; files 13, 14 and 16 give steps, each a cell,
     # and the file of the step's objective the code; file 17 gives a Workflow's decisions cell
-    # and the Run value's function it imports, and leaves a Statement inside one to file 03.
+    # and the Run value's function it imports, and leaves a Statement inside one to file 03;
+    # file 18 gives a Scheduled run's cells, and leaves a Statement of its own to file 03 too.
     if path.name not in (*EXCEL_FILES, "13_workflows.txt",
                          "14_workflows_new_tables_and_upkeep.txt", "16_workflows_promote.txt",
-                         "17_run_values_and_seed_limits.txt"):
+                         "17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt"):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
 
 

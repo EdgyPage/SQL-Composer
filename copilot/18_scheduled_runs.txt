@@ -1,0 +1,156 @@
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.5)
+
+**Follow the steps below in order, as written, adding none; reply as Output says.**
+
+Objective: fill in a Scheduled run's notebook, which project.new_scheduled_run made from its
+Template: its parameters cell, its connect(...) line, its # scheduled cell and its Build cell.
+Load this file when the user wants a notebook an outside scheduler, such as papermill, runs
+top to bottom, and pastes what `project.describe_logic([...])` printed. File 03 is for
+building a Statement of its own, file 17 for a Run value's function in building_blocks/.
+
+## Terms
+
+- **Scheduled run**: a notebook in scheduled_runs/<name>/, run top to bottom: the Build cell
+  prints the Hive and sends nothing; the Run cell sends it.
+- **Parameter**: a value the scheduler passes in, a name in the `# parameters` cell, read by
+  its type hint before anything is built.
+- **Logic function**: a function of a Table notebook's `# logic` cell, which gives a
+  Statement; `project.load("mart.team_days")` gives them. describe_logic prints each one's
+  signature and the first sentence of its docstring, headed by the table's name.
+- **Run value**: what a function gives each time the run is built, through
+  `run_value(function)`, such as the latest Partition a table holds.
+
+## Names for this objective, with their arguments
+
+- project.load(name)
+- project.build_run(statements, *, run_values=None, leave_out=None)
+- run_value(function, *arguments, **keywords)
+- latest_partition(column, query=None)
+- statement(*clauses, returns_all_rows=False)
+
+## Steps
+
+1. **Read the paste**: each logic function the user asks for, by its table and signature.
+   Call only those listed, with the arguments their signatures name. Done when each is
+   matched. Then step 2.
+2. **Write the parameters cell** by the Decision rules. Done when each has a hint. Then step 3.
+3. **Write the # scheduled cell**: `statements()`, a dict of each Statement by its name,
+   and any Run value's function. Done when each asked for is in it. Then step 4.
+4. **Write the Build cell**, with `run_values=` and `leave_out=` as the Decision rules say.
+   Then step 5.
+5. **Check** by the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- Each parameter is a name, its hint and its default: `RUN_DATE: datetime.date | None =
+  None`. The hints read: `datetime.date` (from "2026-11-01"), `int`, `float`, `bool` (from
+  "true" or "false"), `str`, each alone, in `list[...]` (items split at commas) or with
+  `| None`. Never a parameter with no hint, nor another hint. Keep `START_FROM: str = ""`.
+- A parameter the run can't do without gets `| None = None` only if the cell works one out
+  when it is None, as a Run value; else give a real default.
+- A logic function's arguments are given in the call, `team_days.week_totals(first, last)`,
+  with the parameters or Run values. A date parameter passed where the signature says `str`
+  is written `str(RUN_DATE)`.
+- A day worked out at each run is a function of the cell, taking nothing and reading the
+  parameters, passed as `run_value(week_first_day)`. For the latest Partition:
+  `latest_partition(job_events.dt, query)`, `query` from warehouse, which the setup cell
+  imports.
+- Name each SELECT by what its rows are: its rows come back as `results["week_totals"]`. A
+  write is named by its table's short name.
+- The build adds the write of each Project table the Statements read, all the way up, on that
+  table's own days, so never list those writes yourself. If the user says another run or job
+  writes a table, give it in `leave_out=["mart.job_day_facts"]`.
+- A parameter reaches only what `statements()` passes it to. To reach a Run value inside a
+  logic function, such as one a `write()` taking no arguments uses, a write the build adds
+  among them: `run_values={"period_end": RUN_DATE}`, by that Run value's function's name.
+  Leave it `{}` unless the user names such a value.
+- A Statement of the user's own is composed in the cell with `statement(...)`, as file 03
+  says; a Guard it trips only warns there, so add no opt-out for it.
+- A run that failed printed `START_FROM = "mart.team_days"`: the scheduler passes that
+  value, and the build starts from that table's first write, or from that SELECT; never
+  write it into the cell.
+- The setup cell stays as the Template writes it, but its `connect(...)` line: the user's
+  connection, its `#` deleted.
+
+## Output
+
+1. The `# parameters` cell in a ```python block; then the `# scheduled` cell and, under its
+   `# Build` line, the Build cell, in one block; then the `connect(...)` line.
+2. In words: which writes the build will add, and the papermill line, such as
+   `papermill weekly.ipynb out.ipynb -p RUN_DATE 2026-11-01`.
+
+## Examples
+
+The paste:
+
+```text
+# mart.team_days: project.load("mart.team_days"), from the # logic cell of tables/mart__team_days/mart__team_days.ipynb
+def week_totals(first_day: str, last_day: str) -> Statement:
+    """Each team's events, runs, minutes and cost per week, from the days this table saved."""
+```
+
+Asked: each team's week, the week of WEEK, or of the latest day ops.job_events holds:
+
+```python
+# parameters
+import datetime
+
+START_FROM: str = ""  # a table or SELECT to start from, as a failed run prints it
+WEEK: datetime.date | None = None  # a day of the week, such as "2026-09-23"; None: the latest
+```
+
+```python
+# scheduled
+from sqlglot_composer import Statement, latest_partition, project, run_value
+from references.ops__job_events import job_events
+from warehouse import query
+
+
+def week_first_day() -> datetime.date:
+    """The Monday of WEEK's week, or of the latest day ops.job_events holds."""
+    day = WEEK if WEEK is not None else latest_partition(job_events.dt, query)
+    return day - datetime.timedelta(days=day.weekday())
+
+
+def week_last_day() -> datetime.date:
+    """The Sunday after week_first_day."""
+    return week_first_day() + datetime.timedelta(days=6)
+
+
+def statements() -> dict[str, Statement]:
+    """What this run sends, by name: the build adds the writes of each table they read."""
+    team_days = project.load("mart.team_days")
+    return {"week_totals": team_days.week_totals(run_value(week_first_day),
+                                                 run_value(week_last_day))}
+
+# Build
+built = project.build_run(statements, run_values={}, leave_out=[])
+```
+
+The setup cell's line: `connect(my_api.connect())`. The build adds the writes of the tables
+mart.team_days reads, then its own, before week_totals.
+
+A Statement of its own, the failed runs of RUN_DATE:
+
+```python
+import datetime
+
+from sqlglot_composer import FROM, SELECT, WHERE, Statement, equals, statement
+from references.ops__job_runs import job_runs
+
+RUN_DATE: datetime.date = datetime.date(2026, 9, 24)
+
+
+def statements() -> dict[str, Statement]:
+    """The day's failed runs."""
+    return {"failed_runs": statement(
+        SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs),
+        WHERE(equals(job_runs.dt, str(RUN_DATE)), equals(job_runs.status, "FAILED")))}
+```
+
+## Self-check
+
+- Each parameter has a hint the build reads, and `START_FROM` is kept.
+- Each logic function called is in the paste, with its arguments.
+- No write the build adds is listed in `statements()`.
+- `project.build_run` is given `statements`, with no brackets.
