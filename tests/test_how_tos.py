@@ -577,26 +577,27 @@ def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path: Path) -> N
         "RepeatedRowsWarning: What happened: JOIN(run_alerts) matches on run_id")
 
 
-# A Statement the Example database can't run: its executor has no week_start.
-WEEKS = """>>> from sqlglot_composer import *
+# A Statement the Example database can't run: its executor has no TRUNC, which month_start
+# writes.
+MONTHS = """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
->>> weeks = statement(
-...     SELECT_DISTINCT(job_runs.dt, AS(week_start(job_runs.dt), "week")),
+>>> months = statement(
+...     SELECT_DISTINCT(job_runs.dt, AS(month_start(job_runs.dt), "month")),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run_query(weeks, example_database.query)"""
-WEEKS_IN_PANDAS = '''
+>>> run_query(months, example_database.query)"""
+MONTHS_IN_PANDAS = '''
 import pandas as pd
 
 
-def weeks_in_pandas():
-    return pd.DataFrame({"dt": ["2026-09-23", "2026-09-24"], "week": ["stand", "in"]})
+def months_in_pandas():
+    return pd.DataFrame({"dt": ["2026-09-23", "2026-09-24"], "month": ["stand", "in"]})
 '''
 
 
 def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path) -> None:
-    path = a_how_to(tmp_path, WEEKS, stand_ins=WEEKS_IN_PANDAS)
+    path = a_how_to(tmp_path, MONTHS, stand_ins=MONTHS_IN_PANDAS)
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     cells = re.findall(r"<td>(.*?)</td>", shown)
     assert f'<p class="label">Result, {example_gallery.PANDAS_LABEL}</p>' in shown
@@ -605,13 +606,13 @@ def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path
 
 
 def test_without_its_stand_in_the_statement_shows_why_it_cannot_run(tmp_path: Path) -> None:
-    shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, WEEKS)))
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, MONTHS)))
     assert "The Example database can&#x27;t run this Hive" in shown
 
 
 def test_a_stand_in_for_no_statement_is_refused(tmp_path: Path) -> None:
-    path = a_how_to(tmp_path, ">>> weeks = 1", stand_ins=WEEKS_IN_PANDAS)
-    with pytest.raises(how_to_page.HowToRefused, match="makes a Statement weeks"):
+    path = a_how_to(tmp_path, ">>> months = 1", stand_ins=MONTHS_IN_PANDAS)
+    with pytest.raises(how_to_page.HowToRefused, match="makes a Statement months"):
         how_to_page.how_to_html(how_to_page.read_how_to(path))
 
 
@@ -619,9 +620,9 @@ def test_a_stand_in_for_no_statement_is_refused(tmp_path: Path) -> None:
 def test_a_stand_in_the_example_database_doesnt_need_is_refused(tmp_path: Path) -> None:
     """A stand-in left after the Example database learns to run its Statement would leave the
     how-to saying, wrongly, that it can't."""
-    runs = WEEKS.replace("AS(week_start(job_runs.dt), \"week\")", "job_runs.status")
-    path = a_how_to(tmp_path, runs, stand_ins=WEEKS_IN_PANDAS)
-    with pytest.raises(how_to_page.HowToRefused, match="the Example database runs weeks"):
+    runs = MONTHS.replace("AS(month_start(job_runs.dt), \"month\")", "job_runs.status")
+    path = a_how_to(tmp_path, runs, stand_ins=MONTHS_IN_PANDAS)
+    with pytest.raises(how_to_page.HowToRefused, match="the Example database runs months"):
         how_to_page.how_to_html(how_to_page.read_how_to(path))
 
 def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path: Path) -> None:

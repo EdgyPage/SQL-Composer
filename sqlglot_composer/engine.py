@@ -169,10 +169,24 @@ def _check_executor() -> None:
     )
 
 
-def _teach_date_add() -> None:
-    """Give sqlglot's executor Hive's date_add and date_sub, which it reads as one function,
-    TsOrDsAdd, and has no Python for: a day as text, such as '2026-09-24', moved on by a
-    number of days, given back as text, as the Example database holds a day."""
+# Hive's names for each day of the week, Monday first, as NEXT_DAY reads them in any case.
+_HIVE_WEEKDAY_NAMES = [
+    ("MO", "MON", "MONDAY"), ("TU", "TUE", "TUESDAY"), ("WE", "WED", "WEDNESDAY"),
+    ("TH", "THU", "THURSDAY"), ("FR", "FRI", "FRIDAY"), ("SA", "SAT", "SATURDAY"),
+    ("SU", "SUN", "SUNDAY"),
+]
+
+
+def _teach_hive_days() -> None:
+    """Give sqlglot's executor the Hive day functions it has no Python for, each taking and
+    giving back a day as text, such as '2026-09-24', as the Example database holds a day.
+
+    - date_add and date_sub, which it reads as one function, TsOrDsAdd: the day moved on by a
+      number of days;
+    - next_day, which week_start writes: the first day after the given one that falls on the
+      named day of the week, such as 'MO', 'MON' or 'MONDAY' in any case, or NULL for a name
+      Hive doesn't know.
+    """
     import datetime
 
     from sqlglot.executor import env
@@ -184,7 +198,21 @@ def _teach_date_add() -> None:
         start = datetime.date.fromisoformat(str(day)[:10])
         return (start + datetime.timedelta(days=int(days))).isoformat()
 
-    env.ENV.setdefault("TSORDSADD", date_add)  # once: each later call keeps the first
+    def next_day(day: object, weekday: object) -> str | None:
+        if day is None or weekday is None:
+            return None
+        named = [number for number, names in enumerate(_HIVE_WEEKDAY_NAMES)
+                 if str(weekday).upper() in names]
+        if not named:
+            return None
+        start = datetime.date.fromisoformat(str(day)[:10])
+        # From 1 to 7 days on: a day already on the named weekday moves on a whole week.
+        ahead = (named[0] - start.weekday() - 1) % 7 + 1
+        return (start + datetime.timedelta(days=ahead)).isoformat()
+
+    # Once: each later call keeps the first.
+    env.ENV.setdefault("TSORDSADD", date_add)
+    env.ENV.setdefault("NEXTDAY", next_day)
 
 
 def _spell_out_likes(tree: exp.Expression) -> exp.Expression:
@@ -417,7 +445,7 @@ def _make_casts_plain(tree: exp.Expression) -> exp.Expression:
 
     sqlglot reads Hive's CAST as a TRY_CAST, since Hive gives NULL for a value it can't cast.
     Any value can be made text, so a CAST to text is the same plain, and the executor gets as
-    far as what it really lacks, such as week_start's NEXT_DAY. A CAST to any other type stays
+    far as what it really lacks, such as month_start's TRUNC. A CAST to any other type stays
     as it is, so the executor says it has no CAST rather than failing on a value Hive makes
     NULL.
     """
@@ -476,7 +504,7 @@ def _missing_function(tree: exp.Expression, error: str) -> str | None:
 
 
 def _refuse_missing_part(missing: str, error: Exception | None = None) -> NoReturn:
-    """Refuse a query that needs a part of Hive the executor hasn't got, such as NEXT_DAY.
+    """Refuse a query that needs a part of Hive the executor hasn't got, such as TRUNC.
 
     Raised here, not through refusals.refuse, so that the executor's own `error` stays the
     refusal's cause."""
@@ -1040,7 +1068,7 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
         _refuse_hive_it_cant_run(_reason_without_place(error), tables, error)
     _check_example_tables(tree, tables)
     _check_executor()
-    _teach_date_add()
+    _teach_hive_days()
     from sqlglot.executor import execute  # only when a query runs, as in _check_executor
 
     schema = {"ops": {name: dict(table._columns) for name, (table, _) in tables.items()}}

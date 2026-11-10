@@ -98,6 +98,11 @@ as at its top.
   the latest day `ops.job_events` holds; its build writes `mart.job_day_costs`,
   `mart.job_day_facts` and `mart.team_days` first. Its built Hive, `weekly_team.hql`, and its
   `lineage/` were exported by hand, as `admin/scheduled_runs.ipynb` exports them.
+- **The Example database runs week_start**, where it stopped saying its executor has no
+  NEXT_DAY: its NEXT_DAY gives the first day after the given one that falls on the named day,
+  `'MO'`, `'MON'` or `'MONDAY'` in any case, as Hive's does. So `weekly_team` runs on it, and
+  the how-tos and the Example gallery show each week's result from it, not from pandas.
+  month_start still can't run there: it has no TRUNC.
 
 ## 8.5
 
