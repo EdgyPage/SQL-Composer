@@ -1455,8 +1455,8 @@ the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list 
   parameters' defaults, to read and commit, and `project.export_run_lineage(RUNS)` its
   Lineage into the run's `lineage/`. Of the cells above its `# scheduled` cell, the
   `# parameters` cell runs whole, but of the others only their imports: never their
-  `connect(...)`, since `admin/scheduled_runs.ipynb`'s first cell connects for them, nor a
-  line of your own. So a constant or a function the `# scheduled` cell uses is defined in
+  `connect(...)`, since `admin/scheduled_runs.ipynb` connects for them, in its cell under
+  the Project's path, nor a line of your own. So a constant or a function the `# scheduled` cell uses is defined in
   that cell or the parameters cell, or imported above it.
 - `TABLES = ["mart.team_days"]`: `project.describe_logic(TABLES)`, as in step 2.
 
