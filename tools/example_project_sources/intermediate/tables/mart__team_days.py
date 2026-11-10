@@ -20,8 +20,9 @@
 # the same way, from ops.job_events and ops.job_owners themselves, without the costs. Its
 # lineage, cell 4, draws all three tables, through the other two notebooks' logic.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__team_days.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__team_days.hql;
+# 6 its rows in the Reference sheet.
 
 # %%
 # 1. The Project and your query

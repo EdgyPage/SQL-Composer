@@ -1149,7 +1149,9 @@ def to_8_6(upgrade: Upgrade) -> None:
     Each notebook of the Toolbox's that reaches the warehouse gains its setup cell's
     connect(...): each Workflow notebook is written again, each name given and each step cell
     you wrote in kept; each Table notebook and check_references.ipynb gain connect after
-    their import from warehouse and the lines under it; run_tables.ipynb gains its cell that
+    their import from warehouse and the lines under it, a Table notebook's list of its code
+    cells, where it is as the Example projects wrote it, saying cell 1 connects;
+    run_tables.ipynb gains its cell that
     connects; remove.ipynb gains SCHEDULED_RUNS, keeping what you named; and each admin
     notebook's text is 8.6's. Each Template still as 8.5 wrote it is written again, and one you
     changed is marked; each is left with its line to fill in, as start() writes it. The Project
@@ -1213,6 +1215,15 @@ _CONNECTED = ("connected each Toolbox notebook that reaches the warehouse to the
 _WAREHOUSE_IMPORT = re.compile(r"^from warehouse import (?!.*\bconnect\b)(?P<names>[\w, ]+?)"
                                r"(?P<comment>\s*#.*)?$")
 _CONNECT_IMPORT = re.compile(r"^\s*from warehouse import .*\bconnect\b", re.MULTILINE)
+# A Table notebook's list of its code cells in its text cell, as 8.2 to 8.5's Example projects
+# wrote it, and as 8.6's write it, saying cell 1 connects.
+_CODE_CELLS_LINE = re.compile(
+    r"^The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 "
+    r"try it;\n4 its lineage; 5 its Hive, in (?P<hql>\S+\.hql); 6 its rows in the Reference "
+    r"sheet\.$", re.MULTILINE)
+_CODE_CELLS_LINE_8_6 = ("The code cells: 1 the Project and your query, connected by "
+                        "`connect(...)`; 2 the logic,\nwhich starts `# logic`; 3 try it; 4 its "
+                        "lineage; 5 its Hive, in \\g<hql>;\n6 its rows in the Reference sheet.")
 _REACHES_THE_WAREHOUSE = re.compile(r"^\s*(from warehouse import|import warehouse\b)")
 # Each Template as 8.2 to 8.5 wrote it, by its hash, which 8.6 writes again with cell 1's
 # connect(...).
@@ -1505,13 +1516,25 @@ def _filled(text: str, connection: str | None) -> str:
                      for line in text.split("\n"))
 
 
+def _code_cells_line_as_8_6(cells: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """A Table notebook's cells with its text cell's list of the code cells, where it is as
+    8.2 to 8.5's Example projects wrote it, saying cell 1 connects, as 8.6's says."""
+    written = []
+    for kind, text in cells:
+        if kind == "markdown":
+            text = _CODE_CELLS_LINE.sub(_CODE_CELLS_LINE_8_6, text)
+        written.append((kind, text))
+    return written
+
+
 def _connect_notebook(upgrade: Upgrade, relative: str) -> None:
-    """Connect a notebook's setup cell, as 8.6 writes it, kept in the archive first; one
-    Jupyter couldn't open, or that connects already, is left."""
+    """Connect a notebook's setup cell, as 8.6 writes it, kept in the archive first, and
+    have its text cell's list of the code cells say cell 1 connects; one Jupyter couldn't
+    open is left."""
     cells = read_cells_if_readable(upgrade.root / relative)
     if cells is None:
         return
-    connected = _connected_cells(cells)
+    connected = _code_cells_line_as_8_6(_connected_cells(cells))
     if connected != cells:
         upgrade.rewrite_notebook(relative, connected,
                                  f"connected {relative} with connect(...), at its top")
