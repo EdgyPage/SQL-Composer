@@ -31,7 +31,9 @@ _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=marg
 
 
 class PythonStep:
-    """A change made in Python and saved by your own call, made by python_step(...).
+    """A change made in Python, saved by you or, given rows=, by a Scheduled run.
+
+    python_step(...) makes one.
 
     >>> import pandas as pd
     >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:
@@ -58,7 +60,7 @@ class PythonStep:
     def __init__(self, function: Callable[..., object], file: str | None, in_notebook: bool,
                  reads: list[tuple[Table, str]], writes: Table,
                  rows: Statement | UncheckedStatement | None = None) -> None:
-        self._function = function  # the function itself, which a Scheduled run calls
+        self._function = function  # the function itself, which changed_rows calls
         self._rows = rows  # the SELECT whose rows the function takes, rows=, or None
         self._name = function.__qualname__  # its name, as in add_margin or Prices.add_margin
         # Its first line: its def line, or the line of its first decorator, if it has one.
@@ -91,11 +93,12 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
 
     Some steps are easier in pandas than in a Statement. You pull the rows with a Statement,
     change them with a function of your own, and save them to a table with your own call, as
-    your work's API does. The Toolbox moves none of that data. python_step tells it what
-    happened, so the Lineage of your tables doesn't stop at the gap: `function` is the function
-    that made the change, `reads` the columns of the table the rows came from that the function
-    uses or carries through to the rows it saves (a Table reference stands for every one of its
-    columns), and `writes` the table its rows were saved to.
+    your work's API does. The Toolbox moves none of that data, except in a Scheduled run,
+    below. python_step tells it what happened, so the Lineage of your tables doesn't stop at
+    the gap: `function` is the function that made the change, `reads` the columns of the table
+    the rows came from that the function uses or carries through to the rows it saves (a Table
+    reference stands for every one of its columns), and `writes` the table its rows were saved
+    to.
 
     Where the function lives is read from the function itself: its file, from your Project's
     folder (or, outside a Project, the folder it is in), its name and its first line. Keep it
@@ -188,14 +191,34 @@ def python_step_text(step: PythonStep) -> str:
 # --- Saving a Python step's rows, in a Scheduled run ------------------------------------------
 
 
-def saving_hive(step: PythonStep, rows: object, call: str) -> str | None:
-    """The Hive that saves `rows`, what a Python step's function gave back, to the table it
-    writes, or None when there are no rows to save: INSERT OVERWRITE, each value cast to its
-    column's type, the partition columns last, so each Partition the rows fill is written
-    again. Refused, naming the table: what isn't a DataFrame, a column of the table the rows
-    lack or one they have that it hasn't, and a value that doesn't fit its column."""
+def step_rows(step: PythonStep) -> Statement | UncheckedStatement | None:
+    """The SELECT whose rows a Python step's function takes, its rows=, or None when it was
+    given none."""
+    return step._rows
+
+
+def is_partitioned(step: PythonStep) -> bool:
+    """Whether the table a Python step writes is partitioned, so saving its rows fills
+    Partitions from them."""
+    return bool(step._writes._partitioned_by)
+
+
+def changed_rows(step: PythonStep, rows: pd.DataFrame, call: str) -> pd.DataFrame:
+    """What a Python step's function gives back, given `rows`, those its rows= SELECT pulled.
+    Refused, naming the table: what isn't a DataFrame, and rows that lack a column of the
+    table or have one it hasn't."""
+    changed = step._function(rows)
+    _check_rows_saved(step, changed, call)
+    return changed
+
+
+def saving_hive(step: PythonStep, rows: pd.DataFrame, call: str) -> str | None:
+    """The Hive that saves `rows`, what a Python step's function gave back, as changed_rows
+    checked them, to the table it writes, or None when there are no rows to save: INSERT
+    OVERWRITE, each value cast to its column's type, the partition columns last, so each
+    Partition the rows fill is written again. Refused, naming the table: a value that doesn't
+    fit its column."""
     table = step._writes
-    _check_rows_saved(step, rows, call)
     if rows.empty:
         return None
     partitioned_by = list(table._partitioned_by)

@@ -112,10 +112,18 @@ class GuardLetThrough(NamedTuple):
 # What a Guard let through adds to what happened, in its GuardWarning.
 LET_THROUGH = ("A Guard refuses this; in a Scheduled run's own cell it only warns, and the "
                "build lists it.")
-# While project.build_run calls a Scheduled run's statements() (Toolbox 8.6): the names of the
-# run's own notebook, whose own code's Guards only warn, and each Guard let through, innermost
-# last.
-_GUARDS_WARN: list[tuple[dict[str, object], list[GuardLetThrough]]] = []
+class GuardsWarnIn(NamedTuple):
+    """Whose Guards only warn while project.build_run calls a Scheduled run's statements()
+    (Toolbox 8.6): the names of the run's own notebook, whose own code's Guards only warn,
+    and each Guard let through, in order."""
+
+    names: dict[str, object]
+    let_through: list[GuardLetThrough]
+
+
+# While project.build_run calls a Scheduled run's statements(), whose Guards only warn; None at
+# any other time.
+_GUARDS_WARN: GuardsWarnIn | None = None
 
 
 @contextlib.contextmanager
@@ -124,12 +132,13 @@ def guards_warn_in(names: dict[str, object]) -> Iterator[list[GuardLetThrough]]:
     `names`, a Scheduled run's own notebook's, warns with a GuardWarning in place of refusing;
     the list it gives holds each one let through. Code with any other names, a Table
     notebook's logic that load runs among it, keeps its Guards."""
-    let_through: list[GuardLetThrough] = []
-    _GUARDS_WARN.append((names, let_through))
+    global _GUARDS_WARN  # one build at a time; the one before, if any, comes back after
+    before = _GUARDS_WARN
+    _GUARDS_WARN = GuardsWarnIn(names, [])
     try:
-        yield let_through
+        yield _GUARDS_WARN.let_through
     finally:
-        _GUARDS_WARN.pop()
+        _GUARDS_WARN = before
 
 
 def _refuse_or_let_through(what: str, why: str, fix: str, opt_out: str | None) -> None:
@@ -137,12 +146,12 @@ def _refuse_or_let_through(what: str, why: str, fix: str, opt_out: str | None) -
     and the call that tripped the Guard is the run's own notebook's code, warn with the
     Guard's four parts, its opt-out named, and note it for the build to list."""
     frame = callers_frame()
-    if not _GUARDS_WARN or frame.f_globals is not _GUARDS_WARN[-1][0]:
+    if _GUARDS_WARN is None or frame.f_globals is not _GUARDS_WARN.names:
         refuse(what=what, why=why, fix=fix, opt_out=opt_out, error=GuardRefused)
     message = four_part_message(what=f"{what} {LET_THROUGH}", why=why, fix=fix, opt_out=opt_out)
     warn_at_callers_line(message, GuardWarning)
     line = linecache.getline(frame.f_code.co_filename, frame.f_lineno).strip()
-    _GUARDS_WARN[-1][1].append(GuardLetThrough(what, line or f"line {frame.f_lineno}"))
+    _GUARDS_WARN.let_through.append(GuardLetThrough(what, line or f"line {frame.f_lineno}"))
 
 
 # --- Guards: each refuses a wrong answer --------------------------------------------------

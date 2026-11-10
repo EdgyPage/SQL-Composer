@@ -16958,7 +16958,7 @@ WHERE
 
 ## speed_step
 
-A Python step: a change made in Python, outside any Statement, and saved by your own call. The Toolbox can&#x27;t see inside it, so its columns can&#x27;t be followed through it, and it never moved its data. It reads ops.job_events.event_id, ops.job_events.job_id, ops.job_events.minutes and ops.job_events.dt, and writes mart.run_speed.
+A Python step: a change made in Python, outside any Statement, and saved by your own call or, given rows=, by a Scheduled run. The Toolbox can&#x27;t see inside it, so its columns can&#x27;t be followed through it. It reads ops.job_events.event_id, ops.job_events.job_id, ops.job_events.minutes and ops.job_events.dt, and writes mart.run_speed.
 
 ### Where it lives
 
@@ -17026,8 +17026,8 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <pre class="python">run_execute(speed_step, execute)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  run_execute was given a Python step, which sends nothing.
-  Why it matters: It sends Hive through your query or execute, and a Python step has none: python_step(...) only declares a change you make in Python and save with your own call, so Lineage can show it. The Toolbox never moves its data.
-  Usual fix:      Save the rows with your own call, as you do now, and pass the step to export_lineage(...) with your Statements. show_hive(step) prints comment lines saying what it is, and in a Table notebook&#x27;s write() project.run_tables passes over it.
+  Why it matters: It sends Hive through your query or execute, and a Python step has none: python_step(...) declares a change you make in Python and save with your own call, or, given rows=, that a Scheduled run&#x27;s built.run saves, so Lineage can show it.
+  Usual fix:      Save the rows with your own call, as you do now, and pass the step to export_lineage(...) with your Statements; or give it rows= and send it in a Scheduled run. show_hive(step) prints comment lines saying what it is, and in a Table notebook&#x27;s write() project.run_tables passes over it.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Save the rows with your own call, and pass the step to <code>export_lineage</code>.</p>
 <h5>Passing what the function gave back</h5>
