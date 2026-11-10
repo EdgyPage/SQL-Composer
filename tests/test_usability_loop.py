@@ -14,6 +14,8 @@ import json
 import re
 import shutil
 import sys
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -388,9 +390,10 @@ def test_a_cache_builds_mains_tree_once_per_commit_and_each_warehouse_once_per_s
     set_ups: list[str] = []
     set_up = usability_loop.set_up_the_scenario
 
-    def counted_set_up(chosen: usability_loop.Scenario, place: Path, main: Path) -> None:
+    def counted_set_up(chosen: usability_loop.Scenario, set_up_folder: Path,
+                       main_tree: Path) -> None:
         set_ups.append(chosen.id)
-        set_up(chosen, place, main)
+        set_up(chosen, set_up_folder, main_tree)
 
     monkeypatch.setattr(usability_loop, "set_up_the_scenario", counted_set_up)
     cache = tmp_path / "cache"
@@ -411,6 +414,71 @@ def test_a_cache_builds_mains_tree_once_per_commit_and_each_warehouse_once_per_s
     assert "mart_dev.fails" not in json.loads(
         (third / "_loop" / "warehouse.json").read_text(encoding="utf-8"))
     assert _inputs(third)["inputs_hash"] == _inputs(runs[0])["inputs_hash"]
+
+
+def test_two_builds_racing_on_one_place_leave_one_whole_folder(tmp_path: Path) -> None:
+    # The code review (2026-11-09): two prepares at once each built into one .building folder,
+    # the second deleting the first's. Each builds into a folder of its own now, and the one
+    # that reaches the place second discards its own.
+    place = tmp_path / "cache" / "main" / "a_commit"
+    both_building = threading.Barrier(2)
+
+    def build(into: Path) -> None:
+        into.mkdir()
+        both_building.wait(timeout=10)  # each is part way through when the other is
+        for number in range(20):
+            (into / f"file_{number}.txt").write_text(f"{number}\n", encoding="utf-8")
+
+    returned: list[Path] = []
+
+    def race() -> None:
+        returned.append(usability_loop.build_in_place(place, build))
+
+    threads = [threading.Thread(target=race) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert returned == [place, place]
+    assert [path.name for path in place.parent.iterdir()] == ["a_commit"]
+    assert sorted(path.name for path in place.iterdir()) == sorted(
+        f"file_{number}.txt" for number in range(20))
+
+
+def test_a_prepare_waits_for_the_caches_lock_and_refuses_once_it_has_waited_too_long(
+        chosen: usability_loop.Scenario, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # The code review (2026-11-09): a prepare building a new commit's tree dropped the other
+    # commits' caches, though another prepare might be copying from one.
+    builds: list[str] = []
+    monkeypatch.setattr(usability_loop, "build_main", _fake_build(builds))
+    monkeypatch.setattr(usability_loop, "LOCK_WAIT", 0.2)
+    monkeypatch.setattr(usability_loop, "LOCK_POLL", 0.05)
+    cache = tmp_path / "cache"
+    other = cache / "main" / ("0" * 40)
+    other.mkdir(parents=True)
+    with usability_loop.hold_the_cache(cache):
+        with pytest.raises(TimeoutError, match="prepare.lock"):
+            usability_loop.prepare(chosen, tmp_path / "run_1", cache=cache,
+                                   python=Path(sys.executable))
+        assert other.is_dir() and builds == []
+    monkeypatch.setattr(usability_loop, "LOCK_WAIT", 30)
+    held = threading.Event()
+
+    def hold_a_moment() -> None:
+        with usability_loop.hold_the_cache(cache):
+            held.set()
+            time.sleep(0.3)
+
+    holder = threading.Thread(target=hold_a_moment)
+    holder.start()
+    held.wait(timeout=10)
+    run = usability_loop.prepare(chosen, tmp_path / "run_2", cache=cache,
+                                 python=Path(sys.executable))
+    holder.join(timeout=10)
+    assert builds == [usability_loop.dev_commit()] and not other.exists()
+    assert (run / "main" / ".github" / "README.md").is_file()
+    assert not (cache / usability_loop.LOCK).exists()
 
 
 RESULTS_HEAD = ("| date | scenario | split | run | result | questions | note |\n"
@@ -543,6 +611,17 @@ def test_the_runner_refuses_a_parameter_with_no_tagged_cell_to_follow(
     notebook = _tagged_notebook(tmp_path / "run.ipynb", tagged=False)
     assert notebook_runner.main([str(notebook), "-p", "WEEK", "2026-09-16"]) == 1
     assert "no code cell tagged parameters" in capsys.readouterr().out
+
+
+def test_the_runner_refuses_parameters_when_cells_leaves_out_the_tagged_cell(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # The drift review (2026-11-09): -p with --cells 2 dropped WEEK without a word.
+    notebook = _tagged_notebook(tmp_path / "run.ipynb")
+    assert notebook_runner.main([str(notebook), "--cells", "2", "-p", "WEEK", "x"]) == 1
+    shown = capsys.readouterr().out
+    assert "code cell 1, tagged parameters" in shown and "--cells" in shown
+    assert "--- cell" not in shown
+    assert notebook_runner.main([str(notebook), "--cells", "1-2", "-p", "WEEK", "x"]) == 0
 
 
 @pytest.mark.parametrize("arguments", [[], ["a.ipynb", "b.ipynb"], ["--cells", "a.ipynb"],
