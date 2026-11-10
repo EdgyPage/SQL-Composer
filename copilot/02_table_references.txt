@@ -1,4 +1,4 @@
-# Copilot file 02: Table references (sqlglot Composer 8.5)
+# Copilot file 02: Table references (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -8,7 +8,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.

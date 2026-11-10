@@ -44,7 +44,7 @@ Project 7.2 left:
 ...     Path(added).unlink()
 >>> shutil.rmtree("admin/workflows")
 >>> version = Path("admin/project_version.txt")  # -> Path
->>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.5", "7.2", 1),
+>>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.6", "7.2", 1),
 ...                        encoding="utf-8")
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
@@ -61,7 +61,7 @@ Nothing is refused meanwhile: your notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.2, and this Toolbox is 8.5: run step 1's cell of
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.6: run step 1's cell of
     admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no
     such notebook until its first Upgrade, so there project.upgrade() goes in
     admin/check_project.ipynb.
@@ -77,7 +77,7 @@ admin/check_project.ipynb, which imports `project` already; the Upgrade adds the
 notebook, for the next time.
 
 >>> print(project.upgrade())
-Upgraded the Project from 7.2 to 8.5.
+Upgraded the Project from 7.2 to 8.6.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
@@ -85,16 +85,17 @@ Upgraded the Project from 7.2 to 8.5.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
 8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
 8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
+8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
 Read each step's checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md,
-    admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md and
-    admin/upgrade_8.5.md.
+    admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md
+    and admin/upgrade_8.6.md.
 
-Done when it prints "Upgraded the Project from 7.2 to 8.5.". Then step 4.
+Done when it prints "Upgraded the Project from 7.2 to 8.6.". Then step 4.
 
 ### 4. Read each checklist
 
 Goal: know what the Upgrade did and what it left you. It ran the step from each version to the
-next, here six, and wrote a checklist for each, which its last line names in order:
+next, here seven, and wrote a checklist for each, which its last line names in order:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
@@ -149,7 +150,7 @@ Every Table folder, Table reference, Building block and Scheduled run is registe
 Run again, the Upgrade does nothing:
 
 >>> print(project.upgrade())
-The Project is at 8.5 already, as this Toolbox is: nothing to upgrade.
+The Project is at 8.6 already, as this Toolbox is: nothing to upgrade.
 
 Before you go on, check that:
 

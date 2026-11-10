@@ -1,4 +1,4 @@
-# Copilot file 04: joins (sqlglot Composer 8.5)
+# Copilot file 04: joins (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -8,7 +8,7 @@ match in another table, or a count of matches.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
   `equals(...)`.
 - `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.

@@ -1,0 +1,18 @@
+{
+ "files": {
+  "admin/workflows/convert/team_failures/batch.md": "4816147a4abf8d90f57337f639bcbe1be91c6b4d93470bdb2bfd63cdac300d10",
+  "references/mart__team_failures.py": "02fcdd5841304acde8a3acbbc8e363b2dff341c2c8f316620d5491bb6e6f09bf",
+  "tables/mart__team_failures/conversion/checklist.md": "65fbd747bdcfac2462ca3fadafd2b7b348b9adfaa6d6c2a9815ed6cc8e331920",
+  "tables/mart__team_failures/conversion/in_dev.hql": "11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766",
+  "tables/mart__team_failures/conversion/scan.md": "aabcee7c9b773f3edc43004da6b44640413bf249e97cd23bdcf0a901aaaf6a7a",
+  "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
+  "tables/mart__team_failures/mart__team_failures.ipynb": "0d6c71d561907ab49898e627505b4124d77e093450bf784374915071f29e863f"
+ },
+ "originals": {
+  "mart.team_failures": "ops_reports.team_failures"
+ },
+ "seeded": [],
+ "tables": [
+  "mart.team_failures"
+ ]
+}
