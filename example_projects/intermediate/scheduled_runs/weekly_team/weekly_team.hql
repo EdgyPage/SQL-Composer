@@ -11,7 +11,7 @@
 --   WEEK = None
 
 -- 1 of 4: mart.job_day_costs (read by mart.team_days)
--- The Session setting "dynamic_partitions": this write fills dt from its rows.
+-- Session settings: dynamic_partitions, sent one line at a time
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
 WITH costs_per_job AS (
@@ -46,9 +46,6 @@ SELECT
 FROM costs_per_job;
 
 -- 2 of 4: mart.job_day_facts (read by mart.team_days)
--- The Session setting "dynamic_partitions": this write fills dt from its rows.
-SET hive.exec.dynamic.partition=true;
-SET hive.exec.dynamic.partition.mode=nonstrict;
 WITH events_per_job AS (
   SELECT
     job_events.job_id,
@@ -83,9 +80,6 @@ LEFT JOIN ops.job_owners AS job_owners
   AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24';
 
 -- 3 of 4: mart.team_days (read by week_totals)
--- The Session setting "dynamic_partitions": this write fills dt from its rows.
-SET hive.exec.dynamic.partition=true;
-SET hive.exec.dynamic.partition.mode=nonstrict;
 INSERT OVERWRITE TABLE mart.team_days PARTITION(dt)
 SELECT
   job_day_facts.team,
