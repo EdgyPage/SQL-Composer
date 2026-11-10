@@ -15,8 +15,9 @@ WEEK: datetime.date | None = None  # a day of the week to add up, such as "2026-
 # The Statements this run sends, each by its name: a SELECT's rows come back in results by it.
 # A Table notebook's logic gives them through project.load, such as
 #     "week_totals": project.load("mart.team_days").week_totals(FIRST_DAY, LAST_DAY),
-# and a Statement of your own is composed here with statement(...). A function of this cell
-# that gives a value each time it is built, through run_value(...), is a Run value too.
+# and a Statement of your own is composed here with statement(...). A value worked out each
+# time the run is built goes in as run_value(function), a function of this cell, such as
+# week_totals(run_value(week_first_day), ...): import run_value from sqlglot_composer here.
 from sqlglot_composer import latest_partition, run_value
 from references.ops__job_events import job_events
 

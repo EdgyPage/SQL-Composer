@@ -157,7 +157,9 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     you, in Jupyter; you fill in nothing: keep it for trying things out, or delete it.
 - **At the Project's top:**
   - `warehouse.py`: made by `project.start()`; you fill in nothing: each notebook's line
-    `connect(...)` takes your connection.
+    `connect(...)` takes your connection. Only if your connection names its two calls other
+    than `query(sql)` and `execute(sql)` do you edit it: change the calls warehouse.py's
+    `query` and `execute` make, and the names its `connect` checks for, to yours.
 - **In admin/:**
   - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
     run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for
@@ -1324,8 +1326,8 @@ flowchart TD
 ## Scheduled runs
 
 A **Scheduled run** is a notebook in `scheduled_runs/<name>/` that an outside scheduler, such
-as papermill or your team's, runs top to bottom: one job that writes the tables it needs, in
-order, and reads back what you asked for, without running the whole Project. Building and
+as papermill or your team's, runs top to bottom: one notebook that writes the tables it needs,
+in order, and reads back what you asked for, without running the whole Project. Building and
 running are separate cells: the Build cell prints the Hive and sends nothing, and the Run cell
 sends it. It has no dev or prod of its own: it writes the tables it names, in whichever
 Database they are.
@@ -1394,7 +1396,8 @@ To make one:
      before what reads it; a table outside the Project is only read. So a run asking for one
      SELECT may write the tables it reads first: that is what keeps them up to date. If a
      table it would write is written elsewhere, such as by another run, name it in
-     `leave_out=["mart.job_day_facts"]`, which leaves out what only that table reads too.
+     `leave_out=["mart.job_day_facts"]`, which leaves out its write, and the write of each
+     table the build added only because mart.job_day_facts reads it.
    - `run_values={"period_end": RUN_DATE}` gives RUN_DATE, for this run, to every Run value
      whose function is named `period_end`, in place of calling it, wherever it is used: in
      a write the build adds, too, whose `write()` takes no arguments to give it a day. This
@@ -1411,7 +1414,11 @@ To make one:
      notebook fail, once it has printed the tables written before it and the line to run again
      from, such as `START_FROM = "mart.team_days"`, or, for a SELECT that failed, its name.
      Pass that `START_FROM` to the next run, and the build passes over each Statement before
-     it. A plain run again is safe too.
+     it. A plain run again, `START_FROM` left `""`, is safe too when each write is an
+     `INSERT_OVERWRITE`, printed by the build as `INSERT OVERWRITE TABLE`, which replaces the
+     Partitions it fills, or the whole table when it has none. A write made with
+     `INSERT_INTO`, printed as `INSERT INTO TABLE`, adds its rows each time it is sent, so a
+     run holding one runs again only with the `START_FROM` it printed.
    - Nothing is written as a run runs: no lineage and no record. The scheduler's saved output
      is the run's record.
 8. **Schedule it.** Goal: the scheduler runs the notebook. Action: have your scheduler run the
@@ -1446,9 +1453,11 @@ the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list 
 - `RUNS = ["weekly"]`: `project.export_run_hive(RUNS)` writes
   `scheduled_runs/weekly/weekly.hql`, the run's Hive as its Build cell builds it, with its
   parameters' defaults, to read and commit, and `project.export_run_lineage(RUNS)` its
-  Lineage into the run's `lineage/`. Only the imports of the cells above its `# scheduled`
-  cell run, never its `connect(...)`, so a name the `# scheduled` cell uses is defined in
-  that cell or the parameters cell.
+  Lineage into the run's `lineage/`. Of the cells above its `# scheduled` cell, the
+  `# parameters` cell runs whole, but of the others only their imports: never their
+  `connect(...)`, since `admin/scheduled_runs.ipynb`'s first cell connects for them, nor a
+  line of your own. So a constant or a function the `# scheduled` cell uses is defined in
+  that cell or the parameters cell, or imported above it.
 - `TABLES = ["mart.team_days"]`: `project.describe_logic(TABLES)`, as in step 2.
 
 `project.remove_scheduled_run("weekly")` archives a run in admin/removed/, deleting nothing,
@@ -1724,11 +1733,16 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      `{"database": "mart_dev", ...}`, marking `"location_root"` in each for you to fill in.
      Until you fill it in, each new table's location stays a Decision, as in 8.4.
    - If your Project was at 8.5, the 8.6 Upgrade carries it to 8.6: it writes `warehouse.py`
-     with its `connect`, adds a `connect(...)` line to the setup cell of each notebook that
-     reaches the warehouse, and makes `scheduled_runs/`, the `scheduled_run` Template and
-     `admin/scheduled_runs.ipynb`. If `conn` was still the Example database, each notebook is
-     connected to it, `connect(example_database)`, as `conn` was. If `conn` is your own, its
-     lines stay in `warehouse.py`, marked for you to move into each notebook's
+     with its `connect`, adds a `connect(...)` line to the setup cell of each of the
+     Toolbox's notebooks that reaches the warehouse, and makes `scheduled_runs/`, the
+     `scheduled_run` Template and `admin/scheduled_runs.ipynb`. A notebook of your own that
+     imports from warehouse, and one of the Toolbox's whose import it can't connect, such as
+     one inside a `try`, is marked at that import for you to connect by hand. If `conn` was
+     still the Example database, each of the Toolbox's notebooks is connected to it,
+     `connect(example_database)`, as `conn` was, and each line of yours that imports `conn`
+     from warehouse, or reads `warehouse.conn`, is marked: the new `warehouse.py` has no
+     `conn`, so use `example_database` in its place, or `query` and `execute`. If `conn` is
+     your own, its lines stay in `warehouse.py`, marked for you to move into each notebook's
      `connect(...)` line: fill each in with your connection, since until a notebook connects,
      its `query` and `execute` refuse.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in

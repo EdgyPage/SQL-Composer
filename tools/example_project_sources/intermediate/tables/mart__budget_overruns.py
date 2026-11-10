@@ -14,8 +14,9 @@
 # days like 20260924, so FIRST_DAY and LAST_DAY are written its way by `as_written_here`, from
 # `building_blocks/costs_per_job.py`. A bill not in yet, NULL, is never over budget.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__budget_overruns.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__budget_overruns.hql;
+# 6 its rows in the Reference sheet.
 
 # %%
 # 1. The Project and your query

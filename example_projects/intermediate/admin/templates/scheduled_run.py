@@ -38,8 +38,9 @@
 #    cells down to the Build cell. If a table it would write is written elsewhere, name it in
 #    `leave_out=`. Done when it prints each Statement's Hive in order; then step 5.
 # 5. **Run.** Goal: the Statements sent and the SELECTs' rows back. Action: run the Run cell,
-#    or have the scheduler run the notebook. Done when it ends with no error;
-#    `results["<RESULT_NAME>"]` is that SELECT's rows.
+#    or have the scheduler run the notebook. Done when it ends with no error; each SELECT's
+#    rows are in `results` by the name `statements()` gives it, such as
+#    `results["week_totals"]`.
 #
 # ## What the build prints
 #
@@ -89,8 +90,9 @@ from warehouse import connect, execute, query
 # The Statements this run sends, each by its name: a SELECT's rows come back in results by it.
 # A Table notebook's logic gives them through project.load, such as
 #     "week_totals": project.load("mart.team_days").week_totals(FIRST_DAY, LAST_DAY),
-# and a Statement of your own is composed here with statement(...). A function of this cell
-# that gives a value each time it is built, through run_value(...), is a Run value too.
+# and a Statement of your own is composed here with statement(...). A value worked out each
+# time the run is built goes in as run_value(function), a function of this cell, such as
+# week_totals(run_value(week_start), ...): import run_value from sqlglot_composer here.
 
 
 def statements() -> dict[str, Statement]:
@@ -102,13 +104,14 @@ def statements() -> dict[str, Statement]:
 # %%
 # Build: the Statements, in order, and their Hive, printed; nothing sent
 # It reads the parameters first, then builds each Statement, adding the writes of each table
-# of this Project they read. run_values={"period_end": RUN_DATE} gives a Run value a value of
-# yours, by its name; leave_out=["mart.daily_job_runs"] leaves out a table it would write.
+# of this Project they read. run_values={"period_end": RUN_DATE} gives a parameter of yours,
+# RUN_DATE, to each Run value whose function is named period_end, in the writes added too;
+# leave_out=["mart.daily_job_runs"] leaves out that table's write, and what only it reads.
 built = project.build_run(statements, run_values={}, leave_out=[])
 
 # %%
 # Run: each one sent, in the build's order
-# Each write is sent through execute and each SELECT through query; results["<RESULT_NAME>"]
-# is that SELECT's rows. One that fails stops the rest, and the run prints the START_FROM to
-# send the rest from.
+# Each write is sent through execute and each SELECT through query; each SELECT's rows are in
+# results by the name statements() gives it, such as results["week_totals"]. One that fails
+# stops the rest, and the run prints the START_FROM to send the rest from.
 results = built.run(query, execute)

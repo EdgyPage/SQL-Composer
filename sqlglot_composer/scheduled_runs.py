@@ -147,8 +147,11 @@ def _declared_parameters(notebook: Path, shown: str, call: str) -> list[tuple[st
             why="A scheduler such as papermill puts the values it passes in a cell after the "
             f"one tagged {PARAMETERS_TAG}; with none tagged, it puts them first, and the "
             "parameters cell's defaults then write over them.",
-            fix=f"Tag the cell {PARAMETERS_TAG}: in Jupyter, View, then Cell Toolbar, then "
-            f"Tags, and add {PARAMETERS_TAG} to it.",
+            fix=f"Give the cell the tag {PARAMETERS_TAG}, the word papermill looks for: in "
+            "JupyterLab, select the cell, open the Property Inspector (the gear icon in the "
+            f"right sidebar) and add {PARAMETERS_TAG} under Cell Tags; in VS Code, with the "
+            "cell selected, run Add Cell Tag from the Command Palette and type "
+            f"{PARAMETERS_TAG}. Then save the notebook.",
             error=ValueError,
         )
     declared = []

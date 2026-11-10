@@ -60,9 +60,9 @@ building a Statement of its own, file 17 for a Run value's function in building_
 - The build adds the write of each Project table the Statements read, all the way up, on that
   table's own days, so never list those writes yourself. If the user says another run or job
   writes a table, give it in `leave_out=["mart.job_day_facts"]`.
-- A parameter reaches only what `statements()` passes it to. To reach a Run value inside a
-  logic function, such as one a `write()` taking no arguments uses, a write the build adds
-  among them: `run_values={"period_end": RUN_DATE}`, by that Run value's function's name.
+- A parameter reaches only what `statements()` passes it to. A write the build adds is its
+  table's `write()`, which takes no arguments. To give a Run value inside it the user's value,
+  write `run_values={"period_end": RUN_DATE}`, keyed by that Run value's function's name.
   Leave it `{}` unless the user names such a value.
 - A Statement of the user's own is composed in the cell with `statement(...)`, as file 03
   says; a Guard it trips only warns there, so add no opt-out for it.

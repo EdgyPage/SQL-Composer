@@ -8,13 +8,16 @@ connect(your_connection), before it calls query or execute; until it does, they 
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
 back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which one sends each Statement, by calling
-run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute) for
-what changes something, as a write does. Let the two share one session, so a Session setting
-sent through execute holds for what is sent after it; and let each raise when the warehouse
-reports a failure, since the Toolbox knows a step failed only when your connection raises. Keep
-it importing nothing from references/, building_blocks/ or tables/, so any notebook or script
-of yours can import it.
+connect(example_database). You pick which of query and execute sends each Statement, by
+calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
+execute) for what changes something, as a write does; a Scheduled run's Run cell,
+built.run(query, execute), picks for each of its Statements the same way. You edit nothing
+here, unless your connection names its two calls another way: then change the calls query and
+execute make below, and the names connect checks for, ("query", "execute"), to yours. Let your
+connection's two calls share one session, so a Session setting sent through execute holds for
+what is sent after it; and let each raise when the warehouse reports a failure, since the
+Toolbox knows a step failed only when your connection raises. Keep it importing nothing from
+references/, building_blocks/ or tables/, so any notebook or script of yours can import it.
 """
 
 from typing import NoReturn

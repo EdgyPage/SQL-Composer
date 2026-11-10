@@ -313,8 +313,9 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
     # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
     #
-    # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-    # 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet.
+    # The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+    # which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql;
+    # 6 its rows in the Reference sheet.
     # The logic only imports and defines, so `project.load("mart.alerts_per_severity")` can run it
     # from anywhere else, for lineage across your tables and for `admin/run_tables.ipynb`, which
     # sends its `write()`.

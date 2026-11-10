@@ -11,8 +11,9 @@
 # Made by `project.new_table("mart.job_events_checks", template="quality_checks")` from
 # `admin/templates/quality_checks.py`, then filled in.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its Hive, in mart__job_events_checks.hql; 6 its rows in the Reference sheet.
+# The code cells: 1 the Project and your query, connected by `connect(...)`; 2 the logic,
+# which starts `# logic`; 3 try it; 4 its lineage; 5 its Hive, in mart__job_events_checks.hql;
+# 6 its rows in the Reference sheet.
 
 # %%
 # 1. The Project and your query

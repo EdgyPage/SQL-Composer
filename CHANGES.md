@@ -33,7 +33,8 @@ cell and sent in the next.
 - **Each notebook of the Toolbox's that reaches the warehouse gains `connect`** in its
   `from warehouse import` line, and the connect lines under it: each Workflow notebook,
   written again with each name and step cell you gave kept, `admin/check_references.ipynb`
-  and each Table notebook. `admin/run_tables.ipynb` gains its cell that connects, under the
+  and each Table notebook, whose text cell's list of its code cells, where it is as the Example
+  projects wrote it, now says cell 1 connects. `admin/run_tables.ipynb` gains its cell that connects, under the
   Project's path, and its last cell loses its commented-out import; `admin/remove.ipynb`
   gains `SCHEDULED_RUNS = []`, keeping what you named; each admin notebook's text is 8.6's.
   The `saved_table` and `quality_checks` Templates, if still as 8.5 wrote them, are written
