@@ -24,6 +24,7 @@ from conftest import toolbox_module
 import sqlglot_composer
 from sqlglot_composer import (
     FROM,
+    INSERT_OVERWRITE,
     SELECT,
     Table,
     example_database,
@@ -283,6 +284,39 @@ def test_a_python_steps_table_is_written_its_rows_through_query_saved_through_ex
         "  CAST(4 AS bigint), CAST(10 AS int), CAST('web' AS string)\n"
         ") AS (job_id, letters, team)")
     assert results == {}
+
+
+def test_dynamic_partitions_is_printed_and_sent_once_before_the_first_write_needing_it(
+        run: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    by_team = Table("mart.by_team", columns={"job_id": "bigint", "team": "string"},
+                    partitioned_by=["team"], location="/data/your_team/mart.db/by_team")
+
+    def statements() -> dict[str, object]:
+        fill = statement(INSERT_OVERWRITE(by_team), SELECT(jobs.job_id, jobs.team), FROM(jobs))
+        return {"jobs": statement(SELECT(jobs.job_id), FROM(jobs)), "fill": [fill, fill]}
+
+    project.build_run(statements)
+    printed = capsys.readouterr().out
+    # Once, after the heading of the first write that fills Partitions, not before each.
+    assert printed.count("SET hive.exec.dynamic.partition=true;") == 1
+    assert printed.index("-- 2 of 3: mart.by_team") < printed.index(
+        "-- Session settings: dynamic_partitions") < printed.index("-- 3 of 3: mart.by_team")
+    built = project.build_run(statements)
+    capsys.readouterr()
+    sent: list[str] = []
+
+    def query(hive: str) -> pd.DataFrame:
+        sent.append(hive)
+        return pd.DataFrame({"job_id": [1]})
+
+    built.run(query, sent.append)
+    assert [" ".join(hive.split()[:2]) for hive in sent] == [
+        "SELECT jobs.job_id",
+        "SET hive.exec.dynamic.partition=true",
+        "SET hive.exec.dynamic.partition.mode=nonstrict",
+        "INSERT OVERWRITE",
+        "INSERT OVERWRITE",
+    ]
 
 
 def test_a_python_step_with_no_rows_is_refused_before_anything_is_sent(

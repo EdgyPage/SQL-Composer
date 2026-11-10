@@ -63,8 +63,9 @@ as at its top.
   `2 of 4: mart.team_jobs  worked`: each write, Admin statement and Unchecked statement through
   `run_execute` and your execute, each SELECT through `run_query` and your query, its rows kept
   in `results` by its name, as `results["week_totals"]`; nothing is saved to a file. The
-  Session setting "dynamic_partitions" goes once first when a write fills Partitions from its
-  rows, and a table's `session_settings()` before its first write, as the build printed them.
+  Session setting "dynamic_partitions" goes once, before the first write that fills
+  Partitions from its rows, and a table's `session_settings()` before its first write, as the
+  build printed them.
   The first that fails stops the rest and raises its error, so the scheduler sees the notebook
   fail, once it has printed the tables written before it and the line to rerun from it, such
   as `START_FROM = "mart.teams"`, or, for a SELECT that failed, its name, so the rerun sends
@@ -78,9 +79,13 @@ as at its top.
   table to each that reads it, each Scheduled run that writes a table named on it, a table
   more than one run writes marked, and a loop drawn red, its tables listed at the top. It
   builds each Scheduled run as its Build cell does, sending nothing; a run that doesn't
-  build is shown on the page with why. `project.check()` now reports a loop among your
-  tables, naming each and the logic cell to mend. Both are cells of the new
-  `admin/scheduled_runs.ipynb`, run by hand, never by a Scheduled run.
+  build is shown on the page with why. Of the cells above a run's `# scheduled` cell only the
+  imports run, never its `connect(...)`, so a name one of them defines and the `# scheduled`
+  cell uses is refused, saying to move it into that cell. `project.check()` now reports a
+  loop among your tables, naming each and the logic cell to mend, and each Table folder whose
+  logic fails, with what stops it, though not one still holding a `<...>` from its Template. Both are cells of the new
+  `admin/scheduled_runs.ipynb`, run by hand, never by a Scheduled run, whose `NEW_RUNS = []`
+  names Scheduled runs for `project.new_scheduled_run(...)` to make.
 - **One run's lineage and Hive, and a table's logic described, by hand.**
   `project.export_run_lineage("weekly")` builds that Scheduled run as its Build cell does,
   with its parameters' defaults, sending nothing, and writes its lineage into

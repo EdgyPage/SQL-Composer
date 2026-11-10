@@ -545,7 +545,14 @@ def hive_to_show(s: object, frame: FrameType | None) -> str:
         return python_step_text(s)
     need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
-    return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
+    return "\n".join([*settings_needed(s), statement_text(s)])
+
+
+def statement_text(s: Statement) -> str:
+    """A Statement's Hive as show_hive prints it, less the Session setting it needs: its Admin
+    notes, then its Hive. A Scheduled run's build prints a write's so, as built.run sends
+    "dynamic_partitions" once, before the first write that needs it."""
+    return "\n".join([*admin_notes(s), to_hive(s) + ";"])
 
 
 # --- Hive kept in a file ---------------------------------------------------------------------
