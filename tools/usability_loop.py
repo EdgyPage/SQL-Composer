@@ -2,6 +2,7 @@
 ships, and each run is scored against its scenario's answer key (Toolbox 8.2, ticket 02; the
 map's Notes, "The loop"). `docs/usability-loop.md` says how a round is run.
 
+    python tools/usability_loop.py plan W1 W8
     python tools/usability_loop.py prepare W1 2026-11-01-W1-1
     python tools/usability_loop.py route 2026-11-01-W1-1 "<the agent's question>"
     python tools/usability_loop.py answer 2026-11-01-W1-1 1 07_convert_hive.txt \
@@ -32,22 +33,40 @@ too (the doc says how to make it). It holds what the user has:
 - `run_notebook.py`, which runs a notebook's cells as Jupyter's Run All does
   (`tools/notebook_runner.py`);
 - `_loop/`, which only the loop reads: the warehouse's file, each phase's message, each
-  question, each Copilot message and reply, and each agent's reply.
+  question, each Copilot message and reply, each agent's reply, and `inputs.json`, what the
+  run was given.
 
 Scored with `--record`, a run's folder, but for `main/` and any copy of the Toolbox's
 folder, is copied into `.scratch/usability-loop/runs/`, and a row added to
-`.scratch/usability-loop/results.md`.
+`.scratch/usability-loop/results.md`, naming its inputs.
+
+The inputs, recorded and memoized (Toolbox 8.6, ticket 11). `inputs.json` holds the
+scenario, dev's commit, and a hash of each thing an agent is given: main's tree (each file, its
+export stamp left out), and each file of it the phases name; the Project brought in, file by
+file, but for its copy of the Toolbox; the team's warehouse as set up; the scenario's own files,
+its key among them; each phase's message, with the run's folder and the agents' Python left
+out; and the files the loop puts beside them. Its `inputs_hash` is one hash of all of those,
+the commit left out, so a commit that changes none of them keeps it. Main's tree is built once
+per commit into `<temp>/usability-loop/cache/main/<commit>/`, and each scenario's warehouse
+and Project once per commit into `cache/scenarios/<commit>/<scenario>-<its files' hash>/`,
+then copied into each run; building a new commit's tree drops the other commits' caches.
+`plan` says of each scenario whether it is memoized: as many runs as a round gives it (three
+for a dev scenario, one held out) passed with its inputs, and none failed. `prepare` refuses a
+memoized scenario, naming its runs, unless given `--fresh`.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import json
 import math
+import re
 import shutil
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -71,8 +90,21 @@ RESULTS = KEPT / "results.md"
 OUTSIDE = Path(tempfile.gettempdir()) / "usability-loop"
 RUNS = OUTSIDE / "runs"
 PYTHON = OUTSIDE / "python" / "Scripts" / "python.exe"
+# Main's tree, built once per commit, and each scenario's warehouse and Project, set up once
+# per commit (Toolbox 8.6, ticket 11).
+CACHE = OUTSIDE / "cache"
 # The questions a run may ask before it counts as stuck.
 MOST_QUESTIONS = 5
+# The runs a round gives a scenario, by its split: memoized once that many passed with its
+# inputs and none failed.
+ROUND_RUNS = {"dev": 3, "held_out": 1}
+# The export's stamp in main's version.txt and README, when it ran and from which commit: left
+# out of a file's hash, as it changes with every build.
+EXPORT_STAMP = re.compile(rb"exported \d{4}-\d\d-\d\d \d\d:\d\d(?: from dev commit [0-9a-f]+)?")
+# A file of main a phase's message names, such as main/.github/README.md.
+NAMED_IN_MAIN = re.compile(r"\bmain/([\w./-]*\w)")
+# How much of an inputs hash a row of results.md names.
+SHORT_HASH = 16
 
 ROLE_TEXT = {
     "technical": "You are a data analyst who writes some Python and some SQL. You have never "
@@ -149,52 +181,143 @@ def read_answer_key(chosen: Scenario) -> dict[str, dict]:
 # --- Preparing a run ------------------------------------------------------------------------
 
 
-def build_main(into: Path) -> None:
-    """The Clean tree, as main would hold it from dev's last commit, built into `into`."""
-    commit = export_clean.git(ROOT, "rev-parse", "HEAD")
+def dev_commit() -> str:
+    """Dev's last commit, the one main's tree is built from."""
+    return export_clean.git(ROOT, "rev-parse", "HEAD")
+
+
+def build_main(into: Path, commit: str) -> None:
+    """The Clean tree, as main would hold it from dev's commit `commit`, built into `into`."""
     with tempfile.TemporaryDirectory() as temporary:
         committed = export_clean.committed_files(ROOT, commit, Path(temporary) / "dev")
         export_clean.build(committed, into, datetime.datetime.now(), commit)
 
 
+def has_a_project(chosen: Scenario) -> bool:
+    """Whether the scenario's user starts from a Project of theirs, as my_project/."""
+    return bool(chosen.project or chosen.start_from)
+
+
 def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
-            python: Path = PYTHON) -> Path:
-    """A run's folder for a scenario, as the user has it before starting: main's tree (built,
-    or copied from `main`), the scenario's files, the team's connection to a warehouse that has
-    run the scenario's Hive, and the notebook runner; then each phase's message."""
+            python: Path = PYTHON, cache: Path | None = None, fresh: bool = False) -> Path:
+    """A run's folder for a scenario, as the user has it before starting: main's tree (from
+    `cache`, built into it once per commit, or copied from `main`), the scenario's files, the
+    team's connection to a warehouse that has run the scenario's Hive, any Project the user
+    starts from, and the notebook runner; then each phase's message, and what the run was
+    given, `_loop/inputs.json`. A memoized scenario is refused unless `fresh`. With no
+    `cache`, each is made afresh, in a temporary folder."""
     if run.exists() and any(run.iterdir()):
         raise ValueError(f"{run} isn't empty: prepare each run in a folder of its own")
     if not python.is_file():
         raise FileNotFoundError(f"There is no Python for the agents at {python}: make it as "
                                 "docs/usability-loop.md says, then prepare again.")
-    (run / "_loop").mkdir(parents=True)
-    (run / "my_work").mkdir()
-    if main is None:
-        build_main(run / "main")
-    else:
-        shutil.copytree(main, run / "main")
-    for given, source in chosen.given.items():
-        (run / given).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(chosen.folder / chosen.id / source, run / given)
-    set_up_the_warehouse(chosen, run)
-    if chosen.project or chosen.start_from:
-        bring_in_the_project(chosen, run)
-    shutil.copyfile(TOOLS / "notebook_runner.py", run / "run_notebook.py")
-    for number, phase in enumerate(chosen.phases, 1):
-        (run / "_loop" / f"phase_{number}.md").write_text(
-            phase_message(phase, run, python, bool(chosen.given)), encoding="utf-8")
-    write_questions(run, [])
+    with tempfile.TemporaryDirectory() as temporary:
+        inputs, main, place = the_inputs(chosen, cache or Path(temporary), main)
+        recorded = read_recorded_runs(RESULTS)
+        if not fresh and is_memoized(chosen, inputs["inputs_hash"], recorded):
+            raise ValueError(f"{plan_text(chosen, inputs['inputs_hash'], recorded)}. They show "
+                             "the docs were enough: prepare it with --fresh to run it again.")
+        make_the_run(chosen, run, main, place, python)
+    (run / "_loop" / "inputs.json").write_text(json.dumps(inputs, indent=1) + "\n",
+                                               encoding="utf-8")
     return run
 
 
-def set_up_the_warehouse(chosen: Scenario, run: Path) -> None:
-    """Write the team's connection, and its warehouse, having run the scenario's Hive."""
-    loop = run / "_loop"
-    shutil.copyfile(TOOLS / "workflow_warehouse.py", loop / "workflow_warehouse.py")
-    warehouse = SavedWarehouse(loop / "warehouse.json")
+def make_the_run(chosen: Scenario, run: Path, main: Path, place: Path, python: Path) -> None:
+    """The run's folder: main's tree and the scenario's set-up copied in, the team's connection
+    written and given to any Project, the notebook runner, and each phase's message."""
+    (run / "_loop").mkdir(parents=True)
+    (run / "my_work").mkdir()
+    shutil.copytree(main, run / "main")
+    shutil.copytree(place, run, dirs_exist_ok=True)
+    write_the_team_connection(run)
+    if has_a_project(chosen):
+        connect_the_team(run / "my_project")
+    shutil.copyfile(TOOLS / "notebook_runner.py", run / "run_notebook.py")
+    for number, phase in enumerate(chosen.phases, 1):
+        message = phase_message(phase, run, python, bool(chosen.given), has_a_project(chosen))
+        (run / "_loop" / f"phase_{number}.md").write_text(message, encoding="utf-8")
+    write_questions(run, [])
+
+
+def the_inputs(chosen: Scenario, cache: Path,
+               main: Path | None) -> tuple[dict[str, object], Path, Path]:
+    """What a run of the scenario is given now, as inputs.json holds it, with main's tree
+    (`main`, or the cache's for dev's commit) and the scenario's set-up in `cache`."""
+    commit = dev_commit()
+    if main is None:
+        main = cached_main(cache, commit)
+    place = cached_scenario(chosen, cache, commit, main)
+    return inputs_of(chosen, main, place, commit), main, place
+
+
+def cached_main(cache: Path, commit: str) -> Path:
+    """Main's tree for `commit`, from the cache, built into it the first time; building it
+    drops every other commit's cache."""
+    place = cache / "main" / commit
+    if not place.is_dir():
+        drop_other_commits(cache, commit)
+        building = place.with_name(f"{commit}.building")
+        shutil.rmtree(building, ignore_errors=True)
+        build_main(building, commit)
+        building.rename(place)
+    return place
+
+
+def drop_other_commits(cache: Path, commit: str) -> None:
+    """Remove each cached main tree and scenario set-up of a commit other than `commit`."""
+    for kind in ("main", "scenarios"):
+        if not (cache / kind).is_dir():
+            continue
+        for folder in sorted((cache / kind).iterdir()):
+            if folder.name != commit:
+                shutil.rmtree(folder)
+
+
+def cached_scenario(chosen: Scenario, cache: Path, commit: str, main: Path) -> Path:
+    """The scenario's set-up for `commit`, from the cache, set up into it the first time: a
+    folder laid out as a run is, holding the files the scenario gives, its team's warehouse
+    and any Project its user starts from, the Project's connection not yet given."""
+    place = cache / "scenarios" / commit / f"{chosen.id}-{scenario_hash(chosen)[:12]}"
+    if not place.is_dir():
+        building = place.with_name(f"{place.name}.building")
+        shutil.rmtree(building, ignore_errors=True)
+        set_up_the_scenario(chosen, building, main)
+        building.rename(place)
+    return place
+
+
+def scenario_hash(chosen: Scenario) -> str:
+    """A hash of what a scenario's set-up is made from, but dev's commit: its own files, any
+    folder of dev's its Project is copied from, and the files of any scenario it starts from."""
+    hashed = {"scenario": tree_hashes(chosen.folder / chosen.id)}
+    if chosen.project:
+        hashed["project"] = tree_hashes(ROOT / chosen.project)
+    if chosen.start_from:
+        hashed["start_from"] = tree_hashes(chosen.folder / chosen.start_from)
+    return text_hash(json.dumps(hashed, sort_keys=True))
+
+
+def set_up_the_scenario(chosen: Scenario, place: Path, main: Path) -> None:
+    """Into `place`: the files the scenario gives, its team's warehouse, having run its Hive,
+    and any Project its user starts from."""
+    (place / "_loop").mkdir(parents=True)
+    for given, source in chosen.given.items():
+        (place / given).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(chosen.folder / chosen.id / source, place / given)
+    warehouse = SavedWarehouse(place / "_loop" / "warehouse.json")
     for hive in chosen.hive_ran:
         warehouse.execute((chosen.folder / chosen.id / hive).read_text(encoding="utf-8"))
     warehouse.save()
+    if has_a_project(chosen):
+        bring_in_the_project(chosen, place, main)
+
+
+def write_the_team_connection(run: Path) -> None:
+    """Write the team's connection to the run's warehouse, and the warehouse's code beside
+    it."""
+    loop = run / "_loop"
+    shutil.copyfile(TOOLS / "workflow_warehouse.py", loop / "workflow_warehouse.py")
     (run / "team_connection.py").write_text(TEAM_CONNECTION.format(
         main=str(run / "main"), loop=str(loop), warehouse=str(loop / "warehouse.json")),
         encoding="utf-8")
@@ -215,26 +338,30 @@ TEAMS_CONNECT = ('sys.path.append({run!r})  # the folder team_connection.py is i
                  "from team_connection import conn\nconnect(conn)")
 
 
-def bring_in_the_project(chosen: Scenario, run: Path) -> None:
-    """The Project the scenario's user has already, as my_project/: copied in, or made by the
-    reference end of the scenario it starts from, its tables in the run's warehouse; then its
-    notebooks reaching the team's connection."""
-    root = run / "my_project"
+def bring_in_the_project(chosen: Scenario, place: Path, main: Path) -> None:
+    """The Project the scenario's user has already, as my_project/ in `place`: copied in, or
+    made by the reference end of the scenario it starts from, its tables in the place's
+    warehouse, with `main`'s copy of the Toolbox; its notebooks' connection is given in each
+    run, by connect_the_team."""
+    root = place / "my_project"
     if chosen.start_from:
         import usability_scenario_files  # it imports this file
+        from how_to_page import times_pinned
 
-        usability_scenario_files.reference_end(chosen.start_from, run)
+        # Each Project action's time pinned, as the scenarios' build pins it, so the Project
+        # made is the same each time, and so is its hash in the inputs.
+        with times_pinned():
+            usability_scenario_files.reference_end(chosen.start_from, place)
     else:
         shutil.copytree(ROOT / chosen.project, root)
     if not (root / "sqlglot_composer").is_dir():
-        # As a Project the user made holds it: the README has them copy it in. A test's run
-        # has no main/, so dev's own copy stands in.
-        toolbox = run / "main" / "sqlglot_composer"
+        # As a Project the user made holds it: the README has them copy it in. A test's main
+        # tree has no Toolbox, so dev's own copy stands in.
+        toolbox = main / "sqlglot_composer"
         if not toolbox.is_dir():
             toolbox = ROOT / "sqlglot_composer"
         shutil.copytree(toolbox, root / "sqlglot_composer",
                         ignore=shutil.ignore_patterns("__pycache__"))
-    connect_the_team(root)
 
 
 def connect_the_team(root: Path) -> None:
@@ -270,14 +397,16 @@ def _with_the_teams_connection(text: str, teams: str) -> str:
     return "\n".join(teams if line in LINES_TO_CONNECT else line for line in lines)
 
 
-def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> list[str]:
+def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True,
+                  project_given: bool = False) -> list[str]:
     """The lines of a phase's message saying what the agent has, by its role: `given`, when
-    the team gave files, names `from_your_team/`."""
+    the team gave files, names `from_your_team/`, and `project_given`, when the user has a
+    Project already, `my_project/`."""
     folders = ["Its `main/` folder is the Toolbox as you downloaded it, with its README "
                "(`main/.github/README.md`) and its guides."]
     if given:
         folders.append("`from_your_team/` holds what your team gave you.")
-    if (run / "my_project").is_dir():
+    if project_given:
         folders.append("`my_project/` is the Project you have already.")
     lines = [
         f"- Your work folder, {run}. Work only inside it. " + " ".join(folders) + " Keep what "
@@ -309,7 +438,8 @@ def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> 
     return lines
 
 
-def phase_message(phase: Phase, run: Path, python: Path, given: bool = True) -> str:
+def phase_message(phase: Phase, run: Path, python: Path, given: bool = True,
+                  project_given: bool = False) -> str:
     """What an agent is told for one phase: who it is, its job, and what it has."""
     return "\n".join([
         ROLE_TEXT[phase.role],
@@ -319,7 +449,7 @@ def phase_message(phase: Phase, run: Path, python: Path, given: bool = True) -> 
         phase.job,
         "",
         "What you have:",
-        *what_you_have(phase, run, python, given),
+        *what_you_have(phase, run, python, given, project_given),
         "",
         "How to work:",
         "1. Find what you need in the files you have, and do what they say, in order.",
@@ -331,6 +461,144 @@ def phase_message(phase: Phase, run: Path, python: Path, given: bool = True) -> 
         "4. When the job is done, end your turn with one line `DONE: ` and what you did, or, "
         "if you can't finish it, `STUCK: ` and where you stopped.",
     ]) + "\n"
+
+
+# --- Inputs, recorded and memoized (Toolbox 8.6, ticket 11) ----------------------------------
+
+
+def file_hash(path: Path) -> str:
+    """A file's SHA-256, in hex."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def main_file_hash(path: Path) -> str:
+    """A file of main's tree's SHA-256, in hex, the export's stamp left out."""
+    return hashlib.sha256(EXPORT_STAMP.sub(b"exported", path.read_bytes())).hexdigest()
+
+
+def text_hash(text: str) -> str:
+    """Some text's SHA-256, in hex."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def tree_hashes(folder: Path, hash_of: Callable[[Path], str] = file_hash,
+                leave_out: tuple[str, ...] = ("__pycache__",)) -> dict[str, str]:
+    """Each file of `folder`, by its path from it, and its hash; each file in a folder named
+    in `leave_out` left out."""
+    hashes = {}
+    for path in sorted(folder.rglob("*")):
+        relative = path.relative_to(folder)
+        if path.is_file() and not set(relative.parts) & set(leave_out):
+            hashes[relative.as_posix()] = hash_of(path)
+    return hashes
+
+
+def main_tree_hash(main: Path) -> str:
+    """One hash of every file of main's tree, the export's stamp left out of each."""
+    return text_hash(json.dumps(tree_hashes(main, main_file_hash), sort_keys=True))
+
+
+def inputs_of(chosen: Scenario, main: Path, place: Path, commit: str) -> dict[str, object]:
+    """What a run of the scenario is given, as its inputs.json holds it: each thing hashed, and
+    one hash of them all, `inputs_hash`, which leaves out dev's commit, so a commit that
+    changes none of them keeps it. Each phase's message is hashed as written for no run in
+    particular, so every run's is the same."""
+    messages = [phase_message(phase, Path("<run>"), Path("<python>"), bool(chosen.given),
+                              has_a_project(chosen)) for phase in chosen.phases]
+    named = {}
+    for message in messages:
+        for path in NAMED_IN_MAIN.findall(message):
+            if (main / path).is_file():
+                named[path] = main_file_hash(main / path)
+    project = {}
+    if has_a_project(chosen):
+        # Its copy of the Toolbox is main's, which main's tree hashes already.
+        project = tree_hashes(place / "my_project",
+                              leave_out=("__pycache__", "sqlglot_composer"))
+    given = {
+        "main": {"tree": main_tree_hash(main), "named": dict(sorted(named.items()))},
+        "project": project,
+        "warehouse": file_hash(place / "_loop" / "warehouse.json"),
+        "scenario_files": tree_hashes(chosen.folder / chosen.id),
+        "phases": [text_hash(message) for message in messages],
+        "loop_files": {
+            "run_notebook.py": file_hash(TOOLS / "notebook_runner.py"),
+            "workflow_warehouse.py": file_hash(TOOLS / "workflow_warehouse.py"),
+            "team_connection.py": text_hash(TEAM_CONNECTION + TEAMS_CONN + TEAMS_CONNECT)},
+    }
+    return {"scenario": chosen.id, "commit": commit, **given,
+            "inputs_hash": text_hash(json.dumps(given, sort_keys=True))}
+
+
+@dataclass(frozen=True)
+class RecordedRun:
+    """A row of results.md: its run, its scenario, whether it passed, and the start of the
+    inputs hash it names, or "" in a row from before 8.6, which names none."""
+
+    run: str
+    scenario: str
+    passed: bool
+    inputs: str
+
+
+# The inputs a row of results.md names, in its note.
+ROW_INPUTS = re.compile(rf"\binputs ([0-9a-f]{{{SHORT_HASH}}})\b")
+
+
+def read_recorded_runs(results: Path) -> list[RecordedRun]:
+    """Each run results.md records, in its order; none when there is no results.md."""
+    if not results.is_file():
+        return []
+    recorded = []
+    for line in results.read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not line.startswith("| ") or len(cells) < 7 or cells[4] not in ("pass", "fail"):
+            continue
+        found = ROW_INPUTS.search("|".join(cells[6:]))
+        recorded.append(RecordedRun(cells[3], cells[1], cells[4] == "pass",
+                                    found[1] if found else ""))
+    return recorded
+
+
+def runs_with_inputs(chosen: Scenario, inputs_hash: str,
+                     recorded: list[RecordedRun]) -> list[RecordedRun]:
+    """Each recorded run of the scenario given the inputs `inputs_hash`."""
+    return [each for each in recorded
+            if each.scenario == chosen.id and each.inputs == inputs_hash[:SHORT_HASH]]
+
+
+def is_memoized(chosen: Scenario, inputs_hash: str, recorded: list[RecordedRun]) -> bool:
+    """Whether as many runs as a round gives the scenario passed with these inputs, and none
+    failed: so running it again would show nothing new."""
+    same = runs_with_inputs(chosen, inputs_hash, recorded)
+    passed = [each for each in same if each.passed]
+    return len(passed) == len(same) and len(passed) >= ROUND_RUNS[chosen.split]
+
+
+def plan_text(chosen: Scenario, inputs_hash: str, recorded: list[RecordedRun]) -> str:
+    """One line saying whether the scenario is memoized, or why to run it, naming the runs
+    recorded with these inputs."""
+    same = runs_with_inputs(chosen, inputs_hash, recorded)
+    short = inputs_hash[:SHORT_HASH]
+    passed = [each.run for each in same if each.passed]
+    failed = [each.run for each in same if not each.passed]
+    if failed:
+        return f"{chosen.id}: run it: {in_words(failed)} failed with these inputs, {short}"
+    if not passed:
+        return f"{chosen.id}: run it: no run recorded with these inputs, {short}"
+    runs = f"with these inputs, {short}: {in_words(passed)}"
+    wanted = ROUND_RUNS[chosen.split]
+    if is_memoized(chosen, inputs_hash, recorded):
+        return f"{chosen.id}: memoized: {counted(len(passed), 'run')} passed {runs}"
+    return f"{chosen.id}: run it: {len(passed)} of {counted(wanted, 'run')} passed {runs}"
+
+
+def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) -> str:
+    """Whether the scenario is memoized, as `plan_text` says it, its inputs worked out as
+    `prepare` works them out, with main's tree and its set-up from `cache`."""
+    with tempfile.TemporaryDirectory() as temporary:
+        inputs = the_inputs(chosen, cache or Path(temporary), main)[0]
+    return plan_text(chosen, inputs["inputs_hash"], read_recorded_runs(RESULTS))
 
 
 # --- Questions to Copilot -------------------------------------------------------------------
@@ -615,11 +883,16 @@ def report_text(result: RunScore, run: Path) -> str:
 def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str:
     """Keep a scored run: its folder, but for main/ and any copy of the Toolbox's folder,
     copied into `.scratch/usability-loop/runs/`, and a row in
-    `.scratch/usability-loop/results.md`."""
+    `.scratch/usability-loop/results.md`, naming its actions and, from its inputs.json, the
+    start of its inputs hash, which `plan` reads."""
     left_out = shutil.ignore_patterns("main", "sqlglot_composer", "__pycache__")
     shutil.copytree(run, KEPT / "runs" / run.name, ignore=left_out)
     actions = f"{result.actions} actions"
     note = f"{note}; {actions}" if note else actions
+    inputs = run / "_loop" / "inputs.json"
+    if inputs.is_file():
+        inputs_hash = json.loads(inputs.read_text(encoding="utf-8"))["inputs_hash"]
+        note += f"; inputs {inputs_hash[:SHORT_HASH]}"
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
     if not RESULTS.is_file():
@@ -635,10 +908,13 @@ def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str
 def main(arguments: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
+    planning = commands.add_parser("plan", help="say which scenarios are memoized")
+    planning.add_argument("scenarios", nargs="+")
     preparing = commands.add_parser("prepare")
     preparing.add_argument("scenario")
     preparing.add_argument("run", help="the run's name, its folder made in " + str(RUNS))
-    preparing.add_argument("--main", type=Path, help="a Clean tree built already, to copy")
+    preparing.add_argument("--fresh", action="store_true",
+                           help="prepare it though it is memoized, to run it again")
     routing = commands.add_parser("route")
     routing.add_argument("run")
     routing.add_argument("question")
@@ -653,9 +929,13 @@ def main(arguments: list[str] | None = None) -> int:
     scoring.add_argument("run")
     scoring.add_argument("--record", metavar="NOTE", nargs="?", const="")
     given = parser.parse_args(arguments)
+    if given.command == "plan":
+        for scenario_id in given.scenarios:
+            print(plan(read_scenario(scenario_id), CACHE))
+        return 0
     run = RUNS / given.run
     if given.command == "prepare":
-        print(prepare(read_scenario(given.scenario), run, main=given.main))
+        print(prepare(read_scenario(given.scenario), run, cache=CACHE, fresh=given.fresh))
     elif given.command == "route":
         print("\n".join(str(path) for path in route(run, given.question)))
     elif given.command == "answer":
