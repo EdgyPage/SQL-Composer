@@ -19,17 +19,29 @@ installs, plus openpyxl, which stands in for Excel's own hands:
     py -3.13 -m venv %TEMP%\usability-loop\python
     %TEMP%\usability-loop\python\Scripts\python -m pip install -r requirements.txt openpyxl==3.1.5
 
+## First: which scenarios to run
+
+    .venv/Scripts/python tools/usability_loop.py plan W1 W8
+
+`plan` prints one line per scenario. `memoized` means the runs a round gives it (three for a
+dev scenario, one for a held-out one) passed with the inputs it has now, and none failed: give
+it to no agent, and name those runs in the round's notes. `run it` says why: no run recorded
+with these inputs, fewer passed than a round asks, or one failed. The inputs are what an agent
+is given (see "What a run is given", below), not dev's commit, so a commit that changes none
+of them, such as one to `tools/` or `.scratch/`, leaves a scenario memoized.
+
 ## One run
 
 1. **Prepare the run's folder.** For scenario `W1`, run 1, today:
 
        .venv/Scripts/python tools/usability_loop.py prepare W1 2026-11-01-W1-1
 
-   It builds main's tree into the folder from dev's last commit, adds the scenario's files,
-   the team's connection to a warehouse that keeps each write, and, for a scenario that starts
-   from a Project (W5, H2), that Project as `my_project/`, and writes each phase's message to
-   `_loop/phase_<n>.md`. It prints the folder. Pass `--main <folder>` to copy a tree built
-   already, for the other runs of the same round.
+   It copies in main's tree as dev's last commit builds it, the scenario's files, the team's
+   connection to a warehouse that keeps each write, and, for a scenario that starts from a
+   Project (W5, W8, H2), that Project as `my_project/`; writes each phase's message to
+   `_loop/phase_<n>.md`, and what the run is given to `_loop/inputs.json`. It prints the
+   folder. It refuses a memoized scenario, naming its runs: add `--fresh` to run it again
+   anyway.
 2. **Start phase 1's agent.** Use the `zero-context-user` agent, on Haiku, with the prompt
    `Read <run>/_loop/phase_1.md and follow it.`
 3. **Answer each question it asks.** When the agent's turn ends with a `QUESTION: ` line:
@@ -54,9 +66,42 @@ installs, plus openpyxl, which stands in for Excel's own hands:
 
    This copies the run's folder, but for `main/` and any copy of the Toolbox's folder, into
    `.scratch/usability-loop/runs/`, and adds a row to `.scratch/usability-loop/results.md`.
+   The row's note ends `inputs <hash>`, the first 16 characters of the run's inputs hash:
+   `plan` reads it there, so keep it when you move the row into the round's section.
+
+## What a run is given, and what is cached
+
+`_loop/inputs.json` holds the scenario, dev's commit, and a SHA-256 of each thing an agent is
+given:
+
+- `main`: one hash of main's whole tree, `tree`, each file hashed with the export's stamp
+  (when it ran, and from which commit) left out; and `named`, each file of main the phases'
+  messages name, such as `.github/README.md`, on its own;
+- `project`: each file of the Project the user starts from, as it is brought in, before its
+  connection is filled in, but for its copy of the Toolbox, which is main's;
+- `warehouse`: the team's warehouse, as the scenario's Hive left it;
+- `scenario_files`: each file of the scenario's folder, its answer key among them;
+- `phases`: each phase's message, as written for no run in particular;
+- `loop_files`: the runner, the warehouse's code and the team's connection the loop puts in.
+
+`inputs_hash` is one hash of all of those; dev's commit is left out of it. A change to any of
+them, such as a fix to a how-to an agent reads, gives a new hash, and the scenario runs again.
+
+Two things are cached, in `%TEMP%\usability-loop\cache\`, so a round builds each once:
+
+- `main\<commit>\`: main's tree, built once per dev commit by the export's own builder, then
+  copied into each run;
+- `scenarios\<commit>\<scenario>-<hash>\`: each scenario's files, its warehouse having run its
+  Hive, and any Project its user starts from (for W5, the end of W2), set up once per dev
+  commit and scenario, the hash that of the scenario's own files, then copied into each run.
+
+Building a new commit's tree removes every other commit's cache. To clear it all, delete the
+folder: `rmdir /s /q %TEMP%\usability-loop\cache`. Nothing in it is ever edited: a run works
+on its own copy.
 
 ## A round
 
+- First run `plan` on every scenario of the round, and give agents only those it says to run.
 - Every dev scenario runs three times, each with fresh agents.
 - Every held-out scenario runs once per version of the docs.
 - Fix only what a dev run showed, in what a user reads: the README, the how-tos, the Steps
