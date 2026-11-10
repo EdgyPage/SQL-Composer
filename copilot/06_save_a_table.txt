@@ -1,4 +1,4 @@
-# Copilot file 06: saving a table (sqlglot Composer 8.5)
+# Copilot file 06: saving a table (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 

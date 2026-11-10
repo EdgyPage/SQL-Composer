@@ -1,4 +1,4 @@
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.5)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 

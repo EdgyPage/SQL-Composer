@@ -58,6 +58,8 @@ PRIVATE_SEAMS = {
     ("unchecked", "_ALTERED_BY"): "fix texts a test checks against the admin module",
     ("writing", "_REPLAY"): "the replay table a sqlglot check reads",
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",
+    # The Toolbox reaches these across its own files.
+    ("project", "_hash"): "8.6's Upgrade step hashes a file as promote and convert record it",
 }
 
 # Keywords of a public function nothing passes: empty since ticket 16 added

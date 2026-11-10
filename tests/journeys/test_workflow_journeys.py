@@ -1240,8 +1240,8 @@ def _check_no_todo_left(started: Started, table: str, key: str) -> None:
 
 
 @pytest.fixture
-def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                               request: pytest.FixtureRequest) -> Iterator[Started]:
+def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+                               ) -> Iterator[Started]:
     """The Starter project as the version before this one left it, with its own warehouse.py,
     and the hand edits made, checked at the end."""
     forget_the_projects_modules()
@@ -1268,9 +1268,7 @@ def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     hand_edits: dict[str, list[str]] = {}
     yield Started(root, monkeypatch, Warehouse(database="ops"), hand_edits)
     forget_the_projects_modules()
-    # A journey expected to fail (UNTIL_TO_8_6) stops before its hand edits.
-    if request.node.get_closest_marker("xfail") is None:
-        _check_every_listed_edit_was_made(hand_edits)
+    _check_every_listed_edit_was_made(hand_edits)
 
 
 SEEDED_IN_8_3 = '''# logic
@@ -1283,14 +1281,6 @@ def seed() -> UncheckedStatement:
 '''
 
 
-# Toolbox 8.6's ticket 01 writes each Workflow notebook importing connect from warehouse.py,
-# which a Project the version before left lacks until 8.6's Upgrade step, ticket 12, adds it.
-UNTIL_TO_8_6 = pytest.mark.xfail(
-    strict=True, raises=ImportError,
-    reason="ticket 12: to_8_6 gives the version before's warehouse.py connect")
-
-
-@UNTIL_TO_8_6
 def test_upgrade_a_project_the_version_before_left(
         left_by_the_version_before: Started) -> None:
     started = left_by_the_version_before
@@ -1306,7 +1296,6 @@ def test_upgrade_a_project_the_version_before_left(
     assert "Marked by project.upgrade()" not in repr(project.check())
 
 
-@UNTIL_TO_8_6
 def test_upgrade_through_the_runner(left_by_the_version_before: Started) -> None:
     started = left_by_the_version_before
     started.monkeypatch.chdir(started.root / "admin")
