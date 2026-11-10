@@ -27,16 +27,21 @@ For each project, in a Python of its own, started in an empty folder, it:
   them, makes its Decisions by filling in its Table reference from `references/`, writes its
   checklist again with project.write_decisions, and compares it with its original, which
   finishes the batch, its folder moved to `admin/workflows/convert/finished/`;
+- runs project.new_scheduled_run(...) for each Scheduled run, then fills in the cells its
+  Template left from `scheduled_runs/<name>.py`, each code cell written over the notebook's
+  with the same first line, such as # parameters;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
-  write(), then its Hive, beside its notebook, as the notebook's Hive cell does.
+  write(), then its Hive, beside its notebook, as the notebook's Hive cell does;
+- exports each Scheduled run's Hive and lineage into its folder, as the cells of
+  admin/scheduled_runs.ipynb do, connected to the Example database.
 
 The time, the commit and the calling script are pinned, as if a notebook ran everything on
 PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
 version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
 until this is run again. It reads only what add_references sends through the Example
 database's query: DESCRIBE, SHOW PARTITIONS, and the count and check_key that propose each
-Key.
+Key; and the SHOW PARTITIONS a Scheduled run's Run value sends as it is built.
 """
 
 from __future__ import annotations
@@ -142,6 +147,14 @@ CONVERSIONS = {
     "starter": [],
     "intermediate": [("team_failures", "ops_reports.team_failures", "mart.team_failures")],
 }
+# Each project's Scheduled runs (Toolbox 8.6), each made with project.new_scheduled_run, then
+# its cells filled in from `scheduled_runs/<name>.py` of its sources: each of its code cells
+# written over the notebook's cell with the same first line, such as # parameters, as a user
+# fills in the cells the Template left for them.
+SCHEDULED_RUNS = {
+    "starter": [],
+    "intermediate": ["weekly_team"],
+}
 # The tables whose lineage cell draws other tables too, through their notebooks' logic: each
 # table's lineage reads these tables' writes, then its own.
 LINEAGE_ACROSS = {
@@ -175,7 +188,8 @@ def saved_and_converted_tables(name: str) -> list[str]:
 
 
 class TodoMissing(RuntimeError):
-    """A TODO line FILLED_IN fills in isn't in the file add_references wrote."""
+    """A TODO line FILLED_IN fills in isn't in the file add_references wrote, or a cell a
+    Scheduled run's source fills in isn't in the notebook new_scheduled_run wrote."""
 
 
 def project_files(folder: Path) -> list[str]:
@@ -279,10 +293,12 @@ def write_here(name: str) -> None:
     _add_building_blocks(name, folder)
     _add_saved_tables(name, folder)
     _add_conversions(name, folder)
+    _add_scheduled_runs(name, folder)
     _connect_each_notebook(folder)
     project.refresh_reference_sheet()
     _export_lineage(name, folder)
     _export_hive(name, folder)
+    _export_scheduled_runs(name)
     _tidy(folder)
 
 
@@ -365,6 +381,45 @@ def _add_conversions(name: str, folder: Path) -> None:
             raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
 
 
+def _add_scheduled_runs(name: str, folder: Path) -> None:
+    """Make each Scheduled run with new_scheduled_run, then fill in its cells from the
+    project's hand-written source, as a user fills in the cells its Template left them."""
+    from sqlglot_composer import notebooks, project
+
+    for run in SCHEDULED_RUNS[name]:
+        project.new_scheduled_run(run)
+        notebook = folder / "scheduled_runs" / run / f"{run}.ipynb"
+        cells = notebooks.read_cells(notebook)
+        for first_line, text in scheduled_run_cells(name, run).items():
+            cells[cell_starting(cells, first_line)] = ("code", text)
+        notebooks.write_notebook(notebook, cells)
+
+
+def scheduled_run_cells(name: str, run: str) -> dict[str, str]:
+    """The cells a user fills in of the project `name`'s Scheduled run `run`, from its
+    hand-written source, each code cell's text by its first line, such as # parameters."""
+    from sqlglot_composer import notebooks
+
+    source = (SOURCES / name / "scheduled_runs" / f"{run}.py").read_text(encoding="utf-8")
+    return {notebooks.first_line(text): text
+            for kind, text in notebooks.template_cells(source) if kind == "code"}
+
+
+def cell_starting(cells: list[tuple[str, str]], first_line: str) -> int:
+    """The index of the one code cell of `cells` whose first line is `first_line`."""
+    from sqlglot_composer import notebooks
+
+    found = [index for index, (kind, text) in enumerate(cells)
+             if kind == "code" and notebooks.first_line(text) == first_line]
+    if len(found) != 1:
+        raise TodoMissing(
+            f"The Scheduled run's notebook has {len(found)} code cells starting "
+            f"{first_line!r}, where its source fills in one. The scheduled_run Template must "
+            "have changed its cells: change the source in tools/example_project_sources/ to "
+            "match.")
+    return found[0]
+
+
 def _connect_each_notebook(folder: Path) -> None:
     """Fill in the line connect(...) of each notebook that has one with the Example database,
     as a user fills in theirs with their connection, so each notebook of the Example project
@@ -440,6 +495,21 @@ def _export_hive(name: str, folder: Path) -> None:
         os.chdir(folder / "tables" / project.table_stem(table))
         export_hive()
         os.chdir(folder)
+
+
+def _export_scheduled_runs(name: str) -> None:
+    """Write each Scheduled run's built Hive, <name>.hql, and its lineage into its folder, as
+    admin/scheduled_runs.ipynb's cells do, by hand: connected first, as its cell under the
+    Project's path connects, since a Run value of the run reads the warehouse to build."""
+    from sqlglot_composer import example_database, project
+    from warehouse import connect
+
+    runs = SCHEDULED_RUNS[name]
+    if not runs:
+        return
+    connect(example_database)
+    project.export_run_hive(runs)
+    project.export_run_lineage(runs)
 
 
 def _tidy(folder: Path) -> None:
