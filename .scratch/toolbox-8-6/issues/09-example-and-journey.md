@@ -87,3 +87,7 @@ Built 2026-11-09.
   as `show_hive` does, where `built.run` sends it once first; and the build adds each table's
   write, not its `create()`, so on a warehouse that lacks a table the run fails at its first
   write (the Table notebook's step 1 creates it).
+- **Fixed after: the Example database runs NEXT_DAY** (`engine._teach_hive_days`, any of
+  Hive's names for a day, in any case), so `weekly_team` runs on it, and the journey's
+  monkeypatch of `ENV["NEXTDAY"]` is gone (the Decided above is undone); its failing run's
+  comment says it is the same week's run again, as its WEEK is.

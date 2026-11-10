@@ -4,7 +4,6 @@ it can't."""
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
 
 import pytest
 import sqlglot
@@ -18,7 +17,6 @@ from sqlglot_composer import (
     SELECT,
     SELECT_DISTINCT,
     WHERE,
-    Column,
     Table,
     all_of,
     between,
@@ -36,21 +34,34 @@ from sqlglot_composer import (
 from sqlglot_composer.example_database import job_runs, jobs
 
 
-@pytest.mark.parametrize(
-    ("calculation", "missing"),
-    [
-        (week_start(job_runs.dt), "NEXT_DAY"),
-        (month_start(job_runs.dt), "TRUNC"),
-    ],
-)
-def test_it_says_plainly_what_its_executor_cant_run(calculation: Column, missing: str) -> None:
-    s = statement(SELECT(job_runs.run_id, AS(calculation, "x")), FROM(job_runs),
+def test_it_runs_week_start_as_hive_does() -> None:
+    """week_start writes Hive's NEXT_DAY, which sqlglot's executor lacks: the Example database
+    is taught it, so a week is the Monday that starts it."""
+    s = statement(SELECT_DISTINCT(job_runs.dt, AS(week_start(job_runs.dt), "week")),
+                  FROM(job_runs), WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")))
+    weeks = run_query(s, example_database.query)
+    assert weeks.values.tolist() == [["2026-09-23", "2026-09-21"], ["2026-09-24", "2026-09-21"]]
+
+
+def test_its_next_day_reads_each_name_hive_gives_a_day_in_any_case() -> None:
+    """NEXT_DAY gives the first day after the given one that falls on the named day: its two
+    letters, its three or its whole name, in any case. A name Hive doesn't know gives NULL."""
+    days = example_database.query(
+        "SELECT NEXT_DAY('2026-09-21', 'MO') AS a, NEXT_DAY('2026-09-21', 'tu') AS b, "
+        "NEXT_DAY('2026-09-21', 'Wed') AS c, NEXT_DAY('2026-09-21', 'sunday') AS d, "
+        "NEXT_DAY('2026-09-21', 'XX') AS e, NEXT_DAY(NULL, 'MO') AS f "
+        "FROM ops.jobs AS jobs WHERE jobs.job_id = 1")
+    assert days.values.tolist() == [
+        ["2026-09-28", "2026-09-22", "2026-09-23", "2026-09-27", None, None]]
+
+
+def test_it_says_plainly_what_its_executor_cant_run() -> None:
+    s = statement(SELECT(job_runs.run_id, AS(month_start(job_runs.dt), "x")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
     with pytest.raises(RuntimeError) as refused:
         run_query(s, example_database.query)
     message = str(refused.value)
-    assert (f"The Example database can't run this Hive: its executor has no {missing}."
-            in message)
+    assert "The Example database can't run this Hive: its executor has no TRUNC." in message
     assert "Usual fix:" in message
     assert "to_hive(...)" in message
 
@@ -117,18 +128,12 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(
     assert "couldn't run this Hive: unsupported operand type(s)" in message
 
 
-@pytest.mark.parametrize(("table", "calculation", "missing"), [
-    ("job_events", lambda t: week_start(t.dt), "NEXT_DAY"),
-    ("job_events", lambda t: month_start(t.dt), "TRUNC"),
-])
-def test_the_intermediate_tables_meet_the_same_limits(
-        table: str, calculation: Callable[[Table], Column], missing: str) -> None:
-    """Week and month rollups, which the intermediate how-tos show, which the gallery shows as
-    a pandas result."""
-    t = getattr(example_database, table)
-    s = statement(SELECT(t.job_id, AS(calculation(t), "x")), FROM(t),
+def test_the_intermediate_tables_meet_the_same_limits() -> None:
+    """Month rollups, which the intermediate how-tos show as a pandas result."""
+    t = example_database.job_events
+    s = statement(SELECT(t.job_id, AS(month_start(t.dt), "x")), FROM(t),
                   WHERE(last_n_days(t.dt, 14)))
-    with pytest.raises(RuntimeError, match=f"its executor has no {missing}"):
+    with pytest.raises(RuntimeError, match="its executor has no TRUNC"):
         run_query(s, example_database.query)
 
 
