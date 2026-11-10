@@ -473,7 +473,7 @@ SCHEDULED_RUN = '''# %% [markdown]
 #   - `<SAVED_TABLE>`: a Saved table whose Table notebook's logic it uses, such as
 #     `mart.team_days`;
 #   - `<LOGIC_FUNCTION>`: the function of that logic it calls, with what it takes, such as
-#     `week_totals(WEEK)` or `write()`.
+#     `week_totals(FIRST_DAY, LAST_DAY)`, two parameters, or `write()`.
 #
 # Follow the steps in order, as written.
 #
@@ -496,8 +496,9 @@ SCHEDULED_RUN = '''# %% [markdown]
 #    in the `connect(...)` line and delete its `#`. Done when the setup cell runs; then step 3.
 # 3. **Name the Statements.** Goal: what this run sends. Action: write each in the dict
 #    `statements()` gives, in the `# scheduled` cell, by name. If it is a Table notebook's
-#    logic, load it: `project.load("mart.team_days").week_totals(WEEK)`. If it is your own,
-#    compose it there, with `statement(...)`. Done when each is named; then step 4.
+#    logic, load it: `project.load("mart.team_days").week_totals(FIRST_DAY, LAST_DAY)`. If
+#    it is your own, compose it there, with `statement(...)`. Done when each is named; then
+#    step 4.
 # 4. **Build.** Goal: the Hive, in order, to read before anything is sent. Action: run the
 #    cells down to the Build cell. If a table it would write is written elsewhere, name it in
 #    `leave_out=`. Done when it prints each Statement's Hive in order; then step 5.
@@ -544,7 +545,7 @@ from warehouse import connect, execute, query
 # scheduled
 # The Statements this run sends, each by its name: a SELECT's rows come back in results by it.
 # A Table notebook's logic gives them through project.load, such as
-#     "week_totals": project.load("mart.team_days").week_totals(WEEK),
+#     "week_totals": project.load("mart.team_days").week_totals(FIRST_DAY, LAST_DAY),
 # and a Statement of your own is composed here with statement(...). A function of this cell
 # that gives a value each time it is built, through run_value(...), is a Run value too.
 
