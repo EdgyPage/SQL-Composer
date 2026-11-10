@@ -1,4 +1,4 @@
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.5)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.6)
 
 **Use this file as reference while you follow file 15's steps: it says what each formula of
 an attached workbook becomes in Hive.**

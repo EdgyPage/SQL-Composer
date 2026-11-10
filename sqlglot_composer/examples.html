@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.5: Example gallery</title>
+<title>sqlglot Composer 8.6: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,7 +23,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.5: Example gallery</h1>
+<h1>sqlglot Composer 8.6: Example gallery</h1>
 <p>Every Worked example on one page: 14 Worked examples on their own, and the
 159 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
@@ -1454,10 +1454,10 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported. Both are read from the folder&#x27;s version.txt, the one place the version is written.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;8.5&#x27;</pre>
+<pre class="output">&#x27;8.6&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 8.5, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 8.6, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -5309,7 +5309,7 @@ Next: at the top of each notebook, fill in connect(...) with your connection.</p
 <pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
-<pre class="output">Upgraded the Project from 7.1 to 8.5.
+<pre class="output">Upgraded the Project from 7.1 to 8.6.
 7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
@@ -5318,9 +5318,10 @@ Next: at the top of each notebook, fill in connect(...) with your connection.</p
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
 8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
 8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
+8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
 Read each step&#x27;s checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
     admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-    admin/upgrade_8.4.md and admin/upgrade_8.5.md.</pre>
+    admin/upgrade_8.4.md, admin/upgrade_8.5.md and admin/upgrade_8.6.md.</pre>
 <p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds; a Project made before 8.0, which has no such notebook until its first Upgrade, runs it in admin/check_project.ipynb, which imports project already. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark: its checklist, which the last line names, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
 <p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>

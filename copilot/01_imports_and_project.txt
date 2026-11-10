@@ -1,4 +1,4 @@
-# Copilot file 01: imports and the Project (sqlglot Composer 8.5)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.6)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -8,7 +8,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.6, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.

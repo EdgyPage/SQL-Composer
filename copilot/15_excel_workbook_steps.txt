@@ -1,4 +1,4 @@
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.5)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.6)
 
 **Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
 the Output section gives.**
