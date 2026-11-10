@@ -38,7 +38,7 @@ from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
 from .python_steps import PythonStep, changed_rows, is_partitioned, saving_hive, step_rows
 from .refusals import GuardLetThrough, guards_warn_in, need_warehouse_call, refuse
 from .run_values import values_given
-from .running import hive_to_show, run_execute, run_query, settings_needed
+from .running import hive_to_show, run_execute, run_query, settings_needed, statement_text
 from .shared import (counted, in_words, items_of, python_literal, singular_or_plural,
                      with_article)
 from .unchecked import SessionSettings, UncheckedStatement, hive_settings
@@ -458,18 +458,19 @@ class RunStep(NamedTuple):
 class BuiltRun:
     """A Scheduled run, built by project.build_run: the parameters as used, each Statement in
     the order it is sent, those START_FROM passes over, each table's Session settings, the
-    value each Run value run_values= named was given, as read for its function, and each Guard
-    the run's own cell tripped, let through."""
+    value each Run value run_values= named was given, as read for its function, and as
+    run_values= gave it, and each Guard the run's own cell tripped, let through."""
 
     def __init__(self, parameters: list[Parameter], steps: list[RunStep],
                  passed_over: list[RunStep], settings: dict[str, SessionSettings],
-                 run_values: dict[str, object],
+                 run_values: dict[str, object], run_values_read_from: dict[str, object],
                  guards_let_through: list[GuardLetThrough]) -> None:
         self.parameters = parameters
         self.steps = steps
         self.passed_over = passed_over
         self.settings = settings
         self.run_values = run_values
+        self.run_values_read_from = run_values_read_from
         self.guards_let_through = guards_let_through
 
     def __repr__(self) -> str:
@@ -515,7 +516,7 @@ class BuiltRun:
         printed: a SELECT through run_query and your query, its rows kept in results by its
         name; a write, an Admin statement or an Unchecked statement through run_execute and
         your execute. It prints a line as each one works, numbered as the build numbered it.
-        The Session setting "dynamic_partitions" is sent once first when a write fills
+        The Session setting "dynamic_partitions" is sent once, before the first write that fills
         Partitions from its rows, and a table's session_settings() before its first write, as
         the build printed them.
 
@@ -553,8 +554,8 @@ def build_scheduled_run(statements: Callable[[], object], run_values: dict[str, 
     ordered = _steps_in_order(steps + added, call)
     passed_over, sent = _split_at_start_from(ordered, _start_from(parameters), call)
     built = BuiltRun(parameters, sent, passed_over, settings, run_values_given.used,
-                     guards_let_through)
-    _print_build(built, run_values)
+                     run_values, guards_let_through)
+    _print_build(built)
     return built
 
 
@@ -683,7 +684,8 @@ def _refuse_given(call: str, gave: str, given: object) -> NoReturn:
         "them, each a SELECT, a write, an Admin statement, an Unchecked statement or a Python "
         "step, and each SELECT's rows come back in results by its name.",
         fix='Have statements() return a dict, as {"week_totals": project.load('
-        '"mart.team_days").week_totals(WEEK)}. A function given with no return gives None. '
+        '"mart.team_days").week_totals(FIRST_DAY, LAST_DAY)}. A function given with no '
+        "return gives None. "
         "Session settings aren't sent by a run: a Table notebook's session_settings() are "
         "sent before its writes.",
         given=given, call=call,
@@ -838,43 +840,79 @@ def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
 
 def step_texts(built: BuiltRun) -> list[str]:
     """Each Statement the built run sends, in order, as the build prints it: its heading, such
-    as -- 3 of 7: mart.team_days (read by week_totals), a table's Session settings before its
-    first write, as settings_before_each says, and its Hive, as show_hive shows it.
-    project.export_run_hive writes them."""
+    as -- 3 of 7: mart.team_days (read by week_totals); the Session setting
+    "dynamic_partitions", once, before the first step that fills Partitions from its rows, as
+    built.run sends it; a table's Session settings before its first write, as
+    settings_before_each says; and its Hive, as show_hive shows it, but a write's without the
+    Session setting it needs, sent once already. project.export_run_hive writes them."""
     count = len(built.passed_over) + len(built.steps)
     settings_before = settings_before_each(built)
+    first_filling = _first_filling_partitions(built)
     texts = []
     for index, step in enumerate(built.steps):
         lines = [f"-- {step.heading(len(built.passed_over) + index + 1, count)}"]
+        if index == first_filling:
+            lines.append(hive_to_show(hive_settings("dynamic_partitions"), None))
         if settings_before[index] is not None:
             lines.append(hive_to_show(settings_before[index], None))
-        lines.append(hive_to_show(step.statement, None))
+        if kinds.kind(step.statement) == kinds.WRITE:
+            lines.append(statement_text(step.statement))
+        else:
+            lines.append(hive_to_show(step.statement, None))
         texts.append("\n".join(lines))
     return texts
 
 
-def _print_build(built: BuiltRun, run_values: dict[str, object]) -> None:
-    """Print what the build made, after the parameters: the Run values given, each as used and
-    the value run_values= gave where that differs, the steps START_FROM passes over, then each
-    step's heading and its Hive, a table's Session settings before its first write, and a last
-    line saying nothing was sent."""
+def _first_filling_partitions(built: BuiltRun) -> int | None:
+    """The place, among the steps the built run sends, of the first that fills Partitions from
+    its rows, before which built.run sends the Session setting "dynamic_partitions", once, as
+    the build prints it; None when none does."""
+    for index, step in enumerate(built.steps):
+        if _fills_partitions(step):
+            return index
+    return None
+
+
+def lines_before_steps(built: BuiltRun) -> list[str]:
+    """What the build prints before its first Statement: each parameter as used, the Run
+    values run_values= gave, and the Statements START_FROM passes over.
+    project.export_run_hive heads its file with them."""
+    return [*parameter_lines(built.parameters), *_lines_after_parameters(built)]
+
+
+def _lines_after_parameters(built: BuiltRun) -> list[str]:
+    """What the build prints after the parameters, before its first Statement: the Run values
+    given, each as used and the value run_values= gave where that differs, then the steps
+    START_FROM passes over."""
+    lines = []
     if built.run_values:
-        print("Run values given by run_values=, in place of what each one's function gives:")
+        lines.append("Run values given by run_values=, in place of what each one's function "
+                     "gives:")
     for name, value in built.run_values.items():
         line = f"  {name} = {python_literal(value)}"
-        if value is not run_values[name]:
-            line += f", read from {python_literal(run_values[name])}"
-        print(line)
-    count = len(built.passed_over) + len(built.steps)
+        read_from = built.run_values_read_from[name]
+        if value is not read_from:
+            line += f", read from {python_literal(read_from)}"
+        lines.append(line)
     if built.passed_over:
         start = built.steps[0]
         before = "before its first write" if start.table else "before it"
-        print(f"START_FROM is {python_literal(start.start_from_name)}: the "
-              f"{counted(len(built.passed_over), 'Statement')} {before} "
-              f"{singular_or_plural(len(built.passed_over), 'is', 'are')} passed over, as the "
-              "run before sent them:")
-        for position, step in enumerate(built.passed_over, start=1):
-            print(f"  {step.heading(position, count)}")
+        lines.append(f"START_FROM is {python_literal(start.start_from_name)}: the "
+                     f"{counted(len(built.passed_over), 'Statement')} {before} "
+                     f"{singular_or_plural(len(built.passed_over), 'is', 'are')} passed over, "
+                     "as the run before sent them:")
+    count = len(built.passed_over) + len(built.steps)
+    for position, step in enumerate(built.passed_over, start=1):
+        lines.append(f"  {step.heading(position, count)}")
+    return lines
+
+
+def _print_build(built: BuiltRun) -> None:
+    """Print what the build made, after the parameters, printed first: what comes before its
+    first Statement, then each step's heading and its Hive, a table's Session settings before
+    its first write, each Guard let through, and a last line saying nothing was sent."""
+    for line in _lines_after_parameters(built):
+        print(line)
     for text in step_texts(built):
         print(text)
     _print_guards_let_through(built.guards_let_through)
@@ -887,7 +925,7 @@ def settings_before_each(built: BuiltRun) -> list[SessionSettings | None]:
     prints them and built.run sends them: a table's session_settings() before its first write,
     and again before its next write after another table's; None before every other step. A
     Python step's table gets none: the Hive that saves its rows needs only
-    "dynamic_partitions", which built.run sends first."""
+    "dynamic_partitions", which built.run sends once, before the first step needing it."""
     settings_before: list[SessionSettings | None] = []
     last_table_written = ""
     for step in built.steps:
@@ -927,16 +965,17 @@ def run_built(built: BuiltRun, query: Callable[[str], pd.DataFrame],
     if not built.steps:
         print("Sent nothing: the build has no Statement to send.")
         return {}
-    if any(_fills_partitions(step) for step in built.steps):
-        run_execute(hive_settings("dynamic_partitions"), execute)
     results: dict[str, pd.DataFrame] = {}
     count = len(built.passed_over) + len(built.steps)
     width = max(len(step.name) for step in built.steps)
     settings_before = settings_before_each(built)
+    first_filling = _first_filling_partitions(built)
     for index, step in enumerate(built.steps):
         position = len(built.passed_over) + index + 1
         shown = f"{position} of {count}: {step.name:<{width}}"
         try:
+            if index == first_filling:
+                run_execute(hive_settings("dynamic_partitions"), execute)
             if settings_before[index] is not None:
                 run_execute(settings_before[index], execute)
             worked = _send_step(step, query, execute, results)

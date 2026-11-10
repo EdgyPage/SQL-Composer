@@ -64,6 +64,11 @@ def week_totals(week_start: datetime.date, day: str = "mon", *teams: str) -> Sta
 
 def no_docstring(day):
     return day
+
+
+async def fetched(day: str) -> str:
+    """The rows fetched for a day, at the cell's top level as an async def."""
+    return day
 '''
 
 
@@ -234,6 +239,8 @@ def test_describe_logic_gives_each_function_its_hints_and_first_sentence(
         '    """Each team\'s jobs in the week from week_start."""',
         "def no_docstring(day):",
         "    ...  # no docstring",
+        "async def fetched(day: str) -> str:",
+        '    """The rows fetched for a day, at the cell\'s top level as an async def."""',
     ])
 
 
@@ -286,6 +293,18 @@ def test_a_logic_cell_that_isnt_python_yet_is_refused_as_load_refuses_it(
 
 
 # --- admin/scheduled_runs.ipynb ---------------------------------------------------------------
+
+
+def test_the_scheduled_runs_notebook_makes_each_run_named_in_new_runs(started: Path) -> None:
+    notebook = started / "admin" / "scheduled_runs.ipynb"
+    code = [text for kind, text in notebooks.read_cells(notebook) if kind == "code"]
+    names = [index for index, text in enumerate(code) if text.startswith("NEW_RUNS = []")]
+    assert len(names) == 1
+    assert "project.new_scheduled_run(NEW_RUNS)" in code[names[0]]
+    code[1] = RECORDING
+    code[names[0]] = code[names[0]].replace("NEW_RUNS = []", 'NEW_RUNS = ["daily"]', 1)
+    run_admin_notebook(notebook, code[:names[0] + 1])
+    assert (run_folder(started, "daily") / "daily.ipynb").is_file()
 
 
 def test_the_scheduled_runs_notebook_runs_each_by_hand_and_sends_nothing(started: Path) -> None:

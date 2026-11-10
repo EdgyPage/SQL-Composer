@@ -10,8 +10,10 @@ notebook. Each Table
 folder's writes come through project.load, as run_tables gathers them. Each Scheduled run is
 built from outside its notebook by built_run_of, as its Build cell builds it with the
 notebook's defaults, sending nothing: a Run value is worked out, so the warehouse is read for
-Run values only. A run that can't be built, as one with a <...> left, is shown on the page
-with why, never raised.
+Run values only. Of the cells above a run's # scheduled cell only the imports are run, so a
+name one of them defines, used in the # scheduled cell, is refused, saying to move it there. A
+run that can't be built, as one with a <...> left, is shown on the page with why, never
+raised.
 """
 
 from __future__ import annotations
@@ -22,8 +24,9 @@ import html
 import io
 import re
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, NoReturn
 
 from . import kinds, unchecked
 from .clauses import Statement
@@ -35,12 +38,29 @@ from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry, table_notebook
 from .python_steps import PythonStep
 from .refusals import refuse
 from .running import hive_file_header
-from .scheduled_runs import BuiltRun, step_texts
+from .scheduled_runs import BuiltRun, lines_before_steps, step_texts
 from .shared import counted, in_words, singular_or_plural
 from .unchecked import UncheckedStatement
 
 # The name the code built_run_of runs gives the built run, as the Build cell names it built.
 _BUILT = "built_from_its_notebook"
+
+
+class NamedStatement(NamedTuple):
+    """A Statement with the name it is known by: a Table folder's write, by its table; one a
+    Scheduled run sends, by the run."""
+
+    statement: Statement | UncheckedStatement | PythonStep
+    name: str
+
+
+@contextlib.contextmanager
+def _warnings_silenced() -> Iterator[None]:
+    """While the block runs, no Warning is shown: a Run value that fails, as one reading the
+    warehouse with no connection does, changes no table read, so here it warns of nothing."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        yield
 
 
 # --- A Scheduled run, built from outside its notebook -----------------------------------------
@@ -58,9 +78,14 @@ def built_run_of(root: Path, name: str, call: str) -> tuple[BuiltRun, str]:
     the notebook, so build_run finds the notebook there. A Run value is worked out now, through
     the connection of the notebook you call this from.
 
+    Since only the imports of the cells above the # scheduled cell are run, a constant or a
+    function one of them defines isn't there: a # scheduled cell that uses one is refused,
+    naming it and saying to move it into the # scheduled cell.
+
     Refused, as `call` says: no notebook; no # scheduled cell; a code cell it runs that isn't
-    Python yet, as a <...> left stops it; and no cell after the # scheduled cell calling
-    project.build_run. Whatever the build itself refuses is refused as it says.
+    Python yet, as a <...> left stops it; no cell after the # scheduled cell calling
+    project.build_run; and a name a cell above the # scheduled cell defines, used. Whatever the
+    build itself refuses is refused as it says.
     """
     folder = root / SCHEDULED_RUN.folder / name
     notebook = folder / f"{name}.ipynb"
@@ -73,17 +98,39 @@ def built_run_of(root: Path, name: str, call: str) -> tuple[BuiltRun, str]:
             f"registry with project.remove_scheduled_run({name!r}).",
             error=FileNotFoundError,
         )
-    source = _build_source(read_cells(notebook, shown=shown, call=call), shown, call)
+    source, not_run = _build_source(read_cells(notebook, shown=shown, call=call), shown, call)
     printed = io.StringIO()
-    with contextlib.chdir(folder), contextlib.redirect_stdout(printed):
-        names = run_logic(root, source, f"scheduled run {name}")
+    try:
+        with contextlib.chdir(folder), contextlib.redirect_stdout(printed):
+            names = run_logic(root, source, f"scheduled run {name}")
+    except NameError as error:
+        if error.name not in not_run:
+            raise
+        _refuse_a_name_not_run(error.name, shown, call)
     return names[_BUILT], printed.getvalue()
 
 
-def _build_source(cells: list[tuple[str, str]], shown: str, call: str) -> str:
+def _refuse_a_name_not_run(name: str, shown: str, call: str) -> NoReturn:
+    """Refuse a name the # scheduled cell uses that a cell above it defines, which isn't run."""
+    refuse(
+        what=f"{call}: the {SCHEDULED} cell of {shown} needs {name}, which a cell above it "
+        f"defines, but built from outside its notebook only the imports of the cells above "
+        f"{SCHEDULED} are run, so {name} isn't defined.",
+        why="The run is built here as its Build cell builds it, sending nothing, so the "
+        "cells above its # scheduled cell never run but for their imports: their "
+        "connect(...) and your own lines are left out.",
+        fix=f"Move {name} into the {SCHEDULED} cell of {shown}, so the run builds the same in "
+        "its notebook and from outside it, then call this again.",
+        error=NameError,
+    )
+
+
+def _build_source(cells: list[tuple[str, str]], shown: str, call: str
+                  ) -> tuple[str, set[str]]:
     """The code built_run_of runs, from a Scheduled run's cells: the parameters cell, the
     imports of each other code cell above the # scheduled cell, that cell, then the Build
-    cell's call, its built run named _BUILT."""
+    cell's call, its built run named _BUILT; and each name those other cells define but for
+    their imports, which isn't run."""
     numbered = [(number, text) for number, (kind, text) in enumerate(cells, start=1)
                 if kind == "code"]
     scheduled = [place for place, (_, text) in enumerate(numbered)
@@ -96,19 +143,34 @@ def _build_source(cells: list[tuple[str, str]], shown: str, call: str) -> str:
             "as the scheduled_run Template does.",
             error=ValueError,
         )
-    pieces: list[str] = []
+    cell_texts: list[str] = []
+    not_run: set[str] = set()
     for number, text in numbered[:scheduled[0]]:
         tree = _parsed(number, text, shown, call)
         if first_line(text) == PARAMETERS:
-            pieces.append(text)
+            cell_texts.append(text)
             continue
-        pieces += [ast.get_source_segment(text, node) for node in tree.body
-                   if isinstance(node, (ast.Import, ast.ImportFrom))]
+        imports = [node for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))]
+        cell_texts += [ast.get_source_segment(text, node) for node in imports]
+        not_run.update(_names_defined([node for node in tree.body if node not in imports]))
     number, text = numbered[scheduled[0]]
     _parsed(number, text, shown, call)
-    pieces.append(text)
-    pieces.append(f"{_BUILT} = {_build_call(numbered[scheduled[0] + 1:], shown, call)}")
-    return "\n\n".join(pieces) + "\n"
+    cell_texts.append(text)
+    cell_texts.append(f"{_BUILT} = {_build_call(numbered[scheduled[0] + 1:], shown, call)}")
+    return "\n\n".join(cell_texts) + "\n", not_run
+
+
+def _names_defined(nodes: list[ast.stmt]) -> set[str]:
+    """Each name the lines `nodes` of a cell define: a def's or a class's name, and each
+    name given a value."""
+    names: set[str] = set()
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+            continue
+        names.update(each.id for each in ast.walk(node)
+                     if isinstance(each, ast.Name) and isinstance(each.ctx, ast.Store))
+    return names
 
 
 def _parsed(number: int, text: str, shown: str, call: str) -> ast.Module:
@@ -158,51 +220,83 @@ def _is_build_run(function: ast.expr) -> bool:
 # --- The Project's tables, and a loop among them ----------------------------------------------
 
 
-def project_writes(registry: Registry, call: str
-                   ) -> tuple[list[tuple[Statement | UncheckedStatement | PythonStep, str]],
-                              dict[str, Exception]]:
-    """Each write of each Table folder `registry` lists, with its table's name, through
-    project.load, as run_tables gathers them; and, by its table, why each Table folder whose
-    logic doesn't load or whose write() doesn't build was passed over. A Run value that fails,
-    as one reading the warehouse with no connection does, warns of nothing here: only the
-    tables each write reads count."""
-    named: list[tuple[Statement | UncheckedStatement | PythonStep, str]] = []
+class ProjectTables(NamedTuple):
+    """The Project's Table folders: each one's writes, named by its table; why each Table
+    folder whose logic doesn't load or whose write() doesn't build was passed over, by its
+    table; and the tables in a loop among the writes, [] when there is none."""
+
+    writes: list[NamedStatement]
+    passed_over: dict[str, Exception]
+    loop: list[str]
+
+
+def project_tables(registry: Registry, call: str) -> ProjectTables:
+    """The writes of each Table folder `registry` lists, through project.load, as run_tables
+    gathers them, those passed over, and a loop among them. A Run value that fails, as one
+    reading the warehouse with no connection does, warns of nothing here: only the tables each
+    write reads count."""
+    writes: list[NamedStatement] = []
     passed_over: dict[str, Exception] = {}
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with _warnings_silenced():
         for table in registry.in_force(TABLE_FOLDER):
             try:
-                named += [(write, table) for write in writes_of(table, load(table), call)]
+                writes += [NamedStatement(write, table)
+                           for write in writes_of(table, load(table), call)]
             # Whatever stops it, a <...> left, a refusal or a name spelt wrong, is reported.
             except Exception as error:  # noqa: BLE001
                 passed_over[table] = error
-    return named, passed_over
+    return ProjectTables(writes, passed_over, names_in_a_loop(writes))
 
 
-def loop_lines(registry: Registry) -> list[str]:
-    """What project.check says of a loop among the tables of the Project `registry` lists:
-    each table in it, what of the loop it reads, and the notebook whose logic cell to mend; []
-    when there is none. A Table folder whose logic doesn't load is passed over."""
-    named, _ = project_writes(registry, "project.check()")
-    loop = names_in_a_loop(named)
-    if not loop:
+def loop_lines(tables: ProjectTables) -> list[str]:
+    """What project.check says of a loop among the Project's tables: each table in it, what of
+    the loop it reads, and the notebook whose logic cell to mend; [] when there is none."""
+    if not tables.loop:
         return []
-    reads = _tables_each_reads(named)
-    links = [f"{table} reads {in_words(sorted(reads[table] & set(loop)))}" for table in loop]
+    reads = _reads_of_each_table(tables.writes)
+    links = []
+    for table in tables.loop:
+        in_the_loop = [read for read in reads.get(table, []) if read in tables.loop]
+        links.append(f"{table} reads {in_words(sorted(in_the_loop))}")
     lines = [f"A loop among your tables: {'; '.join(links)}. So none of them can be written "
              "first: run_tables refuses them, and so does each Scheduled run that reads them.",
              "Mend the # logic cell of one of them, so it no longer reads the table it "
              "waits on:"]
-    return lines + [f"  {table}: {table_notebook(table_stem(table))}" for table in loop]
+    return lines + [f"  {table}: {table_notebook(table_stem(table))}" for table in tables.loop]
 
 
-def _tables_each_reads(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
-                       ) -> dict[str, set[str]]:
-    """The tables each name's writes read, by the name."""
-    reads: dict[str, set[str]] = {}
-    for write, name in named:
-        reads.setdefault(name, set()).update(tables_read(write))
-    return reads
+def passed_over_lines(passed_over: dict[str, Exception]) -> list[str]:
+    """A line for each Table folder passed over, as its logic doesn't load: its table and why,
+    on one line, as project.check and project.export_project_lineage report it."""
+    return [f"Passed over, as its logic doesn't load: {table}: {one_line_message(error)}"
+            for table, error in passed_over.items()]
+
+
+def failing_logic_lines(passed_over: dict[str, Exception]) -> list[str]:
+    """What project.check says of the Table folders passed over in looking for a loop: a line
+    for each whose logic fails, as passed_over_lines gives it, such as one naming a table
+    spelt wrong; none for one whose logic isn't there yet, which blocks nothing it can mend."""
+    failing = {table: error for table, error in passed_over.items()
+               if not _is_logic_not_there_yet(error)}
+    return passed_over_lines(failing)
+
+
+def _is_logic_not_there_yet(error: Exception) -> bool:
+    """Whether a Table folder's logic didn't load only because it isn't there yet: its logic
+    cell isn't Python yet, as a <...> left from its Template stops it (project.load refuses
+    that from Python's SyntaxError), or its notebook isn't there, which project.check reports
+    as registered but not there."""
+    return isinstance(error, FileNotFoundError) or isinstance(error.__context__, SyntaxError)
+
+
+def _reads_of_each_table(statements: list[NamedStatement]) -> dict[str, list[str]]:
+    """The tables each table's writes read, by the table written, each once, in the order the
+    tables written are met: none reading itself, as a write adding to its own table does."""
+    reads: dict[str, list[str]] = {}
+    for statement, _ in statements:
+        for written in tables_written(statement):
+            reads[written] = reads.get(written, []) + sorted(tables_read(statement) - {written})
+    return {written: list(dict.fromkeys(read)) for written, read in reads.items()}
 
 
 # --- What the page draws ----------------------------------------------------------------------
@@ -220,13 +314,14 @@ class RunSection(NamedTuple):
 
 class ProjectLineage(NamedTuple):
     """What the page draws: every table, each a box, in name order; those with a Table folder;
-    those a write of the Project writes; each arrow, from a table to a table whose write reads
-    it; each table a Scheduled run writes, with the runs that write it; each table in a loop;
-    each Scheduled run; and each Table folder passed over, with why."""
+    the tables each table a write of the Project writes reads, by the table written; each
+    arrow, from a table to a table whose write reads it; each table a Scheduled run writes,
+    with the runs that write it; each table in a loop; each Scheduled run; and each Table
+    folder passed over, with why."""
 
     tables: list[str]
     table_folders: list[str]
-    written: set[str]
+    reads: dict[str, list[str]]
     arrows: list[tuple[str, str]]
     writers: dict[str, list[str]]
     loop: list[str]
@@ -238,14 +333,13 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
     """The Project's lineage: its Table folders' writes, each Scheduled run built, sending
     nothing, and the tables both read and write."""
     registry = Registry(root)
-    named, passed_over = project_writes(registry, call)
-    loop = names_in_a_loop(named)
+    project = project_tables(registry, call)
+    statements = list(project.writes)
     runs: list[RunSection] = []
     writers: dict[str, list[str]] = {}
     for name in registry.in_force(SCHEDULED_RUN):
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+            with _warnings_silenced():
                 built, _ = built_run_of(root, name, call)
         # Whatever stops a run's build is shown on the page, never raised.
         except Exception as error:  # noqa: BLE001
@@ -256,33 +350,19 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
                     for number, step in enumerate(steps, start=1)]
         runs.append(RunSection(name, headings, None))
         for step in steps:
-            named.append((step.statement, name))
+            statements.append(NamedStatement(step.statement, name))
             for table in tables_written(step.statement):
-                writers.setdefault(table, [])
-                if name not in writers[table]:
-                    writers[table].append(name)
-    arrows = _arrows(named)
-    table_folders = registry.in_force(TABLE_FOLDER)
-    written: set[str] = set()
-    for write, _ in named:
-        written.update(tables_written(write))
-    tables = {*table_folders, *written}
-    for read, _ in arrows:
-        tables.add(read)
-    return ProjectLineage(sorted(tables), table_folders, written, arrows, writers, loop, runs,
-                          passed_over)
-
-
-def _arrows(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
-            ) -> list[tuple[str, str]]:
-    """Each arrow, from a table a write reads to the table it writes, each once, in the order
-    met. A write reading its own table, as one adding to it does, draws no arrow to itself."""
+                writers[table] = list(dict.fromkeys([*writers.get(table, []), name]))
+    reads = _reads_of_each_table(statements)
     arrows: list[tuple[str, str]] = []
-    for write, _ in named:
-        for written in tables_written(write):
-            reads = sorted(tables_read(write))
-            arrows += [(read, written) for read in reads if read != written]
-    return list(dict.fromkeys(arrows))
+    for written, read in reads.items():
+        arrows += [(table, written) for table in read]
+    table_folders = registry.in_force(TABLE_FOLDER)
+    tables = {*table_folders, *reads}
+    for table, _ in arrows:
+        tables.add(table)
+    return ProjectLineage(sorted(tables), table_folders, reads, arrows, writers, project.loop,
+                          runs, project.passed_over)
 
 
 def _loop_arrows(lineage: ProjectLineage) -> set[tuple[str, str]]:
@@ -306,11 +386,11 @@ def _reached_from(table: str, arrows: list[tuple[str, str]]) -> set[str]:
     return reached
 
 
-def _kind_line(lineage: ProjectLineage, table: str) -> str:
+def _kind_label(lineage: ProjectLineage, table: str) -> str:
     """What a table is, as its box and the Tables list say it."""
     if table in lineage.table_folders:
         return TABLE_FOLDER.label
-    if table in lineage.written:
+    if table in lineage.reads:  # a write of the Project writes it
         return SAVED_ALONE
     return READ_ONLY
 
@@ -323,7 +403,7 @@ READ_ONLY = "read, not written here"
 def _box_lines(lineage: ProjectLineage, table: str) -> list[str]:
     """The lines a table's box shows: its name, what it is, the Scheduled runs that write it,
     and marks for more than one of them, a loop and logic that doesn't load."""
-    lines = [table, _kind_line(lineage, table)]
+    lines = [table, _kind_label(lineage, table)]
     runs = lineage.writers.get(table, [])
     if runs:
         lines.append(f"written by {in_words(runs)}")
@@ -339,7 +419,7 @@ def _box_lines(lineage: ProjectLineage, table: str) -> list[str]:
 def _box_classes(lineage: ProjectLineage, table: str) -> list[str]:
     """The classes a table's box is drawn with: what it is, then a mark for more than one
     Scheduled run writing it and one for a loop."""
-    what = _kind_line(lineage, table)
+    what = _kind_label(lineage, table)
     marks = ["saved"]
     if what == TABLE_FOLDER.label:
         marks = ["folder"]
@@ -356,6 +436,62 @@ def _error_text(error: Exception) -> str:
     """An error as the page shows it: its kind, then its message, the four parts of one of the
     Toolbox's on their own lines."""
     return f"{type(error).__name__}: {str(error).strip()}"
+
+
+class TableRow(NamedTuple):
+    """One row of the Tables list both files show: the table, what it is, the tables that read
+    it, and the Scheduled runs that write it, ⚠ after them when more than one does; "-" for
+    none."""
+
+    table: str
+    kind: str
+    read_by: str
+    written_by: str
+
+
+def _table_rows(lineage: ProjectLineage) -> list[TableRow]:
+    """The Tables list both files show, a row for each table, in name order."""
+    rows = []
+    for table in lineage.tables:
+        readers = [written for read, written in lineage.arrows if read == table]
+        runs = lineage.writers.get(table, [])
+        mark = " ⚠" if len(runs) > 1 else ""
+        rows.append(TableRow(table, _kind_label(lineage, table), ", ".join(readers) or "-",
+                             f"{', '.join(runs) or '-'}{mark}"))
+    return rows
+
+
+class ReportPart(NamedTuple):
+    """One part of the report both files show after the Tables list: its heading, at its level,
+    2 or 3; a sentence under it, each `name` in it in backticks; a list; and a block of text,
+    as an error's; each "" or [] when it has none."""
+
+    level: int
+    heading: str
+    sentence: str
+    items: list[str]
+    block: str
+
+
+def _report_parts(lineage: ProjectLineage) -> list[ReportPart]:
+    """The report's parts after the Tables list: each Scheduled run, what it sends or why it
+    wasn't built, then each Table folder passed over, with why."""
+    none_yet = ""
+    if not lineage.runs:
+        none_yet = 'None yet: make one with `project.new_scheduled_run("<name>")`.'
+    parts = [ReportPart(2, "Scheduled runs", none_yet, [], "")]
+    for run in lineage.runs:
+        if run.problem is None:
+            parts.append(ReportPart(3, run.name, "What it sends, in order:", run.steps, ""))
+        else:
+            parts.append(ReportPart(3, run.name, "Not built, so nothing it writes is drawn:",
+                                    [], _error_text(run.problem)))
+    if lineage.passed_over:
+        parts.append(ReportPart(2, "Table folders passed over", "Each one's logic doesn't "
+                                "load, so what its write reads isn't drawn.", [], ""))
+    for table, error in lineage.passed_over.items():
+        parts.append(ReportPart(3, table, "", [], _error_text(error)))
+    return parts
 
 
 # --- The Markdown twin ------------------------------------------------------------------------
@@ -385,27 +521,17 @@ def to_markdown(lineage: ProjectLineage, footer: str) -> str:
     lines += ["## Graph", "", *_mermaid_chart(lineage), "", "## Tables", "",
               "| Table | What it is | Read by | Written by Scheduled runs |",
               "| --- | --- | --- | --- |"]
-    for table in lineage.tables:
-        readers = [written for read, written in lineage.arrows if read == table]
-        runs = lineage.writers.get(table, [])
-        mark = " ⚠" if len(runs) > 1 else ""
-        lines.append(f"| `{table}` | {_kind_line(lineage, table)} | "
-                     f"{', '.join(readers) or '-'} | {', '.join(runs) or '-'}{mark} |")
-    lines += ["", "## Scheduled runs", ""]
-    if not lineage.runs:
-        lines += ["None yet: make one with `project.new_scheduled_run(\"<name>\")`.", ""]
-    for run in lineage.runs:
-        lines += [f"### {run.name}", ""]
-        if run.problem is not None:
-            lines += ["Not built, so nothing it writes is drawn:", "", "```text",
-                      _error_text(run.problem), "```", ""]
-            continue
-        lines += ["What it sends, in order:", "", *[f"- {step}" for step in run.steps], ""]
-    if lineage.passed_over:
-        lines += ["## Table folders passed over", "",
-                  "Each one's logic doesn't load, so what its write reads isn't drawn.", ""]
-    for table, error in lineage.passed_over.items():
-        lines += [f"### {table}", "", "```text", _error_text(error), "```", ""]
+    for row in _table_rows(lineage):
+        lines.append(f"| `{row.table}` | {row.kind} | {row.read_by} | {row.written_by} |")
+    lines.append("")
+    for part in _report_parts(lineage):
+        lines += [f"{'#' * part.level} {part.heading}", ""]
+        if part.sentence:
+            lines += [part.sentence, ""]
+        if part.items:
+            lines += [*[f"- {item}" for item in part.items], ""]
+        if part.block:
+            lines += ["```text", part.block, "```", ""]
     return "\n".join(lines + ["---", "", footer, ""])
 
 
@@ -449,9 +575,6 @@ def _columns(lineage: ProjectLineage) -> dict[str, int]:
     """The column each table's box is drawn in, from 0 at the left: one right of the furthest
     table it reads. In a loop, the table met again while its own column is worked out counts
     as 0, so the loop ends."""
-    reads: dict[str, list[str]] = {table: [] for table in lineage.tables}
-    for read, written in lineage.arrows:
-        reads[written].append(read)
     columns: dict[str, int] = {}
     working: set[str] = set()
 
@@ -462,7 +585,7 @@ def _columns(lineage: ProjectLineage) -> dict[str, int]:
         if table in working:
             return 0
         working.add(table)
-        column = 1 + max([-1] + [column_of(read) for read in reads[table]])
+        column = 1 + max([-1] + [column_of(read) for read in lineage.reads.get(table, [])])
         working.discard(table)
         columns[table] = column
         return column
@@ -519,35 +642,29 @@ def _box_svg(lineage: ProjectLineage, table: str, place: tuple[int, int], height
 def _report_html(lineage: ProjectLineage) -> str:
     """The page's report, under the drawing: the tables, each Scheduled run, and each Table
     folder passed over."""
-    e = html.escape
     rows: list[str] = []
-    for table in lineage.tables:
-        readers = [written for read, written in lineage.arrows if read == table]
-        runs = lineage.writers.get(table, [])
-        mark = " ⚠" if len(runs) > 1 else ""
-        rows.append(f"<tr><td><code>{e(table)}</code></td><td>{e(_kind_line(lineage, table))}"
-                    f"</td><td>{e(', '.join(readers) or '-')}</td>"
-                    f"<td>{e(', '.join(runs) or '-')}{mark}</td></tr>")
+    for row in _table_rows(lineage):
+        rows.append(f"<tr><td><code>{html.escape(row.table)}</code></td>"
+                    f"<td>{html.escape(row.kind)}</td><td>{html.escape(row.read_by)}</td>"
+                    f"<td>{html.escape(row.written_by)}</td></tr>")
     parts = ["<h2>Tables</h2><table><tr><th>Table</th><th>What it is</th><th>Read by</th>"
-             f"<th>Written by Scheduled runs</th></tr>{''.join(rows)}</table>",
-             "<h2>Scheduled runs</h2>"]
-    if not lineage.runs:
-        parts.append("<p>None yet: make one with <code>"
-                     'project.new_scheduled_run("&lt;name&gt;")</code>.</p>')
-    for run in lineage.runs:
-        parts.append(f"<h3>{e(run.name)}</h3>")
-        if run.problem is not None:
-            parts.append("<p>Not built, so nothing it writes is drawn:</p>"
-                         f"<pre>{e(_error_text(run.problem))}</pre>")
-            continue
-        steps = "".join(f"<li>{e(step)}</li>" for step in run.steps)
-        parts.append(f"<p>What it sends, in order:</p><ul>{steps}</ul>")
-    if lineage.passed_over:
-        parts.append("<h2>Table folders passed over</h2><p>Each one's logic doesn't load, so "
-                     "what its write reads isn't drawn.</p>")
-    for table, error in lineage.passed_over.items():
-        parts.append(f"<h3>{e(table)}</h3><pre>{e(_error_text(error))}</pre>")
+             f"<th>Written by Scheduled runs</th></tr>{''.join(rows)}</table>"]
+    for part in _report_parts(lineage):
+        shown = f"<h{part.level}>{html.escape(part.heading)}</h{part.level}>"
+        if part.sentence:
+            shown += f"<p>{_html_with_code(part.sentence)}</p>"
+        if part.items:
+            items = [f"<li>{html.escape(item)}</li>" for item in part.items]
+            shown += f"<ul>{''.join(items)}</ul>"
+        if part.block:
+            shown += f"<pre>{html.escape(part.block)}</pre>"
+        parts.append(shown)
     return "\n".join(parts)
+
+
+def _html_with_code(text: str) -> str:
+    """Text as the page shows it: escaped, each `name` in backticks as <code>name</code>."""
+    return re.sub(r"`([^`]*)`", r"<code>\1</code>", html.escape(text))
 
 
 def to_html(lineage: ProjectLineage, markdown_name: str, footer: str) -> str:
@@ -556,9 +673,7 @@ def to_html(lineage: ProjectLineage, markdown_name: str, footer: str) -> str:
     loop = ""
     if lineage.loop:
         loop = f'<p class="loopnote">{html.escape(_loop_note(lineage))}</p>'
-    # Each `name` in backticks becomes <code>name</code>.
-    about = re.sub(r"`([^`]*)`", r"<code>\1</code>", html.escape(ABOUT))
-    filled = {"ABOUT": about, "LOOP": loop,
+    filled = {"ABOUT": _html_with_code(ABOUT), "LOOP": loop,
               "MD": html.escape(markdown_name), "DRAWING": _drawing(lineage),
               "REPORT": _report_html(lineage), "FOOTER": html.escape(footer)}
 
@@ -603,10 +718,7 @@ def write_project_lineage(root: Path, call: str) -> list[str]:
         if run.problem is not None:
             lines.append(f"Not built, as the page shows: {run.name}: "
                          f"{one_line_message(run.problem)}")
-    for table, error in lineage.passed_over.items():
-        lines.append(f"Passed over, as its logic doesn't load: {table}: "
-                     f"{one_line_message(error)}")
-    return lines
+    return lines + passed_over_lines(lineage.passed_over)
 
 
 # --- One Scheduled run's lineage and Hive -----------------------------------------------------
@@ -615,9 +727,13 @@ def write_project_lineage(root: Path, call: str) -> list[str]:
 # statement or a Python step, is drawn as one step. A create, upkeep and an Admin statement
 # make none, as export_lineage leaves an Admin statement out.
 _DRAWN = (kinds.READ, kinds.WRITE, kinds.UNCHECKED, kinds.PYTHON)
-# How a run is built for its lineage and its Hive, as both reports say.
-BUILT_AS = ("built as its Build cell builds {it}, with the defaults of its # parameters cell, "
-            "sending nothing")
+
+
+def _built_as(it: str) -> str:
+    """How a run is built for its lineage and its Hive, as both reports say: `it` is what is
+    built, "it" or "them"."""
+    return (f"built as its Build cell builds {it}, with the defaults of its # parameters "
+            "cell, sending nothing")
 
 
 def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
@@ -651,7 +767,7 @@ def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
     lines = [f"Wrote {html_path.relative_to(root).as_posix()} and its Markdown twin, "
              f"{markdown_path.name}: the lineage of {counted(len(drawn), 'Statement')}, "
              f"{in_words(list(dict.fromkeys(names)))}, "
-             f"{BUILT_AS.format(it=singular_or_plural(len(drawn), 'it', 'them'))}."]
+             f"{_built_as(singular_or_plural(len(drawn), 'it', 'them'))}."]
     if left_out:
         makes = singular_or_plural(len(left_out), "it makes", "they make")
         lines.append(f"Not drawn, as {makes} no column from another: {'; '.join(left_out)}.")
@@ -661,28 +777,24 @@ def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
 def write_run_hive(root: Path, name: str, call: str) -> list[str]:
     """Write the Hive of the Scheduled run `name`, built as its notebook's Build cell builds
     it, into scheduled_runs/<name>/<name>.hql: a header saying what it is, what the build
-    printed before its first Statement, as comment lines, then each Statement as the build
+    prints before its first Statement, as comment lines, then each Statement as the build
     prints it. What project.export_run_hive says it did, a line each."""
-    built, printed = built_run_of(root, name, call)
+    built, _ = built_run_of(root, name, call)
     count = counted(len(built.steps), "Statement")
     header = (f"The Hive of the Scheduled run {name}, generated by {call} from {name}.ipynb, "
-              f"beside this file, {BUILT_AS.format(it='it')}. It is to read, never to edit or "
-              "to send: the notebook builds its Hive again each time it runs, its Run values "
-              "worked out then, so this file is never what is sent. To change it, edit the "
-              f"notebook, save it and call {call} again. It holds {count}.")
-    before = []
-    for line in printed.splitlines():
-        if line.startswith(("-- ", "Built ")):
-            break
-        before.append(f"-- {line}".rstrip())
-    pieces = [f"{hive_file_header(header)}\n--\n" + "\n".join(before), *step_texts(built)]
+              f"beside this file, {_built_as('it')}. It is to read, never to edit or to send: "
+              "the notebook builds its Hive again each time it runs, its Run values worked out "
+              "then, so this file is never what is sent. To change it, edit the notebook, save "
+              f"it and call {call} again. It holds {count}.")
+    build_lines = [f"-- {line}".rstrip() for line in lines_before_steps(built)]
+    texts = [f"{hive_file_header(header)}\n--\n" + "\n".join(build_lines), *step_texts(built)]
     path = root / SCHEDULED_RUN.folder / name / f"{name}.hql"
     # \n line endings on every computer, so a file written again matches the one committed.
-    path.write_text("\n\n".join(pieces) + "\n", encoding="utf-8", newline="\n")
+    path.write_text("\n\n".join(texts) + "\n", encoding="utf-8", newline="\n")
     it = singular_or_plural(len(built.steps), "it", "them")
     return [f"Wrote {path.relative_to(root).as_posix()}: the Hive of {count}, in the order the "
-            f"run sends {it}, {BUILT_AS.format(it=it)}. It is to read, never to edit: the "
-            "notebook builds its Hive again each time it runs."]
+            f"run sends {it}, {_built_as(it)}. It is to read, never to edit: the notebook "
+            "builds its Hive again each time it runs."]
 
 
 # The HTML page, in the look of a Statement's lineage page. to_html fills in each __NAME__
