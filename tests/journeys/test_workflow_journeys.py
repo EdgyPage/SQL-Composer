@@ -46,7 +46,7 @@ import example_project
 import notebook_runner
 import pandas as pd
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, rewrite_what_awaits_its_step, toolbox_module
 from workflow_warehouse import Warehouse
 
 from sqlglot_composer import project, to_hive
@@ -1286,6 +1286,7 @@ def test_upgrade_a_project_the_version_before_left(
     started = left_by_the_version_before
     started.monkeypatch.chdir(started.root / "admin")
     project.upgrade()  # as admin/check_project.ipynb runs it, once the new Toolbox is in
+    rewrite_what_awaits_its_step(started.root)
     started.monkeypatch.chdir(started.root)
     assert "Marked by project.upgrade()" in repr(project.check())
     journey = started.journey("upgrade")
@@ -1301,6 +1302,7 @@ def test_upgrade_through_the_runner(left_by_the_version_before: Started) -> None
     started.monkeypatch.chdir(started.root / "admin")
     # As admin/check_project.ipynb runs it: the version before had no Workflow notebooks.
     project.upgrade()
+    rewrite_what_awaits_its_step(started.root)
     journey = started.journey("upgrade")
     stopped = journey.run_workflow()
     assert "2. Make each change an UPGRADE mark asks for" in stopped

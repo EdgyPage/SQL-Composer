@@ -22,19 +22,19 @@ import pytest
 from conftest import toolbox_module
 
 import sqlglot_composer
+import example_database
 from sqlglot_composer import (
     FROM,
     INSERT_OVERWRITE,
     SELECT,
     Table,
-    example_database,
     notebooks,
     project,
     python_step,
     set_admin_log,
     statement,
 )
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 NOW = datetime.datetime(2026, 11, 9, 9, 30, 0)
 # This module's names stand for the notebook's: the parameters cell's START_FROM.
@@ -46,7 +46,7 @@ START_FROM = ""
 TABLES = '''
 from sqlglot_composer import (FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, AS, Table, count_rows,
                               python_step, statement)
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 team_jobs = Table("mart.team_jobs", columns={"job_id": "bigint", "team": "string"},
                   location="/data/your_team/mart.db/team_jobs")
@@ -392,7 +392,7 @@ def test_rows_that_isnt_a_select_is_refused() -> None:
 
 def test_query_and_execute_the_other_way_round_are_refused(
         run: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    from sqlglot_composer.example_database import execute, query
+    from example_database import execute, query
 
     built = built_quietly(capsys)
     with pytest.raises(TypeError, match="the other way round"):
@@ -407,7 +407,7 @@ def test_the_runs_docstring_example_runs(tmp_path: Path,
     monkeypatch.chdir(tmp_path)
     set_admin_log()
     scope = {name: getattr(sqlglot_composer, name) for name in sqlglot_composer.__all__}
-    scope["job_runs"] = example_database.job_runs
+    scope.update(example_database.doctest_names())
     built_run = toolbox_module("scheduled_runs").BuiltRun.run
     test = doctest.DocTestParser().get_doctest(inspect.getdoc(built_run), scope, "built.run",
                                                None, 0)

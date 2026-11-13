@@ -5,9 +5,10 @@ times.
 """
 
 from building_blocks.alerts_per_run import alerts_per_run
+import example_database
 from sqlglot_composer import (
     AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, Statement, between, count_rows, equals,
-    example_database, statement, sum_of,
+    statement, sum_of,
 )
 
 job_runs = example_database.job_runs

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 
 from conftest import example_rows
-from sqlglot_composer import Statement, example_database, to_hive
+import example_database
+from sqlglot_composer import Statement, to_hive
 from statements import saved_table as example
 
 

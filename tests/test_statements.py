@@ -54,7 +54,7 @@ from sqlglot_composer import (
 )
 from sqlglot_composer import admin, writing
 from sqlglot_composer.trees import HIVE_FUNCTION_ARGUMENTS
-from sqlglot_composer.example_database import job_runs, jobs, run_alerts
+from example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 

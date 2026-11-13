@@ -52,6 +52,7 @@ and minutes per day beside its team, is one of the Project's Saved tables, parti
 
 >>> from sqlglot_composer import *
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> from references import mart, ops
 >>> job_day_facts = mart.job_day_facts  # -> Table

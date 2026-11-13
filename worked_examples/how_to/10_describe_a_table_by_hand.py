@@ -56,6 +56,7 @@ name, `ops` in `ops.jobs`:
 >>> from sqlglot_composer import project
 >>> from references import ops
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 
 Done when the four imports run without an error. Then step 3.

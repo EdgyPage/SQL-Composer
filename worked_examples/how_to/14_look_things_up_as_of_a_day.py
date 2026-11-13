@@ -56,6 +56,7 @@ owner, once per day.
 >>> from sqlglot_composer import *
 >>> from references import ops
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 >>> job_owners = ops.job_owners  # -> Table

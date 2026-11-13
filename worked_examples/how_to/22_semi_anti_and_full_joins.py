@@ -58,6 +58,7 @@ started, which should match it run for run but doesn't quite. Add their Table re
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> project.add_references(["ops.job_runs", "ops.scheduler_runs"], query=query)
 Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO
@@ -478,7 +479,8 @@ ValueError:
 
 import pandas as pd
 
-from sqlglot_composer import FROM, SELECT, WHERE, equals, example_database, run_query, statement
+import example_database
+from sqlglot_composer import FROM, SELECT, WHERE, equals, run_query, statement
 
 
 # The Example database can't run a LEFT SEMI JOIN, so the page and the doctest get

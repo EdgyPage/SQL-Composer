@@ -36,7 +36,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-from sqlglot_composer.example_database import job_events, job_runs, jobs
+from example_database import job_events, job_runs, jobs
 
 job_teams = Table("mart.job_teams", columns={"job_id": "bigint", "team": "string"},
                   key=["job_id"], location="/data/your_team/mart.db/job_teams")

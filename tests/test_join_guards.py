@@ -20,7 +20,7 @@ from sqlglot_composer import (
     is_null,
     statement,
 )
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 
 DAY = equals(job_runs.dt, "2026-09-24")
 

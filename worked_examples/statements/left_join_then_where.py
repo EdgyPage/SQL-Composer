@@ -4,9 +4,10 @@ Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE 
 then throws that row away again.
 """
 
+import example_database
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, Statement, all_of, between, count_rows,
-    equals, example_database, is_not_null, statement,
+    equals, is_not_null, statement,
 )
 
 jobs = example_database.jobs

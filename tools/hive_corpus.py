@@ -44,7 +44,7 @@ import toolbox_registry  # noqa: E402
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sqlglot_composer  # noqa: E402
-from sqlglot_composer import example_database  # noqa: E402
+import example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
 from sqlglot_composer.describe import StandIn  # noqa: E402
 from sqlglot_composer.tables import Table, is_unchecked  # noqa: E402

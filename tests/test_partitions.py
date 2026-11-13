@@ -47,7 +47,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-from sqlglot_composer.example_database import job_runs, jobs, region_costs
+from example_database import job_runs, jobs, region_costs
 
 sales = Table("ops.sales", columns={"order_id": "bigint", "amount": "int", "region": "string",
                                     "day": "string"},

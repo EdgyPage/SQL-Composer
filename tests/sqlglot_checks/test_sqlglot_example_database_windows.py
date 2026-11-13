@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import pytest
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -28,14 +29,13 @@ from sqlglot_composer import (
     derived,
     descending,
     equals,
-    example_database,
     lag,
     row_number,
     run_query,
     statement,
     window,
 )
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 
 def by_run(hive: str, column: str) -> dict[int, object]:

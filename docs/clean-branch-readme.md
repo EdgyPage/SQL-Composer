@@ -31,8 +31,8 @@ Each word below is the Toolbox's own; the steps define the rest where they first
   it into each Project.
 - **Warehouse**: where your tables are and your Hive runs at work. The Toolbox reaches it only
   through two functions of yours, `query` and `execute`, in `warehouse.py`.
-- **Example database**: nine made-up tables that ship inside the Toolbox and stand in for your
-  warehouse in every example.
+- **Example database**: nine made-up tables that stand in for your warehouse in every example.
+  They don't ship with the Toolbox: each example shows what it gave when run on them.
 - **Statement**: one query, built from clause functions, that the Toolbox checks and writes as
   one Hive string.
 - **Project**: your folder at work holding the Toolbox and your own files in one fixed layout.
@@ -291,7 +291,7 @@ such as `references/ops.py`, that gives each of its tables at a dot. The referen
    file it wrote; then step 3.
 
 ```python
->>> from sqlglot_composer import example_database
+>>> import example_database
 >>> from warehouse import connect, query, execute
 >>> connect(example_database)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
@@ -422,23 +422,17 @@ WHERE
 `show_hive(failed)` prints the same Hive with a `;` at the end, ready to paste into Hue,
 Beeline or DBeaver.
 
-4. **Run a Worked example.** Goal: any function's example in your own notebook. Action: find
-   it, `help(to_hive)` shows the one for `to_hive`, then run the lines below first and paste
-   the example after them. Done when the example shows the rows its docstring shows; then go
-   on to section 4, "Count, join and stay safe".
-
-```python
-from sqlglot_composer import *
-jobs, job_runs = example_database.jobs, example_database.job_runs
-```
+4. **Read a Worked example.** Goal: any function's example. Action: find it, `help(to_hive)`
+   shows the one for `to_hive`, and read the call and what it gives. To try it in your own
+   notebook, name your own tables in the place of the Example database's. Done when you can
+   say what the example gives; then go on to section 4, "Count, join and stay safe".
 
 What the Worked examples hold:
 
 - Every function and class in the cheat sheet has a Worked example in its docstring.
-- The examples use every Toolbox name and the Example database's `jobs` and `job_runs`: its own
-  Table references of `ops.jobs` and `ops.job_runs`, the same tables as your Project's
-  `ops.jobs` and `ops.job_runs`, which ship inside the Toolbox so an example runs with no
-  Project.
+- The examples use every Toolbox name and the Example database's tables by name, such as
+  `jobs` and `job_runs`, the same tables as your Project's `ops.jobs` and `ops.job_runs`, and
+  its `query` and `execute`, standing in for yours.
 - The examples take today as 2026-09-25, the day after the Example database's last day.
 - If a pasted example uses `last_n_days(...)`, which counts back from your own today, write
   `between(...)` with the days the example's Hive shows in its place, such as
@@ -1811,7 +1805,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 119 names listed here before the admin module.
+- The star import brings the 118 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

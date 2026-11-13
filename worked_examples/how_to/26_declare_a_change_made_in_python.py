@@ -53,6 +53,7 @@ name its Table reference gives a condition on it:
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run  # -> Condition

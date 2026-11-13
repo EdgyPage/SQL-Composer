@@ -667,7 +667,7 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\\n# logic\\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\\n"
-    ...     "from sqlglot_composer.example_database import jobs\\n"
+    ...     "jobs = Table('ops.jobs', columns={'job_id': 'bigint', 'team': 'string'})\\n"
     ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\\n"
     ...     "              location='/data/your_team/mart.db/job_teams')\\n"
     ...     "def write():\\n"
@@ -907,15 +907,15 @@ def run_query(s: Statement | UncheckedStatement,
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     ...     FROM(job_runs),
     ...     WHERE(equals(job_runs.status, "FAILED"), last_n_days(job_runs.dt, 2)),
-    ... ), example_database.query)
+    ... ), query)
        run_id  job_id          dt
     0      97       3  2026-09-23
     1     102       2  2026-09-24
 
     `query` is your own function, in your Project's warehouse.py: it sends Hive whose rows you
-    want back and gives them back as a pandas DataFrame. At work it calls your query API;
-    example_database.query stands in for it. You choose the call: run_query for a Statement
-    that reads rows, run_execute(s, execute) for one that changes something.
+    want back and gives them back as a pandas DataFrame. At work it calls your query API; here
+    it reads the Example database. You choose the call: run_query for a Statement that reads
+    rows, run_execute(s, execute) for one that changes something.
 
     It takes a read, a statement(...) with no INSERT_OVERWRITE or INSERT_INTO, and gives back
     its rows, refusing a result that isn't a DataFrame, or that fills the row limit
@@ -962,15 +962,15 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
                 execute: Callable[[str], None] | None = None, **removed: object) -> None:
     """Send a Statement's Hive through your execute, which gives back nothing.
 
-    >>> run_execute(hive_settings("dynamic_partitions"), example_database.execute)
+    >>> run_execute(hive_settings("dynamic_partitions"), execute)
     execute: SET hive.exec.dynamic.partition=true
     execute: SET hive.exec.dynamic.partition.mode=nonstrict
 
     `execute` is your own function, in your Project's warehouse.py: it sends Hive that changes
-    something, and gives back nothing. At work it calls your API; example_database.execute
-    stands in for it, printing the first line it is given and changing nothing. You choose the
-    call: run_execute for a Statement that changes something, run_query(s, query) for one that
-    reads rows.
+    something, and gives back nothing. At work it calls your API; here the Example database's
+    execute stands in for it, printing the first line it is given and changing nothing. You
+    choose the call: run_execute for a Statement that changes something, run_query(s, query)
+    for one that reads rows.
 
     It takes a write, create_table(t), repair_partitions(t), compute_statistics(t), an Admin
     statement, hive_settings(...), each of whose SET lines it sends in a call of its own, and

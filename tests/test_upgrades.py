@@ -21,11 +21,13 @@ import warnings
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_folder, toolbox_module
+from conftest import (awaiting_its_rewrite, forget_the_projects_modules, toolbox_folder,
+                      toolbox_module)
 import notebook_runner
 
 import sqlglot_composer
-from sqlglot_composer import example_database, project, set_admin_log
+import example_database
+from sqlglot_composer import project, set_admin_log
 
 NOW = datetime.datetime(2026, 10, 26, 9, 30, 0)
 VERSION = sqlglot_composer.TOOLBOX_VERSION
@@ -149,7 +151,8 @@ def files_of(folder: Path, left_out: tuple[str, ...] = ()) -> dict[str, bytes]:
                     or relative.startswith(("admin/upgrade_", "admin/removed/", *left_out)))
 
     return {path.relative_to(folder).as_posix():
-            UPGRADE_MARK_LINE.sub(b"", path.read_bytes().replace(b"\r\n", b"\n"))
+            awaiting_its_rewrite(UPGRADE_MARK_LINE.sub(
+                b"", path.read_bytes().replace(b"\r\n", b"\n")))
             for path in sorted(folder.rglob("*"))
             if path.is_file() and "__pycache__" not in path.parts
             and kept(path.relative_to(folder).as_posix())}
@@ -628,6 +631,7 @@ def test_an_upgraded_notebooks_hive_cell_writes_the_example_projects_hive(
     monkeypatch.setattr(sys, "path", list(sys.path))
     folder = copy / "tables" / stem
     notebook = folder / f"{stem}.ipynb"
+    notebook.write_bytes(awaiting_its_rewrite(notebook.read_bytes()))
     code = notebook_runner.code_cells(notebook)
     # Numbered from 1, as the runner counts code cells: the Project's, the logic and the Hive's.
     lineage = next(number for number, text in enumerate(code, 1) if "export_lineage(" in text)

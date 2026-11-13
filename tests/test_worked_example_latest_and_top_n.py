@@ -10,7 +10,8 @@ from __future__ import annotations
 import pandas as pd
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run_query
+import example_database
+from sqlglot_composer import run_query
 from statements import latest_and_top_n as example
 
 

@@ -58,6 +58,7 @@ the `"start"` rows counts the runs.
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 
@@ -575,8 +576,9 @@ Test it in `HAVING`, as `team_totals` does.
 
 import pandas as pd
 
+import example_database
 from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
+    FROM, SELECT, WHERE, all_columns, between, run_query, statement,
 )
 
 job_events = example_database.job_events

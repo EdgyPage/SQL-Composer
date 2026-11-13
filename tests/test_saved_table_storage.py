@@ -37,7 +37,7 @@ from sqlglot_composer import (
 )
 from sqlglot_composer.clauses import Clause
 from sqlglot_composer.describe import WAYS, Description, StandIn
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 
 DAILY_RUNS = "/data/your_team/mart.db/daily_runs"
 REGION_RUNS = Table("mart.region_runs", columns={"job_id": "bigint", "region": "string",

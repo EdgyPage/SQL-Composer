@@ -22,6 +22,7 @@ from conftest import toolbox_module
 from hive_corpus_cases import warehouse
 
 import sqlglot_composer
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
@@ -34,7 +35,6 @@ from sqlglot_composer import (
     create_table,
     derived,
     equals,
-    example_database,
     export_lineage,
     less_than,
     run_query, run_execute,

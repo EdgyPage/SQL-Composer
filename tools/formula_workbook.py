@@ -398,7 +398,7 @@ def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
     rows, each calculated column holding its formula, or the value typed over it."""
     # Only a filled-in workbook reads the Example database: the empty one, which
     # copilot_files.py builds, needs nothing of the Toolbox's.
-    from sqlglot_composer import example_database
+    import example_database
 
     sheet = workbook.create_sheet(described.name)
     typed = [header for header in described.headers if header not in described.formulas]

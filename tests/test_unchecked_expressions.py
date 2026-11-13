@@ -22,6 +22,7 @@ import pytest
 from conftest import toolbox_module
 from test_lineage import chart, page_data, read, section
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -41,7 +42,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     export_lineage,
     run_execute,
     run_query,

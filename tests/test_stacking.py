@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import example_database
 from sqlglot_composer import (
     AS,
     EXCEPT,
@@ -38,7 +39,6 @@ from sqlglot_composer import (
     cube,
     derived,
     equals,
-    example_database,
     export_lineage,
     grouping_sets,
     hive_function,
@@ -52,7 +52,7 @@ from sqlglot_composer import (
     week_start,
 )
 from sqlglot_composer.clauses import Clause, Named
-from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
+from example_database import job_owners, job_runs, jobs, run_alerts
 from sqlglot_composer.stacking import Subtotals
 
 DAY = "2026-09-24"

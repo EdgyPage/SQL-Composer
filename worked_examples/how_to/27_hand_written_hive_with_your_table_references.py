@@ -57,6 +57,7 @@ Key is read in Hive you write by hand.
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.

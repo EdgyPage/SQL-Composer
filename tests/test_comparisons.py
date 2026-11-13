@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -33,7 +34,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     explain,
     hive_function,
     is_null,
@@ -42,7 +42,7 @@ from sqlglot_composer import (
     statement,
     unchecked_column,
 )
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 
 DAY = "2026-09-24"
 

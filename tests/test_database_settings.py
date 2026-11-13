@@ -17,7 +17,8 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
-from sqlglot_composer import database_settings, example_database, project, set_admin_log
+import example_database
+from sqlglot_composer import database_settings, project, set_admin_log
 
 WEEKLY = """\
 CREATE TABLE ops_reports.failed_runs AS

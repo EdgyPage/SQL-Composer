@@ -31,7 +31,7 @@ from sqlglot_composer import (
     statement,
 )
 from sqlglot_composer.clauses import Clause
-from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
+from example_database import job_owners, job_runs, jobs, run_alerts
 from sqlglot_composer.keys import statement_keys
 
 DAY = "2026-09-24"

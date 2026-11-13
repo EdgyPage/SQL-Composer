@@ -121,9 +121,10 @@ or type checker holds them: the reviewer does.
 
 The Toolbox's pages are written to the same care as its Python (Toolbox 8.7, ticket 04). The
 user's words: "maintain good code conventions for the html pages ... add coding guidelines for
-the html that we have for python". Today the module builds each lineage page; `how_to.html` and
-`examples.html`, which `tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under
-it yet, and a new page is built from it.
+the html that we have for python". Today the module builds each lineage page;
+`sqlglot_composer/how_to.html` and `sqlglot_composer/examples.html`, which
+`tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under it yet, and a new
+page is built from it.
 
 - **One page module.** Each page it builds comes from `sqlglot_composer/html_page.py`'s
   `page`, from its colour tokens, its base CSS and each kind's CSS. A page adds its own CSS
@@ -143,8 +144,8 @@ it yet, and a new page is built from it.
 - **No build step.** A script is plain JavaScript a browser runs as written: no library, no
   bundler, no framework, nothing to install. Of this file's other rules, "Names" and "One way
   per job" hold for it: a function is named for what it returns or does, and a job two pages'
-  scripts do is one function in the module's `DRAWING_SCRIPT`. The limits ruff and
-  `test_standard.py` hold on Python don't reach it.
+  scripts do is one function in the module's `DRAWING_SCRIPT` or `PANEL_SCRIPT`. The limits
+  ruff and `tests/repo/test_standard.py` hold on Python don't reach it.
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 

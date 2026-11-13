@@ -23,8 +23,8 @@ import pandas as pd
 import pytest
 from conftest import run_admin_notebook, toolbox_module
 
+import example_database
 from sqlglot_composer import (
-    example_database,
     project,
     run_execute,
     set_admin_log,

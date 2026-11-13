@@ -81,7 +81,7 @@ import eval_memo  # noqa: E402
 from copilot_eval import invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
 from formula_workbook import as_text, build  # noqa: E402
-from sqlglot_composer import example_database  # noqa: E402
+import example_database  # noqa: E402
 
 COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then

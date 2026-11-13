@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from conftest import FOLDER, example_rows
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -31,7 +32,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     fill_null,
     if_else,
     is_null,

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import subprocess
@@ -62,7 +63,6 @@ PUBLIC_NAMES = [
     "UNION_ALL", "UNION", "INTERSECT", "EXCEPT", "rollup", "cube", "grouping_sets", "is_total",
     # Toolbox 5.0, ticket 08: upkeep and speed.
     "repair_partitions", "compute_statistics", "explain",
-    "example_database",
     # Toolbox 6.1, ticket 01: the types a hint names.
     "Statement", "Column", "Condition", "SessionSettings", "UncheckedStatement",
     # Toolbox 6.1, ticket 03: the types the public signatures name.
@@ -150,11 +150,34 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 119
-    assert len(set(PUBLIC_NAMES)) == 119
+    assert len(PUBLIC_NAMES) == 118
+    assert len(set(PUBLIC_NAMES)) == 118
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name
+
+
+def _imports_of(path: Path) -> list[str]:
+    """Every name a file's imports name: each module, and each name taken from one."""
+    names = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            names += [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names += [node.module or ""] + [alias.name for alias in node.names]
+    return names
+
+
+def test_the_example_database_is_not_in_the_toolbox() -> None:
+    """The library holds nothing runnable for examples or demos: the Example database is
+    dev's alone, beside the folder (Toolbox 8.7, ticket 12)."""
+    name = toolbox_registry.EXAMPLE_DATABASE
+    assert (ROOT / name / "__init__.py").is_file()
+    assert not hasattr(sqlglot_composer, name)
+    assert not hasattr(sqlglot_composer.engine, "run_query")
+    importing = [path.name for path in toolbox_files()
+                 if any(name in imported.split(".") for imported in _imports_of(path))]
+    assert importing == []
 
 
 def test_the_admin_modules_names_are_the_decided_ones() -> None:
@@ -195,7 +218,8 @@ def test_ruff_passes_with_its_complexity_limit() -> None:
     refactor), and with the complexity limit the standard keeps."""
     result = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "--no-cache", "--output-format", "json",
-         toolbox_registry.FOLDER, "tests", "tools", "worked_examples"],
+         toolbox_registry.FOLDER, toolbox_registry.EXAMPLE_DATABASE, "tests", "tools",
+         "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
     # 1 is ruff's code for "found something"; anything else is ruff failing to run.

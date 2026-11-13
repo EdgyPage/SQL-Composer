@@ -55,6 +55,7 @@ where a notebook changes a table:
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import admin, project
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> from references import mart
 >>> job_day_facts = mart.job_day_facts  # -> Table

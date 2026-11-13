@@ -6,8 +6,9 @@ Why: pandas writes a blank cell as NaN, Hive can only read it as NULL, and a NUL
 
 import pandas as pd
 
+import example_database
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_not_in,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, is_not_in,
     statement,
 )
 

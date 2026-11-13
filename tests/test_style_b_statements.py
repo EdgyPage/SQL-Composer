@@ -31,8 +31,8 @@ from sqlglot_composer import (
     to_hive,
     week_start,
 )
-from sqlglot_composer.example_database import job_runs as runs
-from sqlglot_composer.example_database import jobs
+from example_database import job_runs as runs
+from example_database import jobs
 
 # --- Level 1: the Building blocks (blocks.py) ------------------------------------------------
 

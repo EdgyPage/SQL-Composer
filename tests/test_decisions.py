@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
-from sqlglot_composer import example_database, project, set_admin_log
+import example_database
+from sqlglot_composer import project, set_admin_log
 
 decisions = toolbox_module("decisions")
 REFERENCE = '''"""mart_dev.x - TODO: say in one line what one row is."""

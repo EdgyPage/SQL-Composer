@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -27,7 +28,6 @@ from sqlglot_composer import (
     check_table_reference,
     count_rows,
     equals,
-    example_database,
     run_query,
     statement,
     write_table_reference,

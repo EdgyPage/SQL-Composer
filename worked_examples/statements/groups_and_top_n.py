@@ -4,9 +4,10 @@ Why: most questions about a table are "how many per something", and these are th
 shapes that answer them.
 """
 
+import example_database
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, Statement,
-    at_least, between, count_distinct, count_rows, descending, example_database, statement,
+    at_least, between, count_distinct, count_rows, descending, statement,
     sum_of,
 )
 

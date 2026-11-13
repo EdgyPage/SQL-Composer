@@ -2,9 +2,12 @@
 
 From 6.0 the Toolbox is this one folder (ADR 0008 and ADR 0009). It holds every function a user
 calls, the import self-check, `writing.py`, which writes a Statement as Hive with sqlglot,
-`engine.py`, which checks sqlglot and runs the Example database, two pages: the Example
-gallery, which `tools/example_gallery.py` writes, and the how-to page, which
-`tools/how_to_page.py` writes, and `version.txt`, the one place its version is written.
+`engine.py`, which checks sqlglot, two pages: the Example gallery, which
+`tools/example_gallery.py` writes, and the how-to page, which `tools/how_to_page.py` writes,
+and `version.txt`, the one place its version is written.
+
+The Example database is not in it: since Toolbox 8.7 (ticket 12) it is dev's alone, the package
+`EXAMPLE_DATABASE` beside the folder, which no Toolbox file imports.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
 and `imports_outside` lists every import that breaks it.
@@ -19,14 +22,17 @@ from pathlib import Path
 FOLDER = "sqlglot_composer"
 PRODUCT = "sqlglot Composer"
 LIBRARY = "sqlglot"
-# The only files that may import sqlglot: writing.py writes Hive with it, engine.py checks it
-# and runs the Example database on it, and converting.py reads someone else's Hive with it,
-# for a Conversion (Toolbox 7.2, ticket 05).
+# Dev's Example database, beside the folder at the repo's top: never shipped, never imported by
+# the Toolbox (Toolbox 8.7, ticket 12).
+EXAMPLE_DATABASE = "example_database"
+# The only files that may import sqlglot: writing.py writes Hive with it, engine.py checks it,
+# and converting.py reads someone else's Hive with it, for a Conversion (Toolbox 7.2, ticket
+# 05).
 LIBRARY_FILES = ("writing.py", "engine.py", "converting.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
                 "decisions.py",
                 "comparisons.py", "conditions.py", "converting.py", "describe.py", "engine.py",
-                "example_database.py", "html_page.py", "joins.py",
+                "html_page.py", "joins.py",
                 "keys.py", "kinds.py", "lineage.py", "notebooks.py", "project.py",
                 "project_files.py", "project_lineage.py", "project_templates.py", "public.py",
                 "python_steps.py",

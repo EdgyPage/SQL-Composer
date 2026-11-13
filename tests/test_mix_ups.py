@@ -13,6 +13,7 @@ from collections.abc import Callable
 import pytest
 
 from conftest import FOLDER
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -27,7 +28,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     export_lineage,
     if_else,
     statement,

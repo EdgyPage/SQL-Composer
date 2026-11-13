@@ -23,6 +23,7 @@ import pandas as pd
 import pytest
 from conftest import toolbox_module
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -34,7 +35,6 @@ from sqlglot_composer import (
     Table,
     derived,
     equals,
-    example_database,
     export_lineage,
     project,
     python_step,

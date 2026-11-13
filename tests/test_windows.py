@@ -49,7 +49,7 @@ from sqlglot_composer import (
     to_hive,
     window,
 )
-from sqlglot_composer.example_database import job_events, job_runs
+from example_database import job_events, job_runs
 
 DAY = "2026-09-24"
 BASE = "/data/your_team/mart.db"

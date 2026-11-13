@@ -4,9 +4,10 @@ Why: to keep whole rows, since max_of on each column can take the status from a 
 run than the newest one.
 """
 
+import example_database
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, Statement, at_most, between, derived,
-    descending, equals, example_database, max_of, row_number, statement,
+    descending, equals, max_of, row_number, statement,
 )
 
 job_runs = example_database.job_runs

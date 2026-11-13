@@ -46,12 +46,10 @@ PRIVATE_SEAMS = {
     # Tests and tools reach these on purpose.
     ("checks", "_PAGES"): "the self-check's pages, which its test names",
     ("engine", "_LOWEST"): "sqlglot's range, which the version test holds the pin inside",
-    ("engine", "_BELOW"): "sqlglot's range, which the version test holds the pin inside",
-    ("engine", "_NEWEST_TESTED"): "the pin the version test compares",
-    ("example_database", "_TABLES"): "the Example database's tables, which tests describe",
-    ("example_database", "_is_query"): "tested on its own, as the query refusal's rule",
-    ("example_database", "_sorts_itself"): "tested on its own, as the sort rule",
-    ("example_database", "_in_order"): "the Workflow journeys' warehouse sorts rows as it does",
+    ("engine", "_BELOW"): "sqlglot's range, which the version test holds the pin inside, and "
+                          "dev's Example database's executor names in its fix",
+    ("engine", "_NEWEST_TESTED"): "the pin the version test compares, and dev's Example "
+                                  "database's executor names in its fix",
     ("running", "_self_check"): "swapped out by a test to show nothing unchecked is sent",
     ("tables", "_SET_IT"): "a fix text a test checks against the admin module",
     ("tables", "_FOLDERS"): "the folders taken in one Python, which scenario tests give back",

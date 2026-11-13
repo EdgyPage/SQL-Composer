@@ -1,12 +1,19 @@
-"""The Example database answers like Hive and gives the right numbers."""
+"""The Example database answers like Hive and gives the right numbers.
+
+It is dev's alone, beside the Toolbox (Toolbox 8.7, ticket 12), so tests/test_docstrings.py,
+which runs the public names' examples, doesn't run its own: the first test here does.
+"""
 
 from __future__ import annotations
 
+import doctest
 import warnings
 
 import pandas as pd
 import pytest
 
+import example_database
+import sqlglot_composer
 from sqlglot_composer import (
     AS,
     FROM,
@@ -24,7 +31,6 @@ from sqlglot_composer import (
     count_distinct,
     count_rows,
     equals,
-    example_database,
     last_n_days,
     run_query,
     starts_with,
@@ -32,7 +38,19 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from sqlglot_composer.example_database import job_runs, jobs, run_alerts
+from example_database import job_runs, jobs, run_alerts
+
+
+def test_its_own_examples_run() -> None:
+    scope = {name: getattr(sqlglot_composer, name) for name in sqlglot_composer.__all__}
+    scope["example_database"] = example_database
+    runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE)
+    report: list[str] = []
+    tests = doctest.DocTestFinder().find(example_database, globs=scope)
+    assert sum(len(test.examples) for test in tests) >= 3
+    for test in tests:
+        runner.run(test, out=report.append)
+    assert runner.failures == 0, "".join(report)
 
 
 def test_describe_lists_the_partition_columns_again_like_hive() -> None:

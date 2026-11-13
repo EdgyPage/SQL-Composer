@@ -56,7 +56,8 @@ import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from sqlglot_composer import conditions, example_database, kinds  # noqa: E402
+import example_database  # noqa: E402
+from sqlglot_composer import conditions, kinds  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
@@ -99,7 +100,7 @@ def docstrings() -> list[tuple[list[str], str]]:
     order.
 
     The two constants share the Toolbox's own docstring. A docstring that isn't a public
-    name's, such as example_database.query's, comes after the public names.
+    name's, such as admin.drop_table's, comes after the public names.
     """
     found = [(CONSTANTS, inspect.cleandoc(sqlglot_composer.__doc__))]
     found += [([name], inspect.getdoc(getattr(sqlglot_composer, name)))
@@ -361,7 +362,7 @@ def example_scope(
         return call
 
     scope = {name: getattr(sqlglot_composer, name) for name in PUBLIC}
-    scope.update(jobs=example_database.jobs, job_runs=example_database.job_runs)
+    scope.update(example_database.doctest_names())
     scope.update({name: noting(name) for name in HANDED_TO})
     return scope
 
@@ -741,8 +742,9 @@ PAGE = """<!doctype html>
 <h1>{product} {version}: Example gallery</h1>
 <p>Every Worked example on one page: {worked_count} Worked examples on their own, and the
 {docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
-Statement it builds, the Hive and any result: from the Example database, the made-up tables
-that ship inside the Toolbox{or_pandas}. Press Ctrl+F to search the page.</p>
+Statement it builds, the Hive and any result: from the Example database, made-up tables the
+Toolbox's makers keep, which the download doesn't hold{or_pandas}. Press Ctrl+F to search the
+page.</p>
 <p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
 this one in the <code>{folder}</code> folder: the first, Start a Project, starts one.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's last day, so
@@ -750,17 +752,20 @@ this one in the <code>{folder}</code> folder: the first, Start a Project, starts
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
 to get the results shown.</p>
-<p>To paste a docstring's example, first run <code>from {folder} import *</code> and
-<code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts the Toolbox's makers keep, which the download doesn't hold, so
-each entry shows the Python that builds its Statements{but_not_pandas}. A script plays a Table
+<p>A docstring's example names the Example database's tables, such as <code>job_runs</code>,
+and its <code>query</code> and <code>execute</code>, standing in for your own: to paste one,
+first run <code>from {folder} import *</code>, then name your own tables, and your Project's
+query and execute, in their place. The Worked examples on their own are scripts the Toolbox's
+makers keep, which the download doesn't hold, so each entry shows the Python that builds its
+Statements{but_not_pandas}. A script plays a Table
 notebook's logic cell: in a Project, its lines would go in a Table notebook, the Table reference
 it imports in <code>references/</code> and the Building block in <code>building_blocks/</code>,
 and its
 <code>from references ...</code> or <code>from building_blocks ...</code> line then imports it
 from there. To try one in a plain notebook, paste the top of its script, with the whole file
-that line imports pasted in place of the line, then the functions. The ops tables it reads come
-from <code>example_database</code>, whose Table references ship inside the Toolbox.</p>
+that line imports pasted in place of the line, then the functions. The ops tables it reads are
+the Example database's, <code>example_database</code>, which the download doesn't hold: name
+your own in their place.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>

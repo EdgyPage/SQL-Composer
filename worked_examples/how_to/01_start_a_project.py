@@ -220,8 +220,8 @@ you call, as [Build and run a first statement](#build_and_run_a_first_statement)
 \"\"\"warehouse - connect, which takes your connection, and its two calls.
 ...
 def connect(connection: object) -> None:
-    \"\"\"Set the connection query and execute pass each Hive string to, such as
-    connect(example_database): an object with a query(sql) and an execute(sql).\"\"\"
+    \"\"\"Set the connection query and execute pass each Hive string to, such as connect(conn),
+    where conn is your team's connection: an object with a query(sql) and an execute(sql).\"\"\"
 ...
 def query(hive: str) -> pd.DataFrame:
     \"\"\"Run a Hive string that gives back rows, and give them back as a pandas
@@ -281,12 +281,14 @@ RuntimeError:
                   notebook gave warehouse.py its connection.
 ...
 
-This page connects to the Example database, the made-up tables that ship inside the Toolbox,
-so every how-to runs before you touch a real table. `example_database.query` runs Hive on its
+This page connects to the Example database, nine made-up tables the how-tos run on, so every
+how-to shows what it gives before you touch a real table. It doesn't ship with the Toolbox, so
+in your own notebook leave out the two lines below and connect to your own warehouse, as
+above. `example_database.query` runs Hive on its
 nine tables, and `example_database.execute` prints the first line of the Hive and changes
 nothing, since the Example database can't be written to:
 
->>> from sqlglot_composer import example_database
+>>> import example_database
 >>> connect(example_database)
 
 That is all, when your connection's `query` gives back a pandas DataFrame whose columns are

@@ -10,9 +10,10 @@ run_execute(step(), execute), execute being your own function from your Project'
 warehouse.py, and loop over the ones that return a list.
 """
 
+import example_database
 from sqlglot_composer import (
     FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, admin,
-    create_table, equals, example_database, statement,
+    create_table, equals, statement,
 )
 from references.mart__runs_to_review import runs_to_review
 

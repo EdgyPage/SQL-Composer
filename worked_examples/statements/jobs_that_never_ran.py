@@ -4,9 +4,10 @@ Why: a job missing from the runs is often the very problem you're looking for, a
 JOIN can't show it, since JOIN keeps only the rows that match.
 """
 
+import example_database
 from sqlglot_composer import (
     FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, all_of, between, derived,
-    equals, example_database, is_null, statement,
+    equals, is_null, statement,
 )
 
 jobs = example_database.jobs

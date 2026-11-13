@@ -46,7 +46,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 from sqlglot_composer.refusals import GuardWarning
 
 # This module's names stand for the notebook's: the parameters cell's START_FROM.
@@ -61,7 +61,7 @@ daily_runs_by_job = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id
 LOGIC = '''
 from sqlglot_composer import (AS, FROM, INSERT_OVERWRITE, SELECT, Table, WHERE, between,
                               statement, sum_of)
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 retry_totals = Table("mart.retry_totals", columns={"job_id": "bigint"},
                      location="/data/your_team/mart.db/retry_totals")
