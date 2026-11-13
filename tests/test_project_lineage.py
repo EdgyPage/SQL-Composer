@@ -210,18 +210,20 @@ def test_the_lineage_draws_every_table_and_an_arrow_to_each_that_reads_it(
     assert report == (f"Wrote admin/lineage/{STEM}.html and its Markdown twin, {STEM}.md: 4 "
                       "tables and 0 Scheduled runs.")
     page, markdown = exported(started)
-    assert "| `ops.jobs` | read, not written here | mart.team_jobs | - |" in markdown
-    assert "| `mart.teams` | Table folder | mart.team_count | - |" in markdown
+    assert ("## `ops.jobs`\n\n- What it is: read, not written here\n- Reads: no table\n"
+            "- Read by: mart.team_jobs\n- Written by Scheduled runs: none\n") in markdown
+    assert ("## `mart.teams`\n\n- What it is: Table folder\n- Reads: mart.team_jobs\n"
+            "- Read by: mart.team_count\n- Written by Scheduled runs: none\n") in markdown
     # Each table's box, by its place in name order, and an arrow from each read.
-    ids = {"mart.team_count": "n0", "mart.team_jobs": "n1", "mart.teams": "n2",
-           "ops.jobs": "n3"}
+    ids = {"mart.team_count": 0, "mart.team_jobs": 1, "mart.teams": 2, "ops.jobs": 3}
     for read, written in [("ops.jobs", "mart.team_jobs"), ("mart.team_jobs", "mart.teams"),
                           ("mart.teams", "mart.team_count")]:
-        assert f"  {ids[read]} --> {ids[written]}" in markdown
-    assert markdown.count(" --> ") == 3
+        assert (f'<path class="e" data-a="box-table-{ids[read]}" '
+                f'data-b="box-table-{ids[written]}"') in page
     assert page.count('<path class="e"') == 3
     assert page.count('<g class="n ') == 4
-    assert "<script" not in page
+    # The drawing is in the page, so it draws with scripts off; the script lights it up.
+    assert page.index("<svg") < page.index("<script")
     assert "A loop among your tables" not in markdown
     assert '<p class="loopnote">' not in page
 
@@ -238,9 +240,10 @@ def statements():
     assert "Written by more than one Scheduled run, marked: mart.teams, by weekly and daily." \
         in report
     page, markdown = exported(started)
-    assert "| `mart.teams` | Table folder | mart.team_count | weekly, daily ⚠ |" in markdown
-    assert "| `mart.team_count` | Table folder | - | daily |" in markdown
-    assert "<br/><small>written by weekly and daily</small>" in markdown
+    assert ("- Read by: mart.team_count\n- Written by Scheduled runs: weekly and daily ⚠\n"
+            in markdown)
+    assert "- Read by: no table\n- Written by Scheduled runs: daily\n" in markdown
+    assert "<text x=\"8\" y=\"47\">written by weekly and daily</text>" in page
     assert '<g class="n folder shared"' in page
     # Each run's Statements, in the order it sends them, headed as the build heads them.
     weekly = markdown.split("### weekly")[1].split("###")[0]
@@ -256,13 +259,13 @@ def test_a_loop_is_drawn_red_and_its_tables_listed_at_the_top(started: Path) -> 
     assert ("A loop, drawn red: mart.team_jobs and mart.teams. project.check() names the "
             "logic cell to mend.") in report
     page, markdown = exported(started)
-    top = markdown.split("## Graph")[0]
+    top = markdown.split("\n## ")[0]
     assert "A loop among your tables: mart.team_jobs and mart.teams." in top
     assert ('<p class="loopnote">A loop among your tables: mart.team_jobs and '
             "mart.teams.") in page
     assert page.count('<path class="e loop"') == 2
-    assert page.count(" loop\" transform") == 2
-    assert "  linkStyle " in markdown
+    assert page.count(' loop" id="box-table-') == 2
+    assert markdown.count("- In a loop among your tables, as the note at the top says") == 2
 
 
 def test_a_run_left_as_its_template_made_it_is_shown_not_raised(started: Path) -> None:
@@ -282,7 +285,9 @@ def test_a_table_folder_whose_logic_doesnt_load_is_shown_not_raised(started: Pat
     report = one_line(project.export_project_lineage())
     assert "Passed over, as its logic doesn't load: mart.not_yet: project.load(" in report
     page, markdown = exported(started)
-    assert "## Table folders passed over" in markdown
+    not_yet = markdown.split("## `mart.not_yet`")[1].split("\n## ")[0]
+    assert "Its logic doesn't load, so what its write reads isn't drawn:" in not_yet
+    assert "project.load(" in not_yet
     assert "its logic doesn&#x27;t load" in page
 
 

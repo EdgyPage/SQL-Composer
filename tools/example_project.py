@@ -27,9 +27,10 @@ For each project, in a Python of its own, started in an empty folder, it:
   them, makes its Decisions by filling in its Table reference from `references/`, writes its
   checklist again with project.write_decisions, and compares it with its original, which
   finishes the batch, its folder moved to `admin/workflows/convert/finished/`;
-- runs project.new_scheduled_run(...) for each Scheduled run, then fills in the cells its
-  Template left from `scheduled_runs/<name>.py`, each code cell written over the notebook's
-  with the same first line, such as # parameters;
+- names each Scheduled run in the schedule Workflow's names cell, `NAME`, and runs it with
+  project.run_workflow("schedule"), which calls project.new_scheduled_run(...), then fills in
+  the cells its Template left from `scheduled_runs/<name>.py`, each code cell written over the
+  notebook's with the same first line, such as # parameters;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write(), then its Hive, beside its notebook, as the notebook's Hive cell does;
@@ -147,7 +148,7 @@ CONVERSIONS = {
     "starter": [],
     "intermediate": [("team_failures", "ops_reports.team_failures", "mart.team_failures")],
 }
-# Each project's Scheduled runs (Toolbox 8.6), each made with project.new_scheduled_run, then
+# Each project's Scheduled runs (Toolbox 8.6), each made with the schedule Workflow (8.7), then
 # its cells filled in from `scheduled_runs/<name>.py` of its sources: each of its code cells
 # written over the notebook's cell with the same first line, such as # parameters, as a user
 # fills in the cells the Template left for them.
@@ -384,12 +385,23 @@ def _add_conversions(name: str, folder: Path) -> None:
 
 
 def _add_scheduled_runs(name: str, folder: Path) -> None:
-    """Make each Scheduled run with new_scheduled_run, then fill in its cells from the
-    project's hand-written source, as a user fills in the cells its Template left them."""
+    """Make each Scheduled run with the schedule Workflow, named in its notebook's names cell
+    and run as its last cell runs it, then fill in its cells from the project's hand-written
+    source, as a user fills in the cells its Template left them."""
     from sqlglot_composer import notebooks, project
 
-    for run in SCHEDULED_RUNS[name]:
-        project.new_scheduled_run(run)
+    runs = SCHEDULED_RUNS[name]
+    if not runs:
+        return
+    schedule = folder / "admin" / "workflows" / "schedule" / "schedule.ipynb"
+    named = runs[0] if len(runs) == 1 else runs
+    notebooks.write_notebook(schedule, [
+        (kind, text.replace("NAME = ''", f"NAME = {named!r}", 1))
+        for kind, text in notebooks.read_cells(schedule)])
+    report = repr(project.run_workflow("schedule"))
+    if "every step is done" not in report:
+        raise SystemExit(f"The schedule Workflow didn't make {runs}:\n{report}")
+    for run in runs:
         notebook = folder / "scheduled_runs" / run / f"{run}.ipynb"
         cells = notebooks.read_cells(notebook)
         for first_line, text in scheduled_run_cells(name, run).items():

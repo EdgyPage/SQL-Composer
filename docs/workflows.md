@@ -25,7 +25,8 @@ warehouse.py the connection its permission steps send through, and until it is f
 their `query` and `execute` refuse. A step that only touches files runs without it.
 
 A **Scheduled run** is not a Workflow: it is a notebook of its own in `scheduled_runs/`, which
-an outside scheduler runs top to bottom, with no decision to wait on. Its Build cell,
+an outside scheduler runs top to bottom, with no decision to wait on. The schedule Workflow
+makes that notebook, with `project.new_scheduled_run(NAME)`. The run's Build cell,
 `project.build_run(statements)`, adds the write of each table its Statements read, in lineage
 order, and prints their Hive, sending nothing; its Run cell, `built.run(query, execute)`,
 sends them. The README's Scheduled runs section, and the how-to "Schedule a run", walk
@@ -300,5 +301,24 @@ print(query(#quot;SHOW PARTITIONS #quot; + TABLE))"]]:::warehouse_call
     s2 --> t5
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+## schedule
+
+Steps: 1 file step, 0 permission, 0 decision, 0 fiddling.
+
+Starts from: the Scheduled run's name.
+
+Ends with: the Scheduled run's notebook.
+
+```mermaid
+flowchart TD
+    s0["1. Make the Scheduled run's notebook: project.new_scheduled_run(NAME)"]:::files_only
+    t0("the Scheduled run's name"):::thing
+    t1("the Scheduled run's notebook"):::thing
+    t0 --> s0
+    s0 --> t1
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef thing fill:#ffffff,stroke:#888888
 ```

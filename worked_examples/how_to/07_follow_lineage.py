@@ -7,8 +7,9 @@ For: Getting started
 See where each column of a Statement's result comes from: the table columns that feed it, the
 conditions that decide which rows count towards it, and the Hive that ran. A Statement is one
 query; its Lineage is the record of which table columns feed each of its output columns.
-`export_lineage` writes this Lineage as two files, an HTML page to explore in your browser and
-a Markdown file to read anywhere. You export one Statement's, then a Saved table's from its
+`export_lineage` writes this Lineage as two files, an HTML page to explore in your browser,
+where a click on a box opens what it holds, and a Markdown file, its text alone, to read
+anywhere. You export one Statement's, then a Saved table's from its
 Table notebook, into its Table folder's lineage/, then a table that reads another Saved table,
 drawn together with it, all the way back to the tables they start from; `project.run_tables`
 writes them in that same order. A Saved table is a real table in the warehouse that your
@@ -20,8 +21,9 @@ pandas with `python_step`, so the Lineage goes on through it.
 
 - If you hand someone a number, export its Lineage first, so you can answer "where does this
   come from?" by pointing at the files.
-- If a number looks wrong, read its Markdown file: it lists every condition that decides which
-  rows count towards it, from every step, in one place.
+- If a number looks wrong, click its box on the HTML page, or find it in the Markdown file:
+  each lists every condition that decides which rows count towards it, from every step, in
+  one place.
 - If a Saved table's logic changes, export its Lineage again: each export is kept, beside the
   ones before, to compare.
 - If a step of a table is done in pandas, declare it with `python_step`, as steps 10 to 13 do.
@@ -185,14 +187,20 @@ share the name, ending `.html` and `.md`:
 
 Done when the Markdown file is in lineage/, named for `team_runs`. Then step 4.
 
-### 4. Read the Markdown file
+### 4. Read the Lineage
 
-Goal: where each column of the result comes from. Read the Markdown file from the top. Graph
-is a chart in Mermaid, a text format for charts that
-JupyterLab and GitHub draw: each table read is a group holding the columns the Statement uses,
-a solid arrow carries a value, and a dotted one carries a column into a condition. Then the
-Statement's own section, `team_runs`:
+Goal: where each column of the result comes from. Open the HTML page in your browser; it needs
+no internet. It draws each table read as a group holding the columns the Statement uses: a
+solid arrow carries a value, and a dotted one carries a column into a condition. Click a box,
+or press Tab until it is outlined and press Enter, to light up every column it comes from,
+every condition that decides its rows and everything it feeds, and to open a panel on the
+right. Escape, or a click on empty space, closes it. The panel shows, for a calculated
+column, the column first, then its Statement's section, `team_runs`:
 
+- what it reads and writes, here `ops.job_runs` and `ops.jobs`, and no table: its rows come
+  back to you; then any Run values it holds, and any Session settings sent before it;
+- Hive as submitted: the Hive `run_query` or `run_execute` sends, whole, its long lines
+  wrapped, with a Copy button;
 - Calculated columns: each column worked out rather than copied, here `"runs"` and
   `"failed_runs"`, with a small tree down to the table columns it reads (`"failed_runs"` reads
   `ops.job_runs.status`), its Rows that count, every condition that decides which rows count
@@ -200,11 +208,10 @@ Statement's own section, `team_runs`:
   here first), and what one row stands for, from GROUP_BY;
 - Copied columns: `"team"`, from `ops.jobs.team`;
 - Keys: which columns tell the rows apart, here `"team"`; a table's Key is the columns whose
-  values name exactly one row;
-- Hive as submitted: the Hive `run_query` or `run_execute` sends.
+  values name exactly one row.
 
-The HTML page draws the same Lineage as boxes and arrows: click a box to light up every column
-it comes from and every condition that decides its rows. It needs no internet.
+The Markdown file is the same sections as text, with no drawing, to read anywhere, such as
+in a review: every line of it is on the HTML page too.
 
 Done when you can name the condition that decides which rows `"failed_runs"` counts. Then
 step 5.
@@ -347,7 +354,7 @@ meaningful name first:
 The write fills a table with a Table folder, so the pair goes in that folder's lineage/, named
 by the time and the table alone, the second form above. Each export adds a pair, so lineage/
 keeps every one before: the table's history, oldest first, to compare when its logic changes.
-Its Graph draws the Building block as a group of its own, named `"runs_per_job"` as the block
+Its HTML page draws the Building block as a group of its own, named `"runs_per_job"` as the block
 names it: `"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the
 table.
 
@@ -745,7 +752,7 @@ reaching back through the Saved table to `ops.job_runs`:
 ['20260925-090000-mart__team_day.html', '20260925-090000-mart__team_day.md']
 >>> text = markdown_file.read_text(encoding="utf-8")  # -> str
 >>> [line for line in text.splitlines() if line.startswith("## ")]
-['## Graph', '## write_daily_job_runs', '## write_team_day']
+['## write_daily_job_runs', '## write_team_day']
 >>> "written by write_daily_job_runs above" in text, "ops.job_runs.status" in text
 (True, True)
 

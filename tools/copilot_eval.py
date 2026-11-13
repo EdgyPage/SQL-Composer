@@ -370,14 +370,6 @@ def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
 # --- Reading an answers file ---------------------------------------------------------------
 
 
-def read_answers(text: str) -> tuple[dict[str, str], dict[str, str]]:
-    """An answers file's header, by name, and each reply, by its task's id."""
-    parts = re.split(r"^## (T\d+)\s*$", text, flags=re.MULTILINE)
-    header = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", parts[0], re.MULTILINE))
-    replies = {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
-    return header, replies
-
-
 def _python_blocks(reply: str) -> list[str]:
     """Each Python code block of a reply, in order, or each code block that names no
     language."""
@@ -1113,7 +1105,7 @@ def _score_answers(given: argparse.Namespace) -> None:
     """Score an answers file's replies, and the replies the memo keeps for the rest of the
     round `--split` and `--objective` name, keep each with its score, and print the report;
     with `--record`, add its row to the results."""
-    header, answered = read_answers(given.answers.read_text(encoding="utf-8"))
+    header, answered = eval_memo.read_answers(given.answers.read_text(encoding="utf-8"), "T")
     if given.split or given.objective:
         tasks = [task.id for task in tasks_of(given.split or "all", given.objective)]
     else:

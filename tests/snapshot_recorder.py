@@ -168,6 +168,24 @@ def is_the_whole_suite(args: list[str], keyword: str, markers: str, failed: int)
     return every_test and not keyword and not markers and failed == 0
 
 
+def finish_the_run(whole: bool) -> str | None:
+    """At a run's end, with every test's hashes in hashes_made_in_this_run, every worker's
+    included: with SNAPSHOT_WRITE=1, write known.txt for a `whole` run, and otherwise give why
+    the run fails; without it, for a `whole` run, give why the run fails when a hash known.txt
+    holds no test made, since something a user saw is gone. None where the run passes."""
+    if WRITING:
+        if not whole:
+            return ("tests/snapshot/known.txt: SNAPSHOT_WRITE=1 writes it only from a run of "
+                    "the whole suite in which every test passed.")
+        write_known()
+        return None
+    gone = known_hashes() - hashes_made_in_this_run
+    if whole and gone:
+        return (f"tests/snapshot/known.txt: {len(gone)} of its texts no test made: something "
+                "the Toolbox showed its user is gone.")
+    return None
+
+
 def write_known() -> None:
     """known.txt, as this run made it: one hash per line, sorted."""
     KNOWN.parent.mkdir(exist_ok=True)

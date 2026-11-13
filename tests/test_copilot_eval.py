@@ -10,6 +10,7 @@ from collections import Counter
 from pathlib import Path
 
 import copilot_eval
+import eval_memo
 import pytest
 from copilot_eval_tasks import BY_ID, OBJECTIVES, TASKS, Task
 
@@ -194,8 +195,8 @@ def test_while_answers_run_nothing_is_written_outside_their_folder(tmp_path: Pat
 
 
 def test_the_template_reads_back_with_a_heading_and_no_answer_for_each_task() -> None:
-    header, replies = copilot_eval.read_answers(
-        copilot_eval.template(copilot_eval.tasks_of("held_out")))
+    header, replies = eval_memo.read_answers(
+        copilot_eval.template(copilot_eval.tasks_of("held_out")), "T")
     assert set(header) == {"date", "arm", "model", "files", "memo_files"}
     assert list(replies) == [task.id for task in TASKS if task.split == "held_out"]
     assert all(copilot_eval.answer_code(reply) is None for reply in replies.values())

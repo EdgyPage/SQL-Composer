@@ -64,6 +64,9 @@ with its chart, its names cell and its steps.
 - If you want a Workflow that changes a Saved table in the warehouse with one of the admin
   module's Admin statements, each logged in admin/admin_log.md, choose change_a_saved_table:
   admin/workflows/change_a_saved_table/change_a_saved_table.ipynb.
+- If you want a Workflow that makes a Scheduled run, a notebook an outside scheduler runs top to
+  bottom, from admin/templates/scheduled_run.py, choose schedule:
+  admin/workflows/schedule/schedule.ipynb.
 
 In each chart, a plain box is a step that changes only files, or only prints; a box with double
 edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with
@@ -790,6 +793,44 @@ Its last cell runs every step left, in place of their cells:
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("change_a_saved_table", query=query, execute=execute, change=change)
+
+### The schedule Workflow
+
+Makes a Scheduled run, a notebook an outside scheduler runs top to bottom, from
+admin/templates/scheduled_run.py: you fill in its cells in its own notebook, in scheduled_runs/.
+
+Its chart, drawn from the steps of its notebook, admin/workflows/schedule/schedule.ipynb:
+
+```mermaid
+flowchart TD
+    s0["1. Make the Scheduled run's notebook"]:::files_only
+    t0("the Scheduled run's name"):::thing
+    t1("the Scheduled run's notebook"):::thing
+    t0 --> s0
+    s0 --> t1
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+Its names cell, which you fill in and save first:
+
+    # the Scheduled run's name, a Python name such as "weekly", or a list of them
+    NAME = ''
+
+Its steps' own cells, in order:
+
+1. Make the Scheduled run's notebook (it changes only files, so project.do_next() runs it for
+   you).
+
+    project.new_scheduled_run(NAME)
+
+
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("schedule")
 
 ## Check it worked
 

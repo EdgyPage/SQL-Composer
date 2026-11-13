@@ -6,7 +6,10 @@
 minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = [".", "worked_examples", "tools"]
-addopts = "-q --strict-markers --strict-config -rs"
+# pytest-xdist: `-n auto` runs the whole suite on up to 8 workers and a narrower run in one
+# process; `--dist loadgroup` keeps the tests that share a costly fixture on one worker
+# (tests/workers.py, Toolbox 8.7 ticket 03).
+addopts = "-q --strict-markers --strict-config -rs -n auto --dist loadgroup"
 filterwarnings = [
     # A warning nobody reads is indistinguishable from success, so the suite fails on one.
     "error",

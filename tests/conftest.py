@@ -11,7 +11,10 @@ A run collects the shared tests directly in `tests/`, sqlglot Composer's own in
 `tests/sqlglot_checks/`, and the repo's own checks in `tests/repo/`.
 
 Every test runs under the offline trap, `offline_trap`, installed as this file loads: its Python
-refuses any lookup or connection that would leave this computer.
+refuses any lookup or connection that would leave this computer. pytest-xdist's workers each
+load this file, so each installs the trap, and says so when it is done: a worker without it
+fails the run (Toolbox 8.7, ticket 03; how the workers are counted and grouped is in
+`workers.py`).
 
 No Python of the run, this one or one it starts, writes a `.pyc`. The code audit reads the
 Toolbox's folder and the other folders that ship, `__pycache__` included, and a how-to's folder
@@ -23,6 +26,8 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import gc
+import hashlib
 import html
 import importlib
 import inspect
@@ -36,10 +41,12 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
+from xdist.workermanage import WorkerController
 
 import toolbox_registry as registry
 import offline_trap
 import snapshot_recorder
+import workers
 
 # Only the hints name these: the Toolbox is imported through toolbox_module(), after the
 # offline trap is in place, so its import self-check runs in its turn.
@@ -352,27 +359,12 @@ def admin_log_where_it_starts(tmp_path_factory: pytest.TempPathFactory) -> Itera
 
 
 @pytest.fixture(scope="session")
-def snapshot_known(request: pytest.FixtureRequest,
-                   tmp_path_factory: pytest.TempPathFactory) -> Iterator[set[str]]:
-    """The snapshot's hashes, read once, with the recorder in place for the whole run. At the
-    run's end, when it ran the whole suite and every test passed: with SNAPSHOT_WRITE=1 set,
-    known.txt is written as the run made it, and without it, a hash no test made fails the run,
-    since something a user saw is gone (snapshot_recorder.py)."""
+def snapshot_known(tmp_path_factory: pytest.TempPathFactory) -> set[str]:
+    """The snapshot's hashes, read once, with the recorder in place for the whole run. The
+    run's end checks the snapshot of the whole run, `pytest_sessionfinish` below, in the
+    process that started the workers, which has every worker's hashes."""
     snapshot_recorder.install(toolbox_module, str(tmp_path_factory.getbasetemp()))
-    known = snapshot_recorder.known_hashes()
-    yield known
-    whole = snapshot_recorder.is_the_whole_suite(
-        request.config.args, request.config.option.keyword, request.config.option.markexpr,
-        request.session.testsfailed)
-    if snapshot_recorder.WRITING:
-        if not whole:
-            pytest.fail("SNAPSHOT_WRITE=1 writes tests/snapshot/known.txt only from a run of "
-                        "the whole suite in which every test passed.", pytrace=False)
-        snapshot_recorder.write_known()
-    elif whole and known - snapshot_recorder.hashes_made_in_this_run:
-        gone = len(known - snapshot_recorder.hashes_made_in_this_run)
-        pytest.fail(f"{gone} of tests/snapshot/known.txt's texts no test made: something the "
-                    "Toolbox showed its user is gone.", pytrace=False)
+    return snapshot_recorder.known_hashes()
 
 
 @pytest.fixture(autouse=True)
@@ -384,3 +376,118 @@ def nothing_a_user_sees_changed(snapshot_known: set[str]) -> Iterator[None]:
     if unknown:
         pytest.fail("The Toolbox showed what tests/snapshot/known.txt doesn't know:\n\n"
                     + "\n\n".join(unknown[:3]), pytrace=False)
+
+
+# --- The suite on many cores (Toolbox 8.7, ticket 03; tests/workers.py) ----------------------
+
+
+def tree_state(folder: Path) -> dict[str, str]:
+    """Each file and folder under `folder`, by its path, with the sha256 of a file's bytes, or
+    "folder". A file's time can stay the same through a quick write, so its bytes are read."""
+    state = {}
+    for path in folder.rglob("*"):
+        hash_or_folder = "folder"
+        if path.is_file():
+            hash_or_folder = hashlib.sha256(path.read_bytes()).hexdigest()
+        state[path.relative_to(folder).as_posix()] = hash_or_folder
+    return state
+
+
+@contextlib.contextmanager
+def left_unchanged(folder: Path) -> Iterator[Path]:
+    """`folder`, a tree tests share, which the test using it may only read: a file in it
+    written, added or removed fails the test."""
+    before = tree_state(folder)
+    yield folder
+    assert tree_state(folder) == before, (
+        f"The test changed {folder}, which other tests share: change a copy of it instead.")
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
+    """How many workers `-n auto` starts (workers.worker_count)."""
+    args = [str(config.invocation_params.dir / arg) for arg in config.args]
+    return workers.worker_count(args, TESTS, os.cpu_count())
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Known to --strict-markers in a run with pytest-xdist switched off, too.
+    config.addinivalue_line("markers", "xdist_group(name): the tests pytest-xdist runs on one "
+                                       "worker, as tests/workers.py's GROUPS says")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Mark each test that uses a costly fixture with its group, for `--dist loadgroup`: first,
+    before a worker reads the marks into each test's id, which says where it runs."""
+    for item in items:
+        group = workers.group_of(item)
+        if group:
+            item.add_marker(pytest.mark.xdist_group(name=group))
+
+
+# The blocks Python held after each group or test file this process ran, and, where this is
+# the process that started the workers, what each worker said when it was done.
+memory_after_each_unit: list[int] = []
+memory_by_worker: dict[str, list[int]] = {}
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> Iterator[None]:
+    """After the last test of a group or a test file, with its fixtures torn down: collect the
+    garbage, and note the memory Python holds."""
+    yield
+    if workers.unit_of(item) != workers.unit_of(nextitem):
+        gc.collect()
+        memory_after_each_unit.append(sys.getallocatedblocks())
+
+
+# The workers that said they ran without the offline trap.
+workers_without_the_trap: list[str] = []
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node: WorkerController, error: str | None) -> None:
+    """A worker is done: take the snapshot's hashes it made, its notes of memory, and whether
+    it ran under the offline trap. A worker that crashed sent nothing, so it counts as one
+    without the trap."""
+    worker_output = getattr(node, "workeroutput", {})
+    snapshot_recorder.hashes_made_in_this_run.update(worker_output.get("snapshot", []))
+    memory_by_worker[node.gateway.id] = worker_output.get("memory", [])
+    if not worker_output.get("offline_trap", False):
+        workers_without_the_trap.append(node.gateway.id)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """A worker hands what the run's end needs to the process that started it. That process, or
+    a run in one process, fails the run if a worker ran without the offline trap, and checks
+    the snapshot of the whole run (snapshot_recorder.py)."""
+    config = session.config
+    if hasattr(config, "workerinput"):
+        config.workeroutput["snapshot"] = sorted(snapshot_recorder.hashes_made_in_this_run)
+        config.workeroutput["memory"] = memory_after_each_unit
+        config.workeroutput["offline_trap"] = offline_trap.is_installed()
+        return
+    failures = []
+    if workers_without_the_trap:
+        failures.append(f"the offline trap: {', '.join(workers_without_the_trap)} ran without "
+                        "it")
+    if exitstatus in (pytest.ExitCode.OK, pytest.ExitCode.TESTS_FAILED):
+        whole = snapshot_recorder.is_the_whole_suite(
+            config.args, config.option.keyword, config.option.markexpr, session.testsfailed)
+        failures.append(snapshot_recorder.finish_the_run(whole))
+    reporter = config.pluginmanager.get_plugin("terminalreporter")
+    for failure in filter(None, failures):
+        if reporter is not None:
+            reporter.write_line(f"ERROR {failure}", red=True)
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+    """Each worker's memory after each group or test file it ran, where workers ran."""
+    lines = workers.memory_lines(memory_by_worker)
+    if lines:
+        terminalreporter.write_sep("-", "memory Python held after each group or file, in "
+                                        "allocated blocks")
+        for line in lines:
+            terminalreporter.write_line(line)

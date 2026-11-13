@@ -1,35 +1,30 @@
 # Lineage: write_job_events_checks
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0["write_job_events_checks"]
-    n0["row_count<br/><small>count_rows()</small>"]
-    n2["dt<br/><small>job_events.dt</small>"]
-  end
-  subgraph g1["ops.job_events"]
-    n1["ops.job_events.dt<br/><small>string</small>"]
-  end
-  subgraph g2["filters on write_job_events_checks"]
-    n3{{"WHERE in write_job_events_checks<br/><small>equals(job_events.dt, #quot;2026-09-24#quot;)</small>"}}
-  end
-  subgraph g3["mart.job_events_checks"]
-    n4["mart.job_events_checks.row_count<br/><small>bigint</small>"]
-    n5["mart.job_events_checks.dt<br/><small>string</small><br/><small>in the Key</small>"]
-  end
-  n1 --> n2
-  n1 -.-> n3
-  n0 --> n4
-  n2 --> n5
-  n3 -.->|filters| g0
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table's column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## write_job_events_checks
 
 It writes the Saved table mart.job_events_checks, replacing each partition its rows fill.
+
+- Reads: ops.job_events
+- Writes: mart.job_events_checks
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt)
+SELECT
+  COUNT(*) AS row_count,
+  job_events.dt
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = '2026-09-24'
+GROUP BY
+  job_events.dt
+```
 
 ### Calculated columns
 
@@ -45,36 +40,21 @@ write_job_events_checks.row_count = count_rows()
 ```
 
 Rows that count:
+
 - WHERE in write_job_events_checks: `equals(job_events.dt, "2026-09-24")`, which is `job_events.dt = '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.dt`.
 
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `dt` | ops.job_events.dt |
+- `dt` comes from ops.job_events.dt
 
 ### Keys
 
-The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" on its box in the drawing.
 
 - write_job_events_checks: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
 - mart.job_events_checks' Key (dt) holds: each row written has its own.
-
-### Hive as submitted
-
-```sql
-INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt)
-SELECT
-  COUNT(*) AS row_count,
-  job_events.dt
-FROM ops.job_events AS job_events
-WHERE
-  job_events.dt = '2026-09-24'
-GROUP BY
-  job_events.dt
-```
 
 ---
 

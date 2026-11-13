@@ -295,16 +295,7 @@ def test_a_logic_cell_that_isnt_python_yet_is_refused_as_load_refuses_it(
 # --- admin/scheduled_runs.ipynb ---------------------------------------------------------------
 
 
-def test_the_scheduled_runs_notebook_makes_each_run_named_in_new_runs(started: Path) -> None:
-    notebook = started / "admin" / "scheduled_runs.ipynb"
-    code = [text for kind, text in notebooks.read_cells(notebook) if kind == "code"]
-    names = [index for index, text in enumerate(code) if text.startswith("NEW_RUNS = []")]
-    assert len(names) == 1
-    assert "project.new_scheduled_run(NEW_RUNS)" in code[names[0]]
-    code[1] = RECORDING
-    code[names[0]] = code[names[0]].replace("NEW_RUNS = []", 'NEW_RUNS = ["daily"]', 1)
-    run_admin_notebook(notebook, code[:names[0] + 1])
-    assert (run_folder(started, "daily") / "daily.ipynb").is_file()
+# Making a run moved to the schedule Workflow in 8.7: tests/test_schedule_workflow.py.
 
 
 def test_the_scheduled_runs_notebook_runs_each_by_hand_and_sends_nothing(started: Path) -> None:

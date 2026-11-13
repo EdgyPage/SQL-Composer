@@ -232,18 +232,13 @@ def test_show_hive_prints_comment_lines_saying_what_it_is(
 # --- Lineage: one opaque box ------------------------------------------------------------------
 
 
-def chart_boxes_and_arrows(markdown: str) -> tuple[dict[str, str], set[tuple[str, str]]]:
-    """The Mermaid chart's boxes, {first line: group}, and its solid arrows, by first line."""
-    body = markdown.split("```mermaid\n", 1)[1].split("```", 1)[0]
-    names, boxes, group = {}, {}, None
-    for line in body.splitlines():
-        if found := re.match(r'\s*subgraph (\w+)\["(.*)"\]$', line):
-            group = found[2]
-        elif found := re.match(r'\s*(n\d+)\["(.*?)(?:<br/>.*)?"\]$', line):
-            names[found[1]] = found[2]
-            boxes[found[2]] = group
-    arrows = {(names[a], names[b]) for a, b in re.findall(r"^\s*(n\d+) --> (n\d+)$", body,
-                                                           re.MULTILINE)}
+def chart_boxes_and_arrows(page: str) -> tuple[dict[str, str], set[tuple[str, str]]]:
+    """The drawing's boxes, {first line: group}, and its solid arrows, by first line, as the
+    HTML page's script draws them."""
+    data = json.loads(re.search(r"const graph = (\{.*\});\n", page).group(1))
+    names = {box["id"]: box["lines"][0] for box in data["boxes"]}
+    boxes = {box["lines"][0]: box["group"] for box in data["boxes"]}
+    arrows = {(names[a], names[b]) for a, b, kind in data["arrows"] if kind == "value"}
     return boxes, arrows
 
 
@@ -256,17 +251,14 @@ def slow_runs() -> Statement:
 def test_lineage_draws_it_as_one_box_from_the_columns_it_read_to_the_table_it_wrote(
         a_project: Path) -> None:
     margin = margin_step(a_project)
-    _, markdown_file = export_lineage(margin, to="lineage.html")
-    markdown = markdown_file.read_text(encoding="utf-8")
-    boxes, arrows = chart_boxes_and_arrows(markdown)
+    html_file, _ = export_lineage(margin, to="lineage.html")
+    boxes, arrows = chart_boxes_and_arrows(html_file.read_text(encoding="utf-8"))
     assert boxes["Python step"] == "margin"
     assert {("ops.job_runs.run_id", "Python step"),
             ("ops.job_runs.duration_mins", "Python step"),
             ("ops.job_runs.dt", "Python step")} <= arrows
     assert ({("Python step", f"mart.run_margins.{column}") for column in margins._columns}
             <= arrows)
-    assert ("Python step<br/><small>building_blocks/margins.py:add_margin</small><br/>"
-            "<small>line 12</small>") in markdown
 
 
 def test_its_section_says_it_is_a_change_made_in_python_and_where_it_lives(
@@ -279,6 +271,7 @@ def test_its_section_says_it_is_a_change_made_in_python_and_where_it_lives(
         "own call or, given rows=, by a Scheduled run. The Toolbox can't see inside it, so its "
         "columns can't be followed through it. It reads ops.job_runs.run_id, "
         "ops.job_runs.duration_mins and ops.job_runs.dt, and writes mart.run_margins.\n\n"
+        "- Reads: ops.job_runs\n- Writes: mart.run_margins\n\n"
         "### Where it lives\n\n"
         "Changed in Python by `building_blocks/margins.py:add_margin`, line 12. Open the "
         "function there to see what the change does.\n")
@@ -304,12 +297,12 @@ def test_the_page_draws_it_as_an_output_marked_python(a_project: Path) -> None:
 def test_it_comes_before_a_statement_that_reads_its_table_whose_copies_stop_at_it(
         a_project: Path) -> None:
     margin, slow = margin_step(a_project), slow_runs()
-    _, markdown_file = export_lineage(slow, margin, to="lineage.html")
+    html_file, markdown_file = export_lineage(slow, margin, to="lineage.html")
     markdown = markdown_file.read_text(encoding="utf-8")
     assert markdown.startswith("# Lineage: margin, slow\n")
     assert "It reads the Saved table mart.run_margins, written by margin above." in markdown
-    assert ("| `run_id` | mart.run_margins.run_id ← margin: Python step |") in markdown
-    _, arrows = chart_boxes_and_arrows(markdown)
+    assert "- `run_id` comes from mart.run_margins.run_id ← margin: Python step" in markdown
+    _, arrows = chart_boxes_and_arrows(html_file.read_text(encoding="utf-8"))
     assert ("mart.run_margins.margin", "margin") in arrows
 
 

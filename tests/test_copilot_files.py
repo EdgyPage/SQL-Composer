@@ -62,6 +62,8 @@ HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN",
 # Files 15, 11 and 12 turn a Formula workbook into Hive, loaded together.
 EXCEL_FILES = ("11_excel_formula_workbooks.txt", "12_excel_power_query.txt",
                "15_excel_workbook_steps.txt")
+# File 19 writes a Metric request, plain text for the user's chatbot: no code, and no SQL.
+METRIC_REQUEST = "19_metric_request.txt"
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
 AVOIDED = ("raw SQL", "guardrail", "predicate", "schema file", "table config", "snippet",
            "boilerplate", "materialized view", "temp table", "set operation", "OVER clause",
@@ -89,7 +91,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(19)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(20)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -114,9 +116,10 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     assert version in text.splitlines()[0]
     # Each is written to docs/agents/instruction-rules.md: it defines its Terms and ends on a
-    # Self-check; each but the Excel files, which write Hive, names its Toolbox functions.
+    # Self-check; each but the Excel files, which write Hive, and file 19, which writes a Metric
+    # request, names its Toolbox functions.
     parts: tuple[str, ...] = ("Objective: ", "Load this file when", "## Terms", "## Self-check")
-    if path.name not in EXCEL_FILES:
+    if path.name not in (*EXCEL_FILES, METRIC_REQUEST):
         parts += ("## Names for this objective, with their arguments",)
     assert re.findall(r"^## (.+)$", text, re.MULTILINE)[-1] == "Self-check"
     for part in parts:
@@ -124,10 +127,12 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     # The Excel files write Hive, no Toolbox code; files 13, 14 and 16 give steps, each a cell,
     # and the file of the step's objective the code; file 17 gives a Workflow's decisions cell
     # and the Run value's function it imports, and leaves a Statement inside one to file 03;
-    # file 18 gives a Scheduled run's cells, and leaves a Statement of its own to file 03 too.
+    # file 18 gives a Scheduled run's cells, and leaves a Statement of its own to file 03 too;
+    # file 19 writes no code at all.
     if path.name not in (*EXCEL_FILES, "13_workflows.txt",
                          "14_workflows_new_tables_and_upkeep.txt", "16_workflows_promote.txt",
-                         "17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt"):
+                         "17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt",
+                         METRIC_REQUEST):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
 
 

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+import generated_memo
 import sqlglot_composer
 from offline_policy import external_references
 from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
@@ -30,11 +31,16 @@ import example_gallery  # noqa: E402
 
 
 def test_the_committed_gallery_is_what_the_generator_writes() -> None:
+    # Locally only when an input changed since it last passed; on CI, always.
+    memo = generated_memo.Memo("example_gallery")
+    if memo.is_unchanged():
+        return
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (
         f"{GALLERY.relative_to(ROOT).as_posix()} is out of date: run python "
         "tools/example_gallery.py"
     )
+    memo.keep()
 
 
 def toolbox_docstrings() -> list[doctest.DocTest]:

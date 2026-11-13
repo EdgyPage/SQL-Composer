@@ -15,14 +15,14 @@ from sqlglot_composer import workflows
 # Each Workflow's fiddling steps when Toolbox 8.0 began (2026-10-30), the baseline 8.0 takes to
 # nothing.
 FIDDLING_AT_MOST = {"convert": 0, "promote": 0, "new_table": 0, "references": 0, "upgrade": 0,
-                    "change_a_saved_table": 0}
+                    "change_a_saved_table": 0, "schedule": 0}
 
 
 def test_the_page_is_what_the_tool_writes() -> None:
     assert workflow_graph.PAGE.read_text(encoding="utf-8") == workflow_graph.page_text()
 
 
-def test_the_six_workflows_are_drawn() -> None:
+def test_the_seven_workflows_are_drawn() -> None:
     names = [workflow.name for workflow in workflows.WORKFLOWS]
     assert names == list(FIDDLING_AT_MOST)
 

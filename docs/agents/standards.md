@@ -131,9 +131,12 @@ page is built from it.
   and script as pieces after the module's, and takes what another page needs too from the module: a piece
   two pages need moves into the module, extended there, never copied into a second page.
 - **Colours only through named tokens.** A colour is written once, in the module's `COLOURS`;
-  CSS names it as `var(--name)`, and the legend's swatches and the Mermaid `classDef` lines are
-  made from `KINDS`, which names tokens. A new kind of box is a row of `KINDS`; a palette
-  change is an edit to `COLOURS` alone.
+  CSS names it as `var(--name)`, and the legend's swatches are made from `KINDS`, which names
+  tokens. A new kind of box is a row of `KINDS`; a palette change is an edit to `COLOURS`
+  alone. A page's Markdown twin has no colour, and no drawing.
+- **The HTML page is the full view.** A page's Markdown twin is its text alone; whatever the
+  Markdown says, the page says too. A section both show is a `Part`, written to the page by
+  the module's `panel` and to the Markdown by `part_markdown`, never written twice.
 - **No inline `style=`.** A look is a class and a CSS rule. A script may set a size it works
   out, through `element.style`, but never a colour.
 - **Offline.** A page loads nothing from outside its own file: no font, script, stylesheet or
@@ -150,8 +153,11 @@ page is built from it.
   glossary's words ("Beginner readability", "Glossary words").
 
 `tests/test_html_page.py` holds what a test can, for the pages the module builds: no colour
-outside the token table, no `style=`, each page passing the offline policy, and each coming
-from the one module. What is left here is the reader's.
+outside the token table, no `style=`, each page passing the offline policy, each coming from
+the one module, and each line of a page's Markdown being on its HTML page too; and of the
+colours, a box's text readable on every kind's fill (WCAG AA, 4.5:1), no two kinds on one
+page sharing a colour, and the loops' red used for nothing else. What is left here is the
+reader's.
 
 ## No new public name without a ticket
 

@@ -167,13 +167,6 @@ def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
     return proxy_message(given.arm, tasks)
 
 
-def read_answers(text: str) -> tuple[dict[str, str], dict[str, str]]:
-    """An answers file's header, by name, and each reply, by its task's id."""
-    parts = re.split(r"^## (X\d+)\s*$", text, flags=re.MULTILINE)
-    header = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", parts[0], re.MULTILINE))
-    return header, {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
-
-
 # --- Reading a reply -----------------------------------------------------------------------
 
 BLOCK = re.compile(r"```[ \t]*(\w*)[ \t]*\n(.*?)```", re.DOTALL)
@@ -805,7 +798,7 @@ def _score_answers(given: argparse.Namespace) -> None:
     """Score an answers file's replies, and the replies the memo keeps for the rest of the
     round `--split` and `--tasks` name, keep each with its score, and print the report; with
     `--record`, add its row to the results."""
-    header, answered = read_answers(given.answers.read_text(encoding="utf-8"))
+    header, answered = eval_memo.read_answers(given.answers.read_text(encoding="utf-8"), "X")
     if given.split or given.tasks:
         tasks = [task.id for task in _chosen_tasks(given)]
     else:

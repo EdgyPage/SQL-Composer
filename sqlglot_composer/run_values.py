@@ -457,8 +457,8 @@ def hivevar(name: str, *, default: str | Callable[[], object]) -> Hivevar:
     project.write_decisions writes it into TAGS. Which to choose: a Run value is worked out
     when the Statement is built and written into the Hive; a Hivevar leaves ${hivevar:NAME} in
     the Hive, filled in by the Toolbox's SET line when the Toolbox sends it, and by your
-    scheduler when it runs the .hql export_hive writes. Choose a Hivevar when that .hql runs
-    outside the Toolbox.
+    scheduler when it runs the write() steps of the .hql export_hive writes, never the file
+    whole. Choose a Hivevar when those steps run outside the Toolbox.
 
     `name` is the Hivevar's NAME: a letter or _, then letters, digits and _, often the tag's
     own. `default=` is its value unless a Scheduled run's hivevars= gives another: the Hive
@@ -479,7 +479,8 @@ def hivevar(name: str, *, default: str | Callable[[], object]) -> Hivevar:
     export_hive writes no SET line into its .hql file, since Hive lets a SET in the script
     beat a value given on its command line, as in hive --hivevar PERIOD_END=... -f daily.hql:
     it writes each value into a .hivevars file beside it, as --hivevar PERIOD_END=2026-09-24,
-    for your scheduler to pass to Hive with the .hql.
+    for your scheduler to pass to Hive with the .hql, or, for a Table notebook's, with its
+    write() steps, never its create() or seed().
 
     It refuses a NAME Hive can't read, and a default that is neither text, such as "5" for a
     number, nor a function. A text default is checked when script_tag or tag_text writes it,

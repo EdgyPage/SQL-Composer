@@ -93,9 +93,10 @@ entry to admin/admin_log.md, the log that also keeps every Admin statement run i
 Project. The rest add no entry of their own: check and load
 change no file, nor does describe_logic; export_project_lineage writes only its two files
 in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
-export_run_hive only <name>.hql; refresh_reference_sheet writes the Reference sheet and the
-Database modules, and no other file; run_tables writes only your tables in the warehouse,
-though an Admin or Unchecked statement it sends is logged, as run_execute logs one anywhere.
+export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
+Hivevar; refresh_reference_sheet writes the Reference sheet and the Database modules, and no
+other file; run_tables writes only your tables in the warehouse, though an Admin or
+Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -456,9 +457,8 @@ ADMIN_NOTEBOOKS = {
     "scheduled_runs": (
         "# Scheduled runs, by hand\n\nWhat no Scheduled run does each time it runs, since it "
         "would be work for nothing each time: run these cells by hand, when you want them. "
-        "Name each Scheduled run to make in `NEW_RUNS`, such as `[\"weekly\"]`: "
-        "`project.new_scheduled_run(NEW_RUNS)` makes `scheduled_runs/<name>/<name>.ipynb` "
-        "from the Template, for you to fill in its `<...>`. `project.check()` reports a loop "
+        "To make a Scheduled run, use the schedule Workflow, "
+        "`workflows/schedule/schedule.ipynb`. `project.check()` reports a loop "
         "among your tables, two or more each waiting on another so that none can be written "
         "first, naming the logic cell to mend, and changes nothing. "
         "`project.export_project_lineage()` writes `lineage/<time>-project.html` and its "
@@ -474,8 +474,6 @@ ADMIN_NOTEBOOKS = {
         "Project's path connects to the warehouse: a Run value that reads the warehouse needs "
         "it even to build.",
         [f"from warehouse import connect\n{CONNECT_LINES}",
-         'NEW_RUNS = []  # Scheduled runs to make, such as ["weekly"]\n'
-         "if NEW_RUNS:\n    print(project.new_scheduled_run(NEW_RUNS))",
          "project.check()  # a loop among your tables, and what else needs you",
          "project.export_project_lineage()  # every Saved table, and the runs that write each",
          'RUNS = []  # Scheduled runs, for each one\'s lineage and Hive, such as ["weekly"]\n'
@@ -2315,8 +2313,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     # batch is run only to compare it again, on the Partitions PARTITIONS lists.
     instances = [workflows.read_again(root, found, each)
                  for each in workflows.one_per_name(root, started)
-                 if not workflows.is_finished(root, each)
-                 or workflows.is_compared_again(root, each)]
+                 if not workflows.is_finished(root, found, each)
+                 or workflows.is_compared_again(root, found, each)]
     if not instances:
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
@@ -2337,7 +2335,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
             ran.append(again)
         return ProjectReport([*lines, *ran])
     for inputs, its_calls in zip(instances, calls, strict=True):
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, found, inputs):
             ran, stopped = _compare_again(root, found, inputs, its_calls)
         else:
             ran, stopped = _run_steps(root, found, inputs, its_calls)
@@ -2499,7 +2497,7 @@ def _batch_state_lines(root: Path, workflow: workflows.Workflow,
         inputs = workflows.read_again(root, workflow, inputs)
         step = workflows.next_step(root, workflow, inputs)
         state = "every step is done"
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, workflow, inputs):
             state = (f"finished, every step done: its folder is "
                      f"{(BATCHES / FINISHED / str(inputs['NAME'])).as_posix()}/")
         elif step is not None:
@@ -7660,14 +7658,18 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     parameter as used and the Run values run_values= gave; then each Statement in the order
     the run sends it, headed as the build prints it, such as -- 3 of 7: mart.team_days (read
     by week_totals), a table's session_settings() before its first write, and its Hive, as
-    show_hive shows it. The file is to read and to commit, never to edit or to send: the run
-    builds its Hive fresh each time, from its logic, so a Run value is worked out as it runs.
-    A Run value is worked out here too, as the file is written, so one that reads the
-    warehouse needs connect(...) first, as admin/scheduled_runs.ipynb's first cell has it.
-    Written again, it is the same text when nothing changed. It changes no other file and
-    adds no Admin log entry, as export_hive adds none. A run whose build is refused is
-    refused as the build refuses it; a name with no Scheduled run is refused, naming the
-    close ones. `name` may be a list of the runs' names, each written in turn.
+    show_hive shows it, less each SET hivevar line. The file is to read and to commit, never
+    to edit or to send: the run builds its Hive fresh each time, from its logic, so a Run
+    value is worked out as it runs. A Run value is worked out here too, as the file is
+    written, so one that reads the warehouse needs connect(...) first, as
+    admin/scheduled_runs.ipynb's first cell has it. Written again, it is the same text when
+    nothing changed. When the run's Hive holds a Hivevar (help(hivevar)), it also writes
+    <name>.hivevars beside the .hql: the value the run sends for each, in its SET hivevar
+    lines, as worked out now, to read as the .hql is; when it holds none, it deletes one an
+    export before wrote. It changes no other file and adds no Admin log entry, as export_hive
+    adds none. A run whose build is refused is refused as the build refuses it; a name with no
+    Scheduled run is refused, naming the close ones. `name` may be a list of the runs' names,
+    each written in turn.
 
     Here a short Template stands in for a Table notebook of yours, and the Scheduled run's
     one Statement is its write().

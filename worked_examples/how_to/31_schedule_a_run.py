@@ -71,6 +71,8 @@ day its own logic cell names, and team_day_from_job_events(day), a SELECT of eac
 numbers for the day you give it. At work a run would read back the table it just wrote; here
 the SELECT reads ops tables, since the Example database holds no mart table to read. Paste
 the same list into a Copilot chat, after Copilot file 18, and Copilot fills in the run for you.
+In your Project, the `TABLES = ["mart.team_days"]` cell of admin/scheduled_runs.ipynb runs
+`project.describe_logic` the same way.
 
 Done when you know the functions the run calls. Then step 3.
 
@@ -83,9 +85,10 @@ Template in admin/templates/, in a folder of its own under scheduled_runs/, and 
 Made scheduled_runs/team_day/: team_day.ipynb, from admin/templates/scheduled_run.py.
 Fill in its <...>: its parameters, its connection and the Statements it runs.
 
-In your Project, admin/scheduled_runs.ipynb makes the same call: name the run in its cell
-`NEW_RUNS = ["team_day"]` and run that cell. Its `TABLES = ["mart.team_days"]` cell runs
-step 2's `project.describe_logic` the same way.
+In your Project, the schedule Workflow's notebook, admin/workflows/schedule/schedule.ipynb,
+makes the same call: name the run in its names cell, `NAME = "team_day"`, save the
+notebook, and run its cells down to the one under step 1, which gives that name to
+`project.new_scheduled_run`.
 
 Done when scheduled_runs/team_day/team_day.ipynb is there. Then step 4.
 

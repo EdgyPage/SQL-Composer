@@ -262,6 +262,15 @@ def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
 # --- Scoring a round -------------------------------------------------------------------------
 
 
+def read_answers(text: str, letter: str) -> tuple[dict[str, str], dict[str, str]]:
+    """An answers file's header, by name, and each reply, by its task's id: a heading such as
+    `## T07` for the Copilot tasks, `letter` "T", `## X07` for the Excel tasks and `## M01`
+    for the Metric request tasks."""
+    parts = re.split(rf"^## ({letter}\d+)\s*$", text, flags=re.MULTILINE)
+    header = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", parts[0], re.MULTILINE))
+    return header, {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
+
+
 @dataclass
 class RoundReplies:
     """The replies a round scores, by task in the round's order, those of them taken from the

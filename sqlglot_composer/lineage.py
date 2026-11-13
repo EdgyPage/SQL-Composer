@@ -2,8 +2,10 @@
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
 from the table columns through each Derived table to the Statement's outputs, with controls
-to expand, collapse or hide each table. The Markdown twin needs no script: a Mermaid chart,
-then a report on each calculated column, and the Hive as submitted. Pass several Statements
+to expand, collapse or hide each table; a click on a box opens a panel beside the drawing,
+holding its Statement's section. The Markdown twin is the sections alone, text with no
+drawing: each Statement, what it reads and writes, its Hive as submitted, and where each of
+its columns comes from. Pass several Statements
 and the drawing continues through each Saved table one writes and another reads. An
 Unchecked statement is drawn as one step its columns can't be followed through, linked to the
 tables its text names, and so is a Python step, linked to the columns it read and the table
@@ -30,19 +32,20 @@ from .conditions import Condition
 from .keys import Keys, statement_keys, wanted_key, why_key_unproven
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
 from .refusals import refuse
-from .running import name_in, statement_tree, statements_within, to_hive
-from .shared import possessive, singular_or_plural
+from .running import (hivevar_values, name_in, settings_needed, statement_tree,
+                      statements_within, to_hive)
+from .shared import in_words, possessive, singular_or_plural
 from .stacking import STACK_HOW, nth
 from .tables import Table, is_unchecked, readable
 from .trees import Node, rows_text, unchecked_calls
-from .unchecked import SessionSettings, UncheckedStatement, inline_code, tables_read_and_written
+from .unchecked import (SessionSettings, UncheckedStatement, hive_settings, inline_code,
+                        tables_read_and_written)
 from .windows import call_of
 from .writing import hive_text
 
 
 # --- What a box shows ------------------------------------------------------------------------
-# Both views read box_lines, so a line added there shows in the HTML page and the Mermaid chart
-# alike.
+# The HTML page's boxes read box_lines, so a line added there shows on each box.
 
 
 def formula_line(box: dict[str, object]) -> str:
@@ -66,7 +69,7 @@ def box_lines(box: dict[str, object]) -> list[str]:
 KEY_LINE = "in the Key"
 # What a report says above its list of Keys.
 KEYS_ABOUT = ("The columns that tell each step's rows apart, as the Toolbox works them out. "
-              'A column in one is marked "in the Key" in the chart.')
+              'A column in one is marked "in the Key" on its box in the drawing.')
 
 
 # --- The graph -------------------------------------------------------------------------------
@@ -139,15 +142,8 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
         hivevar = node.meta.get("hivevar")
         if traced is None and hivevar is None:
             continue
-        if hivevar is not None:
-            shown = f"hivevar {hivevar}, default {node.meta['hivevar_default']}"
-            gave = f"SET hivevar:{hivevar}={node.meta['hivevar_value']}"
-        else:
-            shown = f"{traced.function}({traced.arguments})"
-            if traced.tag:
-                shown = f"{traced.tag} = {shown}"
-            gave = f"gave {node.meta['value']}" if "value" in node.meta else "failed"
-        key = graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
+        shown, gave = _run_value_words(node)
+        key =graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
                         name=shown, full=f"{RUN_VALUES}.{shown}", type=gave, formula="",
                         calculated=False, in_key=False)
         reads = traced.reads if traced is not None else []
@@ -159,6 +155,51 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
             graph.arrow(box, key, "value")
         keys.append(key)
     return keys
+
+
+def _run_value_words(node: Node) -> tuple[str, str]:
+    """How a Run value's box names it, from its node: its function and what it was given,
+    after the Script tag it answers, if any; then what it gave, or that it failed. A
+    Hivevar's: its NAME and default, then the SET line the Toolbox sends for it."""
+    hivevar = node.meta.get("hivevar")
+    if hivevar is not None:
+        return (f"hivevar {hivevar}, default {node.meta['hivevar_default']}",
+                f"SET hivevar:{hivevar}={node.meta['hivevar_value']}")
+    traced = node.meta["traced"]
+    shown = f"{traced.function}({traced.arguments})"
+    if traced.tag:
+        shown = f"{traced.tag} = {shown}"
+    gave = f"gave {node.meta['value']}" if "value" in node.meta else "failed"
+    return shown, gave
+
+
+def run_values_of(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
+    """Each Run value a Statement holds, as its panel and its Markdown list it, such as
+    "Run value: first_job() gave 1", each once; none for an Unchecked statement or a Python
+    step, whose Hive the Toolbox doesn't build."""
+    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
+        return []
+    found = [" ".join(_run_value_words(node)) for node in statement_tree(s).walk()
+             if "traced" in node.meta]
+    return [f"Run value: {words}" for words in dict.fromkeys(found)]
+
+
+def settings_lines(s: Statement | UncheckedStatement | PythonStep,
+                   settings: list[SessionSettings]) -> list[str]:
+    """The Session settings sent before a Statement, as its panel and its Markdown list them,
+    a line each: `settings`, then "dynamic_partitions" for a write that fills a partition
+    column from its rows, which needs it."""
+    sent = list(settings)
+    if kinds.kind(s) == kinds.WRITE and settings_needed(s):
+        sent.append(hive_settings("dynamic_partitions"))
+    lines = [f"Session settings {' and '.join(each._names)}, sent before it: "
+             f"{'; '.join(each._lines)}" for each in sent]
+    hivevars = hivevar_values(s) if kinds.kind(s) != kinds.PYTHON else {}
+    if hivevars:
+        lines.append(f"Hivevars {in_words(list(hivevars))}, sent before it: "
+                     + "; ".join(f"SET hivevar:{name}={value}"
+                                 for name, value in hivevars.items()))
+    return lines
 
 
 def _resolver(graph: Graph, step: Statement, index: int) -> Callable[[Node], str | None]:
@@ -880,33 +921,116 @@ def _copied_from(graph: Graph, key: str) -> list[str]:
     return chain
 
 
-def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
-           ) -> list[dict[str, object]]:
-    """One section per Statement, writers first: its calculated and copied columns, its Hive."""
-    sections = []
+def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+           settings: list[list[SessionSettings]]) -> list[html_page.Part]:
+    """Each Statement's Part, writers first, as its panel shows it and the Markdown writes it:
+    how it joins the others, what it reads and writes, its Run values and the Session
+    settings sent before it, `settings` giving those of each; its Hive; then its calculated
+    and copied columns and its Keys. An Unchecked statement's ends at its Hive, and a Python
+    step's says where it lives in place of a Hive."""
+    ids = box_ids(graph)
+    parts = []
     for index, (s, name) in enumerate(ordered):
+        pieces: list[html_page.Piece | html_page.Part] = []
         if kinds.kind(s) == kinds.UNCHECKED:
-            sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
-                             "copied": [], "sql": s._text, "unchecked": True})
-            continue
+            about = _about_unchecked(s)
+        elif kinds.kind(s) == kinds.PYTHON:
+            about = _about_python_step(s)
+        else:
+            about = _about(s, index, ordered)
+        if about:
+            pieces.append(html_page.Piece(html_page.TEXT, [about]))
+        pieces.append(html_page.Piece(html_page.ITEMS, _facts(s, settings[index])))
         if kinds.kind(s) == kinds.PYTHON:
-            sections.append({"name": name, "about": _about_python_step(s), "calculated": [],
-                             "copied": [], "python": changed_in_python(s)})
+            where = changed_in_python(s)
+            pieces += [html_page.Piece(html_page.HEADING, ["Where it lives"]),
+                       html_page.Piece(html_page.TEXT,
+                                       [f"{where[0].upper()}{where[1:]}. {PYTHON_WHERE}"])]
+        else:
+            pieces += [html_page.Piece(html_page.HEADING, ["Hive as submitted"]),
+                       html_page.Piece(html_page.HIVE, [hive_of(s)])]
+        if kinds.kind(s) in (kinds.READ, kinds.WRITE):
+            pieces += _column_pieces(graph, index, ids)
+            pieces += [html_page.Piece(html_page.HEADING, ["Keys"]),
+                       html_page.Piece(html_page.TEXT, [KEYS_ABOUT]),
+                       html_page.Piece(html_page.ITEMS, keys_report(s, name))]
+        parts.append(html_page.Part(step_key(index), 2, name, pieces))
+    return parts
+
+
+def step_key(index: int) -> str:
+    """The id of a Statement's Part on the page, by its place in the order."""
+    return f"step-{index}"
+
+
+def hive_of(s: Statement | UncheckedStatement) -> str:
+    """A Statement's Hive as submitted: the Toolbox's, or an Unchecked statement's text."""
+    return s._text if kinds.kind(s) == kinds.UNCHECKED else to_hive(s)
+
+
+def _facts(s: Statement | UncheckedStatement | PythonStep,
+           settings: list[SessionSettings]) -> list[str]:
+    """The list under a Statement's heading: the tables it reads and writes, each Run value it
+    holds, and each of the Session settings sent before it."""
+    reads = ", ".join(sorted(tables_read(s))) or "no table"
+    written = ", ".join(tables_written(s))
+    if not written:
+        written = ("no table, its rows come back to you" if kinds.kind(s) == kinds.READ
+                   else "no table")
+    return [f"Reads: {reads}", f"Writes: {written}", *run_values_of(s),
+            *settings_lines(s, settings)]
+
+
+def _has_entry(box: dict[str, object]) -> bool:
+    """Whether a box has an entry of its own under Calculated columns: a calculated column."""
+    return box["kind"] in ("derived", "output") and bool(box["calculated"])
+
+
+def _column_pieces(graph: Graph, index: int, ids: dict[str, str]
+                   ) -> list[html_page.Piece | html_page.Part]:
+    """A Statement's Calculated columns, each an entry its box opens, and its Copied columns."""
+    entries, copied = [], []
+    for key, box in graph.boxes.items():
+        if box.get("statement") != index or box["kind"] not in ("derived", "output"):
             continue
-        calculated, copied = [], []
-        for key, box in graph.boxes.items():
-            if box.get("statement") != index or box["kind"] not in ("derived", "output"):
-                continue
-            if box["calculated"]:
-                windows = [(rows, []) for rows in box.get("windows", [])]
-                calculated.append({"box": box, "tree": "\n".join(tree_lines(graph, key)),
-                                   "conditions": windows + _rows_that_count(graph, key)})
-            elif box["kind"] == "output":
-                copied.append((box["name"], _copied_from(graph, key)))
-        sections.append({"name": name, "about": _about(s, index, ordered),
-                         "calculated": calculated, "copied": copied,
-                         "keys": keys_report(s, name), "sql": to_hive(s)})
-    return sections
+        if _has_entry(box):
+            entries.append(_entry(graph, key, ids[key]))
+        elif box["kind"] == "output":
+            copied.append(f"{inline_code(box['name'])} comes from "
+                          f"{' ← '.join(_copied_from(graph, key))}")
+    pieces: list[html_page.Piece | html_page.Part] = [
+        html_page.Piece(html_page.HEADING, ["Calculated columns"]),
+        html_page.Piece(html_page.TEXT, ["Every column that is calculated rather than copied, "
+                                         "in the order it is calculated."])]
+    pieces += entries or [html_page.Piece(html_page.TEXT, ["None: every column is copied."])]
+    if copied:
+        pieces += [html_page.Piece(html_page.HEADING, ["Copied columns"]),
+                   html_page.Piece(html_page.ITEMS, copied)]
+    return pieces
+
+
+def _entry(graph: Graph, key: str, box_id: str) -> html_page.Part:
+    """One calculated column's entry: how it is calculated, its tree back to the table
+    columns, the rows that count and what one value stands for."""
+    box = graph.boxes[key]
+    pieces = [html_page.Piece(html_page.TEXT,
+                              [f"Calculated in **{box['group']}** as {_how(box)}."]),
+              html_page.Piece(html_page.BLOCK, ["\n".join(tree_lines(graph, key))])]
+    conditions = [(rows, []) for rows in box.get("windows", [])] + _rows_that_count(graph, key)
+    if conditions:
+        items = []
+        for condition, reads in conditions:
+            item = f"{condition['name']}: {_how(condition)}"
+            if reads:
+                item += f" (reads {', '.join(reads)})"
+            items.append(item)
+        pieces += [html_page.Piece(html_page.TEXT, ["Rows that count:"]),
+                   html_page.Piece(html_page.ITEMS, items)]
+    if box["group_by"]:
+        pieces.append(html_page.Piece(html_page.TEXT, [
+            "One value for each different "
+            + " and ".join(inline_code(g) for g in box["group_by"]) + "."]))
+    return html_page.Part(f"entry-{box_id}", 4, inline_code(box["name"]), pieces)
 
 
 def _about(s: Statement, index: int,
@@ -964,17 +1088,6 @@ def _about_python_step(s: PythonStep) -> str:
 PYTHON_WHERE = "Open the function there to see what the change does."
 
 
-# --- The Markdown twin -----------------------------------------------------------------------
-
-
-def _mermaid_text(text: str) -> str:
-    """Text for inside a Mermaid label, with the characters Mermaid reads spelled out."""
-    for character, code in (("#", "#35;"), ('"', "#quot;"), ("<", "#lt;"), (">", "#gt;"),
-                            ("`", "#96;")):
-        text = text.replace(character, code)
-    return text
-
-
 def shortened(text: str, most: int) -> str:
     """Text cut to at most `most` characters, ending in "…" when it was cut."""
     if len(text) <= most:
@@ -982,180 +1095,90 @@ def shortened(text: str, most: int) -> str:
     return text[: most - 1] + "…"
 
 
-def group_of(box: dict[str, object]) -> str:
-    """The group a box is drawn in: a condition sits in the filters of the group it filters."""
-    return f"filters on {box['group']}" if box["kind"] == "condition" else box["group"]
+def about_lines(made_by: str) -> list[str]:
+    """What both files say under their title: what made them, what each section holds, and
+    the two files, with what a click on the page shows."""
+    return [f"Made by `{made_by}`. Each Statement has a section: what it reads and writes, "
+            "its Run values and the Session settings sent before it, its Hive, then where "
+            "each of its columns comes from.",
+            two_files("for a calculated column, the column first, then the section of the "
+                      "Statement that makes it; for a table's column, the section of each "
+                      "Statement that writes or reads it")]
 
 
-def mermaid_chart(graph: Graph) -> list[str]:
-    """The Markdown's Mermaid chart, as lines: a subgraph for each group, then the arrows, with
-    one "filters" arrow from each condition to each group whose rows it decides."""
-    ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
-    groups = {}
-    for key, box in graph.boxes.items():
-        groups.setdefault(group_of(box), []).append(key)
-    group_ids = {group: f"g{number}" for number, group in enumerate(groups)}
-    lines = ["```mermaid", "flowchart LR"]
-    for group, keys in groups.items():
-        lines.append(f'  subgraph {group_ids[group]}["{_mermaid_text(group)}"]')
-        for key in keys:
-            first, *rest = box_lines(graph.boxes[key])
-            small = [f"<small>{_mermaid_text(shortened(line, 44))}</small>" for line in rest]
-            text = "<br/>".join([_mermaid_text(first), *small])
-            ends = ('{{"', '"}}') if graph.boxes[key]["kind"] == "condition" else ('["', '"]')
-            lines.append(f"    {ids[key]}{ends[0]}{text}{ends[1]}")
-        lines.append("  end")
-    filters = []
-    for source, target, kind in graph.arrows:
-        if graph.boxes[source]["kind"] == "condition":
-            filters.append(
-                f"  {ids[source]} -.->|filters| {group_ids[graph.boxes[target]['group']]}")
-        else:
-            arrow = "-->" if kind == "value" else "-.->"
-            lines.append(f"  {ids[source]} {arrow} {ids[target]}")
-    return lines + list(dict.fromkeys(filters)) + ["```"]
+def two_files(opens: str) -> str:
+    """What both files of a lineage say of the two: the page draws it, the Markdown is its
+    text alone, and a click on a box, or Enter, opens its panel, showing `opens`. It names
+    neither file, so the Markdown of two exports compares line for line."""
+    return ("Written as two files side by side, named alike: an HTML page, which draws the "
+            "lineage, and a Markdown twin, the same sections as text, with no drawing. On the "
+            "page, click a box, or press Tab until it is outlined and press Enter, to light "
+            "up every box that feeds it and every box it feeds, and to open a panel on the "
+            f"right: {opens}. Escape, or a click on empty space, closes it.")
 
 
-def _entry_markdown(entry: dict[str, object]) -> list[str]:
-    """One calculated column in the Markdown report: its tree, rows that count, GROUP BY."""
-    box = entry["box"]
-    lines = [f"#### {inline_code(box['name'])}", "",
-             f"Calculated in **{box['group']}** as {_how(box)}.", "",
-             "```text", entry["tree"], "```", ""]
-    if entry["conditions"]:
-        lines.append("Rows that count:")
-        for condition, reads in entry["conditions"]:
-            line = f"- {condition['name']}: {_how(condition)}"
-            if reads:
-                line += f" (reads {', '.join(reads)})"
-            lines.append(line)
-        lines.append("")
-    if box["group_by"]:
-        lines += ["One value for each different "
-                  + " and ".join(inline_code(g) for g in box["group_by"]) + ".", ""]
-    return lines
+# --- The Markdown twin -----------------------------------------------------------------------
 
 
-def _section_markdown(section: dict[str, object]) -> list[str]:
-    """One Statement's section of the Markdown report."""
-    lines = [f"## {section['name']}", ""]
-    if section["about"]:
-        lines += [section["about"], ""]
-    if section.get("unchecked"):
-        return lines + ["### Hive as submitted", "", "```sql", section["sql"], "```", ""]
-    if section.get("python"):
-        where = section["python"]
-        return lines + ["### Where it lives", "",
-                        f"{where[0].upper()}{where[1:]}. {PYTHON_WHERE}", ""]
-    lines += ["### Calculated columns", "",
-              "Every column that is calculated rather than copied, in the order it is "
-              "calculated.", ""]
-    for entry in section["calculated"]:
-        lines += _entry_markdown(entry)
-    if not section["calculated"]:
-        lines += ["None: every column is copied.", ""]
-    if section["copied"]:
-        lines += ["### Copied columns", "", "| Output | Comes from |", "| --- | --- |"]
-        lines += [f"| {inline_code(name)} | {' ← '.join(chain)} |"
-                  for name, chain in section["copied"]]
-        lines.append("")
-    lines += ["### Keys", "", KEYS_ABOUT, ""] + [f"- {line}" for line in section["keys"]] + [""]
-    lines += ["### Hive as submitted", ""]
-    return lines + ["```sql", section["sql"], "```", ""]
-
-
-def to_markdown(graph: Graph, sections: list[dict[str, object]], title: str,
-                footer: str, made_by: str = "export_lineage") -> str:
-    """The Markdown twin: its title, what made it, the Mermaid chart, each Statement's section,
-    the footer."""
-    lines = [f"# Lineage: {title}", "",
-             f"Made by `{made_by}`. The chart is written in Mermaid, which JupyterLab "
-             "draws. Arrows run from where a value comes from to where it goes. A solid "
-             "arrow carries a value. A dotted arrow carries a column into a condition, or "
-             "runs from a condition to the step whose rows it decides (labelled \"filters\").",
-             "", "## Graph", ""]
-    lines += mermaid_chart(graph) + [""]
-    for section in sections:
-        lines += _section_markdown(section)
+def to_markdown(parts: list[html_page.Part], title: str, about: list[str], footer: str) -> str:
+    """The Markdown twin, text alone: its title, `about`, each Statement's section, the
+    footer. Its drawing is on the HTML page only."""
+    lines = [f"# Lineage: {title}", ""]
+    for line in about:
+        lines += [line, ""]
+    for part in parts:
+        lines += html_page.part_markdown(part)
     return "\n".join(lines + ["---", "", footer, ""])
 
 
 # --- The HTML page ---------------------------------------------------------------------------
 
 
-def _code_html(text: str) -> str:
-    """Text as HTML's inline code."""
-    return f"<code>{html.escape(text)}</code>"
+def box_ids(graph: Graph) -> dict[str, str]:
+    """Each box's id on the page, by its key: n0, n1 and so on, in the order they were added."""
+    return {key: f"n{number}" for number, key in enumerate(graph.boxes)}
 
 
-def _how_html(box: dict[str, object]) -> str:
-    """_how for the HTML page: how a calculation was written, then the Hive it became."""
-    if box["formula"] != box["sql"]:
-        return f"{_code_html(box['formula'])}, which is {_code_html(box['sql'])}"
-    return _code_html(box["sql"])
+def _steps_of(graph: Graph, key: str) -> list[int]:
+    """The places of the Statements a box's panel shows: its own, or, for a box no Statement
+    made, such as a table's column or a Run value, those of the nearest boxes linked to it
+    that one did, in order."""
+    if "statement" in graph.boxes[key]:
+        return [graph.boxes[key]["statement"]]
+    seen, near = {key}, {key}
+    while near:
+        near = _linked_to(graph, near) - seen
+        seen |= near
+        found = {graph.boxes[other]["statement"] for other in near
+                 if "statement" in graph.boxes[other]}
+        if found:
+            return sorted(found)
+    return []
 
 
-def _entry_html(entry: dict[str, object]) -> str:
-    """One calculated column in the HTML report: its tree, rows that count, GROUP BY."""
-    box, e = entry["box"], html.escape
-    parts = [f'<details open><summary>{_code_html(box["name"])} '
-             f'<span class="muted">in {e(box["group"])}</span></summary>'
-             f"<p>Calculated as {_how_html(box)}.</p><pre>{e(entry['tree'])}</pre>"]
-    if entry["conditions"]:
-        items = []
-        for condition, reads in entry["conditions"]:
-            item = f"<li>{e(condition['name'])}: {_how_html(condition)}"
-            if reads:
-                item += f' <span class="muted">reads {e(", ".join(reads))}</span>'
-            items.append(item + "</li>")
-        parts.append(f"<p>Rows that count:</p><ul>{''.join(items)}</ul>")
-    if box["group_by"]:
-        parts.append("<p>One value for each different "
-                     + " and ".join(_code_html(g) for g in box["group_by"]) + ".</p>")
-    return "".join(parts) + "</details>"
-
-
-def report_html(sections: list[dict[str, object]]) -> str:
-    """The HTML page's report, under the drawing: each Statement's section."""
-    e, parts = html.escape, []
-    for section in sections:
-        parts.append(f"<h2>{e(section['name'])}</h2>")
-        if section["about"]:
-            parts.append(f"<p>{e(section['about'])}</p>")
-        if section.get("unchecked"):
-            parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
-            continue
-        if section.get("python"):
-            # Each `name` in backticks becomes <code>name</code>.
-            where = re.sub(r"`([^`]*)`", r"<code>\1</code>", e(section["python"]))
-            parts.append(f"<h3>Where it lives</h3><p>{where[0].upper()}{where[1:]}. "
-                         f"{e(PYTHON_WHERE)}</p>")
-            continue
-        parts.append("<h3>Calculated columns</h3>")
-        parts += [_entry_html(entry) for entry in section["calculated"]]
-        if not section["calculated"]:
-            parts.append("<p>None: every column is copied.</p>")
-        if section["copied"]:
-            rows = "".join(
-                f"<tr><td>{_code_html(name)}</td><td>{e(' ← '.join(chain))}</td></tr>"
-                for name, chain in section["copied"])
-            parts.append("<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th>"
-                         f"</tr>{rows}</table>")
-        keys = "".join(f"<li>{e(line)}</li>" for line in section["keys"])
-        parts.append(f"<h3>Keys</h3><p>{e(KEYS_ABOUT)}</p><ul>{keys}</ul>")
-        parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
-    return "\n".join(parts)
+def _linked_to(graph: Graph, keys: set[str]) -> set[str]:
+    """Each box with an arrow from or to one of `keys`."""
+    linked = set()
+    for source, target, _ in graph.arrows:
+        if source in keys:
+            linked.add(target)
+        if target in keys:
+            linked.add(source)
+    return linked
 
 
 def graph_data(graph: Graph) -> dict[str, list[dict[str, object]] | list[list[str]]]:
-    """What the page's script draws from: the boxes with their lines, the arrows, the groups."""
-    ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
+    """What the page's script draws from: the boxes with their lines, the Parts of the panel
+    each opens and its own entry, if any; the arrows; the groups."""
+    ids = box_ids(graph)
     boxes = []
     for key, box in graph.boxes.items():
         # The tooltip: the box's full name, then its Hive, or else its type.
         title = [line for line in (box["full"], box.get("sql") or box["type"]) if line]
         boxes.append({"id": ids[key], "kind": _drawn_kind(box), "group": box["group"],
-                      "lines": box_lines(box), "title": "\n".join(title)})
+                      "lines": box_lines(box), "title": "\n".join(title),
+                      "parts": [step_key(index) for index in _steps_of(graph, key)],
+                      "entry": f"entry-{ids[key]}" if _has_entry(box) else ""})
     groups = {}
     for box in graph.boxes.values():
         if box["kind"] != "condition":
@@ -1180,22 +1203,26 @@ def _drawn_kind(box: dict[str, object]) -> str:
     return box["kind"]
 
 
-def to_html(graph: Graph, sections: list[dict[str, object]], title: str, markdown_name: str,
-            footer: str) -> str:
-    """The HTML page, built from the page module: the title and legend, the controls, the
-    drawing SCRIPT draws, the report, the footer."""
-    body = (f"<header><h1>Lineage: {html.escape(title)}</h1>{html_page.legend(LEGEND)}"
-            f"</header>\n{CONTROLS}\n<main>\n<noscript><p><b>Scripts are off, so the graph "
-            "can't be drawn.</b> The report below and\n"
-            f"<code>{html.escape(markdown_name)}</code>, written beside this file, show the "
-            "same lineage.</p></noscript>\n"
+def to_html(graph: Graph, parts: list[html_page.Part], title: str, about: list[str],
+            markdown_name: str, footer: str) -> str:
+    """The HTML page, built from the page module: the title, `about` and the legend, the
+    controls, the drawing SCRIPT draws, the side panel holding each Statement's section, the
+    footer."""
+    intro = "".join(f"<p>{html_page.inline_html(line)}</p>" for line in about)
+    body = (f"<header><h1>Lineage: {html.escape(title)}</h1>{intro}"
+            f"{html_page.legend(LEGEND)}</header>\n{CONTROLS}\n<main>\n"
+            "<noscript><p><b>Scripts are off, so the graph can't be drawn.</b> Each "
+            "Statement's section is below, and in\n"
+            f"<code>{html.escape(markdown_name)}</code>, written beside this file.</p>"
+            "</noscript>\n"
             '<div class="wrap" id="graph"></div>\n'
-            f'<section id="report">{report_html(sections)}</section>\n</main>\n'
+            f"{html_page.panel(parts)}\n</main>\n"
             f"<footer>{html.escape(footer)}</footer>")
     # SCRIPT's one marker, filled in once: everything to draw, as JSON.
     script = SCRIPT.replace("__DATA__", html_page.script_json(graph_data(graph)), 1)
-    return html_page.page(f"Lineage: {title}", body, [CSS, html_page.DRAWING_CSS],
-                          [html_page.DRAWING_SCRIPT, script])
+    return html_page.page(f"Lineage: {title}", body,
+                          [CSS, html_page.DRAWING_CSS, html_page.PANEL_CSS],
+                          [html_page.DRAWING_SCRIPT, html_page.PANEL_SCRIPT, script])
 
 
 # --- Naming and placing the files ------------------------------------------------------------
@@ -1408,13 +1435,17 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     '..._lineage_notebook_runs_per_team.md'
 
     The HTML draws every step: the table columns, each Derived table and the outputs, with
-    the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
-    up its whole path; controls expand, collapse or hide each table, and switch to a grouped
-    flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
-    calculated column, and the Hive. Pass several Statements and the drawing follows each
-    Saved table from the Statement that writes it to the ones that read it. An Unchecked
-    statement and a Python step (help(python_step)) are each drawn as one step it can't see
-    inside, with a section of the report of their own.
+    the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box, or Tab
+    to it and press Enter, to light up every box that feeds it and every box it feeds, and to
+    open a panel on the right, holding its Statement's section: its Hive, whole, with a Copy
+    button; the tables it reads and writes; its Run values and the Session settings sent
+    before it; and, for a calculated column, how it is calculated and the rows that count.
+    Escape, or a click on empty space, closes it. Controls expand, collapse or hide each
+    table, and switch to a grouped flowchart. The Markdown file holds every Statement's
+    section in turn, as text, with no drawing. Pass several Statements and
+    the drawing follows each Saved table from the Statement that writes it to the ones that
+    read it. An Unchecked statement and a Python step (help(python_step)) are each drawn as
+    one step it can't see inside, with a section of their own.
 
     The files go in a lineage/ folder beside your script or notebook, named by the time,
     your scripts' git commit, the file and the Statement's variable, such as
@@ -1441,21 +1472,25 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     ordered = in_order(list(zip(statements, names)))
     title = ", ".join(name for _, name in ordered)
     footer = lineage_footer(when, commit, settings)
-    return write_lineage(ordered, title, html_path, footer)
+    # The Session settings passed are sent before all the Statements, so before each.
+    return write_lineage(ordered, title, html_path, footer, [settings] * len(ordered))
 
 
 def write_lineage(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
                   title: str, html_path: Path, footer: str,
+                  settings: list[list[SessionSettings]],
                   made_by: str = "export_lineage") -> tuple[Path, Path]:
     """Write the lineage of Statements already in order, each with its name, as the HTML page
     at `html_path` and its Markdown twin beside it, ending in .md, each titled `title` and
-    ending with `footer`: the two paths, HTML first. export_lineage writes with it, and so
-    does project.export_run_lineage, `made_by` naming it."""
+    ending with `footer`: the two paths, HTML first. `settings` gives the Session settings
+    sent before each Statement, in the same order. export_lineage writes with it, and so does
+    project.export_run_lineage, `made_by` naming it."""
     markdown_path = html_path.with_suffix(".md")
     graph = build_graph(ordered)
-    sections = report(graph, ordered)
-    markdown = to_markdown(graph, sections, title, footer, made_by)
-    page = to_html(graph, sections, title, markdown_path.name, footer)
+    parts = report(graph, ordered, settings)
+    about = about_lines(made_by)
+    markdown = to_markdown(parts, title, about, footer)
+    page = to_html(graph, parts, title, about, markdown_path.name, footer)
     html_path.parent.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(markdown, encoding="utf-8")
     html_path.write_text(page, encoding="utf-8")
@@ -1487,7 +1522,8 @@ def lineage_footer(when: datetime.datetime, commit: str, settings: list[SessionS
 # backslash at a line's end joins it to the next: a long line is split here only.
 
 # The page's own CSS, after the page module's: the controls, the Grouped flowchart's groups,
-# the dotted arrows and the report. A colour is named only by its token, as var(--name).
+# the dotted arrows and what the page says under its title. A colour is named only by its
+# token, as var(--name).
 CSS = """\
 #controls{display:none;padding:8px 16px;border-bottom:1px solid var(--faint-rule);gap:18px;\
 flex-wrap:wrap;align-items:center}
@@ -1503,7 +1539,7 @@ padding:8px 10px;box-shadow:0 2px 8px var(--shadow);min-width:260px}
 .e.filters{stroke:var(--filters-arrow)} .flabel{font-size:10px;fill:var(--filters-label)}
 .e.rows{stroke-dasharray:3 3;stroke:var(--rows-arrow)}
 summary{cursor:pointer}
-#report details{margin:0 0 12px} #report summary{font-size:15px}"""
+header p{margin:0 0 8px;max-width:72em}"""
 
 # The legend under the title: each kind of box, by its class in html_page.KINDS, then what the
 # arrows mean and what the mouse does.
@@ -1516,8 +1552,9 @@ LEGEND = [
     ("python", "Python step: changed in Python, saved by your own call or, given rows=, by a "
                "Scheduled run"),
     (None, 'solid arrow: carries a value · dotted: a column read by a condition, or a '
-           'condition deciding which rows count ("filters") · click a box to light up its '
-           "path · scroll zooms, drag pans"),
+           'condition deciding which rows count ("filters") · click a box, or Tab to it and '
+           "press Enter, to light up what feeds it and what it feeds and open its panel · "
+           "Escape closes it · scroll zooms, drag pans"),
 ]
 
 # The controls above the drawing, hidden until the script shows them.
@@ -1529,16 +1566,16 @@ Grouped flowchart</option></select></label>
   <label>Derived tables <select data-kind="derived"></select></label>
   <label>Outputs <select data-kind="output"></select></label>
   <label><input type="checkbox" id="conditions" checked> Conditions</label>
-  <label><input type="checkbox" id="showReport" checked> Report</label>
   <details><summary>Each group</summary><div id="groups"></div></details>
 </div>"""
 
-# The page's own script, after html_page.DRAWING_SCRIPT, whose functions it calls. to_html
-# fills in its one marker, __DATA__.
+# The page's own script, after html_page.DRAWING_SCRIPT and html_page.PANEL_SCRIPT, whose
+# functions it calls. to_html fills in its one marker, __DATA__.
 SCRIPT = """\
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
 // It is plain JavaScript that any browser runs, with nothing to install or download. The
-// page module's drawing script, before it, zooms, pans and lights up a path.
+// page module's drawing script, before it, zooms, pans and lights up a path, and its panel
+// script opens the panel of the box clicked.
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
@@ -1561,8 +1598,8 @@ const MODES_BY_KIND = {
 };
 
 // What the reader has chosen: the Graph or the Grouped flowchart ('graph' or 'flow'), each
-// group's mode, and whether the conditions and the report show.
-const state = {view: 'graph', groupMode: {}, conditions: true, report: true};
+// group's mode, and whether the conditions show.
+const state = {view: 'graph', groupMode: {}, conditions: true};
 
 // Each box, looked up by its id.
 const boxById = indexBy(graph.boxes, box => box.id);
@@ -1586,9 +1623,6 @@ function readSettingsFromAddress() {
   if (settings.get('conditions') === 'off') {
     state.conditions = false;
   }
-  if (settings.get('report') === 'off') {
-    state.report = false;
-  }
 }
 
 // Save the settings in the page's address, so reloading the page or sharing its link keeps
@@ -1605,9 +1639,6 @@ function saveSettingsInAddress() {
   });
   if (!state.conditions) {
     settings.set('conditions', 'off');
-  }
-  if (!state.report) {
-    settings.set('report', 'off');
   }
   try {
     const address = settings.toString() ? '?' + settings.toString() : location.pathname;
@@ -1689,6 +1720,8 @@ function visibleGraph() {
         group: box.kind === 'condition' ? 'filters on ' + box.group : box.group,
         lines: box.lines,
         title: box.title,
+        parts: box.parts,
+        entry: box.entry,
       };
     } else if (!drawnBoxes[drawnId]) {
       // The first box met in a collapsed group makes the one box that stands for the group.
@@ -1700,6 +1733,8 @@ function visibleGraph() {
         group: box.group,
         lines: [box.group, columnCount + ' columns, collapsed'],
         title: box.group,
+        parts: box.parts,
+        entry: '',
       };
     }
   });
@@ -1954,7 +1989,8 @@ function flowchartLayout(visible) {
 // --- The SVG ------------------------------------------------------------------------------
 
 // The SVG for one box: its rectangle, its lines of text (the first in bold), and a tooltip
-// with its full name and its Hive or type.
+// with its full name and its Hive or type. Tab reaches it, and data-parts and data-entry name
+// what its panel shows.
 function boxSvg(box, x, y, height) {
   const lines = box.lines.map((line, number) => {
     const bold = number ? '' : ' class="l"';
@@ -1963,7 +1999,9 @@ function boxSvg(box, x, y, height) {
     // 8 pixels in from the box's left edge; the first line's baseline 17 pixels down.
     return `<text x="8" y="${17 + number * LINE_HEIGHT}"${bold}>${text}</text>`;
   });
-  return `<g class="n ${box.kind}" id="${box.id}" transform="translate(${x},${y})">`
+  return `<g class="n ${box.kind}" id="${box.id}" tabindex="0" role="button" `
+    + `data-parts="${box.parts.join(' ')}" data-entry="${box.entry}" `
+    + `transform="translate(${x},${y})">`
     + `<rect width="${BOX_WIDTH}" height="${height}" rx="4"/>`
     + lines.join('')
     + `<title>${escapeHtml(box.title)}</title></g>`;
@@ -2048,8 +2086,8 @@ function renderFlowchart(visible) {
 
 // --- Drawing -----------------------------------------------------------------------------
 
-// Draw the page again from `state`: the picture, the report shown or not, the address and
-// the controls. Every control calls this after it changes `state`.
+// Draw the page again from `state`: the picture, the address and the controls. Every control
+// calls this after it changes `state`.
 function draw() {
   const visible = visibleGraph();
   const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
@@ -2061,7 +2099,6 @@ function draw() {
   svg.style.minWidth = `${Math.round(drawing.width * 0.8)}px`;
   svg.style.aspectRatio = `${drawing.width + 20}/${drawing.height + 20}`;
   addMouseHandlers(svg, visible);
-  document.getElementById('report').style.display = state.report ? '' : 'none';
   saveSettingsInAddress();
   syncControls();
 }
@@ -2110,10 +2147,6 @@ function setUpControls() {
     state.conditions = event.target.checked;
     draw();
   };
-  document.getElementById('showReport').onchange = event => {
-    state.report = event.target.checked;
-    draw();
-  };
 }
 
 // Make every control show the current settings.
@@ -2128,14 +2161,15 @@ function syncControls() {
   });
   document.getElementById('view').value = state.view;
   document.getElementById('conditions').checked = state.conditions;
-  document.getElementById('showReport').checked = state.report;
 }
 
 // Start: read the settings, set up the controls, show them (they stay hidden when scripts
-// are off), and draw.
+// are off), make the boxes open the panel, and draw. The panel's handlers sit on the
+// drawing's frame, which stays as the picture inside it is drawn again.
 readSettingsFromAddress();
 setUpControls();
 document.getElementById('controls').style.display = 'flex';
+addPanelHandlers(document.getElementById('graph'));
 draw();"""
 
 

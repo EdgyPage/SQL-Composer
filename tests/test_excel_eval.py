@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 import code_audit
+import eval_memo
 import excel_eval
 import offline_policy
 from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask
@@ -216,8 +217,8 @@ def test_the_toolbox_code_is_scored_apart(hive: sqlite3.Connection) -> None:
 
 
 def test_a_template_reads_back_as_empty_replies() -> None:
-    header, replies = excel_eval.read_answers(
-        excel_eval.template(excel_eval.tasks_of("held_out")))
+    header, replies = eval_memo.read_answers(
+        excel_eval.template(excel_eval.tasks_of("held_out")), "X")
     assert header["arm"] == "<A0 or C>"
     assert sorted(replies) == sorted(task.id for task in TASKS if task.split == "held_out")
 

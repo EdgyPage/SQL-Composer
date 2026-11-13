@@ -1,28 +1,32 @@
 """The one module every HTML page the Toolbox writes is built from (Toolbox 8.7, ticket 04): the
 colour tokens, each written once; the base CSS, which names a colour only by its token; the
-legend and the Mermaid classDef lines, made from the tokens; and the drawing's script, which
-zooms, pans and lights up a path. docs/agents/standards.md's "HTML pages" is the standard each
-page keeps.
+legend, made from the tokens; the drawing's script, which zooms, pans and lights up a path; and
+the side panel (ticket 06), which a click on a box opens, and whose parts are the sections of
+the page's Markdown twin too. docs/agents/standards.md's "HTML pages" is the standard each page
+keeps.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: export_lineage
 and project.export_run_lineage build their page with lineage.py, and
-project.export_project_lineage with project_lineage.py, each from here.
+project.export_project_lineage with project_lineage.py, each from here. The Workflows overview,
+workflows.html, beside this file, is built from here too, by a tool on dev (ticket 07).
 
 A page is `page(title, body, css, script)`: the head, the tokens, the base CSS and each kind's
 CSS come from here; `css` and `script` are the page's own pieces after them, its own and those
 it takes from here, such as DRAWING_CSS and DRAWING_SCRIPT. A new kind of box is a row of KINDS,
-its colours rows of COLOURS; a palette change is an edit to COLOURS alone.
+its colours rows of COLOURS; a palette change is an edit to COLOURS alone. What a box opens is
+a Part, written to the page by panel and to the Markdown by part_markdown, so each line of the
+Markdown is on the page too.
 """
 
 from __future__ import annotations
 
 import html
 import json
+import re
 from typing import NamedTuple
 
 # Every colour a page uses, by its name: the one place a colour is written. The CSS names each
-# as var(--name), and the Mermaid charts write it out from here. Two names may hold the same
-# colour, each for its own job.
+# as var(--name). Two names may hold the same colour, each for its own job.
 COLOURS: dict[str, str] = {
     # The page
     "ink": "#222",  # text, and a box's first line
@@ -36,35 +40,45 @@ COLOURS: dict[str, str] = {
     # The drawing
     "box": "#fff",  # a box of no kind
     "box-edge": "#888",  # a box's edge, and a legend swatch's
-    "box-text": "#666",  # a box's lines after its first
+    "box-text": "#000",  # a box's lines after its first, dark enough for every kind's fill
     "arrow": "#aaa",
     "rows-arrow": "#c9c9c9",  # a dotted arrow
     "filters-arrow": "#b5b5b5",
     "filters-label": "#999",
-    "lit": "#d33",  # a path lit up by a click
+    "lit": "#000",  # a path lit up by a click: black, as red is the loops' alone
     "group": "#fafafa",  # a group's frame, in the Grouped flowchart
     "group-edge": "#c8c8c8",
     "group-label": "#555",
-    "table-group": "#f5f8ff",
-    "derived-group": "#fffcf3",
-    "output-group": "#f6fcf6",
+    # A group of a kind's frame: a pale tint of its kind's colour
+    "table-group": "#eef7fd",
+    "derived-group": "#fefcec",
+    "output-group": "#e6f5f1",
     "condition-group": "#fbfbfb",
-    # Each kind of box, as KINDS names them
-    "table": "#eef4ff",
-    "derived": "#fff8e6",
-    "output": "#effaf0",
-    "condition": "#f4f4f4",
-    "unchecked": "#fff1e0",
-    "unchecked-edge": "#d9822b",
-    "python": "#eaf6f6",
-    "python-edge": "#2b8a8a",
-    "folder": "#eef4ff",
-    "saved": "#effaf0",
-    "read": "#f4f4f4",
-    "shared": "#fff1e0",
-    "shared-edge": "#d9822b",
-    "loop": "#d33",
-    "loop-text": "#a11",  # the words of the note at the top of a loop
+    # Each kind of box, as KINDS names them: saturated colours from the Okabe–Ito set, chosen
+    # to stay distinguishable with colour blindness, a grey for the dashed kinds, and the
+    # loops' red, used for nothing else. Every fill takes the same dark text, and no two kinds
+    # on one page share a colour.
+    "table": "#56b4e9",  # sky blue
+    "derived": "#f0e442",  # yellow
+    "output": "#009e73",  # bluish green
+    "condition": "#bbb",  # grey, dashed: a condition decides rows, it carries no value
+    "unchecked": "#e69f00",  # orange
+    "unchecked-edge": "#000",  # black, as each edge drawn to be looked at
+    "python": "#cc79a7",  # reddish purple
+    "python-edge": "#000",
+    "folder": "#56b4e9",  # as a table column's
+    "saved": "#009e73",  # as an output column's
+    "read": "#bbb",  # as a condition's
+    # Yellow, not Unchecked's orange: a shared table in a loop takes the loop's red edge,
+    # which orange would hide.
+    "shared": "#f0e442",
+    "shared-edge": "#000",
+    "loop": "#d33",  # red: Okabe–Ito's vermillion reads as orange
+    "loop-text": "#a11",  # the words of the note at the top of a loop: a darker red
+    "workflow": "#56b4e9",  # sky blue: a Workflow on the overview page
+    "workflow-edge": "#000",
+    "excel": "#009e73",  # bluish green: the Excel path
+    "excel-edge": "#000",
 }
 
 
@@ -93,6 +107,9 @@ KINDS: dict[str, Kind] = {
     "read": Kind("read", dashed=True),
     "shared": Kind("shared", "shared-edge"),
     "loop": Kind(None, "loop"),
+    # The Workflows overview: a box for each Workflow, and one for the Excel path
+    "workflow": Kind("workflow", "workflow-edge"),
+    "excel": Kind("excel", "excel-edge"),
 }
 
 # The CSS every page starts with, after its tokens.
@@ -172,32 +189,6 @@ def legend(entries: list[tuple[str | None, str]]) -> str:
             swatch = f'<i class="sw {kind}"></i>'
         spans.append(f"<span>{swatch}{html.escape(words)}</span>")
     return '<div class="key">\n' + "\n".join(spans) + "\n</div>"
-
-
-def mermaid_class_defs(kinds: list[str]) -> list[str]:
-    """A Mermaid classDef line for each of `kinds`, as KINDS names them, coloured from the
-    tokens as the page colours them: a kind with no edge of its own has a plain box's."""
-    lines = []
-    for name in kinds:
-        kind = KINDS[name]
-        parts = []
-        if kind.fill:
-            parts.append(f"fill:{COLOURS[kind.fill]}")
-        parts.append(f"stroke:{COLOURS[kind.edge or 'box-edge']}")
-        if kind.edge:
-            parts.append("stroke-width:2px")
-        if kind.dashed:
-            parts.append("stroke-dasharray:4 3")
-        lines.append(f"  classDef {name} {','.join(parts)}")
-    return lines
-
-
-def mermaid_link_style(arrow_numbers: list[str], kind: str) -> str:
-    """A Mermaid linkStyle line drawing the arrows numbered `arrow_numbers`, each as Mermaid
-    counts them from 0 in the order they are written, in the edge of `kind`, as KINDS names
-    it, as thick as its box's. `kind` is one with an edge of its own, as the loop's."""
-    edge = COLOURS[KINDS[kind].edge]
-    return f"  linkStyle {','.join(arrow_numbers)} stroke:{edge},stroke-width:2px"
 
 
 def script_json(data: object) -> str:
@@ -343,6 +334,8 @@ function addMouseHandlers(svg, visible) {
     }
     svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
     const clicked = event.target.closest('.n');
+    // Say which box was chosen, or null for none, so the side panel can show or close.
+    svg.dispatchEvent(new CustomEvent('boxchosen', {bubbles: true, detail: clicked}));
     if (!clicked) {
       return;
     }
@@ -366,5 +359,235 @@ function addMouseHandlers(svg, visible) {
   svg.addEventListener('pointermove', moveDrag);
   svg.addEventListener('pointerup', endDrag);
   svg.addEventListener('click', lightUpPath);
+}
+"""
+
+
+# --- The side panel (ticket 06) ---------------------------------------------------------------
+# A click on a box, or Enter on a box reached with Tab, opens a panel beside the drawing,
+# showing the Parts the box names; the page's Markdown twin writes each Part as a section, so
+# the two say the same. With scripts off, every Part shows under the drawing.
+
+# The kinds of Piece a Part holds.
+HEADING = "heading"  # a heading, a level under its Part's
+TEXT = "text"  # paragraphs, a line each
+ITEMS = "items"  # a list, an item a line
+BLOCK = "block"  # text kept as it is written, such as a tree or an error, its one line
+HIVE = "sql"  # Hive, kept as it is written, its one line, with a Copy button on the page
+
+
+class Piece(NamedTuple):
+    """One piece of a Part: its kind, one of HEADING, TEXT, ITEMS, BLOCK and HIVE, and its
+    lines. In a heading, a paragraph or an item, `name` in backticks is code, and **name**
+    bold, as Markdown writes them."""
+
+    kind: str
+    lines: list[str]
+
+
+class Part(NamedTuple):
+    """What the panel shows for a box, and the Markdown's section of it: its id on the page;
+    the level of its heading, 2 for ##; its heading; and its pieces, each a Piece or a Part
+    of its own, which gives its own level."""
+
+    key: str
+    level: int
+    heading: str
+    pieces: list[Piece | Part]
+
+
+def part_markdown(part: Part) -> list[str]:
+    """A Part as Markdown lines, each piece followed by an empty line."""
+    lines = [f"{'#' * part.level} {part.heading}", ""]
+    for piece in part.pieces:
+        if isinstance(piece, Part):
+            lines += part_markdown(piece)
+        elif piece.kind == HEADING:
+            lines += [f"{'#' * (part.level + 1)} {piece.lines[0]}", ""]
+        elif piece.kind == TEXT:
+            for line in piece.lines:
+                lines += [line, ""]
+        elif piece.kind == ITEMS:
+            lines += [*[f"- {line}" for line in piece.lines], ""]
+        else:
+            fence = "sql" if piece.kind == HIVE else "text"
+            lines += [f"```{fence}", piece.lines[0], "```", ""]
+    return lines
+
+
+def part_html(part: Part) -> str:
+    """A Part as HTML, inside a <div class="part"> with its id."""
+    shown = [f'<div class="part" id="{html.escape(part.key)}">'
+             f"<h{part.level}>{inline_html(part.heading)}</h{part.level}>"]
+    for piece in part.pieces:
+        if isinstance(piece, Part):
+            shown.append(part_html(piece))
+        elif piece.kind == HEADING:
+            level = part.level + 1
+            shown.append(f"<h{level}>{inline_html(piece.lines[0])}</h{level}>")
+        elif piece.kind == TEXT:
+            shown += [f"<p>{inline_html(line)}</p>" for line in piece.lines]
+        elif piece.kind == ITEMS:
+            items = "".join(f"<li>{inline_html(line)}</li>" for line in piece.lines)
+            shown.append(f"<ul>{items}</ul>")
+        elif piece.kind == BLOCK:
+            shown.append(f"<pre>{html.escape(piece.lines[0])}</pre>")
+        else:
+            shown.append('<div class="hive"><button type="button" class="copy">Copy</button>'
+                         f"<pre>{html.escape(piece.lines[0])}</pre></div>")
+    return "".join(shown) + "</div>"
+
+
+def inline_html(text: str) -> str:
+    """A line of a Part as HTML: escaped, then each `name` in backticks as <code>name</code>,
+    its fence as long as Markdown's, and each **name** as <b>name</b>."""
+    shown = re.sub(r"(`+) ?(.+?) ?\1", r"<code>\2</code>", html.escape(text))
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", shown)
+
+
+def panel(parts: list[Part]) -> str:
+    """The side panel, after the drawing: a Close button, the place the clicked box's own
+    entry is shown, and each Part. With scripts off, every Part shows and the button doesn't."""
+    return ('<aside id="panel" aria-label="What the box you clicked holds">'
+            '<button type="button" class="close" hidden>Close</button>'
+            '<div id="panel-box"></div>\n'
+            + "\n".join(part_html(part) for part in parts) + "\n</aside>")
+
+
+# The panel's CSS. While a box's panel is open, the drawing and the panel sit side by side,
+# the panel kept in sight as the page scrolls; its Hive is wrapped, never cut.
+PANEL_CSS = """\
+body.panel-open main{display:flex;gap:12px;align-items:flex-start}
+body.panel-open .wrap{flex:1 1 0;min-width:0}
+#panel{border-top:1px solid var(--rule);margin-top:12px;background:var(--page)}
+body.panel-open #panel{flex:0 0 40%;max-width:640px;margin-top:0;position:sticky;top:8px;\
+max-height:calc(100vh - 16px);overflow:auto;border:1px solid var(--faint-rule);padding:0 12px}
+#panel .close{float:right;margin-top:10px}
+#panel pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.hive{position:relative} .hive .copy{position:absolute;top:4px;right:4px}
+#panel-box:not(:empty){border-bottom:1px solid var(--rule);margin-bottom:8px}
+.n:focus{outline:none} .n:focus-visible rect{stroke:var(--ink);stroke-width:3}
+@media (max-width:800px){body.panel-open main{display:block}\
+ body.panel-open #panel{position:static;max-height:none;max-width:none;margin-top:12px}}"""
+
+# The panel's script, after DRAWING_SCRIPT, whose 'boxchosen' it listens for. A box names the
+# Parts it opens, by their ids, in its data-parts, and its own entry, a Part copied to the
+# top of the panel, in its data-entry.
+PANEL_SCRIPT = """\
+// The side panel's script, shared by every page whose boxes open a panel: a click on a box,
+// or Enter on a box reached with Tab, shows what the box holds beside the drawing; a click
+// off every box, Escape or the Close button closes it. It is plain JavaScript that any
+// browser runs, with nothing to install or download.
+
+// Copy the Hive beside a Copy button. Where the browser won't let a page copy, the Hive is
+// selected instead, for Ctrl+C.
+function copyHive(button) {
+  const hive = button.parentElement.querySelector('pre');
+  function say(words) {
+    button.textContent = words;
+    setTimeout(() => {
+      button.textContent = 'Copy';
+    }, 2000);
+  }
+  function selectIt() {
+    const range = document.createRange();
+    range.selectNodeContents(hive);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    say(document.execCommand('copy') ? 'Copied' : 'Selected: press Ctrl+C');
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(hive.textContent).then(() => say('Copied'), selectIt);
+  } else {
+    selectIt();
+  }
+}
+
+// Make the boxes in `drawing` open the panel. The drawing's script says which box was chosen;
+// Enter on a box clicks it, as the mouse would, and Escape clicks off every box.
+function addPanelHandlers(drawing) {
+  const panel = document.getElementById('panel');
+  const parts = panel.querySelectorAll(':scope > .part');
+  const entryPlace = document.getElementById('panel-box');
+  const closeButton = panel.querySelector('.close');
+  let openedFrom = null;  // the box whose panel is open
+
+  function closePanel() {
+    panel.hidden = true;
+    document.body.classList.remove('panel-open');
+    entryPlace.innerHTML = '';
+  }
+
+  function openPanel(box) {
+    const shown = new Set((box.dataset.parts || '').split(' '));
+    parts.forEach(part => {
+      part.hidden = !shown.has(part.id);
+    });
+    entryPlace.innerHTML = '';
+    const entry = box.dataset.entry ? document.getElementById(box.dataset.entry) : null;
+    if (entry) {
+      const copy = entry.cloneNode(true);
+      copy.removeAttribute('id');
+      entryPlace.appendChild(copy);
+    }
+    panel.hidden = false;
+    document.body.classList.add('panel-open');
+    panel.scrollTop = 0;
+    openedFrom = box;
+  }
+
+  // Close the panel and clear the lit path, as a click on the drawing off every box does.
+  function closeAll() {
+    const svg = drawing.querySelector('svg');
+    if (svg) {
+      svg.dispatchEvent(new MouseEvent('click'));
+    }
+    closePanel();
+  }
+
+  // Close it all, then give the keyboard back to the box.
+  function closeAndReturn() {
+    closeAll();
+    if (openedFrom && openedFrom.isConnected) {
+      openedFrom.focus();
+    }
+  }
+
+  drawing.addEventListener('boxchosen', event => {
+    if (event.detail) {
+      openPanel(event.detail);
+    } else {
+      closePanel();
+    }
+  });
+  drawing.addEventListener('keydown', event => {
+    const box = event.target.closest('.n');
+    if (box && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();  // a space would scroll the page
+      box.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !panel.hidden) {
+      closeAndReturn();
+    }
+  });
+  // A click on the page off the drawing, the panel and the controls closes it too.
+  document.addEventListener('click', event => {
+    const kept = event.target.closest(
+      '#panel, #controls, .wrap, a, button, select, input, summary');
+    if (!kept && !panel.hidden) {
+      closeAll();
+    }
+  });
+  closeButton.addEventListener('click', closeAndReturn);
+  panel.addEventListener('click', event => {
+    const button = event.target.closest('.copy');
+    if (button) {
+      copyHive(button);
+    }
+  });
+  closeButton.hidden = false;
+  closePanel();
 }
 """

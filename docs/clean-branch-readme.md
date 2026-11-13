@@ -242,7 +242,9 @@ missing or made by hand. Each line below names a path, what makes it, and what y
   - scheduled_runs/, a folder per Scheduled run: made by `project.start()`; you fill in
     nothing.
   - `scheduled_runs/<name>/<name>.ipynb`, a Scheduled run, a notebook an outside scheduler
-    runs top to bottom: made by `project.new_scheduled_run("<name>")`; you fill in its `<...>`
+    runs top to bottom: made by the schedule Workflow, whose
+    `admin/workflows/schedule/schedule.ipynb` runs `project.new_scheduled_run(NAME)` with
+    `NAME = "<name>"`; you fill in its `<...>`
     lines: its parameters, its connection and the Statements it runs.
   - `scheduled_runs/<name>/<name>.hql`, the run's built Hive, in order, to read and to commit:
     made by `project.export_run_hive("<name>")`, run by hand from `admin/scheduled_runs.ipynb`;
@@ -625,8 +627,12 @@ Goal: each output column followed back to the table columns it reads.
    that follow each output column back to the table columns it reads, and list every condition
    that decides which rows count. Action: run `export_lineage(...)`; from a Table notebook, run
    its lineage cell, which writes them into its Table folder's `lineage/`, named by the time
-   and the table, so each export joins the table's history. Done when the new pages are in
-   `lineage/`; then step 2.
+   and the table, so each export joins the table's history. Open the HTML page: click a box,
+   or Tab to it and press Enter, to light up what feeds it and what it feeds, and to open a
+   panel on the right, with its Statement's Hive, whole, and a Copy button; the tables it reads and writes; its
+   Run values and the Session settings sent before it; and, for a calculated column, how it
+   is worked out and the rows that count. Escape closes it. The Markdown twin is the same
+   text, with no drawing. Done when the new pages are in `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
    column; then go on to section 8, "Keep the Project in order".
@@ -770,20 +776,23 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      building_blocks/run_values.py by hand, then register the file once:
      `project.check()` names it as made by hand, with the call to run in the
      `project.register(...)` cell of `admin/check_project.ipynb`.
-   - If the table's exported `.hql` will run outside the Toolbox, and whatever runs it, such
-     as a scheduler, should give the tag's value each time, answer it with a **Hivevar**. A
-     Run value is worked out when the Statement is built and written into the Hive; a
-     Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever runs it to fill in. Write
-     `from sqlglot_composer import hivevar` at the top of the decisions cell, then
+   - If the write() steps of the table's exported `.hql` will run outside the Toolbox, and
+     whatever runs them, such as a scheduler, should give the tag's value each time, answer
+     it with a **Hivevar**. A Run value is worked out when the Statement is built and
+     written into the Hive; a Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever
+     runs it to fill in. Write `from sqlglot_composer import hivevar` at the top of the
+     decisions cell, then
      `{"tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-10-31'")}}`. The default
      is written as the answers above are, text or a Run value's function, such as
      `default=period_end`. The Hive holds `'${hivevar:PERIOD_END}'` where the tag stood, and
      the Toolbox sends `SET hivevar:PERIOD_END=2026-10-31` before each write holding it.
      `export_hive()` writes no SET line, since Hive lets a SET in a script beat a value given
-     on its command line (`hive --hivevar ... -f daily.hql`): it writes the default into a
-     `.hivevars` file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your
-     scheduler to pass with it. If your scheduler runs a Scheduled run's notebook instead,
-     give the value with `hivevars=` in its Build cell (Scheduled runs, step 6).
+     on its command line (`hive --hivevar ...`): it writes the default into a `.hivevars`
+     file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your scheduler to pass
+     when it runs the `.hql`'s write() steps. It never runs the file whole, nor its create()
+     or seed(), which a Workflow sends, a seed() once. If your scheduler runs a Scheduled
+     run's notebook instead, give the value with `hivevars=` in its Build cell (Scheduled
+     runs, step 6).
    - If several tables share an answer, give it once under `"all_tables"`, and a table's own
      answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
      period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
@@ -848,6 +857,11 @@ Decision such as its Key, you answer in its decisions cell,
 `DECISIONS = {"mart_dev.weekly": {"key": ["job_id"]}}`, and a step writes each answer in for
 you.
 
+For every Workflow at a glance, open the
+[Workflows overview](../sqlglot_composer/workflows.html), `sqlglot_composer/workflows.html`, in
+your browser: one drawing of the Workflows and the Excel path, with an arrow where one hands
+off to the next. Click a box for its steps and its common tripping points, in short.
+
 **Run a Workflow notebook's cells one at a time, never all at once (Run All), since a step after
 a decision would write before you make it.**
 
@@ -880,9 +894,10 @@ How the rest of a notebook runs, by the rules below:
 - If you want to run one step on purpose, or run it again, run its own cell, under
   "Step by step", below the four cells; a decision step's `project.check()` cell, under it,
   prints what to paste.
-- If the Workflow is upgrade or change_a_saved_table, run each step's cell in turn, making
-  each decision where its step says, such as the step's own cell for change_a_saved_table's
-  change; the notebook's last cell, `project.run_workflow(...)`, runs every step left.
+- If the Workflow is upgrade, change_a_saved_table or schedule, run each step's cell in turn,
+  making any decision where its step says, such as the step's own cell for
+  change_a_saved_table's change; the notebook's last cell, `project.run_workflow(...)`, runs
+  every step left.
 - If you want to see what it would send first, give `run_workflow` `dry_run=True`: it sends
   nothing through your execute and says the Hive each step would send.
 
@@ -1331,6 +1346,30 @@ flowchart TD
 
 <!-- /chart -->
 
+### schedule
+
+Makes a Scheduled run's notebook, which the Scheduled runs section below walks through. Its
+names cell holds `NAME`, the run's name, such as `NAME = "weekly"`, or a list of names.
+
+<!-- chart: schedule -->
+```mermaid
+flowchart TD
+    s0["1. Make the Scheduled run's notebook"]:::files_only
+    t0("the Scheduled run's name"):::thing
+    t1("the Scheduled run's notebook"):::thing
+    t0 --> s0
+    s0 --> t1
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Make the Scheduled run's notebook (it changes only files, so project.do_next() runs it for
+   you).
+
+       project.new_scheduled_run(NAME)
+
+<!-- /chart -->
+
 ## Scheduled runs
 
 A **Scheduled run** is a notebook in `scheduled_runs/<name>/` that an outside scheduler, such
@@ -1354,14 +1393,14 @@ Its cells, top to bottom:
 
 To make one:
 
-1. **Make the notebook.** Goal: the run's notebook, registered. Action: in
-   `admin/scheduled_runs.ipynb`, name it in `NEW_RUNS = ["weekly"]` and run that cell, which
-   calls `project.new_scheduled_run(NEW_RUNS)`: it makes `scheduled_runs/weekly/weekly.ipynb`
-   from the `scheduled_run` Template. Done when the notebook is there; then step 2.
-2. **Find what to call.** Goal: the Table notebooks' functions the run uses. Action: in the
-   same notebook, name the tables in `TABLES = ["mart.team_days"]` and run the cell of
-   `project.describe_logic(TABLES)`: it
-   lists each function of that table's logic cell, with what it takes and the first sentence
+1. **Make the notebook.** Goal: the run's notebook, registered. Action: in the schedule
+   Workflow's notebook, `admin/workflows/schedule/schedule.ipynb`, name it in its names cell,
+   `NAME = "weekly"`, save the notebook, and run its cells down to the one under step 1,
+   `project.new_scheduled_run(NAME)`, which makes `scheduled_runs/weekly/weekly.ipynb` from the
+   `scheduled_run` Template. Done when the notebook is there; then step 2.
+2. **Find what to call.** Goal: the Table notebooks' functions the run uses. Action: in
+   `admin/scheduled_runs.ipynb`, name the tables in `TABLES = ["mart.team_days"]` and run the
+   cell of `project.describe_logic(TABLES)`: it lists each function of that table's logic cell, with what it takes and the first sentence
    of its docstring, and runs nothing. Paste what it prints into a Copilot chat, after Copilot
    file 18, to have Copilot fill in the run. Done when you know each function the run calls; then step 3.
 3. **Name the parameters.** Goal: each value the scheduler passes in. Action: write each in the
@@ -1416,8 +1455,10 @@ To make one:
      empty sends the default. The build prints each Statement holding it after its
      `SET hivevar:PERIOD_END=...` line, which the run sends first before a write; a SELECT
      has the value written in its place. A name no Statement holds is refused, naming those
-     they hold. If your scheduler runs the exported `.hql` itself, it passes the
-     `.hivevars` lines instead (section 9, step 4).
+     they hold. If your scheduler runs a table's write() steps from the `.hql` its
+     `export_hive()` writes, it passes that `.hivevars` file's lines instead (section 9, step
+     4). The `.hivevars` file `project.export_run_hive` writes beside the run's `.hql` is the
+     value the run sends for each Hivevar: to read, as that `.hql` is, never to send.
    - It builds the Hive fresh each time, so each Run value is worked out as it builds: one
      that reads the warehouse needs `connect(...)` first.
    - A loop among the tables, each waiting on another, is refused, naming its tables.
@@ -1457,15 +1498,16 @@ Guard.
 
 By hand, never on a schedule, since each would be work for nothing every time a run runs:
 the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list a cell names,
-`NEW_RUNS`, `RUNS` or `TABLES`, left `[]` is passed over.
+`RUNS` or `TABLES`, left `[]` is passed over.
 
-- `NEW_RUNS = ["weekly"]` makes each run named, as in step 1.
 - `project.check()` reports a loop among your tables, naming the logic cell to mend, and each
   Table folder whose logic fails to load, with what stops it.
 - `project.export_project_lineage()` writes `admin/lineage/<time>-project.html` and its
   Markdown twin: every Saved table, what reads it and which Scheduled runs write it, a table
   more than one run writes marked, and a loop drawn red. Two runs may write the same table:
-  it is shown, never refused.
+  it is shown, never refused. Click a table's box on the page to open its panel: what it
+  reads, what reads it, the Scheduled runs that write it, and the Hive that writes it, with
+  its Run values and Session settings.
 - `RUNS = ["weekly"]`: `project.export_run_hive(RUNS)` writes
   `scheduled_runs/weekly/weekly.hql`, the run's Hive as its Build cell builds it, with its
   parameters' defaults, to read and commit, and `project.export_run_lineage(RUNS)` its
@@ -1602,16 +1644,20 @@ Statement, a Table reference, a Table notebook's logic cell or a Conversion, or 
 job's steps: `copilot/13_workflows.txt` and `copilot/16_workflows_promote.txt` list convert's
 and promote's, and file 14 the other Workflows', from the steps each notebook runs.
 `copilot/18_scheduled_runs.txt` fills in a Scheduled run's cells from what
-`project.describe_logic([...])` prints.
+`project.describe_logic([...])` prints. `copilot/19_metric_request.txt` writes no code: it asks
+you about a new metric a question at a time and ends with a Metric request, plain text for a
+chatbot that knows your databases to define the columns from.
 
 1. **Pick the file.** Action: read `copilot/00_start_here.txt`, which says which file fits what
    you want to do. Done when you have its name; then step 2.
 2. **Give it to Copilot.** Action: open a new chat, and paste the one file for what you want to
    do as your first message. Done when it is sent; then step 3.
 3. **Ask.** Action: ask in plain words, giving the import line and columns of each table to
-   read. Done when Copilot answers; then step 4.
+   read; with file 19, say the metric you want, and answer its questions one at a time. Done
+   when Copilot answers; then step 4.
 4. **Run its answer.** Action: run what Copilot gives you as you would your own code: the
-   Toolbox still refuses what would give a wrong number. Done when it runs.
+   Toolbox still refuses what would give a wrong number. Done when it runs. With file 19 there
+   is nothing to run: give the Metric request to the chatbot that knows your databases.
 
 About the files:
 
