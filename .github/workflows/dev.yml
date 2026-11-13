@@ -23,6 +23,11 @@ jobs:
       matrix:
         sqlglot: ["30.23.0"]
     name: sqlglot Composer (sqlglot ${{ matrix.sqlglot }})
+    # GitHub sets CI on every runner; said here too, since the suite reads it: on CI every
+    # "committed is generated" test regenerates whole (tests/generated_memo.py). pytest runs on
+    # the runner's cores, as pyproject.toml's -n auto says.
+    env:
+      CI: "true"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5

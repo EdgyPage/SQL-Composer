@@ -18,13 +18,14 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 import example_project
+import generated_memo
 from conftest import (
     ROOT,
     example_rows,
@@ -61,12 +62,15 @@ def write_project(into: Path, name: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.fixture(scope="module")
-def projects(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    """A copy of each Example project, so loading its notebooks writes nothing in the repo."""
+def projects(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Path]]:
+    """A copy of each Example project, so loading its notebooks writes nothing in the repo. The
+    tests using it run on one worker (tests/workers.py), and the copy is removed once the last
+    of them is done."""
     folder = tmp_path_factory.mktemp("example_projects")
     for name in example_project.PROJECTS:
         shutil.copytree(ROOT / "example_projects" / name, folder / name)
-    return {name: folder / name for name in example_project.PROJECTS}
+    yield {name: folder / name for name in example_project.PROJECTS}
+    shutil.rmtree(folder)
 
 
 @pytest.fixture
@@ -118,6 +122,10 @@ def test_every_example_project_has_a_folder() -> None:
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)
 def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, name: str) -> None:
+    # Locally only when an input changed since it last passed; on CI, always.
+    memo = generated_memo.Memo(f"example_project_{name}")
+    if memo.is_unchanged():
+        return
     done = write_project(tmp_path / name, name)
     assert done.returncode == 0, done.stderr
     committed = ROOT / "example_projects" / name
@@ -126,6 +134,7 @@ def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, name
     for relative in example_project.project_files(committed):
         written = (tmp_path / name / relative).read_text(encoding="utf-8")
         assert written == (committed / relative).read_text(encoding="utf-8"), relative
+    memo.keep()
 
 
 def test_the_generator_refuses_a_folder_that_holds_anything(tmp_path: Path) -> None:

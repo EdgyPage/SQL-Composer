@@ -74,6 +74,11 @@ ALLOWED = [
 ]
 
 
+def test_this_python_carries_the_trap_whichever_worker_runs_it() -> None:
+    # Each pytest-xdist worker says so at its end too, and a run fails on one that doesn't.
+    assert offline_trap.is_installed()
+
+
 @pytest.mark.parametrize(("event", "args"), REFUSED, ids=lambda value: str(value))
 def test_this_python_refuses_what_would_reach_another_computer(
         event: str, args: tuple[object, ...]) -> None:

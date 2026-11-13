@@ -178,3 +178,11 @@ All ran on this computer, reading only, with dev's own Python:
   over sqlglot's 184 files with no `ALLOWED`.
 - Git: `.git/config`, `.git/hooks/`, `.git/info/` and `git config --list --show-origin`, read by
   hand.
+
+Since Toolbox 8.7 (ticket 03), `code_audit` keeps each file's findings in a memo, under the
+file's path and the sha256 of its bytes, with a hash of both readers' rules and the Python's
+version: the repo's in `.pytest_cache/memo/code_audit.json`, git-ignored. A file whose bytes are
+unchanged isn't read again; a change to the rules, `AUDITED` among them, reads everything again,
+and so does a fresh checkout. The sweeps of history and `.venv` above were scripts of their
+own, not kept in the repo; a script that sweeps them again can pass `code_audit.audit` a
+`code_audit.Memo` of its own, so each blob or file is read once for each hash of its bytes.

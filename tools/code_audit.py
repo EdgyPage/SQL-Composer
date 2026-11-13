@@ -26,6 +26,15 @@ tracker's notes in `.scratch/` among them:
 - **notebook:** a notebook that was run, whose cells keep an output or a count, or whose
   Markdown holds a script.
 
+Each file's findings are kept between runs in a memo (Toolbox 8.7, ticket 03), under the file's
+path and the sha256 of its bytes, with a hash of the rules that found them: this file, its
+`AUDITED` among it, the offline policy's, and the Python's version. A file whose bytes are
+unchanged isn't read again; a change to the rules reads every file again, and so does a fresh
+checkout, which keeps no memo. The repo's memo is `.pytest_cache/memo/code_audit.json`,
+git-ignored and a cache both readers skip. A script that sweeps history, `.git/` or `.venv`
+(`docs/code-audit.md`) can pass `audit` a `Memo` of its own, by the same rule: a blob or a file
+by the hash of its bytes.
+
 It only reads text, never imports or runs what it reads, and reaches nothing. It skips the
 folders the offline policy skips (`offline_policy.not_read`: the git folder, caches, Python
 environments and Claude Code's worktrees, but none inside the Toolbox or user-copied code),
@@ -43,6 +52,9 @@ reviewed sites, to check a sample.
 from __future__ import annotations
 
 import ast
+import dataclasses
+import functools
+import hashlib
 import io
 import json
 import os
@@ -50,6 +62,7 @@ import re
 import sys
 import unicodedata
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -57,6 +70,10 @@ import offline_policy
 from offline_policy import Finding
 
 ROOT = offline_policy.ROOT
+# Where the repo's audit keeps each file's findings between runs, and what they hang on beside
+# a file's own path and bytes: the rules of both readers.
+MEMO = ROOT / ".pytest_cache" / "memo" / "code_audit.json"
+RULES_FILES = (Path(__file__).resolve(), Path(offline_policy.__file__).resolve())
 
 # --- What it looks for ---------------------------------------------------------------------
 
@@ -136,21 +153,84 @@ AUDITED = (
 )
 
 
+# --- The memo ------------------------------------------------------------------------------
+
+
+def rules_hash() -> str:
+    """The hash of what decides a file's findings beside its path and bytes: RULES_FILES, this
+    file with its AUDITED and the offline policy, and the Python's version, whose Unicode
+    tables name a character."""
+    digest = hashlib.sha256(f"Python {sys.version_info[0]}.{sys.version_info[1]}".encode())
+    for file in RULES_FILES:
+        digest.update(file.read_bytes())
+    return digest.hexdigest()
+
+
+class Memo:
+    """Each file's findings, kept in the JSON file `memo_file` under the file's path and the
+    sha256 of its bytes, for the rules whose hash is `rules`. A memo kept for other rules, or
+    one that doesn't read, is empty, so every file is read again."""
+
+    def __init__(self, memo_file: Path, rules: str) -> None:
+        self.memo_file, self.rules = memo_file, rules
+        self.findings_by_key: dict[str, list[list[object]]] = self._read_memo_file()
+        self.keys_used: set[str] = set()
+
+    def _read_memo_file(self) -> dict[str, list[list[object]]]:
+        try:
+            memo_json = json.loads(self.memo_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(memo_json, dict) or memo_json.get("rules") != self.rules:
+            return {}
+        return memo_json.get("files", {})
+
+    def findings(self, path: str, data: bytes,
+                 find: Callable[[], list[Finding]]) -> list[Finding]:
+        """The findings in the file at `path` holding `data`: those kept, or what `find` gives,
+        kept from now on."""
+        key = f"{hashlib.sha256(data).hexdigest()} {path}"
+        if key not in self.findings_by_key:
+            self.findings_by_key[key] = [list(dataclasses.astuple(one)) for one in find()]
+        self.keys_used.add(key)
+        return [Finding(*fields) for fields in self.findings_by_key[key]]
+
+    def save(self) -> None:
+        """Write the findings of each file read since the memo was made, and no others, so a
+        file deleted or changed leaves nothing behind. Written whole, then moved into place, so
+        a run reading it at the same time reads the old memo or the new one."""
+        findings_used = {key: self.findings_by_key[key] for key in sorted(self.keys_used)}
+        self.memo_file.parent.mkdir(parents=True, exist_ok=True)
+        part_file = self.memo_file.with_name(f"{self.memo_file.name}.{os.getpid()}.part")
+        part_file.write_text(json.dumps({"rules": self.rules, "files": findings_used}),
+                             encoding="utf-8")
+        os.replace(part_file, self.memo_file)
+
+
+@functools.cache
+def repo_memo() -> Memo:
+    """The repo's memo, MEMO, read once for each Python that runs the audit."""
+    return Memo(MEMO, rules_hash())
+
+
 # --- Reading the repo ----------------------------------------------------------------------
 
 
-def audit(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
-    """Each finding in the files under `root` that `audited` doesn't cover."""
+def audit(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED,
+          memo: Memo | None = None) -> list[Finding]:
+    """Each finding in the files under `root` that `audited` doesn't cover. The files' findings
+    are kept in `memo`, or in the repo's memo when `root` is the repo."""
     uncovered = []
-    for finding in everything_found(root):
+    for finding in everything_found(root, memo):
         if not any(entry.matches(finding) for entry in audited):
             uncovered.append(finding)
     return uncovered
 
 
-def stale(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
+def stale(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED,
+          memo: Memo | None = None) -> list[Finding]:
     """Each entry of `audited` that matches nothing under `root`."""
-    found = everything_found(root)
+    found = everything_found(root, memo)
     stale_entries = []
     for entry in audited:
         if not any(entry.matches(finding) for finding in found):
@@ -160,11 +240,16 @@ def stale(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Fin
     return stale_entries
 
 
-def everything_found(root: Path) -> list[Finding]:
-    """Each finding in the files under `root`, reviewed or not."""
+def everything_found(root: Path, memo: Memo | None = None) -> list[Finding]:
+    """Each finding in the files under `root`, reviewed or not, kept in `memo`, or in the repo's
+    memo when `root` is the repo; another folder with no memo given is read whole."""
+    if memo is None and root == ROOT:
+        memo = repo_memo()
     found = []
     for file in files_to_read(root):
-        found += findings_in_file(root, file)
+        found += findings_in_file(root, file, memo)
+    if memo is not None:
+        memo.save()
     return found
 
 
@@ -179,12 +264,20 @@ def files_to_read(root: Path) -> list[Path]:
     return found
 
 
-def findings_in_file(root: Path, file: Path) -> list[Finding]:
+def findings_in_file(root: Path, file: Path, memo: Memo | None = None) -> list[Finding]:
+    """Each finding in one file, kept in `memo` if given: but a hooks settings file's, whose
+    findings hang on the hook files it names, is read each time."""
     path = file.relative_to(root).as_posix()
     data = file.read_bytes()
-    if file.suffix.lower() in offline_policy.WORKBOOK_FILES and zipfile.is_zipfile(file):
-        return workbook_findings(root, data, path)
-    return findings_in_text(root, data, path, file.suffix)
+
+    def find() -> list[Finding]:
+        if file.suffix.lower() in offline_policy.WORKBOOK_FILES and zipfile.is_zipfile(file):
+            return workbook_findings(root, data, path)
+        return findings_in_text(root, data, path, file.suffix)
+
+    if memo is None or is_a_hooks_settings_file(path):
+        return find()
+    return memo.findings(path, data, find)
 
 
 def workbook_findings(root: Path, data: bytes, path: str) -> list[Finding]:
@@ -329,9 +422,15 @@ def notebook_findings(text: str, path: str) -> list[Finding]:
     return found
 
 
+def is_a_hooks_settings_file(path: str) -> bool:
+    """Whether `path` is a Claude Code settings file, whose hooks the audit reads."""
+    name = path.rsplit("/", 1)[-1]
+    return path.startswith(".claude/") and bool(re.fullmatch(r"settings(\.local)?\.json", name))
+
+
 def config_findings(root: Path, text: str, path: str) -> list[Finding]:
     name = path.rsplit("/", 1)[-1]
-    if path.startswith(".claude/") and re.fullmatch(r"settings(\.local)?\.json", name):
+    if is_a_hooks_settings_file(path):
         return _hook_findings(root, text, path)
     if path.startswith(".github/workflows/") and name.endswith((".yml", ".yaml")):
         return _workflow_findings(text, path)

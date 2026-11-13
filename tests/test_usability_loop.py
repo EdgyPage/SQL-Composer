@@ -16,7 +16,7 @@ import shutil
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import notebook_runner
@@ -120,13 +120,15 @@ def main_tree(tmp_path: Path) -> Path:
     return _write_small_main(tmp_path / "main_tree")
 
 
-@pytest.fixture(scope="session")
-def built_main(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Main's tree, built from dev's last commit once for the session, as it takes a while
-    (Toolbox 8.6, ticket 11)."""
+@pytest.fixture(scope="module")
+def built_main(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Main's tree, built from dev's last commit once for the tests that use it, as it takes a
+    while (Toolbox 8.6, ticket 11); they run on one worker (tests/workers.py), and its folder
+    is removed once the last of them is done (8.7, ticket 03)."""
     main = tmp_path_factory.mktemp("built") / "main"
     usability_loop.build_main(main, usability_loop.dev_commit())
-    return main
+    yield main
+    shutil.rmtree(main.parent)
 
 
 def _prepared(chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> Path:

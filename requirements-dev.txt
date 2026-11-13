@@ -4,8 +4,9 @@
 #     .venv/Scripts/python -m pip install -r requirements-dev.txt
 #
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.
-# pytest, ruff, coverage and openpyxl are for `dev` only; coverage is read by
-# tools/usage_report.py, and openpyxl builds the empty Formula workbook, copilot/'s .xlsx.
+# pytest, pytest-xdist, ruff, coverage and openpyxl are for `dev` only; pytest-xdist runs the
+# suite on several cores, coverage is read by tools/usage_report.py, and openpyxl builds the empty
+# Formula workbook, copilot/'s .xlsx.
 
 # sqlglot Composer's pin, the one CI runs. It supports sqlglot 30.19.0 up to (not including) 31.
 sqlglot==30.23.0
@@ -22,6 +23,9 @@ six==1.17.0
 pytz==2026.5
 
 pytest==9.0.2
+pytest-xdist==3.8.0
+# what pytest-xdist needs in turn
+execnet==2.1.2
 ruff==0.15.17
 coverage==7.17.0
 openpyxl==3.1.5

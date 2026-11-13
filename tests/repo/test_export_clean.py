@@ -16,7 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import export_clean  # noqa: E402
+from conftest import left_unchanged  # noqa: E402
 from test_pointers import named_paths  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
@@ -50,10 +51,21 @@ FOLDERS = ["sqlglot_composer"]
 
 
 @pytest.fixture(scope="module")
-def clean(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def clean_build(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path, str]]:
+    """The Clean tree, built once for every test that only reads it, which run on one worker
+    (tests/workers.py), and what the build says it shipped. Its folder is removed once the last
+    of them is done. A test that spoils something on purpose builds its own."""
     folder = tmp_path_factory.mktemp("clean")
-    export_clean.build(ROOT, folder, WHEN, COMMIT)
-    return folder
+    shipped = export_clean.build(ROOT, folder, WHEN, COMMIT)
+    yield folder, shipped
+    shutil.rmtree(folder)
+
+
+@pytest.fixture
+def clean(clean_build: tuple[Path, str]) -> Iterator[Path]:
+    """The shared Clean tree, which the test may only read: changing it fails the test."""
+    with left_unchanged(clean_build[0]) as folder:
+        yield folder
 
 
 @pytest.mark.parametrize("name", [name for name in dev_toolbox_files()
@@ -322,8 +334,9 @@ def test_a_dev_without_a_root_file_is_refused(tmp_path: Path, name: str) -> None
         export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
-def test_the_exported_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
-    assert export_clean.build(ROOT, tmp_path / "clean", WHEN, COMMIT) == SHIPPED
+def test_the_exported_copy_is_imported_and_says_it_was_exported(
+        clean_build: tuple[Path, str]) -> None:
+    assert clean_build[1] == SHIPPED
 
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:

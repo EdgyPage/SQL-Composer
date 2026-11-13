@@ -84,6 +84,15 @@ tools and tests, with `.venv/Scripts/python`, never a bare `python`. `requiremen
 user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
 `tools/toolbox_registry.py` lets the Toolbox import.
 
+The suite runs on pytest-xdist (Toolbox 8.7, ticket 03): `pyproject.toml`'s `-n auto --dist
+loadgroup` runs the whole suite on up to 8 workers and a narrower run, such as one file, in one
+process; `-n 4` or `-n 0` on the command line chooses. Tests that share a costly fixture run on
+one worker, as `tests/workers.py`'s `GROUPS` says: a new costly fixture gets a line there. On
+this computer the code audit and each "committed is generated" test keep a memo in
+`.pytest_cache/memo/` (git-ignored) and redo only what changed; delete that folder to redo
+everything. With `CI` set, as `.github/workflows/dev.yml` sets it, every generated output
+regenerates whole.
+
 CI runs one job on Python 3.13, at sqlglot's pin, which `.github/workflows/dev.yml` names: the
 Toolbox's range starts at 30.19.0, and since 7.2 CI doesn't run its bottom. Export only a commit
 whose CI job passed: the export doesn't check the gallery.
