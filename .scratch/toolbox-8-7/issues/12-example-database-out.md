@@ -32,4 +32,6 @@ Q29, Q31.)
   journeys, the Example projects, the usability loop, the Copilot and Excel evaluations.
 - **The Upgrade** (ticket 14) rewrites a Project's `example_database` imports, and marks any it
   can't rewrite with what to do.
+- **CONTEXT.md's Example database and Example project entries** say what this ticket built,
+  as the map's Words have them: dev only, read on main as pages.
 - **Before and after:** the Toolbox folder's size, and its import time.

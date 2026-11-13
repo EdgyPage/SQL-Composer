@@ -211,7 +211,7 @@ A `${hivevar:NAME}` in the Hive, which the warehouse fills in each time the Hive
 a value given at that moment, such as a scheduler's. It's how a Script tag's place is left
 for whatever runs the Hive to fill in, rather than for the Toolbox: the Script tag stays as
 it is, and a Hivevar is one answer it can be given.
-_Avoid_: placeholder, Hive variable, runtime param
+_Avoid_: placeholder, runtime param
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
@@ -486,9 +486,8 @@ _Avoid_: guard, quota, throttle, safety check
 
 **Example database**:
 A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard and Warning is shown catching a wrong number. It lives on dev only, outside the Toolbox:
-the user never runs it, but reads what it gave, each example shown with its tables' columns and
-some of their rows beside its code and output.
+Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements
+can be practised on it at work without touching the warehouse.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
@@ -499,7 +498,7 @@ _Avoid_: case, sample, recipe, demo
 **Example project**:
 A Project made for the Example database's tables, as the user makes their own - its Table
 references, Building blocks and a Table notebook per Saved table, filled in - to read and copy
-from, as a page of the docs; the Project itself runs on dev only. Where a Worked example shows one Statement and its Hive, an Example project shows the files
+from. Where a Worked example shows one Statement and its Hive, an Example project shows the files
 around many; a Template is the empty shape to fill in.
 _Avoid_: sample project, demo, template, starter kit
 
