@@ -140,6 +140,109 @@ def test_a_hive_function_is_kept_as_hive_function_when_it_writes_back_the_same()
     assert not found(done, "unchecked")
 
 
+# --- SORT_ARRAY's TRUE (Toolbox 8.7, ticket 10) -----------------------------------------------
+
+# Hive's SORT_ARRAY takes one argument and sorts ascending; Spark's takes a second, TRUE for
+# ascending, which the user's Hive refuses. The shapes of the 2026-11-13 sweep, each holding the
+# user's line, its {t} the second argument or nothing.
+SORTED = "CONCAT_WS(' | ', SORT_ARRAY(COLLECT_SET(exception_reason){t}))"
+SORT_ARRAY_SHAPES = {
+    "the_users_line": f"SELECT run_id, {SORTED} AS r FROM ops.exceptions GROUP BY run_id",
+    "distinct": "SELECT run_id, CONCAT_WS(' | ', SORT_ARRAY(COLLECT_SET(DISTINCT "
+                "exception_reason){t})) AS r FROM ops.exceptions GROUP BY run_id",
+    "in_a_cte": "WITH a AS (SELECT run_id, exception_reason FROM ops.exceptions) "
+                f"SELECT run_id, {SORTED} AS r FROM a GROUP BY run_id",
+    "in_a_subquery": f"SELECT run_id, r FROM (SELECT run_id, {SORTED} AS r "
+                     "FROM ops.exceptions GROUP BY run_id) t",
+    "in_an_insert": f"INSERT OVERWRITE TABLE ops.reasons SELECT run_id, {SORTED} AS r "
+                    "FROM ops.exceptions GROUP BY run_id",
+    "in_a_case": f"SELECT run_id, CASE WHEN COUNT(*) > 1 THEN {SORTED} ELSE '' END AS r "
+                 "FROM ops.exceptions GROUP BY run_id",
+    "in_a_coalesce": f"SELECT run_id, COALESCE({SORTED}, '') AS r FROM ops.exceptions "
+                     "GROUP BY run_id",
+    "in_a_join": "SELECT r.run_id, CONCAT_WS(' | ', SORT_ARRAY(COLLECT_SET(e.exception_reason)"
+                 "{t})) AS r FROM ops.job_runs r JOIN ops.exceptions e ON r.run_id = e.run_id "
+                 "GROUP BY r.run_id",
+    "nested_twice": "SELECT run_id, CONCAT_WS(',', SORT_ARRAY(SORT_ARRAY(COLLECT_LIST("
+                    "exception_reason){t}){t})) AS r FROM ops.exceptions GROUP BY run_id",
+    "in_a_size": "SELECT run_id, SIZE(SORT_ARRAY(COLLECT_SET(exception_reason){t})) AS r "
+                 "FROM ops.exceptions GROUP BY run_id",
+    "with_an_index": "SELECT run_id, SORT_ARRAY(COLLECT_SET(exception_reason){t})[0] AS r "
+                     "FROM ops.exceptions GROUP BY run_id",
+    "over_a_window": "SELECT run_id, SORT_ARRAY(COLLECT_SET(exception_reason) OVER "
+                     "(PARTITION BY run_id){t}) AS r FROM ops.exceptions",
+    "lower_case": "select run_id, concat_ws(' | ', sort_array(collect_set(exception_reason)"
+                  "{t})) as r from ops.exceptions group by run_id",
+    "beside_a_script_tag": f"SELECT run_id, {SORTED} AS r FROM ops.exceptions "
+                           "WHERE dt <= <PARM=\"PERIOD_END\"/> GROUP BY run_id",
+}
+EXCEPTIONS = {**COLUMNS, "ops.exceptions": ["run_id", "exception_reason", "dt"],
+              "ops.reasons": ["run_id", "r"]}
+TRUE_LEFT_OUT = ("SORT_ARRAY sorts ascending by default; its TRUE is left out, as Hive's takes "
+                 "one argument")
+
+
+def convert_sorted(hive: str) -> converting.ConvertedQuery:
+    return converting.convert_query(hive, EXCEPTIONS.get, database="ops")
+
+
+def python_of(hive_read: converting.ConvertedQuery) -> str:
+    """All the Python a Conversion wrote: its assignments, a Derived table's among them, and
+    its Statement."""
+    return "\n".join([value for _, value in hive_read.assignments] + [hive_read.query])
+
+
+def test_the_users_line_converts_to_sort_array_of_one_argument() -> None:
+    done = convert_sorted(SORT_ARRAY_SHAPES["the_users_line"].format(t=""))
+    assert ('hive_function("sort_array", hive_function("collect_set", '
+            "exceptions.exception_reason))") in done.query
+    assert not any("TRUE" in finding for finding in found(done, "changed"))
+
+
+@pytest.mark.parametrize("name", list(SORT_ARRAY_SHAPES))
+def test_sort_arrays_true_is_left_out_saying_so(name: str) -> None:
+    hive = SORT_ARRAY_SHAPES[name]
+    with_true = convert_sorted(hive.format(t=", TRUE"))
+    assert python_of(with_true) == python_of(convert_sorted(hive.format(t="")))
+    assert "True" not in python_of(with_true) and "TRUE" not in python_of(with_true)
+    assert f"line 1: {TRUE_LEFT_OUT}" in found(with_true, "changed")
+
+
+def test_sort_arrays_true_in_lower_case_is_left_out() -> None:
+    done = convert_sorted("SELECT run_id, sort_array(collect_set(exception_reason), true) AS r "
+                          "FROM ops.exceptions GROUP BY run_id")
+    assert "True" not in python_of(done) and "true" not in python_of(done)
+    assert f"line 1: {TRUE_LEFT_OUT}" in found(done, "changed")
+
+
+def test_sort_arrays_true_is_left_out_of_a_query_kept_whole() -> None:
+    done = convert_sorted("SELECT run_id, SORT_ARRAY(COLLECT_SET(exception_reason), TRUE) "
+                          "AS r, (SELECT MAX(dt) FROM ops.exceptions) + 1 AS m "
+                          "FROM ops.exceptions GROUP BY run_id")
+    assert done.kept_whole
+    assert "SORT_ARRAY(COLLECT_SET(exception_reason)) AS r" in done.query
+    assert f"line 1: {TRUE_LEFT_OUT}" in found(done, "changed")
+
+
+@pytest.mark.parametrize("name", list(SORT_ARRAY_SHAPES))
+def test_sort_arrays_false_is_kept_saying_your_hive_may_refuse_it(name: str) -> None:
+    done = convert_sorted(SORT_ARRAY_SHAPES[name].format(t=", FALSE"))
+    assert "False" in python_of(done) or "FALSE" in python_of(done)
+    assert ("line 1: SORT_ARRAY's FALSE is kept as written, though Hive's SORT_ARRAY takes one "
+            "argument and sorts ascending, so your Hive may refuse it: if it does, and "
+            "ascending will do, take out its second argument") in found(done, "kept")
+
+
+def test_hive_function_still_takes_sort_arrays_second_argument() -> None:
+    hive_function = toolbox_module("calculations").hive_function
+    table = toolbox_module("tables").Table("ops.exceptions",
+                                           columns={"exception_reason": "string"})
+    listed = hive_function("collect_set", table.exception_reason)
+    hive_function("sort_array", listed)
+    hive_function("sort_array", listed, False)
+    hive_function("sort_array", listed, True)
+
+
 def test_a_comparison_written_value_first_is_turned_round() -> None:
     assert ("less_than(job_runs.duration_mins, 60)"
             in convert_query("SELECT run_id FROM ops.job_runs WHERE 60 > duration_mins").query)
