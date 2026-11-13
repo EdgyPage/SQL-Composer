@@ -103,6 +103,8 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path: Path) -> N
 @pytest.mark.parametrize(("pages", "lost"), [
     (["examples.html"], "and a missing examples.html leaves you without the Example gallery"),
     (["how_to.html"], "and a missing how_to.html leaves you without the how-tos"),
+    (["workflows.html"], "and a missing workflows.html leaves you without the Workflows "
+     "overview"),
     (["examples.html", "how_to.html"], "a missing examples.html leaves you without the Example "
      "gallery, and a missing how_to.html leaves you without the how-tos"),
 ])

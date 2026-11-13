@@ -2,9 +2,10 @@
 
 From 6.0 the Toolbox is this one folder (ADR 0008 and ADR 0009). It holds every function a user
 calls, the import self-check, `writing.py`, which writes a Statement as Hive with sqlglot,
-`engine.py`, which checks sqlglot and runs the Example database, two pages: the Example
-gallery, which `tools/example_gallery.py` writes, and the how-to page, which
-`tools/how_to_page.py` writes, and `version.txt`, the one place its version is written.
+`engine.py`, which checks sqlglot and runs the Example database, and `version.txt`, the one
+place its version is written. It holds three pages too: the Example gallery, which
+`tools/example_gallery.py` writes; the how-to page, which `tools/how_to_page.py` writes; and
+the Workflows overview, which `tools/workflows_page.py` writes.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
 and `imports_outside` lists every import that breaks it.
@@ -36,7 +37,7 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workflows.py",
                 "writing.py")
-PAGES = ("examples.html", "how_to.html")
+PAGES = ("examples.html", "how_to.html", "workflows.html")
 # The one file that says which Toolbox version the folder is (ADR 0013). On dev it holds the
 # version alone; the export adds when it was exported, from which commit, and each file's hash.
 VERSION_FILE = "version.txt"

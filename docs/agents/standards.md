@@ -142,7 +142,7 @@ The Toolbox's pages, each lineage page first, are written to the same care as it
   bundler, no framework, nothing to install. Of this file's other rules, "Names" and "One way
   per job" hold for it: a function is named for what it returns or does, and a job two pages'
   scripts do is one function in the module's `DRAWING_SCRIPT`. The limits ruff and
-  `test_standard.py` hold on Python don't reach it.
+  `tests/repo/test_standard.py` hold on Python don't reach it.
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 
