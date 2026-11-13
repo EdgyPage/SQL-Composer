@@ -1,8 +1,9 @@
 """How many different jobs ran each day, as a Derived table other Statements can read."""
 
+import example_database
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_distinct, derived,
-    example_database, statement,
+    statement,
 )
 
 job_runs = example_database.job_runs

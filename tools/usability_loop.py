@@ -33,7 +33,8 @@ too (the doc says how to make it). It holds what the user has:
   database's tables and what the scenario's Hive wrote;
 - `run_notebook.py`, which runs a notebook's cells as Jupyter's Run All does
   (`tools/notebook_runner.py`);
-- `_loop/`, which only the loop reads: the warehouse's file, each phase's message, each
+- `_loop/`, which only the loop reads: the warehouse's file and its code, with dev's Example
+  database (`example_database/`), which main doesn't ship, each phase's message, each
   question, each Copilot message and reply, each agent's reply, and `inputs.json`, what the
   run was given.
 
@@ -85,6 +86,8 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
+# Dev's Example database, which the run's warehouse imports beside it.
+EXAMPLE_DATABASE = ROOT / "example_database"
 sys.path[:0] = [str(ROOT)]
 
 import export_clean  # noqa: E402
@@ -410,6 +413,9 @@ def write_the_team_connection(run: Path) -> None:
     it."""
     loop = run / "_loop"
     shutil.copyfile(TOOLS / "workflow_warehouse.py", loop / "workflow_warehouse.py")
+    # The warehouse holds the Example database's tables, which are dev's alone (Toolbox 8.7).
+    shutil.copytree(EXAMPLE_DATABASE, loop / EXAMPLE_DATABASE.name,
+                    ignore=shutil.ignore_patterns("__pycache__"))
     (run / "team_connection.py").write_text(TEAM_CONNECTION.format(
         main=str(run / "main"), loop=str(loop), warehouse=str(loop / "warehouse.json")),
         encoding="utf-8")
@@ -424,6 +430,10 @@ TEAMS_CONN = ("import sys  # noqa: E402\nfrom pathlib import Path  # noqa: E402\
 # Since 8.6, each notebook connects at its top: the lines connect(...) a notebook or Template
 # holds before its user fills it in, as start() writes it or as an Example project fills it.
 LINES_TO_CONNECT = ("# connect(your_connection)", "connect(example_database)")
+# The lines that import the Example database, which main doesn't ship: before 8.7 from the
+# Toolbox, and on dev from beside it (Toolbox 8.7, ticket 12). The team's connection takes the
+# place of what they import, so they go.
+EXAMPLE_IMPORTS = ("from sqlglot_composer import example_database", "import example_database")
 # The lines the team's connection is given by in each, beside the Project: a connection kept
 # in a file outside it, as the notebook's comment says.
 TEAMS_CONNECT = ('sys.path.append({run!r})  # the folder team_connection.py is in\n'
@@ -467,6 +477,7 @@ def connect_the_team(root: Path) -> None:
     lines = warehouse_py.read_text(encoding="utf-8").split("\n")
     if EXAMPLE_CONN in lines:
         lines[lines.index(EXAMPLE_CONN)] = TEAMS_CONN
+        lines = [line for line in lines if line not in EXAMPLE_IMPORTS]
         warehouse_py.write_text("\n".join(lines), encoding="utf-8")
         connected = True
     teams = TEAMS_CONNECT.format(run=str(root.parent))
@@ -484,8 +495,9 @@ def connect_the_team(root: Path) -> None:
 
 
 def _with_the_teams_connection(text: str, teams: str) -> str:
-    """A cell's or Template's text, each of its lines connect(...) the team's connection."""
-    lines = text.split("\n")
+    """A cell's or Template's text, each of its lines connect(...) the team's connection, and
+    each line importing the Example database gone."""
+    lines = [line for line in text.split("\n") if line not in EXAMPLE_IMPORTS]
     return "\n".join(teams if line in LINES_TO_CONNECT else line for line in lines)
 
 
@@ -690,6 +702,8 @@ def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
         "loop_files": {
             "run_notebook.py": file_hash(TOOLS / "notebook_runner.py"),
             "workflow_warehouse.py": file_hash(TOOLS / "workflow_warehouse.py"),
+            "example_database": text_hash(json.dumps(tree_hashes(EXAMPLE_DATABASE),
+                                                     sort_keys=True)),
             "team_connection.py": text_hash(TEAM_CONNECTION),
             # The lines that give a Project brought in the team's connection.
             "warehouse.py's conn line": text_hash(TEAMS_CONN),

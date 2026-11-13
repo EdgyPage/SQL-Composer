@@ -35,11 +35,11 @@ from conftest import (
     standing_in,
     without_the_write,
 )
+import example_database
 from sqlglot_composer import (
     all_of,
     between,
     equals,
-    example_database,
     notebooks,
     project,
     project_files,

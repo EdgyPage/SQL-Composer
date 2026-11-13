@@ -36,7 +36,8 @@ notebook does at its top, to the Example database, which stands in for your ware
 >>> import sqlglot_composer
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
->>> from sqlglot_composer import example_database, project, statement
+>>> import example_database
+>>> from sqlglot_composer import project, statement
 >>> from warehouse import connect, execute, query
 >>> connect(example_database)
 
@@ -146,7 +147,7 @@ The file `scheduled_runs/team_day/team_day.ipynb`, after you fill it in:
     from sqlglot_composer import Statement, project, statement
     from warehouse import connect, execute, query
 
-    from sqlglot_composer import example_database
+    import example_database
     connect(example_database)
 
     # %%

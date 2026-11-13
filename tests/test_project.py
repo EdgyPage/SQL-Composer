@@ -25,10 +25,10 @@ import pandas as pd
 import pytest
 from conftest import run_admin_notebook, toolbox_module
 
+import example_database
 from sqlglot_composer import (
     Table,
     admin,
-    example_database,
     export_lineage,
     notebooks,
     project,
@@ -696,8 +696,7 @@ def test_the_check_references_notebook_checks_each_table_and_its_key(
     notebook = started / "admin" / "check_references.ipynb"
     # Its line connect(...) filled in, as the user fills theirs in (Toolbox 8.6).
     cells = [(kind, text.replace("# connect(your_connection)",
-                                 "from sqlglot_composer import example_database\n"
-                                 "connect(example_database)"))
+                                 "import example_database\nconnect(example_database)"))
              for kind, text in notebooks.read_cells(notebook)]
     notebooks.write_notebook(notebook, cells)
     capsys.readouterr()
@@ -1456,7 +1455,7 @@ def test_run_tables_refuses_a_read_that_write_gives_before_sending_anything(
     """Everything run_tables sends goes through execute, which gives back no rows."""
     (started / "admin" / "templates" / "reads.py").write_text(
         "# %%\n# logic\nfrom sqlglot_composer import FROM, SELECT, statement\n"
-        "from sqlglot_composer.example_database import jobs\n\n\n"
+        "from example_database import jobs\n\n\n"
         "def write():\n    return statement(SELECT(jobs.job_id), FROM(jobs))\n",
         encoding="utf-8")
     project.new_table("mart.odd", template="reads")

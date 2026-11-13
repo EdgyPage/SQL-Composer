@@ -147,7 +147,7 @@ def compare_with_original(statement: Statement, original: str, *,
     ...     FROM ops.job_runs
     ...     WHERE COALESCE(status, '') <> 'TEST'
     ... '''
-    >>> compare_with_original(runs, original, query=example_database.query,
+    >>> compare_with_original(runs, original, query=query,
     ...                       partition={"dt": "2026-09-23"})
     The Statement and the original give different rows where dt = '2026-09-23'.
       The Statement gives 3 rows, and the original 4.
@@ -168,7 +168,7 @@ def compare_with_original(statement: Statement, original: str, *,
     ...     FROM(job_runs, reads_all_partitions=True),
     ...     WHERE(any_of(not_equals(job_runs.status, "TEST"), is_null(job_runs.status))),
     ... )
-    >>> compare_with_original(runs, original, query=example_database.query,
+    >>> compare_with_original(runs, original, query=query,
     ...                       partition={"dt": "2026-09-23"})
     The Statement and the original give the same rows where dt = '2026-09-23': 4 rows each.
 

@@ -28,7 +28,9 @@ import pandas as pd
 import sqlglot
 from sqlglot import exp
 
-from sqlglot_composer import Table, describe, engine, example_database
+import example_database
+from example_database import executor
+from sqlglot_composer import Table, describe
 
 # Hive's default, which refuses a write whose every Partition column comes from its rows.
 DYNAMIC_MODE = "hive.exec.dynamic.partition.mode"
@@ -258,7 +260,7 @@ class Warehouse:
             tables_read[engine_name] = (stored.table, stored.rows)
             table.replace(exp.to_table(f"ops.{engine_name}").as_(table.alias or table.name))
         try:
-            return engine.run_query(renamed.sql(dialect="hive"), tables_read)
+            return executor.run_query(renamed.sql(dialect="hive"), tables_read)
         # The engine is the Example database's, but the warehouse is the team's to its user.
         except ValueError as refusal:
             raise ValueError(str(refusal).replace("The Example database",

@@ -7,10 +7,9 @@ Each notebook runs on its own, so each gives its connection at its top, in its s
 connect(your_connection), before it calls query or execute; until it does, they refuse. Your
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
-back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which of query and execute sends each Statement, by
-calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
-execute) for what changes something, as a write does; a Scheduled run's Run cell,
+back, execute drops. You pick which of query and execute sends each Statement, by calling
+run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute)
+for what changes something, as a write does; a Scheduled run's Run cell,
 built.run(query, execute), picks for each of its Statements the same way. You edit nothing
 here, unless your connection names its two calls another way: then change the calls query and
 execute make below, and the names connect checks for, ("query", "execute"), to yours. Let your
@@ -29,8 +28,8 @@ _connection = None
 
 
 def connect(connection: object) -> None:
-    """Set the connection query and execute pass each Hive string to, such as
-    connect(example_database): an object with a query(sql) and an execute(sql)."""
+    """Set the connection query and execute pass each Hive string to, such as connect(conn),
+    where conn is your team's connection: an object with a query(sql) and an execute(sql)."""
     global _connection
     missing = [call for call in ("query", "execute")
                if not callable(getattr(connection, call, None))]
@@ -43,7 +42,7 @@ def connect(connection: object) -> None:
             "query(sql), and execute each one that changes something to its execute(sql), "
             "so your connection needs both.",
             fix="Pass connect(...) the connection itself, the object with both, such as "
-            "connect(example_database) in the Example projects. If yours names them another "
+            "connect(conn), where conn is your team's connection. If yours names them another "
             "way, change the functions in your Project's warehouse.py: the names connect "
             "checks for, (\"query\", \"execute\"), and the calls query and execute make.",
             error=TypeError,
@@ -73,8 +72,8 @@ def _check_connected(call: str) -> None:
             "its top: a connection given in another notebook, or before this one's kernel "
             "restarted, isn't this one's.",
             fix="In this notebook's setup cell, at its top, fill in the line connect(...) "
-            "under its from warehouse import line with your connection, such as "
-            "connect(example_database) in the Example projects, then run that cell again.",
+            "under its from warehouse import line with your connection, such as connect(conn), "
+            "where conn is your team's connection, then run that cell again.",
             error=RuntimeError,
         )
 

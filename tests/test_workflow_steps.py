@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 from conftest import toolbox_module
 
+import example_database
 from sqlglot_composer import project, set_admin_log
 
 NOW = datetime.datetime(2026, 10, 31, 9, 30, 0)
@@ -33,7 +34,7 @@ daily_runs = Table(
 '''
 LOGIC = '''# logic
 from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Statement, statement
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 from references.mart__daily_runs import daily_runs
 
 PARTITIONED_BY = []
@@ -261,7 +262,7 @@ def test_a_step_that_only_reads_waits_on_nothing_and_is_named_beside_the_next(
 
 def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None:
     # Toolbox 8.5, ticket 08: a table with no column named like an id keeps its first line's.
-    project.add_references("ops.team_notes", query=toolbox_module("example_database").query)
+    project.add_references("ops.team_notes", query=example_database.query)
     said = repr(project.write_decisions({"ops.team_notes": {"key": None}}))
     assert ("ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits "
             "on nothing: fill it in when you like.\n  line 1: ") in said

@@ -1094,7 +1094,7 @@ def first_look(t: Table) -> Statement:
 class Verdict:
     """What check_key(...), check_table_reference(...) or a comparison found, to print.
 
-    >>> check_key(jobs, query=example_database.query)
+    >>> check_key(jobs, query=query)
     ops.jobs: the key (job_id) holds.
 
     Its `ok` is True when it found nothing wrong, and printing it shows what it found. The
@@ -1104,7 +1104,7 @@ class Verdict:
     hint, to say that a function of yours gives back what one of them found:
 
     >>> def key_holds(t: Table) -> Verdict:
-    ...     return check_key(t, query=example_database.query)
+    ...     return check_key(t, query=query)
     >>> verdict = key_holds(jobs)
     >>> verdict.ok
     True
@@ -1130,7 +1130,7 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
                           folder: str | Path | None = None, **removed: object) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
-    >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
+    >>> path = write_table_reference("ops.run_alerts", query=query)
     >>> path.name
     'ops__run_alerts.py'
 
@@ -1429,7 +1429,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
               **removed: object) -> Verdict:
     """Check that no two rows share a table's key, on the rows where= picks.
 
-    >>> check_key(job_runs, query=example_database.query,
+    >>> check_key(job_runs, query=query,
     ...           where=equals(job_runs.dt, "2026-09-24"))
     ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
@@ -1444,7 +1444,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
 
     >>> alerts = Table("ops.run_alerts", columns={"alert_id": "bigint", "run_id": "bigint",
     ...     "severity": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"])
-    >>> check_key(alerts, query=example_database.query, where=equals(alerts.dt, "2026-09-24"))
+    >>> check_key(alerts, query=query, where=equals(alerts.dt, "2026-09-24"))
     ops.run_alerts: the key (run_id) repeats where run_alerts.dt = '2026-09-24'. Keys with more than one row:
      run_id  copies
         101       3
@@ -1626,7 +1626,7 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
                           **removed: object) -> Verdict:
     """Compare a Table reference with its table as it is now, and list what differs.
 
-    >>> check_table_reference(job_runs, query=example_database.query)
+    >>> check_table_reference(job_runs, query=query)
     ops.job_runs matches its Table reference.
 
     It sends DESCRIBE through your `query`, and lists problems (which make Statements wrong)
@@ -1652,7 +1652,7 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
 
     >>> old_jobs = Table("ops.jobs", columns={"job_id": "int", "job_name": "string",
     ...     "owner": "string", "team": "string"}, key=["job_id"])
-    >>> check_table_reference(old_jobs, query=example_database.query)
+    >>> check_table_reference(old_jobs, query=query)
     ops.jobs differs from its Table reference.
     Problems:
       - job_id is bigint in the table: change its line to "job_id": "bigint",

@@ -17,12 +17,12 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
     equals,
-    example_database,
     export_hive,
     hive_settings,
     notebooks,
@@ -46,7 +46,7 @@ from sqlglot_composer import (
     FROM, INSERT_OVERWRITE, SELECT, WHERE, SessionSettings, Statement, Table,
     UncheckedStatement, create_table, equals, hive_settings, statement, unchecked_hive,
 )
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 runs = Table("<DB>.<TABLE>", columns={"run_id": "bigint", "dt": "string"},
              partitioned_by=["dt"], location="/data/your_team/<DB>.db/<TABLE>")
@@ -75,7 +75,7 @@ TWO_WRITES = '''\
 # logic
 from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, WHERE, Statement, Table, equals
 from sqlglot_composer import statement
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 runs = Table("<DB>.<TABLE>", columns={"run_id": "bigint", "dt": "string"},
              partitioned_by=["dt"], location="/data/your_team/<DB>.db/<TABLE>")
@@ -96,7 +96,7 @@ from sqlglot_composer import (
     FROM, INSERT_OVERWRITE, SELECT, WHERE, PythonStep, Statement, Table, equals, python_step,
     statement,
 )
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 runs = Table("<DB>.<TABLE>", columns={"run_id": "bigint"},
              location="/data/your_team/<DB>.db/<TABLE>")
@@ -116,7 +116,7 @@ A_READ = '''\
 # %%
 # logic
 from sqlglot_composer import FROM, SELECT, statement
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 
 def write():

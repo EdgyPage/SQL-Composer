@@ -24,6 +24,7 @@ import offline_policy
 import pytest
 import toolbox_registry
 
+import example_database
 import sqlglot_composer
 from sqlglot_composer import admin, project
 
@@ -231,5 +232,5 @@ HIVE_BLOCK = re.compile(r"```sql\n(.*?)```", re.DOTALL)
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
 def test_every_hive_block_runs_on_the_example_database_once_filled_in(path: Path) -> None:
     for hive in HIVE_BLOCK.findall(path.read_text(encoding="utf-8")):
-        assert not sqlglot_composer.example_database.query(
+        assert not example_database.query(
             hive.replace("<database>", "ops")).empty

@@ -135,9 +135,10 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
     assert doctest.OutputChecker().check_output(shown, exported, doctest.ELLIPSIS), shown
 
 
-def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
-    section = readme(clean).split("### `example_database.py`\n", 1)[1]
-    assert section.count("The Example database: nine made-up tables") == 1
+def test_the_cheat_sheet_names_no_example_database(clean: Path) -> None:
+    """The Example database is dev's alone (Toolbox 8.7, ticket 12): main's README lists no
+    file or name of it."""
+    assert "example_database" not in readme(clean).split("## Cheat sheet", 1)[-1]
 
 
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out

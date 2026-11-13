@@ -34,7 +34,7 @@ from sqlglot_composer import (
     statement,
     unchecked_hive,
 )
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 NOW = datetime.datetime(2026, 11, 9, 9, 30, 0)
 # This module's names stand for the notebook's: the parameters cell's START_FROM.
@@ -45,7 +45,7 @@ START_FROM = ""
 TABLES = '''
 from sqlglot_composer import (FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, AS, Table, count_rows,
                               run_value, statement, WHERE, at_least)
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 team_jobs = Table("mart.team_jobs", columns={"job_id": "bigint", "team": "string"},
                   location="/data/your_team/mart.db/team_jobs")

@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
+import example_database
 from sqlglot_composer import (
     FROM,
     INSERT_OVERWRITE,
@@ -32,7 +33,6 @@ from sqlglot_composer import (
     compare_with_original,
     equals,
     export_hive,
-    example_database,
     notebooks,
     project,
     set_admin_log,
@@ -330,7 +330,7 @@ from sqlglot_composer import (
     FROM, INSERT_OVERWRITE, SELECT, WHERE, Table, at_most, create_table, hivevar, script_tag,
     statement,
 )
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 recent = Table("mart.recent_runs", columns={"run_id": "bigint"},
                location="/data/your_team/mart.db/recent_runs")
@@ -482,7 +482,7 @@ def scheduled_cell_written(folder: Path, defaults: list[str]) -> None:
         f"default={default!r})))))" for place, default in enumerate(defaults))
     cell = ("# scheduled\nfrom sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, WHERE, "
             "Table, at_most, hivevar, script_tag, statement\n"
-            "from sqlglot_composer.example_database import job_runs\n"
+            "from example_database import job_runs\n"
             "recent = Table('mart.recent_runs', columns={'run_id': 'bigint'}, "
             "location='/data/your_team/mart.db/recent_runs')\n\n"
             f"def statements():\n    return {{{writes}}}\n")

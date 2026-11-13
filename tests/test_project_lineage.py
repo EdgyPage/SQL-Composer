@@ -27,7 +27,7 @@ STEM = "20261109-093000-project"
 TABLES = '''
 from sqlglot_composer import (FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, AS, Table, count_rows,
                               run_value, statement, WHERE, at_least)
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 team_jobs = Table("mart.team_jobs", columns={"job_id": "bigint", "team": "string"},
                   location="/data/your_team/mart.db/team_jobs")

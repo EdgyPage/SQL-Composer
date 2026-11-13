@@ -13,13 +13,13 @@ from pathlib import Path
 
 import pytest
 
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
     Statement,
     equals,
-    example_database,
     export_lineage,
     hive_settings,
     run_query, run_execute,

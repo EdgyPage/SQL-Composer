@@ -6,7 +6,8 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import GuardRefused, example_database, run_query
+import example_database
+from sqlglot_composer import GuardRefused, run_query
 from statements import left_join_then_where as example
 
 

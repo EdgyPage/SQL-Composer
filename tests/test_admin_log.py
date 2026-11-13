@@ -19,6 +19,7 @@ import pytest
 from conftest import toolbox_module
 from test_lineage import run_script
 
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
@@ -28,7 +29,6 @@ from sqlglot_composer import (
     admin,
     create_table,
     equals,
-    example_database,
     hive_settings,
     run_query, run_execute,
     set_admin_log,

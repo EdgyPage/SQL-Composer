@@ -59,7 +59,7 @@ from sqlglot_composer import (
     week_start,
 )
 from sqlglot_composer import refusals
-from sqlglot_composer.example_database import (
+from example_database import (
     job_events,
     job_owners,
     job_runs,
@@ -476,7 +476,7 @@ def test_a_repeated_rows_warning_shows_under_python_dash_c() -> None:
     joined = subprocess.run(
         [sys.executable, "-c",
          f"from {FOLDER} import JOIN, equals\n"
-         "from sqlglot_composer.example_database import job_runs, run_alerts\n"
+         "from example_database import job_runs, run_alerts\n"
          "JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))\n"
          "print('joined')"],
         cwd=toolbox_folder().parent, capture_output=True, text=True)

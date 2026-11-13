@@ -510,7 +510,7 @@ class BuiltRun:
         >>> built = project.build_run(statements)
         Parameters, as this run uses them:
         ...
-        >>> results = built.run(example_database.query, example_database.execute)
+        >>> results = built.run(query, execute)
         1 of 1: failed_runs  worked: 1 row, in results["failed_runs"]
         Sent 1 Statement in order. results holds the rows of failed_runs, by name, as
         results["failed_runs"].

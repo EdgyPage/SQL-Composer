@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -31,7 +32,6 @@ from sqlglot_composer import (
     derived,
     descending,
     equals,
-    example_database,
     export_lineage,
     first_match,
     hive_function,
@@ -46,7 +46,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from sqlglot_composer.example_database import job_owners, job_runs, jobs
+from example_database import job_owners, job_runs, jobs
 
 FAILED = equals(job_runs.status, "FAILED")
 # A table whose column's type isn't known, so nothing but its keys says what type they are.

@@ -15,6 +15,7 @@ from collections.abc import Callable
 import pytest
 from conftest import toolbox_module
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -27,7 +28,6 @@ from sqlglot_composer import (
     between,
     compare_hive,
     equals,
-    example_database,
     hive_function,
     script_tag,
     statement,

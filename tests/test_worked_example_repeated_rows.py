@@ -7,7 +7,8 @@ import warnings
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run_query
+import example_database
+from sqlglot_composer import run_query
 from sqlglot_composer.refusals import RepeatedRowsWarning
 from statements import repeated_rows as example
 

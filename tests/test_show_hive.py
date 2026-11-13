@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import pytest
 
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
     Statement,
     equals,
-    example_database,
     show_hive,
     statement,
     to_hive,

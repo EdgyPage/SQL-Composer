@@ -109,8 +109,8 @@ import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
+import example_database  # noqa: E402
 from sqlglot_composer import (  # noqa: E402
-    example_database,
     lineage,
     notebooks,
     unchecked,
@@ -898,8 +898,9 @@ __STYLE__</style></head><body>
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
 then what it gives: its Hive (ready to paste into another program), its result on the Example
-database, or a file it writes. The Example database is nine made-up tables that ship inside the
-Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
+database, or a file it writes. The Example database is nine made-up tables the Toolbox's makers
+keep, which the download doesn't hold: in your own notebook, your tables and your warehouse
+take their place. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
 2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
 run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from

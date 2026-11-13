@@ -12,6 +12,7 @@ from types import ModuleType
 import pandas as pd
 import pytest
 
+import example_database
 from sqlglot_composer import (
     AS,
     Table,
@@ -23,7 +24,6 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     equals,
-    example_database,
     first_look,
     run_query,
     statement,
@@ -32,7 +32,7 @@ from sqlglot_composer import (
     write_table_reference,
 )
 from sqlglot_composer.describe import DESCRIBE_COLUMNS, WAYS, StandIn
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 
 
 # --- Table(...) checks itself ---------------------------------------------------------------

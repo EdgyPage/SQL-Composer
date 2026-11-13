@@ -57,6 +57,7 @@ beside the table it is about:
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 >>> ends_a_run  # -> Condition

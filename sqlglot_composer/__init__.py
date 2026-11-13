@@ -10,6 +10,11 @@ version.txt is missing or unreadable, or if this Python can't run the Toolbox, i
 says what happened, why it matters and the usual fix. A file that differs from the download,
 edited by hand or pasted from another download, only warns.
 
+In the examples help() shows, jobs, job_runs, run_alerts and the other ops tables are the
+Example database's Table references, made-up tables the examples were run on, and query and
+execute stand in for your Project's, connected. In your own notebook, your Table references,
+such as from references import ops, and from warehouse import query, execute take their place.
+
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported. Both are read from the folder's
 version.txt, the one place the version is written.

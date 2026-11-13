@@ -6,7 +6,8 @@ runs there, and gives the same numbers as the pandas that works them out from th
 
 from __future__ import annotations
 
-from sqlglot_composer import example_database, run_query
+import example_database
+from sqlglot_composer import run_query
 from statements import regrouping
 
 

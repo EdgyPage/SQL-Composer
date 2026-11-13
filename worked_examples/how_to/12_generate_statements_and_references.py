@@ -62,6 +62,7 @@ your query. A Database is a named group of tables, the first part of a table's n
 >>> import pandas as pd
 >>> from references import ops
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 
 Done when the four imports run without an error. Then step 3.

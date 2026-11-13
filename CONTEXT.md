@@ -492,9 +492,12 @@ _Avoid_: guard, quota, throttle, safety check
 ### Learning the Toolbox
 
 **Example database**:
-A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements
-can be practised on it at work without touching the warehouse.
+A small set of made-up tables, with their Table references and a query and execute over them, on
+which Worked examples run and each Guard and Warning is shown catching a wrong number. It is the
+Dev branch's alone, beside the Toolbox and never in it (Toolbox 8.7): the Toolbox holds nothing
+runnable for examples, so on the Clean branch the Example database is read as pages, each
+example showing what it gave, never run. A docstring's example names its tables, `query` and
+`execute` alone, in the place of the user's own.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
@@ -506,7 +509,9 @@ _Avoid_: case, sample, recipe, demo
 A Project made for the Example database's tables, as the user makes their own - its Table
 references, Building blocks and a Table notebook per Saved table, filled in - to read and copy
 from. Where a Worked example shows one Statement and its Hive, an Example project shows the files
-around many; a Template is the empty shape to fill in.
+around many; a Template is the empty shape to fill in. Its notebooks connect to the Example
+database, so it runs on the Dev branch alone, and the Clean branch reads it as pages (Toolbox
+8.7).
 _Avoid_: sample project, demo, template, starter kit
 
 **Template**:

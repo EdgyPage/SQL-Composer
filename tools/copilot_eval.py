@@ -90,13 +90,13 @@ from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E4
 from example_gallery import example_setting, what_happened  # noqa: E402
 from how_to_page import project_on_the_path, times_pinned  # noqa: E402
 from workflow_warehouse import Warehouse  # noqa: E402
+import example_database  # noqa: E402
 from sqlglot_composer import (  # noqa: E402
     Statement,
     Table,
     Verdict,
     compare_hive,
     compare_with_original,
-    example_database,
     project,
     run_query,
     to_hive,
@@ -144,7 +144,7 @@ Example database, as each notebook's connect(example_database) line connects it.
 
 import pandas as pd
 
-from sqlglot_composer import example_database
+import example_database
 
 # The connection a notebook gave connect(...): the Example database, as its setup cell gives.
 _connection = example_database
@@ -436,7 +436,7 @@ def _toolbox_imports(tree: ast.Module) -> tuple[list[str], bool, dict[str, str]]
                 elif alias.name not in PUBLIC | {"*"}:
                     invented.append(alias.name)
         elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
-                "sqlglot_composer.") and node.module != "sqlglot_composer.example_database":
+                "sqlglot_composer."):
             invented.append(node.module)
         elif isinstance(node, ast.Import):
             bound.update({alias.asname or alias.name: alias.name for alias in node.names
@@ -544,7 +544,7 @@ class _SendersOut(ast.NodeTransformer):
 _SCORED_READ = ('''import pandas as _scored_pandas
 
 from sqlglot_composer import Statement as _ScoredStatement
-from sqlglot_composer import example_database as _scored_database
+import example_database as _scored_database
 from sqlglot_composer import to_hive as _scored_hive
 
 
@@ -962,7 +962,7 @@ def stand_in(folder: Path, saved: dict[str, str] | None = None) -> None:
     for name in EXAMPLE_TABLES:
         (references / f"ops__{name}.py").write_text(
             f'"""ops.{name}, the Example database\'s."""\n\n'
-            f"from sqlglot_composer.example_database import {name}\n", encoding="utf-8")
+            f"from example_database import {name}\n", encoding="utf-8")
     (references / "ops.py").write_text("".join(
         f"from references.ops__{name} import {name}\n" for name in EXAMPLE_TABLES),
         encoding="utf-8")

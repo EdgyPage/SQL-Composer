@@ -8,6 +8,7 @@ import re
 import pytest
 import sqlglot
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -23,7 +24,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     is_null,
     last_n_days,
     month_start,
@@ -31,7 +31,7 @@ from sqlglot_composer import (
     statement,
     week_start,
 )
-from sqlglot_composer.example_database import job_runs, jobs
+from example_database import job_runs, jobs
 
 
 def test_it_runs_week_start_as_hive_does() -> None:

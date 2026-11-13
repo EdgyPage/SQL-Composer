@@ -17,13 +17,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import example_database
 from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
     UncheckedStatement,
     equals,
-    example_database,
     hive_settings,
     run_execute,
     run_query,

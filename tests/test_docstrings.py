@@ -1,7 +1,9 @@
 """Every public name has a docstring with a worked example, and every example runs.
 
-The examples run as doctests with every public name in scope, plus `job_runs` and `jobs` from
-the Example database, so a docstring shows only the call and the Hive it emits. A docstring's
+The examples run as doctests with every public name in scope, plus, from dev's Example
+database, each of its tables by name, such as `job_runs`, and its `query` and `execute`,
+standing in for the user's own: a docstring shows only the call and the Hive it emits, and
+imports nothing the Toolbox doesn't ship (Toolbox 8.7, ticket 12). A docstring's
 first line becomes the name's line in the Clean branch README's cheat sheet, so it is one
 sentence of at most 80 characters.
 
@@ -17,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+import example_database
 import sqlglot_composer
 
 PUBLIC = list(sqlglot_composer.__all__)
@@ -51,6 +54,13 @@ def test_every_public_name_has_a_worked_example(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", PUBLIC + ADMIN)
+def test_an_example_names_no_example_database(name: str) -> None:
+    """The Example database is dev's alone, so an example uses its tables, query and execute
+    by name, as a user's notebook names its own (Toolbox 8.7, ticket 12)."""
+    assert "example_database" not in docstring_of(name)
+
+
+@pytest.mark.parametrize("name", PUBLIC + ADMIN)
 def test_a_first_line_is_one_short_sentence(name: str) -> None:
     line = first_line(name)
     assert len(line) <= 80, f"{name}: {len(line)} characters"
@@ -64,8 +74,7 @@ def test_the_worked_example_runs(
     doc = docstring_of(name)
     monkeypatch.chdir(tmp_path)
     scope = {public: getattr(sqlglot_composer, public) for public in PUBLIC}
-    scope["job_runs"] = sqlglot_composer.example_database.job_runs
-    scope["jobs"] = sqlglot_composer.example_database.jobs
+    scope.update(example_database.doctest_names())
     test = doctest.DocTestParser().get_doctest(doc, scope, name, None, 0)
     runner = doctest.DocTestRunner(
         optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS

@@ -103,7 +103,7 @@ from sqlglot_composer import (
 )
 from sqlglot_composer.clauses import Clause, Named
 from sqlglot_composer.describe import StandIn, of_table
-from sqlglot_composer.example_database import job_runs, jobs, run_alerts, scheduler_runs
+from example_database import job_runs, jobs, run_alerts, scheduler_runs
 from sqlglot_composer.stacking import Subtotals
 from sqlglot_composer.windows import Window
 from sqlglot_composer import admin

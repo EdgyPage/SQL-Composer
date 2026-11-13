@@ -20,7 +20,8 @@ import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
-from sqlglot_composer import example_database, project, set_admin_log, to_hive
+import example_database
+from sqlglot_composer import project, set_admin_log, to_hive
 
 NOW = datetime.datetime(2026, 10, 31, 9, 30, 0)
 WEEKLY = """\

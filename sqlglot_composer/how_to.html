@@ -38,8 +38,9 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
 then what it gives: its Hive (ready to paste into another program), its result on the Example
-database, or a file it writes. The Example database is nine made-up tables that ship inside the
-Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
+database, or a file it writes. The Example database is nine made-up tables the Toolbox's makers
+keep, which the download doesn't hold: in your own notebook, your tables and your warehouse
+take their place. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
 2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
 run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
@@ -191,10 +192,9 @@ Each notebook runs on its own, so each gives its connection at its top, in its s
 connect(your_connection), before it calls query or execute; until it does, they refuse. Your
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
-back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which of query and execute sends each Statement, by
-calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
-execute) for what changes something, as a write does; a Scheduled run&#x27;s Run cell,
+back, execute drops. You pick which of query and execute sends each Statement, by calling
+run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute)
+for what changes something, as a write does; a Scheduled run&#x27;s Run cell,
 built.run(query, execute), picks for each of its Statements the same way. You edit nothing
 here, unless your connection names its two calls another way: then change the calls query and
 execute make below, and the names connect checks for, (&quot;query&quot;, &quot;execute&quot;), to yours. Let your
@@ -213,8 +213,8 @@ _connection = None
 
 
 def connect(connection: object) -&gt; None:
-    &quot;&quot;&quot;Set the connection query and execute pass each Hive string to, such as
-    connect(example_database): an object with a query(sql) and an execute(sql).&quot;&quot;&quot;
+    &quot;&quot;&quot;Set the connection query and execute pass each Hive string to, such as connect(conn),
+    where conn is your team&#x27;s connection: an object with a query(sql) and an execute(sql).&quot;&quot;&quot;
     global _connection
     missing = [call for call in (&quot;query&quot;, &quot;execute&quot;)
                if not callable(getattr(connection, call, None))]
@@ -227,7 +227,7 @@ def connect(connection: object) -&gt; None:
             &quot;query(sql), and execute each one that changes something to its execute(sql), &quot;
             &quot;so your connection needs both.&quot;,
             fix=&quot;Pass connect(...) the connection itself, the object with both, such as &quot;
-            &quot;connect(example_database) in the Example projects. If yours names them another &quot;
+            &quot;connect(conn), where conn is your team&#x27;s connection. If yours names them another &quot;
             &quot;way, change the functions in your Project&#x27;s warehouse.py: the names connect &quot;
             &quot;checks for, (\&quot;query\&quot;, \&quot;execute\&quot;), and the calls query and execute make.&quot;,
             error=TypeError,
@@ -257,8 +257,8 @@ def _check_connected(call: str) -&gt; None:
             &quot;its top: a connection given in another notebook, or before this one&#x27;s kernel &quot;
             &quot;restarted, isn&#x27;t this one&#x27;s.&quot;,
             fix=&quot;In this notebook&#x27;s setup cell, at its top, fill in the line connect(...) &quot;
-            &quot;under its from warehouse import line with your connection, such as &quot;
-            &quot;connect(example_database) in the Example projects, then run that cell again.&quot;,
+            &quot;under its from warehouse import line with your connection, such as connect(conn), &quot;
+            &quot;where conn is your team&#x27;s connection, then run that cell again.&quot;,
             error=RuntimeError,
         )
 
@@ -288,10 +288,10 @@ query(&quot;SELECT 1 AS one&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">RuntimeError:
   What happened:  No connection: call connect(...) first. query(...) was called before this notebook gave warehouse.py its connection.
   Why it matters: Each notebook runs on its own, in a Python of its own, so each connects at its top: a connection given in another notebook, or before this one&#x27;s kernel restarted, isn&#x27;t this one&#x27;s.
-  Usual fix:      In this notebook&#x27;s setup cell, at its top, fill in the line connect(...) under its from warehouse import line with your connection, such as connect(example_database) in the Example projects, then run that cell again.
+  Usual fix:      In this notebook&#x27;s setup cell, at its top, fill in the line connect(...) under its from warehouse import line with your connection, such as connect(conn), where conn is your team&#x27;s connection, then run that cell again.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>This page connects to the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs before you touch a real table. <code>example_database.query</code> runs Hive on its nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to:</p>
-<pre class="python">from sqlglot_composer import example_database
+<p>This page connects to the Example database, nine made-up tables the how-tos run on, so every how-to shows what it gives before you touch a real table. It doesn&#x27;t ship with the Toolbox, so in your own notebook leave out the two lines below and connect to your own warehouse, as above. <code>example_database.query</code> runs Hive on its nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to:</p>
+<pre class="python">import example_database
 connect(example_database)</pre>
 <p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame whose columns are named as the SELECT names them, and its <code>execute</code> runs Hive that changes something. Whatever your connection&#x27;s <code>execute</code> gives back, <code>execute</code> drops it. In this page, <code>query</code> and <code>execute</code> are always the two functions in warehouse.py, which pass each Hive string to the connection <code>connect</code> was given.</p>
 <p>If your connection gives rows some other way, as each row a dict or a tuple, change <code>query</code> in warehouse.py to turn them into a DataFrame. <code>_connection</code> there is the connection <code>connect</code> was given. A dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, gives its column names from its keys:</p>
@@ -382,7 +382,7 @@ query_without_column_names(&quot;SELECT 1 AS one, 2 AS two, 3 AS three&quot;)</p
 <p>A Table reference or Table folder you make in your file explorer isn&#x27;t in the registry, so nothing logs it, and <code>project.check()</code> reports it. Make each with its Project action, as the file map in step 6 says; <a href="#keep_the_project_in_order">Keep the Project in order</a> shows how to adopt one made by hand.</p>
 <h4>Next</h4>
 <ul><li>Write the Table references of the tables you read, many at once: <a href="#add_your_tables_references">Add your tables&#x27; references</a>.</li><li>Build a Statement on one of them, read its Hive and run it: <a href="#build_and_run_a_first_statement">Build and run a first statement</a>.</li><li>See a Project filled in: the Starter Example project, in the folder example_projects/starter, is much like the Project the Getting started how-tos build; its README says how the two differ.</li></ul>
-<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.check</code></p>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.check</code></p>
 </section>
 <section class="entry" id="add_your_tables_references">
 <h3>2. Add your tables&#x27; references <span class="badge getting-started">Getting started</span></h3>
@@ -426,6 +426,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)</pre>
 <p>Every step here passes that <code>query</code>; <code>execute</code> waits for a step that changes a table. Here it runs on the Example database, the made-up tables that ship inside the Toolbox, as <code>connect(example_database)</code> gives it; at work it is your own, and you name your own tables.</p>
 <p>Done when <code>connect(example_database)</code> runs without an error. Then step 2.</p>
@@ -964,7 +965,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p>A notebook that ran <code>from references import ops</code> keeps the tables ops had then. After <code>project.add_references</code> adds another, restart the notebook&#x27;s kernel, as its last line says, and run the import again: <code>ops</code> then gives the new table too.</p>
 <h4>Next</h4>
 <ul><li>Build a Statement on these tables, read its Hive and run it: <a href="#build_and_run_a_first_statement">Build and run a first statement</a>.</li><li>Describe a table that doesn&#x27;t exist yet, by hand: <a href="#describe_a_table_by_hand">Describe a table by hand</a>.</li><li>Read every column of the Project&#x27;s tables in one place, and check every Table reference at once: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Each function here has a Worked example in the gallery: <a href="examples.html#write_table_reference"><code>write_table_reference</code></a>, which writes one table&#x27;s file, <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#check_key"><code>check_key</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>check_key</code>, <code>check_table_reference</code>, <code>equals</code>, <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.write_decisions</code></p>
+<p class="names">Toolbox names used: <code>check_key</code>, <code>check_table_reference</code>, <code>equals</code>, <code>project.start</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.write_decisions</code></p>
 </section>
 <section class="entry" id="build_and_run_a_first_statement">
 <h3>3. Build and run a first statement <span class="badge getting-started">Getting started</span></h3>
@@ -1009,6 +1010,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -1445,7 +1447,7 @@ run_query(not_test, query)</pre>
 <p>Write the value in the column&#x27;s type: <code>equals(job_runs.job_id, 3)</code>.</p>
 <h4>Next</h4>
 <ul><li>Count and add up per group, join tables without counting a row twice, and read what the Toolbox says when it stops a Statement: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>Write the rare Hive the Toolbox has no function for, with your Table references in it: <a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#to_hive"><code>to_hive</code></a>, <a href="examples.html#show_hive"><code>show_hive</code></a>, <a href="examples.html#run_query"><code>run_query</code></a> and each Condition, such as <a href="examples.html#between"><code>between</code></a>, <a href="examples.html#is_in"><code>is_in</code></a> and <a href="examples.html#any_of"><code>any_of</code></a>, and the traps beside their fixes: <a href="examples.html#not_equals_drops_null"><code>not_equals</code> drops NULL</a> and <a href="examples.html#none_in_equals">None in <code>equals</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>first_look</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>at_least</code>, <code>between</code>, <code>is_in</code>, <code>contains</code>, <code>any_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
+<p class="names">Toolbox names used: <code>first_look</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>at_least</code>, <code>between</code>, <code>is_in</code>, <code>contains</code>, <code>any_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="count_join_and_stay_safe">
 <h3>4. Count, join and stay safe <span class="badge getting-started">Getting started</span></h3>
@@ -1489,6 +1491,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -2383,7 +2386,7 @@ statement() got an unexpected keyword argument &#x27;many_matches&#x27;</pre>
 <p>Copy the opt-out from the message as it is written.</p>
 <h4>Next</h4>
 <ul><li>Keep a Derived table such as <code>alerts_per_run</code> in a file of its own, and use it in every notebook that needs it: <a href="#share_building_blocks">Share Building blocks</a>.</li><li>Save a count like <code>per_job</code> as a table of your own, a Partition at a time: <a href="#save_a_table">Save a table</a>.</li><li>More joins, such as rows of one table with no match in another: <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#GROUP_BY"><code>GROUP_BY</code></a>, <a href="examples.html#HAVING"><code>HAVING</code></a>, <a href="examples.html#JOIN"><code>JOIN</code></a>, <a href="examples.html#LEFT_JOIN"><code>LEFT_JOIN</code></a> and <a href="examples.html#set_load_limits"><code>set_load_limits</code></a>, and the traps beside their fixes: <a href="examples.html#repeated_rows">repeated rows</a>, <a href="examples.html#left_join_then_where">a LEFT_JOIN then WHERE</a> and <a href="examples.html#jobs_that_never_ran">jobs that never ran</a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>at_least</code>, <code>between</code>, <code>is_in</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>max_of</code>, <code>fill_null</code>, <code>descending</code>, <code>show_hive</code>, <code>run_query</code>, <code>set_load_limits</code>, <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>at_least</code>, <code>between</code>, <code>is_in</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>max_of</code>, <code>fill_null</code>, <code>descending</code>, <code>show_hive</code>, <code>run_query</code>, <code>set_load_limits</code>, <code>project.start</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="share_building_blocks">
 <h3>5. Share Building blocks <span class="badge getting-started">Getting started</span></h3>
@@ -2427,6 +2430,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -2913,7 +2917,7 @@ runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x
 <p>Open the file that is there, or give the new block a name of its own.</p>
 <h4>Next</h4>
 <ul><li>Save a Statement&#x27;s rows in a Saved table, from a Table notebook: <a href="#save_a_table">Save a table</a>.</li><li>Save this block&#x27;s rows in a Saved table, and follow a column through the block and the Saved tables built on it: <a href="#follow_lineage">Follow lineage</a>.</li><li>Which file may import which, and the registry: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>The gallery&#x27;s Worked example of <a href="examples.html#derived"><code>derived</code></a>, and a long Statement built in named steps: <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
-<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.check</code></p>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.check</code></p>
 </section>
 <section class="entry" id="save_a_table">
 <h3>6. Save a table <span class="badge getting-started">Getting started</span></h3>
@@ -2959,6 +2963,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -3843,7 +3848,7 @@ int(rows[&quot;alerts&quot;].sum())</pre>
 <p>Open the notebook that is there instead. To start a table again, archive its folder first, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h4>Next</h4>
 <ul><li>Follow a Saved table&#x27;s columns back to the tables it reads, and write a table that reads another: <a href="#follow_lineage">Follow lineage</a>.</li><li>See it beside every other table&#x27;s columns, and keep the Project tidy: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Rewrite some of its Partitions, such as last week&#x27;s: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>How a Saved table is stored, and its Key: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> and <a href="#keys">Keys</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>export_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code>, <code>project.load</code>, <code>project.run_tables</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>export_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="follow_lineage">
 <h3>7. Follow lineage <span class="badge getting-started">Getting started</span></h3>
@@ -3890,6 +3895,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
@@ -5471,7 +5477,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p>Give <code>project.load</code> only a table with a Table folder, such as <code>&quot;mart.team_day&quot;</code>. A table the Project only reads has no write to draw: its columns are where each tree starts.</p>
 <h4>Next</h4>
 <ul><li>Find a column in the Reference sheet, check each Table reference against its table, and keep the Project tidy: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Compare a table&#x27;s Lineage before and after a change: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>More on a change made in Python: <a href="#declare_a_change_made_in_python">Declare a change made in Python</a>.</li><li>The gallery&#x27;s <a href="examples.html#export_lineage"><code>export_lineage</code></a> and <a href="examples.html#python_step"><code>python_step</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.load</code>, <code>project.run_tables</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="keep_the_project_in_order">
 <h3>8. Keep the Project in order <span class="badge getting-started">Getting started</span></h3>
@@ -5520,6 +5526,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -6551,7 +6558,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p>Each refresh writes the sheet again from the Table references, so a change typed into the CSV file is gone the next time. Write a description in the Table reference&#x27;s <code>descriptions={...}</code>, and an Alias below its Table(...) call, then refresh: the file is where it lives, and the sheet only shows it.</p>
 <h4>Next</h4>
 <ul><li>Start the Intermediate how-tos, from the Intermediate Example project, such as <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Move a Saved table that shares its folder: <a href="#move_a_saved_table_to_its_own_folder">Move a Saved table to its own folder</a>.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#check_key"><code>check_key</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>check_table_reference</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.remove_reference</code>, <code>project.register</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code></p>
+<p class="names">Toolbox names used: <code>check_table_reference</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.remove_reference</code>, <code>project.register</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code></p>
 </section>
 <section class="entry" id="convert_someone_elses_hive">
 <h3>9. Convert someone else&#x27;s Hive <span class="badge getting-started">Getting started</span></h3>
@@ -6621,7 +6628,8 @@ tables/mart__team_day/lineage/20260925-060000-mart__team_day.md
 tables/mart__team_day/mart__team_day.hql
 tables/mart__team_day/mart__team_day.ipynb
 warehouse.py</pre>
-<pre class="python">from sqlglot_composer import example_database, project, run_execute, hive_settings, show_hive
+<pre class="python">import example_database
+from sqlglot_composer import project, run_execute, hive_settings, show_hive
 from warehouse import connect, query, execute
 connect(example_database)
 databases = Path(&quot;admin/databases.py&quot;)
@@ -7612,7 +7620,7 @@ except ValueError as refused:
 <p>promote refuses a table whose compare hasn&#x27;t passed, so prod never gets rows that differ from the original&#x27;s. Compare each table, and fix it in dev until its compare passes, then promote.</p>
 <h4>Next</h4>
 <ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>latest_partition</code>, <code>run_value</code>, <code>example_database</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>latest_partition</code>, <code>run_value</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
 <section class="entry" id="describe_a_table_by_hand">
@@ -7722,6 +7730,7 @@ warehouse.py</pre>
 from sqlglot_composer import project
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)</pre>
 <p>Done when the four imports run without an error. Then step 3.</p>
 <h5>3. Decide what one row is</h5>
@@ -8100,7 +8109,7 @@ run_query(wrong_day, query)  # -&gt; DataFrame</pre>
 <p>Write the Table reference as the Usual fix says.</p>
 <h4>Next</h4>
 <ul><li>Create a Saved table from a Table reference and write rows into it, from its own Table notebook: <a href="#save_a_table">Save a table</a>.</li><li>Join your table to another without repeating rows, which is what <code>key=</code> is for: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>Rewrite some of a partitioned table&#x27;s Partitions, the days or the regions it holds: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#Table"><code>Table</code></a> and <a href="examples.html#create_table"><code>create_table</code></a>, and a Saved table built and written step by step: <a href="examples.html#saved_table">Worked example of a Saved table</a>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.register</code>, <code>project.check</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.register</code>, <code>project.check</code></p>
 </section>
 <section class="entry" id="latest_row_of_each_group">
 <h3>11. The latest row of each group, and the top N <span class="badge intermediate">Intermediate</span></h3>
@@ -8209,6 +8218,7 @@ warehouse.py</pre>
 from references import ops
 from references.ops__job_events import ends_a_run
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_events = ops.job_events  # -&gt; Table
 ends_a_run  # -&gt; Condition</pre>
@@ -8461,7 +8471,7 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 <p>The Toolbox stops it with a Guard, a check that refuses a Statement that would give a wrong result. Name it with <code>AS</code>, so the Statement that reads it can test it by that name.</p>
 <h4>Next</h4>
 <ul><li>Keep the numbering step as a Building block every Statement can call: <a href="#share_building_blocks">Share Building blocks</a>.</li><li>Each job&#x27;s row as it was on a given day, from a table that keeps a copy of itself every day: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>A rank, the row before, or a rolling sum, each over a Window: <a href="#look_across_rows">Look across rows</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#descending"><code>descending</code></a>, and the careless and fixed Statements side by side: <a href="examples.html#latest_and_top_n">latest and top N</a>.</li></ul>
-<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code></p>
 </section>
 <section class="entry" id="generate_statements_and_references">
 <h3>12. Generate Statements and Table references in a loop <span class="badge intermediate">Intermediate</span></h3>
@@ -8571,6 +8581,7 @@ warehouse.py</pre>
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)</pre>
 <p>Done when the four imports run without an error. Then step 3.</p>
 <h5>3. Check whether one Statement does it</h5>
@@ -9062,7 +9073,7 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 <p>Fill in <code>&quot;does_not_add_up&quot;</code> for every table: left out, nothing would refuse it, and the total would come out, and be wrong.</p>
 <h4>Next</h4>
 <ul><li>Checks of your data, such as no repeated Keys or no missing values, as Statements you could generate per table the same way: <a href="#check_data_quality">Check data quality</a>.</li><li>Write a range of a Saved table&#x27;s Partitions, in one write or in a loop of writes: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Compare a Lineage before and after you change the function that writes your Statements: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>The gallery&#x27;s <a href="examples.html#all_columns"><code>all_columns</code></a> entry, which gives a Table reference&#x27;s columns as a list to loop over, and <a href="examples.html#Table"><code>Table</code></a>, which says what each part of a Table reference does.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>Condition</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>Condition</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code></p>
 </section>
 <section class="entry" id="rewrite_some_partitions">
 <h3>13. Rewrite some partitions <span class="badge intermediate">Intermediate</span></h3>
@@ -9171,6 +9182,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)</pre>
 <p>Done when the three imports run without an error. Then step 3.</p>
 <h5>3. Load a Table notebook&#x27;s logic</h5>
@@ -9462,7 +9474,7 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 <p>Send each in turn, with a loop, as <code>send_each</code> does, or let <code>project.run_tables</code> send them.</p>
 <h4>Next</h4>
 <ul><li>Roll the days up into weeks and months, from a Saved table&#x27;s days: <a href="#rollups_and_subtotals">Rollups and subtotals</a>.</li><li>Look things up as of each day in a table that keeps a copy of itself every day, as <code>owner_on_day</code> does: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>See where each column of mart.team_days comes from, through the tables it reads: <a href="#follow_lineage">Follow lineage</a>.</li><li>Choose how a Saved table is stored, its Buckets and its compression: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>The gallery&#x27;s <a href="examples.html#saved_table">Saved table Worked example</a>, and its Worked examples of <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> and <a href="examples.html#hive_settings"><code>hive_settings</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>example_database</code>, <code>project.load</code>, <code>project.run_tables</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="look_things_up_as_of_a_day">
 <h3>14. Look things up as of a day <span class="badge intermediate">Intermediate</span></h3>
@@ -9571,6 +9583,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_events = ops.job_events  # -&gt; Table
 job_owners = ops.job_owners  # -&gt; Table</pre>
@@ -9800,7 +9813,7 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 <p>This is a Load limit, a check that protects the cluster. Filter the snapshot with the same days as the table it is joined to, in <code>WHERE</code> as the steps do, or in <code>ON=</code>, as <code>owner_on_day</code> does.</p>
 <h4>Next</h4>
 <ul><li>Roll the days up into weeks and months: <a href="#rollups_and_subtotals">Rollups and subtotals</a>.</li><li>Save each job&#x27;s day beside its team then, and rewrite the last few days as rows come in late: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Each job&#x27;s last row of a table, and the top N: <a href="#latest_row_of_each_group">The latest row of each group</a>.</li><li>The gallery&#x27;s <a href="examples.html#latest_and_top_n">latest run per job</a>, which shows why <code>max_of</code> on each column can mix values from different rows, and its Worked example of <a href="examples.html#row_number"><code>row_number</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code></p>
 </section>
 <section class="entry" id="rollups_and_subtotals">
 <h3>15. Rollups and subtotals <span class="badge intermediate">Intermediate</span></h3>
@@ -9911,6 +9924,7 @@ from sqlglot_composer import project
 from references import ops
 from references.ops__job_events import ends_a_run
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_events = ops.job_events  # -&gt; Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -10273,7 +10287,7 @@ statement(
 <p>Test it in <code>HAVING</code>, as <code>team_totals</code> does.</p>
 <h4>Next</h4>
 <ul><li>Save each day once, and rewrite the last few as rows come in late, so the weeks read from saved days: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Count, join and add up per group, without subtotals: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#week_start"><code>week_start</code></a>, <a href="examples.html#month_start"><code>month_start</code></a>, <a href="examples.html#count_distinct"><code>count_distinct</code></a>, <a href="examples.html#rollup"><code>rollup</code></a>, <a href="examples.html#cube"><code>cube</code></a>, <a href="examples.html#grouping_sets"><code>grouping_sets</code></a> and <a href="examples.html#is_total"><code>is_total</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>rollup</code>, <code>is_total</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>if_else</code>, <code>week_start</code>, <code>month_start</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.load</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>rollup</code>, <code>is_total</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>if_else</code>, <code>week_start</code>, <code>month_start</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.load</code></p>
 </section>
 <section class="entry" id="check_data_quality">
 <h3>16. Check data quality with Statements <span class="badge intermediate">Intermediate</span></h3>
@@ -10384,6 +10398,7 @@ from sqlglot_composer import project
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_owners = ops.job_owners  # -&gt; Table
 job_events = ops.job_events  # -&gt; Table
@@ -10604,7 +10619,7 @@ len(per_day)</pre>
 <p>Give each check the Partitions it checks, as <code>null_counts</code> takes them in <code>where</code>.</p>
 <h4>Next</h4>
 <ul><li>Check that a Statement gives the numbers you meant, against pandas, and review a change before you make it: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>Check a Saved table&#x27;s Key before every write: <a href="#keys">Keys</a>.</li><li>Put two tables&#x27; rows side by side, and find the ones that differ: <a href="#reconcile_two_tables">Reconcile two tables</a>.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> checks that a Table reference still matches its table, and <a href="examples.html#check_key"><code>check_key</code></a> checks its Key on the rows you pick.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>is_not_null</code>, <code>more_than</code>, <code>between</code>, <code>Condition</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.load</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>is_not_null</code>, <code>more_than</code>, <code>between</code>, <code>Condition</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.load</code></p>
 </section>
 <section class="entry" id="call_other_hive_functions">
 <h3>17. Call other Hive functions <span class="badge intermediate">Intermediate</span></h3>
@@ -10713,6 +10728,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_owners = ops.job_owners  # -&gt; Table
 job_events = ops.job_events  # -&gt; Table</pre>
@@ -10911,7 +10927,7 @@ WHERE
 <p>lag, lead, rank and the other window functions need OVER (...) after them, which <code>hive_function</code> can&#x27;t write, so it refuses them. For lag, lead, rank, dense_rank, ntile and row_number, its message names the Toolbox&#x27;s own function that writes it, such as <code>lag</code>, which takes a <code>window</code>; for the others, such as percent_rank, it says to work it out in pandas. Use the function the message names; <a href="#look_across_rows">Look across rows</a> shows the ones the Toolbox writes.</p>
 <h4>Next</h4>
 <ul><li>lag, rank and a rolling sum, each over a Window: <a href="#look_across_rows">Look across rows</a>.</li><li>Hive written by hand, beside your Table references, where no Toolbox function fits: <a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>average_of</code>, <code>fill_null</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>average_of</code>, <code>fill_null</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run_query</code></p>
 </section>
 <section class="entry" id="look_across_rows">
 <h3>18. Look across rows, then finish in pandas <span class="badge intermediate">Intermediate</span></h3>
@@ -11022,6 +11038,7 @@ from sqlglot_composer import project
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 job_events = ops.job_events  # -&gt; Table
 region_costs = ops.region_costs  # -&gt; Table</pre>
@@ -11515,7 +11532,7 @@ Duplicates in right:
 <p>Add up per job first, as <code>cost_per_job</code> does, then merge.</p>
 <h4>Next</h4>
 <ul><li>Check that a Statement, and what you do in pandas after it, give the numbers you meant: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>Each job&#x27;s last row, or its top N, kept with <code>row_number</code>: <a href="#latest_row_of_each_group">The latest row of each group</a>.</li><li><a href="#keys">Keys</a>: a Window keeps every row, so a Statement&#x27;s Key is its FROM table&#x27;s; a <code>row_number</code> kept at 1 gives one row per group.</li><li>The gallery&#x27;s <a href="examples.html#window"><code>window</code></a>, <a href="examples.html#lag"><code>lag</code></a> and <a href="examples.html#row_number"><code>row_number</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>window</code>, <code>rank</code>, <code>lag</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>example_database</code>, <code>project.register</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>window</code>, <code>rank</code>, <code>lag</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>project.register</code></p>
 </section>
 <section class="entry" id="review_and_test_a_change">
 <h3>19. Review and test a change <span class="badge intermediate">Intermediate</span></h3>
@@ -11626,6 +11643,7 @@ import pandas as pd
 from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 from references import ops
 job_events, job_owners = ops.job_events, ops.job_owners  # -&gt; Table, Table</pre>
@@ -12397,7 +12415,7 @@ result.to_dict(&quot;records&quot;) == most_first.to_dict(&quot;records&quot;)</
 <p>Work the oracle out from the rows themselves, as <code>oracle</code> does from <code>rows_of</code>, and count in a way of its own, apart from the Statement&#x27;s.</p>
 <h4>Next</h4>
 <ul><li><a href="#check_data_quality">Check data quality</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#declare_a_change_made_in_python">Declare a change made in Python</a>: a step whose Lineage is one box, naming the function to review.</li><li>The gallery&#x27;s <a href="examples.html#export_lineage"><code>export_lineage</code></a> and <a href="examples.html#derived"><code>derived</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>to_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>example_database</code>, <code>project.load</code></p>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>to_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>project.load</code></p>
 </section>
 <section class="entry" id="choose_how_a_saved_table_is_stored">
 <h3>20. Choose how a Saved table is stored <span class="badge intermediate">Intermediate</span></h3>
@@ -12506,6 +12524,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
@@ -13167,7 +13186,7 @@ Problems:
 <p>Give storage only in the Table reference of one of your own Saved tables, beside its <code>location=</code>.</p>
 <h4>Next</h4>
 <ul><li>Move a table that shares a folder: <a href="#move_a_saved_table_to_its_own_folder">Move a Saved table to its own folder</a>.</li><li>Statistics, small files and map joins: <a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a>.</li><li>Write some of a table&#x27;s Partitions again: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> entry, and <code>help(Table)</code>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>example_database</code>, <code>project.new_table</code>, <code>project.refresh_reference_sheet</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>project.new_table</code>, <code>project.refresh_reference_sheet</code></p>
 </section>
 <section class="entry" id="keys">
 <h3>21. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
@@ -13276,6 +13295,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 from references import ops
 job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_notes</pre>
@@ -13881,7 +13901,7 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p><code>unproven_key=True</code> doesn&#x27;t make the rows one per Key: it only stops the Toolbox saying they might not be. Make the rows one per Key with GROUP_BY, SELECT_DISTINCT or row_number first, and keep <code>unproven_key=True</code> for rows you know are one per Key.</p>
 <h4>Next</h4>
 <ul><li><a href="#count_join_and_stay_safe">Count, join and stay safe</a>: the repeated-rows Warning, which reads the Keys of the tables a Statement joins.</li><li><a href="#latest_row_of_each_group">The latest row of each group</a>: row_number, kept at 1 for each Key.</li><li><a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>: which joins keep a Key.</li><li>The gallery&#x27;s <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> and <a href="examples.html#check_key"><code>check_key</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>check_key</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>example_database</code>, <code>project.new_table</code>, <code>project.refresh_reference_sheet</code></p>
+<p class="names">Toolbox names used: <code>check_key</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run_query</code>, <code>export_lineage</code>, <code>project.new_table</code>, <code>project.refresh_reference_sheet</code></p>
 </section>
 <section class="entry" id="semi_anti_and_full_joins">
 <h3>22. Semi-, anti- and full joins <span class="badge intermediate">Intermediate</span></h3>
@@ -13990,6 +14010,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.job_runs&quot;, &quot;ops.scheduler_runs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO lines.
@@ -14537,7 +14558,7 @@ with_one + without</pre>
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h4>Next</h4>
 <ul><li><a href="#count_join_and_stay_safe">Count, join and stay safe</a>: <code>JOIN</code>, <code>LEFT_JOIN</code> and the repeated-rows Warning.</li><li><a href="#keys">Keys</a>: which joins keep a table&#x27;s Key.</li><li><a href="#reconcile_two_tables">Reconcile two tables</a>: <code>EXCEPT</code>, the other way to compare two records, row by row.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="examples.html#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="examples.html#FULL_JOIN"><code>FULL_JOIN</code></a> and <a href="examples.html#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>SEMI_JOIN</code>, <code>ANTI_JOIN</code>, <code>FULL_JOIN</code>, <code>RIGHT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>any_of</code>, <code>all_of</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>example_database</code>, <code>project.add_references</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>SEMI_JOIN</code>, <code>ANTI_JOIN</code>, <code>FULL_JOIN</code>, <code>RIGHT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>any_of</code>, <code>all_of</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="move_a_saved_table_to_its_own_folder">
 <h3>23. Move a Saved table to its own folder <span class="badge intermediate">Intermediate</span></h3>
@@ -14645,6 +14666,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import admin, project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 from references import mart
 job_day_facts = mart.job_day_facts  # -&gt; Table</pre>
@@ -14847,7 +14869,7 @@ admin.move_to_own_folder(ops.job_events, query=query_at_work)</pre>
 <p><code>admin.move_to_own_folder</code> gives no step that drops anything: the drop comes only from <code>admin.check_the_copy</code>, once the copy holds every row. A DROP written by hand, or <code>admin.drop_table</code>, sent before the check, can lose Partitions the copy doesn&#x27;t hold. Send the drop only as <code>admin.check_the_copy</code> gives it.</p>
 <h4>Next</h4>
 <ul><li>How a Saved table is stored, and why it needs a folder of its own: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Check every Table reference against its table: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Write some of a table&#x27;s Partitions again from their sources: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>The admin module&#x27;s other changes, each with its own entry in the gallery: <a href="examples.html#admin.drop_table"><code>admin.drop_table</code></a>, <a href="examples.html#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="examples.html#admin.add_columns"><code>admin.add_columns</code></a>, <a href="examples.html#admin.set_properties"><code>admin.set_properties</code></a>, <a href="examples.html#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a> and <a href="examples.html#admin.check_the_copy"><code>admin.check_the_copy</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>example_database</code>, <code>admin.move_to_own_folder</code>, <code>admin.check_the_copy</code>, <code>project.load</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>admin.move_to_own_folder</code>, <code>admin.check_the_copy</code>, <code>project.load</code></p>
 </section>
 <section class="entry" id="reconcile_two_tables">
 <h3>24. Reconcile two tables <span class="badge intermediate">Intermediate</span></h3>
@@ -14955,6 +14977,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py: fill in its TODO lines.
@@ -15264,7 +15287,7 @@ rows_of(teams_today)</pre>
 <p>Each Statement passed to <code>EXCEPT</code> is checked like any other: a read of a partitioned table must filter at least one of its partition columns, as <code>teams_on</code> filters <code>ops.job_owners</code> to one day. Reconcile a few Partitions, slices of the table that share one value of its partition columns, at a time, and loop over them in Python.</p>
 <h4>Next</h4>
 <ul><li><a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>: <code>FULL_JOIN</code>, which pairs the two records&#x27; rows and says which side each was found in.</li><li><a href="#keys">Keys</a>: the columns that name one row of a table, which a reconciliation often checks too.</li><li><a href="#check_data_quality">Check data quality</a>: counts and checks on one table.</li><li>The gallery&#x27;s <a href="examples.html#EXCEPT"><code>EXCEPT</code></a>, <a href="examples.html#INTERSECT"><code>INTERSECT</code></a>, <a href="examples.html#UNION"><code>UNION</code></a> and <a href="examples.html#UNION_ALL"><code>UNION_ALL</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>EXCEPT</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code>, <code>project.add_references</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>EXCEPT</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="keep_reads_and_joins_fast">
 <h3>25. Keep reads and joins fast <span class="badge intermediate">Intermediate</span></h3>
@@ -15371,6 +15394,7 @@ warehouse.py</pre>
 <p>Goal: the tables the steps read, by short names. mart.job_day_facts, each job&#x27;s events, runs and minutes per day beside its team, is one of the Project&#x27;s Saved tables, partitioned by dt:</p>
 <pre class="python">from sqlglot_composer import *
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 from references import mart, ops
 job_day_facts = mart.job_day_facts  # -&gt; Table
@@ -15505,7 +15529,7 @@ print(to_hive(repair))</pre>
 <p>A Session setting holds for the rest of a session. If your execute opens a new session for each call, each SET is gone before your Statement runs, and the Plan shows no change. A read goes through your query and a SET through your execute, so make both use one connection that keeps its session for every call.</p>
 <h4>Next</h4>
 <ul><li>Give a big table a second partition column, or Buckets: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Ask for a map join on one join, with <code>broadcast=True</code>: <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>.</li><li>Keep each Statement&#x27;s reads small, with Load limits: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#explain"><code>explain</code></a>, <a href="examples.html#compute_statistics"><code>compute_statistics</code></a> and <a href="examples.html#repair_partitions"><code>repair_partitions</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>all_of</code>, <code>count_rows</code>, <code>to_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>all_of</code>, <code>count_rows</code>, <code>to_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code></p>
 </section>
 <section class="entry" id="declare_a_change_made_in_python">
 <h3>26. Declare a change made in Python <span class="badge intermediate">Intermediate</span></h3>
@@ -15613,6 +15637,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 from references import ops
 from references.ops__job_events import ends_a_run  # -&gt; Condition
@@ -16662,7 +16687,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p>A Scheduled run, a notebook an outside scheduler runs, writes a Python step&#x27;s table itself, but only when the step is given <code>rows=</code>, the SELECT its function takes, as <code>python_step(add_minutes_over_median, reads=[...], writes=..., rows=rows())</code>: its rows are pulled through your query, given to the function, and what it gives back is saved through your execute. A step with no <code>rows=</code> is refused before the run sends anything. Give it <code>rows=</code>, or leave its table out of the run, <code>leave_out=[&quot;mart.run_speed&quot;]</code>, and save it from its own notebook, as cell 3 does: <a href="#schedule_a_run">Schedule a run</a>.</p>
 <h4>Next</h4>
 <ul><li>Compare the Lineage before and after you change the function: <a href="#review_and_test_a_change">Review and test a change</a>.</li><li>More of what pandas does with the rows <code>run_query</code> gives back: <a href="#look_across_rows">Look across rows</a>.</li><li>The gallery&#x27;s <a href="examples.html#python_step"><code>python_step</code></a> and <a href="examples.html#export_lineage"><code>export_lineage</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>between</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>python_step</code>, <code>example_database</code>, <code>project.new_table</code>, <code>project.new_block</code>, <code>project.load</code>, <code>project.run_tables</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>between</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>python_step</code>, <code>project.new_table</code>, <code>project.new_block</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="hand_written_hive_with_your_table_references">
 <h3>27. Hand-written Hive with your Table references <span class="badge intermediate">Intermediate</span></h3>
@@ -16770,6 +16795,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
+import example_database
 connect(example_database)
 project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py: fill in its TODO lines.
@@ -17355,7 +17381,7 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <p>At work that can be the whole of a big table. Filter its partition column yourself, as <code>busy_jobs</code> does with <code>{job_events.dt} = &#x27;2026-09-24&#x27;</code>.</p>
 <h4>Next</h4>
 <ul><li><a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>: the subquery above, written as a <code>SEMI_JOIN</code>, which the Toolbox checks and draws column by column.</li><li><a href="#call_other_hive_functions">Call other Hive functions</a>: a Hive function inside a Statement, rather than the whole Statement by hand.</li><li><a href="#follow_lineage">Follow lineage</a>: Lineage of Statements and Saved tables.</li><li>The gallery&#x27;s <a href="examples.html#unchecked_hive"><code>unchecked_hive</code></a> entry.</li></ul>
-<p class="names">Toolbox names used: <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>unchecked_hive</code>, <code>example_database</code>, <code>project.add_references</code></p>
+<p class="names">Toolbox names used: <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>unchecked_hive</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="upgrade_your_project_to_a_new_toolbox_version">
 <h3>28. Upgrade your Project to a new Toolbox version <span class="badge intermediate">Intermediate</span></h3>
@@ -18660,7 +18686,8 @@ tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
 tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
-<pre class="python">from sqlglot_composer import example_database, project, statement
+<pre class="python">import example_database
+from sqlglot_composer import project, statement
 from warehouse import connect, execute, query
 connect(example_database)</pre>
 <p>Done when the folder you work in holds the Project&#x27;s scheduled_runs/ folder. Then step 2.</p>
@@ -18861,7 +18888,7 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import Statement, project, statement
 from warehouse import connect, execute, query
 
-from sqlglot_composer import example_database
+import example_database
 connect(example_database)
 
 # %%
@@ -19075,7 +19102,7 @@ print(project.export_run_hive(&quot;team_day&quot;))</pre>
 <p>team_day.hql is what the run built when you exported it: the run builds its Hive again each time it runs, and never reads the file. Edit the notebook, save it, and export again.</p>
 <h4>Next</h4>
 <ul><li><a href="#declare_a_change_made_in_python">Declare a change made in Python</a>: a Python step&#x27;s table, which a Scheduled run writes too, given <code>rows=</code>.</li><li><a href="#follow_lineage">Follow lineage</a>: a Statement&#x27;s Lineage, column by column.</li></ul>
-<p class="names">Toolbox names used: <code>example_database</code>, <code>project.load</code>, <code>project.new_scheduled_run</code>, <code>project.build_run</code>, <code>project.export_run_hive</code>, <code>project.describe_logic</code></p>
+<p class="names">Toolbox names used: <code>project.load</code>, <code>project.new_scheduled_run</code>, <code>project.build_run</code>, <code>project.export_run_hive</code>, <code>project.describe_logic</code></p>
 </section>
 </main>
 <script>

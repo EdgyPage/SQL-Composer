@@ -27,6 +27,7 @@ import pytest
 import example_gallery
 import generated_memo
 import how_to_page
+import example_database
 import sqlglot_composer
 from offline_policy import external_references
 from conftest import FOLDER, PRODUCT, gallery_sections, page_text, toolbox_folder
@@ -199,7 +200,7 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
                 assert imported <= PUBLIC | {"admin", "project"}, ast.unparse(node)
             if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
                     and node.value.id == "example_database"):
-                assert hasattr(sqlglot_composer.example_database, node.attr), ast.unparse(node)
+                assert hasattr(example_database, node.attr), ast.unparse(node)
     read = {name for tree in trees for name in names_of(tree)[1]}
     for span in spans:
         with contextlib.suppress(SyntaxError):
@@ -328,7 +329,7 @@ def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
 def test_a_refusal_on_the_page_is_the_toolbox_s_own_message() -> None:
     """Common mistakes show the message the step really stops with, not text pasted in."""
     toolbox = sqlglot_composer
-    job_runs = toolbox.example_database.job_runs
+    job_runs = example_database.job_runs
     with pytest.raises(toolbox.LoadRefused) as refused:
         toolbox.statement(toolbox.SELECT(job_runs.run_id), toolbox.FROM(job_runs),
                           toolbox.WHERE(toolbox.equals(job_runs.status, "FAILED")))
@@ -498,6 +499,7 @@ def a_how_to(tmp_path: Path, steps: str, name: str = "01_try_it.py",
 def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path: Path) -> None:
     """Common mistakes show the repeated-rows Warning as the step really gives it."""
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> import example_database
 >>> job_runs = example_database.job_runs
 >>> run_alerts = example_database.run_alerts
 >>> alerts = statement(
@@ -514,6 +516,7 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path: Path) -> Non
 
 def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> import example_database
 >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
 >>> job_runs = example_database.job_runs
 >>> failed = statement(
@@ -573,6 +576,7 @@ Next: at the top of each notebook, fill in connect(...) with your connection."""
 
 def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> import example_database
 >>> job_runs = example_database.job_runs
 >>> run_alerts = example_database.run_alerts
 >>> joined = JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))""")
@@ -586,6 +590,7 @@ def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path: Path) -> N
 # A Statement the Example database can't run: its executor has no TRUNC, which month_start
 # writes.
 MONTHS = """>>> from sqlglot_composer import *
+>>> import example_database
 >>> job_runs = example_database.job_runs
 >>> months = statement(
 ...     SELECT_DISTINCT(job_runs.dt, AS(month_start(job_runs.dt), "month")),

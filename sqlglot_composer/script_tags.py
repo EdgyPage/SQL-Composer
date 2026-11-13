@@ -199,8 +199,7 @@ def _is_built_of_values(node: Node) -> bool:
 def script_tag(text: str | Callable[[], object] | Hivevar) -> Column:
     """The value a Script tag stands for, written where the tag stood, as a Column.
 
-    >>> from sqlglot_composer import example_database
-    >>> runs = example_database.job_runs
+    >>> runs = job_runs
     >>> TAGS = {"PERIOD_END": "'2026-09-24'"}  # the Hive the program put there, quotes and all
     >>> print(to_hive(statement(
     ...     SELECT(runs.run_id),

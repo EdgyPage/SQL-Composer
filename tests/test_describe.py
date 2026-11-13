@@ -13,7 +13,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from sqlglot_composer import Table, check_table_reference, example_database
+import example_database
+from sqlglot_composer import Table, check_table_reference
 from sqlglot_composer.describe import (
     WAYS,
     INPUT_FORMATS,

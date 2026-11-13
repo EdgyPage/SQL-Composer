@@ -5,7 +5,6 @@ The two constants, TOOLBOX_VERSION and VERSION, are __init__.py's own.
 
 from __future__ import annotations
 
-from . import example_database
 from .calculations import (
     Ordering,
     average_of,
@@ -257,6 +256,4 @@ __all__ = [
     "repair_partitions",
     "compute_statistics",
     "explain",
-    # example_database.py
-    "example_database",
 ]

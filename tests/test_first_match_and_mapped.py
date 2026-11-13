@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -25,7 +26,6 @@ from sqlglot_composer import (
     average_of,
     between,
     equals,
-    example_database,
     export_lineage,
     fill_null,
     first_match,
@@ -37,7 +37,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from sqlglot_composer.example_database import job_runs
+from example_database import job_runs
 
 
 def test_first_match_writes_one_case_the_first_condition_that_holds_winning() -> None:

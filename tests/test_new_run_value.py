@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
-from sqlglot_composer import example_database, project
+import example_database
+from sqlglot_composer import project
 
 workflows = toolbox_module("workflows")
 

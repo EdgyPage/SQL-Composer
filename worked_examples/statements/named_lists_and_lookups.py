@@ -5,8 +5,9 @@ be found and changed in every one, where a constant at the top of the script, na
 it holds, is changed once.
 """
 
+import example_database
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, Statement, between, example_database, first_match, is_in, mapped,
+    AS, FROM, SELECT, WHERE, Statement, between, first_match, is_in, mapped,
     more_than, statement,
 )
 

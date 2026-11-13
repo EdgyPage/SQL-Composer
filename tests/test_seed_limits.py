@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules
 
-from sqlglot_composer import Table, example_database, project, seed_copy, to_hive
+import example_database
+from sqlglot_composer import Table, project, seed_copy, to_hive
 
 LOG = Table("mart_dev.team_log", columns={"run_id": "bigint", "dt": "string",
                                           "team": "string", "batch_no": "int"},

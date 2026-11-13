@@ -219,10 +219,9 @@ Each notebook runs on its own, so each gives its connection at its top, in its s
 connect(your_connection), before it calls query or execute; until it does, they refuse. Your
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
-back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which of query and execute sends each Statement, by
-calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
-execute) for what changes something, as a write does; a Scheduled run's Run cell,
+back, execute drops. You pick which of query and execute sends each Statement, by calling
+run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute)
+for what changes something, as a write does; a Scheduled run's Run cell,
 built.run(query, execute), picks for each of its Statements the same way. You edit nothing
 here, unless your connection names its two calls another way: then change the calls query and
 execute make below, and the names connect checks for, ("query", "execute"), to yours. Let your
@@ -241,8 +240,8 @@ _connection = None
 
 
 def connect(connection: object) -> None:
-    """Set the connection query and execute pass each Hive string to, such as
-    connect(example_database): an object with a query(sql) and an execute(sql)."""
+    """Set the connection query and execute pass each Hive string to, such as connect(conn),
+    where conn is your team's connection: an object with a query(sql) and an execute(sql)."""
     global _connection
     missing = [call for call in ("query", "execute")
                if not callable(getattr(connection, call, None))]
@@ -255,7 +254,7 @@ def connect(connection: object) -> None:
             "query(sql), and execute each one that changes something to its execute(sql), "
             "so your connection needs both.",
             fix="Pass connect(...) the connection itself, the object with both, such as "
-            "connect(example_database) in the Example projects. If yours names them another "
+            "connect(conn), where conn is your team's connection. If yours names them another "
             "way, change the functions in your Project's warehouse.py: the names connect "
             "checks for, (\"query\", \"execute\"), and the calls query and execute make.",
             error=TypeError,
@@ -285,8 +284,8 @@ def _check_connected(call: str) -> None:
             "its top: a connection given in another notebook, or before this one's kernel "
             "restarted, isn't this one's.",
             fix="In this notebook's setup cell, at its top, fill in the line connect(...) "
-            "under its from warehouse import line with your connection, such as "
-            "connect(example_database) in the Example projects, then run that cell again.",
+            "under its from warehouse import line with your connection, such as connect(conn), "
+            "where conn is your team's connection, then run that cell again.",
             error=RuntimeError,
         )
 
@@ -1389,12 +1388,12 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     '''Write a Run value: a function giving a table's latest Partition.
 
     >>> from pathlib import Path
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> _ = project.add_references(["ops.job_runs"], query=query)
     >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
     Wrote period_end into building_blocks/run_values.py: the latest Partition of
     ops.job_runs, by dt.
@@ -1665,12 +1664,12 @@ def add_references(names: str | list[str],
                    **removed: object) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     ops.jobs: its Key proposed, (job_id), checked with check_key:
       ops.jobs: the key (job_id) holds.
@@ -2220,7 +2219,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
                  change: Statement | None = None) -> ProjectReport:
     """Run every step left of a Workflow, up to the first only you can do.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -2232,8 +2231,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     ...     "TABLES = []", "TABLES = ['ops.job_events']").replace(
     ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': 'proposed'}}"),
     ...     encoding="utf-8")
-    >>> project.run_workflow("references", query=example_database.query,
-    ...                      execute=example_database.execute)
+    >>> project.run_workflow("references", query=query, execute=execute)
       references: 1. Write the Table references from DESCRIBE
         Wrote references/ops__job_events.py: fill in its TODO lines.
         ops.job_events: its Key proposed, (event_id), checked with check_key:
@@ -2867,7 +2865,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
             overwrite: bool = False, staging: dict[str, str] | None = None) -> ProjectReport:
     """Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -2880,7 +2878,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     ...     SELECT r.run_id, r.status
     ...     FROM ops.job_runs r
     ...     WHERE r.dt = '2026-09-24' AND r.status = 'FAILED' ''',
-    ...     query=example_database.query, database="ops"))
+    ...     query=query, database="ops"))
     Converted failed_runs: 1 script, 1 statement, into 1 Saved table in mart_dev:
     mart_dev.failed_runs.
     Added Table references, from DESCRIBE: references/ops__job_runs.py.
@@ -4368,7 +4366,7 @@ def _scan_report_text(name: str, lines: list[str]) -> str:
 def batch_tables(name: str, seeded: bool = False) -> list[str]:
     """The Saved tables a batch made in your Dev Database, in the order they run.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -4379,7 +4377,7 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
+    ...                     query=query, database="ops")
     >>> project.batch_tables("spare")
     ['mart_dev.spare']
 
@@ -4421,7 +4419,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
                   **removed: object) -> ProjectReport:
     """Compare each Saved table a batch made in dev with the table it copies.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -4432,8 +4430,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
-    >>> print(project.compare_batch("spare", query=example_database.query))
+    ...                     query=query, database="ops")
+    >>> print(project.compare_batch("spare", query=query))
     mart_dev.spare: failed, couldn't compare: The Example database couldn't run this Hive: it
     has no table mart_dev.spare.
 
@@ -4544,12 +4542,12 @@ def write_decisions(answers: dict[str, dict[str, object]],
                     tables: str | list[str] | None = None) -> ProjectReport:
     """Write each answer of a decisions cell into its table's Table reference.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references("ops.team_notes", query=example_database.query)
+    >>> _ = project.add_references("ops.team_notes", query=query)
     >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
     Wrote 1 answer into references/ops__team_notes.py.
     ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits on
@@ -6217,7 +6215,7 @@ def _prod_blocks_edited_lines(root: Path, blocks: dict[str, str]) -> list[str]:
 def remove_conversion(name: str | list[str]) -> ProjectReport:
     """Archive a batch's folder you no longer want, into admin/removed/.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -6228,7 +6226,7 @@ def remove_conversion(name: str | list[str]) -> ProjectReport:
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
+    ...                     query=query, database="ops")
     >>> project.remove_conversion("spare")
     Moved admin/workflows/convert/spare/ to admin/removed/...-spare/.
 
@@ -6401,12 +6399,12 @@ def _what_happened(refusal: str) -> str:
 def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> project.add_references(["ops.run_alerts"], query=example_database.query)
+    >>> project.add_references(["ops.run_alerts"], query=query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
       ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23',
@@ -6884,12 +6882,12 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     """Write a Saved table's Table reference from its logic.
 
     >>> from pathlib import Path
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> _ = project.add_references(["ops.job_runs"], query=query)
     >>> _ = project.new_table("mart_dev.daily_runs")
     >>> # Only to stand in for writing its logic in its notebook, and saving it:
     >>> notebook = Path("tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb")
@@ -7349,7 +7347,6 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
 
     >>> import os
     >>> from sqlglot_composer import FROM, SELECT, WHERE, equals, project, statement
-    >>> from sqlglot_composer.example_database import job_runs
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -7541,7 +7538,7 @@ def export_run_lineage(name: str | list[str]) -> ProjectReport:
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\n# logic\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n"
-    ...     "from sqlglot_composer.example_database import jobs\n"
+    ...     "jobs = Table('ops.jobs', columns={'job_id': 'bigint', 'team': 'string'})\n"
     ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\n"
     ...     "              location='/data/your_team/mart.db/job_teams')\n"
     ...     "def write():\n"
@@ -7614,7 +7611,7 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\n# logic\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n"
-    ...     "from sqlglot_composer.example_database import jobs\n"
+    ...     "jobs = Table('ops.jobs', columns={'job_id': 'bigint', 'team': 'string'})\n"
     ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\n"
     ...     "              location='/data/your_team/mart.db/job_teams')\n"
     ...     "def write():\n"

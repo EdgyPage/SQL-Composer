@@ -18,8 +18,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import example_database
 from sqlglot_composer import (
-    example_database,
     notebooks,
     project,
     run_query,

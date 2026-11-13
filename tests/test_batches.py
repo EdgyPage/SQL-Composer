@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
+import example_database
 from sqlglot_composer import (
-    example_database,
     hive_settings,
     project,
     run_execute,

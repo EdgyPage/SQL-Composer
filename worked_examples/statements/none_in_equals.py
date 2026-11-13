@@ -3,8 +3,9 @@
 Why: in SQL nothing equals NULL, not even NULL, so `status = NULL` matches no rows at all.
 """
 
+import example_database
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_null,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, is_null,
     statement,
 )
 

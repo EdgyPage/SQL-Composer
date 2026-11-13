@@ -9,7 +9,8 @@ from __future__ import annotations
 
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run_query
+import example_database
+from sqlglot_composer import run_query
 from statements import not_equals_drops_null as example
 
 

@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -25,7 +26,6 @@ from sqlglot_composer import (
     WHERE,
     at_most,
     compare_hive,
-    example_database,
     project,
     script_tag,
     statement,

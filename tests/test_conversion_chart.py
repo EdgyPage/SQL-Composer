@@ -17,7 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from sqlglot_composer import compare_with_original, example_database, project
+import example_database
+from sqlglot_composer import compare_with_original, project
 
 INTERMEDIATE = Path(__file__).parents[1] / "example_projects" / "intermediate"
 

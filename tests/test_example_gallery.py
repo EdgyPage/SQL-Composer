@@ -198,7 +198,7 @@ def test_a_statement_given_to_run_query_shows_its_hive() -> None:
                         "last_n_days", "row_number", "window", "descending", "to_hive"]),
         ("repeated_rows", ["SELECT", "AS", "FROM", "JOIN", "LEFT_JOIN", "WHERE", "GROUP_BY",
                            "statement", "derived", "equals", "between", "count_rows",
-                           "sum_of", "example_database", "Statement", "Table"]),
+                           "sum_of", "Statement", "Table"]),
     ],
 )
 def test_each_entry_lists_the_toolbox_names_its_python_uses(
@@ -264,7 +264,8 @@ def test_a_statement_given_to_run_query_also_shows_its_result_as_a_table() -> No
 
 
 def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days() -> None:
-    from sqlglot_composer import between, example_database, last_n_days
+    import example_database
+    from sqlglot_composer import between, last_n_days
 
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
     assert 'write between(job_runs.dt, "2026-09-23", "2026-09-24") in its place' in shown
@@ -288,7 +289,7 @@ def test_a_scripts_statements_are_found_on_the_example_day() -> None:
 
     from sqlglot_composer import conditions
     from sqlglot_composer import FROM, SELECT, statement
-    from sqlglot_composer.example_database import jobs
+    from example_database import jobs
 
     script = types.ModuleType("a_worked_example")
 

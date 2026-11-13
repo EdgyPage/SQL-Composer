@@ -12,7 +12,7 @@ it:
   it reads its caller's variable names from the calling frame);
 - `ProjectReport` and `Verdict`, every Project action's report and every check's verdict, as
   each prints;
-- `example_database.query`, every set of rows, as CSV.
+- `example_database.query`, dev's Example database's, every set of rows, as CSV.
 
 Each is kept as a short hash in `tests/snapshot/known.txt`. Before it is hashed, the run's temp
 folders are written as `<tmp>` everywhere; in a message, printed text or report, its times and
@@ -31,6 +31,7 @@ from __future__ import annotations
 import builtins
 import functools
 import hashlib
+import importlib
 import os
 import re
 import sys
@@ -131,7 +132,7 @@ def install(toolbox: Callable[[str], ModuleType], basetemp: str) -> None:
     for module, name, kind, text_of in (
         (package, "_four_part_message", "message", str),
         (toolbox("writing"), "sql_text", "hive", str),
-        (toolbox("example_database"), "query", "rows", rows_as_text),
+        (importlib.import_module("example_database"), "query", "rows", rows_as_text),
     ):
         original = getattr(module, name)
         replace_everywhere(original, recorded_function(kind, original, text_of))

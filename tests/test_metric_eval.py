@@ -17,7 +17,7 @@ import metric_eval
 import pytest
 from metric_eval_tasks import BY_ID, TASKS, MetricTask
 
-from sqlglot_composer import example_database
+import example_database
 
 
 def fenced(hive: str) -> str:

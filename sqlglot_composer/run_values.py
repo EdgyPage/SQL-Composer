@@ -166,8 +166,7 @@ def run_value(function: Callable[..., object], *arguments: object,
     """What a function gives, worked out each time the Statement is built, and traced.
 
     >>> import datetime
-    >>> from sqlglot_composer import example_database
-    >>> runs = example_database.job_runs
+    >>> runs = job_runs
     >>> def days_before(day: datetime.date, days: int) -> datetime.date:
     ...     return day - datetime.timedelta(days=days)
     >>> print(to_hive(statement(
@@ -437,8 +436,7 @@ def hivevars_given(given: dict[str, object]) -> Iterator[HivevarsGiven]:
 def hivevar(name: str, *, default: str | Callable[[], object]) -> Hivevar:
     """An answer to a Script tag that the warehouse fills in each time the Hive runs.
 
-    >>> from sqlglot_composer import example_database
-    >>> runs = example_database.job_runs
+    >>> runs = job_runs
     >>> TAGS = {"PERIOD_END": hivevar("PERIOD_END", default="'2026-09-24'")}
     >>> print(to_hive(statement(
     ...     SELECT(runs.run_id),
@@ -634,8 +632,7 @@ def latest_partition(column: Column,
                      query: Callable[[str], object] | None = None) -> datetime.date | int | str:
     """The newest value of a partition column, from the warehouse's SHOW PARTITIONS.
 
-    >>> from sqlglot_composer import example_database
-    >>> latest_partition(example_database.job_runs.dt, example_database.query)
+    >>> latest_partition(job_runs.dt, query)
     datetime.date(2026, 9, 24)
 
     It sends SHOW PARTITIONS for the column's table through your query, which lists each

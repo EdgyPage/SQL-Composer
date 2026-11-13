@@ -15,8 +15,9 @@ from pathlib import Path
 import pytest
 from conftest import forget_the_projects_modules
 
+import example_database
 from sqlglot_composer import (
-    equals, example_database, fill_null, first_match, hive_function, if_else, mapped, max_of,
+    equals, fill_null, first_match, hive_function, if_else, mapped, max_of,
     min_of, project,
 )
 

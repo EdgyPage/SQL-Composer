@@ -54,7 +54,7 @@ import eval_memo  # noqa: E402
 from copilot_eval import EXAMPLE_TABLES  # noqa: E402
 from metric_eval_tasks import BY_ID, TASKS, USER_RULES, MetricTask  # noqa: E402
 
-from sqlglot_composer import example_database  # noqa: E402
+import example_database  # noqa: E402
 
 FILE_19 = ROOT / "copilot" / "19_metric_request.txt"
 

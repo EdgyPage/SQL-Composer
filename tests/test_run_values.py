@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -33,7 +34,6 @@ from sqlglot_composer import (
     between,
     count_rows,
     equals,
-    example_database,
     hive_date,
     hive_function,
     latest_partition,

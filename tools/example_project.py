@@ -177,8 +177,8 @@ HOW = (
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
 # Each notebook's line connect(...), as the Example projects fill it in: the Example database
-# is their connection (Toolbox 8.6).
-EXAMPLE_CONNECTION = "from sqlglot_composer import example_database\nconnect(example_database)"
+# is their connection (Toolbox 8.6), imported from beside the Toolbox, dev's alone (8.7).
+EXAMPLE_CONNECTION = "import example_database\nconnect(example_database)"
 
 
 def saved_and_converted_tables(name: str) -> list[str]:
@@ -305,7 +305,8 @@ def write_here(name: str) -> None:
 
 def _add_references(name: str, folder: Path) -> None:
     """Write the Example database's Table references, then fill in their TODO lines."""
-    from sqlglot_composer import example_database, project
+    import example_database
+    from sqlglot_composer import project
 
     project.add_references(list(FILLED_IN[name]), query=example_database.query)
     for table, filling in FILLED_IN[name].items():
@@ -348,7 +349,8 @@ def _add_conversions(name: str, folder: Path) -> None:
     """Convert each Conversion's Hive and finish it: its marks decided by keeping each
     opt-out, its Table reference filled in from the project's hand-written source, which makes
     each Decision."""
-    from sqlglot_composer import converting, example_database, notebooks, project
+    import example_database
+    from sqlglot_composer import converting, notebooks, project
 
     source = SOURCES / name
     databases = folder / "admin" / "databases.py"
@@ -457,7 +459,8 @@ def connected_text(text: str, placeholder: str) -> str:
 def _same_rows(table: str, original: str) -> Callable[[str], pd.DataFrame]:
     """A query reading the Example database, a converted table and its original each read as
     the rows its converted query gives, and SHOW PARTITIONS answered with the day it writes."""
-    from sqlglot_composer import example_database, project, to_hive
+    import example_database
+    from sqlglot_composer import project, to_hive
 
     rows = to_hive(project.load(table).preview())
 
@@ -513,7 +516,8 @@ def _export_scheduled_runs(name: str) -> None:
     """Write each Scheduled run's built Hive, <name>.hql, and its lineage into its folder, as
     admin/scheduled_runs.ipynb's cells do, by hand: connected first, as its cell under the
     Project's path connects, since a Run value of the run reads the warehouse to build."""
-    from sqlglot_composer import example_database, project
+    import example_database
+    from sqlglot_composer import project
     from warehouse import connect
 
     runs = SCHEDULED_RUNS[name]

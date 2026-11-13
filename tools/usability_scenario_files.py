@@ -40,7 +40,8 @@ import usability_loop  # noqa: E402
 from how_to_page import project_on_the_path, times_pinned  # noqa: E402
 from workflow_warehouse import SavedWarehouse  # noqa: E402
 
-from sqlglot_composer import TOOLBOX_VERSION, admin, equals, example_database, project  # noqa: E402
+import example_database  # noqa: E402
+from sqlglot_composer import TOOLBOX_VERSION, admin, equals, project  # noqa: E402
 from sqlglot_composer import notebooks, run_execute  # noqa: E402
 
 FOLDER = usability_loop.SCENARIOS

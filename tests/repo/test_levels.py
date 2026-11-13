@@ -9,7 +9,8 @@ Level 1
 `building_blocks/`, and Level 2 each Table notebook's logic cell, the code cell that starts
 `# logic`. A Database module, such as `references/ops.py`, is Level 0 too, and the one Level 0
 script that imports Level 0 scripts: its Database's Table references, each by its own file.
-Most Worked examples read the Example database's Table references, inside the Toolbox;
+Most Worked examples read the Example database's Table references, beside the Toolbox and dev's
+alone since 8.7, which are Level 0 as `references/` is;
 `references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what the Toolbox may import (pandas and numpy, from
 `tools/toolbox_registry.py`), and the Toolbox only from its top level, as
@@ -38,7 +39,8 @@ LEVELS = {"references": 0, "building_blocks": 1, "statements": 2}
 # A script that runs the Statements of every Level in order sits above them all.
 ABOVE_THE_LEVELS = 3
 # Each name a script imports its Level's scripts by, with that Level.
-IMPORTED_LEVELS = dict(LEVELS)
+# The Example database's Table references are Level 0, as references/ is.
+IMPORTED_LEVELS = {**LEVELS, "example_database": 0}
 # A Project's Levels, by the name each is imported by: warehouse.py is Level 0, beside
 # references/.
 PROJECT_LEVELS = {"references": 0, "warehouse": 0, "building_blocks": 1}
@@ -178,7 +180,7 @@ def test_the_levels_check_lets_the_usual_imports_through() -> None:
     source = (
         "import datetime\n"
         "import pandas as pd\n"
-        "from sqlglot_composer import FROM, SELECT, example_database\n"
+        "from sqlglot_composer import FROM, SELECT\n"
         "from building_blocks.alerts_per_run import alerts_per_run\n"
     )
     assert level_problems(source, 2) == []

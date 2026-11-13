@@ -24,9 +24,9 @@ from sqlglot_composer import notebooks, project, set_admin_log
 STEM = "20261109-093000-weekly"
 # mart.teams' logic, with Session settings sent before its writes.
 WITH_SETTINGS = LOGIC["mart.teams"].replace(
-    "from sqlglot_composer.example_database import jobs",
+    "from example_database import jobs",
     "from sqlglot_composer import hive_settings\n"
-    "from sqlglot_composer.example_database import jobs") + '''
+    "from example_database import jobs") + '''
 
 def session_settings():
     return hive_settings("map_joins")
@@ -38,7 +38,7 @@ import datetime
 
 from sqlglot_composer import (AS, FROM, INSERT_OVERWRITE, SELECT, Statement, Table,
                               count_rows, statement)
-from sqlglot_composer.example_database import jobs
+from example_database import jobs
 
 team_days = Table("mart.team_days", columns={"team": "string", "jobs": "bigint"},
                   location="/data/your_team/mart.db/team_days")

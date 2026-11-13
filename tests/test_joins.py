@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import example_database
 from sqlglot_composer import (
     ANTI_JOIN,
     AS,
@@ -41,7 +42,6 @@ from sqlglot_composer import (
     count_rows,
     derived,
     equals,
-    example_database,
     export_lineage,
     fill_null,
     is_null,

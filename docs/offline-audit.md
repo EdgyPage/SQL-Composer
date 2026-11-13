@@ -170,8 +170,9 @@ return compile(sql, sql, "eval", optimize=2)   # sqlglot/executor/python.py:95
 return eval(code, self.env)                    # sqlglot/executor/context.py:46
 ```
 
-- **What it is.** sqlglot Composer's Example database runs a Statement's Hive on sqlglot's
-  executor (`sqlglot_composer/engine.py:395`), which turns each expression into Python and
+- **What it is.** sqlglot Composer's Example database, dev's alone since 8.7, runs a
+  Statement's Hive on sqlglot's executor (`example_database/executor.py:908`, before 8.7
+  `sqlglot_composer/engine.py:395`), which turns each expression into Python and
   evaluates it over the made-up tables. String literals are escaped as they are written
   (`STRING_ESCAPES = ["\\"]`, `sqlglot/executor/python.py:555`).
 - **Risk.** Low. It is code execution of text the Toolbox itself wrote, not network, and only

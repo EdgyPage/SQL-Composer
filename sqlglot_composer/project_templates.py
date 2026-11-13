@@ -21,7 +21,7 @@ from __future__ import annotations
 
 # The line of a notebook's setup cell the user fills in with their connection: each notebook
 # runs on its own, so each gives warehouse.py its connection at its top (Toolbox 8.6). The
-# Example projects fill it in as connect(example_database).
+# Example projects, on dev, fill it in with dev's Example database.
 CONNECT_PLACEHOLDER = "# connect(your_connection)"
 # What a notebook's setup cell holds under its import from warehouse, in every notebook the
 # Toolbox writes that reaches the warehouse: the comment, then the line to fill in.

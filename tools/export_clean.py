@@ -363,10 +363,7 @@ def cheat_sheet(groups: list[dict[str, str | list[list[str]]]]) -> str:
     """One Markdown section per Toolbox file, with one line per public name in it."""
     sections = []
     for group in groups:
-        lines = [f"### `{group['file']}`", ""]
-        # A file line that only repeats a name's own line (example_database.py) is left out.
-        if f"- {group['about']}" not in [line for _, line in group["names"]]:
-            lines += [group["about"], ""]
+        lines = [f"### `{group['file']}`", "", group["about"], ""]
         lines += [f"- `{name}` {line}" for name, line in group["names"]]
         sections.append("\n".join(lines))
     return "\n\n".join(sections)

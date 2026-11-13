@@ -1,7 +1,8 @@
 """Alerts counted per run, so joining them onto job_runs can't repeat a run."""
 
+import example_database
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, example_database,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, 
     statement,
 )
 

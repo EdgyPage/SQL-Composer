@@ -12,7 +12,8 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import Statement, example_database, run_query
+import example_database
+from sqlglot_composer import Statement, run_query
 from statements import (
     groups_and_top_n,
     jobs_that_never_ran,

@@ -55,7 +55,8 @@ edit:
 >>> import sqlglot_composer
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "starter", ".", dirs_exist_ok=True)
->>> from sqlglot_composer import example_database, project, run_execute, hive_settings, show_hive
+>>> import example_database
+>>> from sqlglot_composer import project, run_execute, hive_settings, show_hive
 >>> from warehouse import connect, query, execute
 >>> connect(example_database)
 >>> databases = Path("admin/databases.py")

@@ -1,5 +1,10 @@
 """The Example database: nine made-up tables, and a query and execute to try them.
 
+It is dev's alone, beside the Toolbox's folder, never in it (Toolbox 8.7, ticket 12): dev's
+tests, how-tos, Example projects, usability loop and evaluations run on it, and main shows what
+they give as pages. Import it as `import example_database`; the Toolbox's own docstring
+examples name its tables, `query` and `execute` alone, which dev's doctest run supplies.
+
 >>> runs = example_database.job_runs
 >>> run_query(statement(
 ...     SELECT(runs.run_id, runs.status, runs.duration_mins),
@@ -42,7 +47,7 @@ The last two aren't partitioned by a day:
 - `team_notes`: the notes each team wrote about its jobs, with no Key: nothing names one note,
   so a join onto it is warned about, since each row may match several notes.
 
-`query` runs a Statement's Hive on a small database of the Toolbox's own and gives back a
+`query` runs a Statement's Hive on a small database of dev's own and gives back a
 DataFrame, just like your own query at work. `execute` stands in for your execute: the Example
 database is never written to, so it prints the first line of the Hive and changes nothing.
 Neither reaches your warehouse, so it is safe to try anything here. Where query can't run a
@@ -83,12 +88,13 @@ import re
 
 import pandas as pd
 
-from .describe import StandIn
-from .engine import run_query
-from .refusals import refuse
-from .shared import in_words
-from .tables import Table
-from .unchecked import SAID
+from sqlglot_composer.describe import StandIn
+from sqlglot_composer.refusals import refuse
+from sqlglot_composer.shared import in_words
+from sqlglot_composer.tables import Table
+from sqlglot_composer.unchecked import SAID
+
+from .executor import run_query
 
 # --- The Table references -----------------------------------------------------------------
 # Each column's description is the comment DESCRIBE prints for it.
@@ -605,3 +611,11 @@ def execute(hive: str) -> None:
             given=hive, call="example_database.execute",
         )
     print(f"execute: {hive.strip().splitlines()[0]}")
+
+
+def doctest_names() -> dict[str, object]:
+    """What the Toolbox's docstring examples use besides its public names: each table by name,
+    such as job_runs, and query and execute, standing in for the user's own."""
+    names: dict[str, object] = {name: table for name, (table, _) in _TABLES.items()}
+    names.update(query=query, execute=execute)
+    return names

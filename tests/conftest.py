@@ -84,6 +84,37 @@ def toolbox_module(name: str = "") -> ModuleType:
     return importlib.import_module(f"{FOLDER}.{name}")
 
 
+def example_database() -> ModuleType:
+    """Dev's Example database, beside the Toolbox (Toolbox 8.7, ticket 12), imported after the
+    Toolbox, as toolbox_module imports it."""
+    toolbox_module()
+    return importlib.import_module("example_database")
+
+
+# Text the coming version's tickets changed in the Example projects before its Upgrade step is
+# written: a Project an Upgrade wrote is read with each old text as its new one until the step
+# rewrites it, then this is emptied. 8.7's ticket 12: the Example database left the Toolbox for
+# dev, so the Example projects import it from beside it; 8.7's step rewrites a Project's
+# import (ticket 14).
+AWAITING_ITS_REWRITE: dict[bytes, bytes] = {
+    b"from sqlglot_composer import example_database": b"import example_database"}
+
+
+def awaiting_its_rewrite(text: bytes) -> bytes:
+    """A file's text, each old text AWAITING_ITS_REWRITE lists read as its new one."""
+    for old, new in AWAITING_ITS_REWRITE.items():
+        text = text.replace(old, new)
+    return text
+
+
+def rewrite_what_awaits_its_step(folder: Path) -> None:
+    """Rewrite each notebook and script of the Project at `folder` as its coming Upgrade step
+    will, AWAITING_ITS_REWRITE's old text as its new, so the Project an Upgrade left runs."""
+    for path in folder.rglob("*"):
+        if path.suffix in (".py", ".ipynb") and "sqlglot_composer" not in path.parts:
+            path.write_bytes(awaiting_its_rewrite(path.read_bytes()))
+
+
 def forget_the_projects_modules() -> None:
     """Put away the modules a Project's notebooks import, which convert, load and a notebook's
     cells put there: the next test's Project imports its own."""
@@ -98,7 +129,7 @@ def example_rows(table: str) -> pd.DataFrame:
     It reads the rows the Example database holds directly, not through its query, so a pandas
     check doesn't rely on the query it checks.
     """
-    reference, rows = toolbox_module("example_database")._TABLES[table]
+    reference, rows = example_database()._TABLES[table]
     return pd.DataFrame(rows, columns=list(reference._columns))
 
 
@@ -266,7 +297,7 @@ def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
     would hold."""
     toolbox = toolbox_module()
     return pd.concat([toolbox.run_query(rows_of_days(module, day, day),
-                                        toolbox.example_database.query) for day in days],
+                                        example_database().query) for day in days],
                      ignore_index=True)
 
 

@@ -46,7 +46,7 @@ from sqlglot_composer import (
     to_hive,
 )
 from sqlglot_composer.clauses import Clause
-from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
+from example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 BASE = "/data/your_team/mart.db"

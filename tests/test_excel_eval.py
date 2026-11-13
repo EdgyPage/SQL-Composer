@@ -26,7 +26,7 @@ import excel_eval
 import offline_policy
 from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask
 from formula_workbook import as_text, build
-from sqlglot_composer import example_database
+import example_database
 
 # A table of the Example database, as a reference names it: ops.job_runs.
 EXAMPLE_TABLE = re.compile(r"ops[.](\w+)")

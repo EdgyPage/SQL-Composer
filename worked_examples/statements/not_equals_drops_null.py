@@ -6,8 +6,9 @@ No Guard catches this, since the Toolbox can't know which columns may be NULL; n
 docstring says so instead.
 """
 
+import example_database
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, Statement, any_of, count_rows, equals, example_database, is_null,
+    AS, FROM, SELECT, WHERE, Statement, any_of, count_rows, equals, is_null,
     not_equals, statement,
 )
 

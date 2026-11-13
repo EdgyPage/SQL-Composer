@@ -21,6 +21,7 @@ import pytest
 from offline_policy import external_references
 
 import sqlglot_composer
+import example_database
 from sqlglot_composer import (
     AS,
     FROM,
@@ -44,7 +45,6 @@ from sqlglot_composer import (
     derived,
     descending,
     equals,
-    example_database,
     export_lineage,
     fill_null,
     is_null,
@@ -190,9 +190,9 @@ def run_script(folder: Path, text: str) -> tuple[Path, Path]:
 
 
 SCRIPT = """
+    from example_database import job_runs, jobs
     from sqlglot_composer import (AS, FROM, JOIN, SELECT, WHERE, GROUP_BY, count_rows, equals,
-                              example_database, export_lineage, last_n_days, statement)
-    job_runs, jobs = example_database.job_runs, example_database.jobs
+                              export_lineage, last_n_days, statement)
     runs_per_team = statement(
         SELECT(jobs.team, AS(count_rows(), "runs")),
         FROM(job_runs),

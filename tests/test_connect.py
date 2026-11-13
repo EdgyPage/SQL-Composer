@@ -20,7 +20,8 @@ import pandas as pd
 import pytest
 from conftest import project_on_the_path, toolbox_module
 
-from sqlglot_composer import example_database, notebooks, project
+import example_database
+from sqlglot_composer import notebooks, project
 
 # The line each Toolbox notebook's setup cell holds for the user to fill in.
 PLACEHOLDER = "# connect(your_connection)"
@@ -84,7 +85,7 @@ def test_warehouse_py_holds_connect_query_and_execute(warehouse: ModuleType) -> 
     assert ast.unparse(defined["connect"].returns) == "None"
     assert ast.unparse(defined["query"].returns) == "pd.DataFrame"
     assert ast.unparse(defined["execute"].returns) == "None"
-    assert "conn = " not in text and "example_database" not in text.split('"""')[2]
+    assert "conn = " not in text and "example_database" not in text
 
 
 def test_query_and_execute_pass_each_hive_string_to_the_connection(
@@ -118,7 +119,7 @@ def test_before_connect_each_call_refuses(warehouse: ModuleType, call: str) -> N
     assert what.startswith("No connection: call connect(...) first.")
     assert f"{call}(...)" in what
     assert "Each notebook runs on its own" in why
-    assert "setup cell" in fix and "connect(example_database)" in fix
+    assert "setup cell" in fix and "connect(conn)" in fix
     assert opt_out == "none - this one can't be switched off."
 
 
@@ -133,7 +134,7 @@ def test_connect_refuses_a_connection_lacking_a_call(warehouse: ModuleType, give
     # Each call it lacks is named, both when it lacks both.
     assert f"has no {missing} to call" in what
     assert type(given).__name__ in what
-    assert "connect(example_database)" in fix
+    assert "connect(conn)" in fix
     assert "functions in your Project's warehouse.py" in fix
     # Nothing was connected: query still refuses.
     with pytest.raises(RuntimeError, match="No connection"):

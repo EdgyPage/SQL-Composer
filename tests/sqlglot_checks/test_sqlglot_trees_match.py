@@ -114,7 +114,7 @@ def test_two_trees_are_equal_exactly_when_their_sqlglot_trees_are() -> None:
 
 def test_a_hive_function_name_is_compared_whatever_its_case() -> None:
     from sqlglot_composer import hive_function
-    from sqlglot_composer.example_database import job_runs
+    from example_database import job_runs
 
     assert (hive_function("NVL", job_runs.status, "x")._tree
             == hive_function("nvl", job_runs.status, "x")._tree)

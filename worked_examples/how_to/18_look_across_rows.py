@@ -61,6 +61,7 @@ and execute:
 >>> import pandas as pd
 >>> from references import ops
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> job_events = ops.job_events  # -> Table
 >>> region_costs = ops.region_costs  # -> Table

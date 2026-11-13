@@ -61,6 +61,7 @@ below.
 >>> import pandas as pd
 >>> from references import ops
 >>> from warehouse import connect, query, execute
+>>> import example_database
 >>> connect(example_database)
 >>> job_owners = ops.job_owners  # -> Table
 >>> job_events = ops.job_events  # -> Table
