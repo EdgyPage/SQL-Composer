@@ -37,6 +37,55 @@ WHERE r.dt = '2026-09-24' AND r.status = 'FAILED' GROUP BY r.job_id;
 """
 END = ("CREATE TABLE IF NOT EXISTS mart_dev.fails (job_id BIGINT, fails BIGINT); "
        "INSERT OVERWRITE TABLE mart_dev.fails SELECT job_id, fails FROM mart.daily_fails")
+# A small main's README, its export stamp on line 1, and a `##` line inside code, which starts
+# no section; and its how-to page, two how-tos in the page around them.
+SMALL_README = """<!-- sqlglot Composer 9.9, exported 2026-11-10 07:18 - generated from dev -->
+# sqlglot Composer
+
+The top of the README.
+
+## 1. Start a Project
+
+Start it.
+
+```python
+## a comment in code, not a heading
+```
+
+## The Workflows
+
+Each Workflow.
+"""
+SMALL_HOW_TO_PAGE = """<html><body><h1>How-tos</h1>
+<section class="entry" id="start_a_project">
+<p>Start one.</p>
+</section>
+<section class="entry" id="follow_a_workflow">
+<p>Follow one.</p>
+</section>
+<script>the page's own</script>
+</body></html>
+"""
+# What T1's path reads of main (Toolbox 8.7, ticket 01).
+T1_READS = {"readme": ["sqlglot Composer", "The Workflows"], "how_tos": ["follow_a_workflow"],
+            "copilot": ["00_start_here.txt", "07_convert_hive.txt"]}
+
+
+def _write_small_main(main: Path) -> Path:
+    """Enough of main for a run that isn't built: a README, a Toolbox folder with its how-to
+    page, and the Copilot files' start and one file."""
+    (main / ".github").mkdir(parents=True)
+    (main / ".github" / "README.md").write_text(SMALL_README, encoding="utf-8")
+    (main / "sqlglot_composer").mkdir()
+    (main / "sqlglot_composer" / "shared.py").write_text("X = 1\n", encoding="utf-8")
+    (main / "sqlglot_composer" / "how_to.html").write_text(SMALL_HOW_TO_PAGE,
+                                                            encoding="utf-8")
+    (main / "copilot").mkdir()
+    for name in ("00_start_here.txt", "07_convert_hive.txt"):
+        (main / "copilot" / name).write_text(
+            (usability_loop.ROOT / "copilot" / name).read_text(encoding="utf-8"),
+            encoding="utf-8")
+    return main
 
 
 @pytest.fixture
@@ -44,6 +93,7 @@ def chosen(tmp_path: Path) -> usability_loop.Scenario:
     """A scenario, T1, whose key asks for mart_dev.fails, and one file holding DEV's name."""
     folder = tmp_path / "scenarios"
     (folder / "T1").mkdir(parents=True)
+    (folder / "T1" / "reads.json").write_text(json.dumps(T1_READS), encoding="utf-8")
     (folder / "T1" / "ran.hql").write_text(HIVE_RAN, encoding="utf-8")
     (folder / "T1" / "daily.hql").write_text("SELECT 1 AS x", encoding="utf-8")
     (folder / "T1" / "scenario.json").write_text(json.dumps({
@@ -66,14 +116,8 @@ def chosen(tmp_path: Path) -> usability_loop.Scenario:
 
 @pytest.fixture
 def main_tree(tmp_path: Path) -> Path:
-    """Enough of main for a run that isn't built: the Copilot files' start and one file."""
-    main = tmp_path / "main_tree"
-    (main / "copilot").mkdir(parents=True)
-    for name in ("00_start_here.txt", "07_convert_hive.txt"):
-        (main / "copilot" / name).write_text(
-            (usability_loop.ROOT / "copilot" / name).read_text(encoding="utf-8"),
-            encoding="utf-8")
-    return main
+    """Enough of main for a run that isn't built, as _write_small_main writes it."""
+    return _write_small_main(tmp_path / "main_tree")
 
 
 @pytest.fixture(scope="session")
@@ -297,22 +341,50 @@ def test_a_run_built_from_dev_holds_mains_tree(built_main: Path) -> None:
     assert not (built_main / "tools").exists() and not (built_main / ".scratch").exists()
 
 
-def test_mains_tree_hashes_the_same_whenever_it_was_built(built_main: Path,
-                                                          tmp_path: Path) -> None:
+def test_mains_parts_hash_the_same_whenever_it_was_built(built_main: Path,
+                                                         tmp_path: Path) -> None:
     # Toolbox 8.6, ticket 11: the export stamps when it ran, and from which commit, in
-    # version.txt and the README; the tree's hash leaves the stamp out, so a commit that
-    # changes nothing main ships keeps it.
-    hashed = usability_loop.main_tree_hash(built_main)
+    # version.txt and the README; each part's hash leaves the stamp out, so a commit that
+    # changes nothing main ships keeps it. Toolbox 8.7, ticket 01: main is hashed by part.
+    hashed = usability_loop.main_parts(built_main)
     again = tmp_path / "main"
     shutil.copytree(built_main, again)
-    version = again / "sqlglot_composer" / "version.txt"
-    text = version.read_text(encoding="utf-8")
-    stamp = re.search(r"exported [^\n]*", text)[0]
-    version.write_text(text.replace(stamp, f"exported 2027-01-01 00:00 from dev commit "
-                                           f"{'0' * 40}"), encoding="utf-8", newline="\n")
-    assert usability_loop.main_tree_hash(again) == hashed
+    for stamped in (again / "sqlglot_composer" / "version.txt",
+                    again / ".github" / "README.md"):
+        text = stamped.read_text(encoding="utf-8")
+        restamped = re.sub(r"exported \d{4}-\d\d-\d\d \d\d:\d\d(?: from dev commit \w+)?",
+                           f"exported 2027-01-01 00:00 from dev commit {'0' * 40}", text)
+        assert restamped != text
+        stamped.write_text(restamped, encoding="utf-8", newline="\n")
+    assert usability_loop.main_parts(again) == hashed
     (again / "copilot" / "00_start_here.txt").write_text("changed\n", encoding="utf-8")
-    assert usability_loop.main_tree_hash(again) != hashed
+    changed = usability_loop.main_parts(again)
+    assert changed["copilot"]["00_start_here.txt"] != hashed["copilot"]["00_start_here.txt"]
+    assert {**changed["copilot"], "00_start_here.txt": ""} == {
+        **hashed["copilot"], "00_start_here.txt": ""}
+    assert changed["toolbox"] == hashed["toolbox"] and changed["readme"] == hashed["readme"]
+
+
+def test_mains_readme_is_hashed_by_section_and_its_how_to_page_by_how_to(
+        main_tree: Path) -> None:
+    parts = usability_loop.main_parts(main_tree)
+    assert sorted(parts) == ["copilot", "how_tos", "readme", "toolbox"]
+    # The part above the first `##` heading goes by the README's title; a `##` line in code
+    # starts no section.
+    assert list(parts["readme"]) == ["sqlglot Composer", "1. Start a Project", "The Workflows"]
+    assert list(parts["how_tos"]) == ["start_a_project", "follow_a_workflow"]
+    assert list(parts["copilot"]) == ["00_start_here.txt", "07_convert_hive.txt"]
+    assert len(parts["toolbox"]) == 64
+
+
+def test_every_name_a_scenario_lists_is_on_main(built_main: Path) -> None:
+    # A renamed README section, how-to or Copilot file can't leave a scenario memoized on
+    # nothing: each name its list holds is a part of main as dev's last commit builds it.
+    parts = usability_loop.main_parts(built_main)
+    for scenario_id in sorted(path.name for path in usability_loop.SCENARIOS.iterdir()):
+        chosen = usability_loop.read_scenario(scenario_id)
+        assert chosen.reads["readme"] and chosen.reads["copilot"], scenario_id
+        assert usability_loop.missing_reads(chosen, parts) == [], scenario_id
 
 
 # --- Inputs recorded, and memoized (Toolbox 8.6, ticket 11) ----------------------------------
@@ -331,28 +403,78 @@ def test_a_run_records_its_inputs_the_same_for_each_run_given_the_same(
     inputs = _inputs(first)
     assert inputs["scenario"] == "T1" and inputs["commit"] == usability_loop.dev_commit()
     assert sorted(inputs["scenario_files"]) == ["daily.hql", "key.json", "ran.hql",
-                                                "scenario.json"]
+                                                "reads.json", "scenario.json"]
     assert len(inputs["phases"]) == 2 and inputs["project"] == {}
-    # The files of main the phases name: the README every message names, absent from this
-    # tree, and the Copilot file phase 2's job names.
+    # Main by part (Toolbox 8.7, ticket 01), and the files of main the phases name: the
+    # Copilot file phase 2's job names, but not the README every message names, which is
+    # hashed section by section.
+    assert sorted(inputs["main"]) == ["copilot", "how_tos", "named", "readme", "toolbox"]
     assert list(inputs["main"]["named"]) == ["copilot/07_convert_hive.txt"]
+    assert inputs["reads"] == T1_READS
     assert len(inputs["inputs_hash"]) == 64
     assert _inputs(second)["inputs_hash"] == inputs["inputs_hash"]
 
 
-@pytest.mark.parametrize("changed", ["a file of main", "a file of the scenario"])
-def test_a_runs_inputs_hash_changes_with_any_of_its_inputs(
-        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, changed: str) -> None:
+def _replace_in(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert old in text
+    path.write_text(text.replace(old, new), encoding="utf-8")
+
+
+# Each change, and whether T1's inputs hash changes with it: T1 lists the README's top and its
+# Workflows, the how-to follow_a_workflow and Copilot files 00 and 07.
+CHANGES = {
+    "a README section it lists": (".github/README.md", "Each Workflow.", "Each one.", True),
+    "a README section it doesn't list": (".github/README.md", "Start it.", "Start.", False),
+    "a how-to it lists": ("sqlglot_composer/how_to.html", "Follow one.", "Follow.", True),
+    "a how-to it doesn't list": ("sqlglot_composer/how_to.html", "Start one.", "Start.",
+                                 False),
+    "the how-to page around its how-tos": ("sqlglot_composer/how_to.html", "page's own",
+                                           "page's", True),
+    "a file of the Toolbox": ("sqlglot_composer/shared.py", "X = 1", "X = 2", True),
+    "a Copilot file it lists": ("copilot/07_convert_hive.txt", "Copilot file 07",
+                                "Copilot file seven", True),
+}
+
+
+@pytest.mark.parametrize("change", [*CHANGES, "a file of the scenario", "the list it reads"])
+def test_a_runs_inputs_hash_changes_only_with_what_its_scenario_reads(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, change: str) -> None:
     before = usability_loop.prepare(chosen, tmp_path / "run_1", main=main_tree,
                                     python=Path(sys.executable))
-    if changed == "a file of main":
-        (main_tree / "copilot" / "07_convert_hive.txt").write_text("changed\n",
-                                                                    encoding="utf-8")
+    folder = chosen.folder / "T1"
+    if change == "a file of the scenario":
+        _replace_in(folder / "daily.hql", "SELECT 1", "SELECT 2")
+        changes = True
+    elif change == "the list it reads":
+        (folder / "reads.json").write_text(json.dumps({**T1_READS, "how_tos": []}),
+                                           encoding="utf-8")
+        chosen = usability_loop.read_scenario("T1", chosen.folder)
+        changes = True
     else:
-        (chosen.folder / "T1" / "daily.hql").write_text("SELECT 2 AS x", encoding="utf-8")
+        path, old, new, changes = CHANGES[change]
+        _replace_in(main_tree / path, old, new)
     after = usability_loop.prepare(chosen, tmp_path / "run_2", main=main_tree,
                                    python=Path(sys.executable))
-    assert _inputs(after)["inputs_hash"] != _inputs(before)["inputs_hash"]
+    assert (_inputs(after)["inputs_hash"] != _inputs(before)["inputs_hash"]) is changes
+
+
+def test_a_scenario_listing_what_main_hasnt_is_refused(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    renamed = dataclasses.replace(chosen, reads={**T1_READS, "readme": ["Workflows"],
+                                                 "how_tos": ["follow_workflows"]})
+    with pytest.raises(ValueError, match="README section \"Workflows\" and how-to "
+                                         "follow_workflows"):
+        usability_loop.prepare(renamed, tmp_path / "run", main=main_tree,
+                               python=Path(sys.executable))
+
+
+def test_a_scenarios_list_of_what_it_reads_holds_only_readme_how_tos_and_copilot(
+        chosen: usability_loop.Scenario) -> None:
+    (chosen.folder / "T1" / "reads.json").write_text(json.dumps({"guides": ["x"]}),
+                                                     encoding="utf-8")
+    with pytest.raises(ValueError, match="guides"):
+        usability_loop.read_scenario("T1", chosen.folder)
 
 
 def test_a_project_brought_in_is_recorded_file_by_file_without_the_toolbox(
@@ -364,6 +486,7 @@ def test_a_project_brought_in_is_recorded_file_by_file_without_the_toolbox(
         "phases": [{"role": "technical", "job": "Change my_project."}],
         "project": "example_projects/starter"}), encoding="utf-8")
     (folder / "T2" / "key.json").write_text("{}", encoding="utf-8")
+    (folder / "T2" / "reads.json").write_text(json.dumps(T1_READS), encoding="utf-8")
     chosen = usability_loop.read_scenario("T2", folder)
     run = usability_loop.prepare(chosen, tmp_path / "run", main=main_tree,
                                  python=Path(sys.executable))
@@ -374,11 +497,10 @@ def test_a_project_brought_in_is_recorded_file_by_file_without_the_toolbox(
 
 
 def _fake_build(builds: list[str]) -> Callable[[Path, str], None]:
-    """A stand-in for build_main that notes each commit it builds and writes a README."""
+    """A stand-in for build_main that notes each commit it builds and writes a small main."""
     def build(into: Path, commit: str) -> None:
         builds.append(commit)
-        (into / ".github").mkdir(parents=True)
-        (into / ".github" / "README.md").write_text("# main\n", encoding="utf-8")
+        _write_small_main(into)
     return build
 
 
@@ -549,6 +671,60 @@ def test_a_recorded_run_names_its_inputs_and_a_memoized_scenario_isnt_prepared_u
     planned = usability_loop.plan(chosen, cache=None, main=main_tree)
     assert planned.startswith("T1: memoized: 3 runs passed")
     assert planned.endswith("T1-1, T1-2 and T1-3")
+
+
+def _record_runs(chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+                 names: list[str]) -> list[Path]:
+    """Each run named prepared, finished as the key asks and recorded."""
+    runs = []
+    for name in names:
+        run = usability_loop.prepare(chosen, tmp_path / name, main=main_tree,
+                                     python=Path(sys.executable), fresh=True)
+        _finish(run)
+        usability_loop.record(usability_loop.score(chosen, run), run, chosen)
+        runs.append(run)
+    return runs
+
+
+def test_plan_names_each_input_changed_since_the_scenarios_last_run(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
+    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+    _record_runs(chosen, main_tree, tmp_path, ["T1-1", "T1-2"])
+    _replace_in(main_tree / ".github" / "README.md", "Each Workflow.", "Each one.")
+    _replace_in(main_tree / ".github" / "README.md", "Start it.", "Start.")  # not listed
+    _replace_in(main_tree / "sqlglot_composer" / "shared.py", "X = 1", "X = 2")
+    planned = usability_loop.plan(chosen, cache=None, main=main_tree)
+    assert planned.startswith("T1: run it: no run recorded with these inputs")
+    assert planned.endswith('; changed since its last run, T1-2: the Toolbox folder and '
+                            'README section "The Workflows"')
+
+
+def test_runs_recorded_with_mains_whole_tree_are_run_again_never_memoized(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # Before Toolbox 8.7, ticket 01, inputs.json held one hash of main's whole tree, and the
+    # inputs hash was one hash of all its inputs. A row naming that hash runs once more.
+    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
+    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+    runs = _record_runs(chosen, main_tree, tmp_path, ["T1-1", "T1-2", "T1-3"])
+    results = usability_loop.RESULTS.read_text(encoding="utf-8")
+    for run in runs:
+        kept = usability_loop.KEPT / "runs" / run.name / "_loop" / "inputs.json"
+        inputs = json.loads(kept.read_text(encoding="utf-8"))
+        given = {"main": {"tree": "0" * 64, "named": inputs["main"]["named"]},
+                 **{part: inputs[part] for part in ("project", "warehouse", "scenario_files",
+                                                    "phases", "loop_files")}}
+        old_hash = usability_loop.text_hash(json.dumps(given, sort_keys=True))
+        results = results.replace(inputs["inputs_hash"][:16], old_hash[:16])
+        kept.write_text(json.dumps({"scenario": "T1", "commit": inputs["commit"], **given,
+                                    "inputs_hash": old_hash}), encoding="utf-8")
+    usability_loop.RESULTS.write_text(results, encoding="utf-8")
+    planned = usability_loop.plan(chosen, cache=None, main=main_tree)
+    assert planned.startswith("T1: run it: no run recorded with these inputs")
+    assert planned.endswith("; its last run, T1-3, was recorded with main's whole tree as one "
+                            "input")
 
 
 @pytest.mark.parametrize("path_first", [True, False], ids=["path first", "path last"])

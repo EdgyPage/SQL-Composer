@@ -13,6 +13,7 @@ to answer. And the committed scenarios are what their builder builds.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -46,7 +47,9 @@ def main_tree(tmp_path: Path) -> Path:
 
 
 def prepared_run(scenario_id: str, main_tree: Path, tmp_path: Path) -> Path:
-    chosen = usability_loop.read_scenario(scenario_id)
+    # Its list of what it reads of main left empty, as this main tree holds none of it.
+    chosen = dataclasses.replace(usability_loop.read_scenario(scenario_id),
+                                 reads={})
     return usability_loop.prepare(chosen, tmp_path / "run", main=main_tree,
                                   python=Path(sys.executable))
 

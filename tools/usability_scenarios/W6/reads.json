@@ -1,0 +1,20 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "1. Start a Project",
+  "9. Convert someone else's Hive",
+  "The Workflows"
+ ],
+ "how_tos": [
+  "start_a_project",
+  "convert_someone_elses_hive",
+  "follow_a_workflow",
+  "set_your_database_settings"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "07_convert_hive.txt",
+  "08_check_and_compare.txt",
+  "13_workflows.txt"
+ ]
+}

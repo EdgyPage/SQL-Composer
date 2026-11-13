@@ -1,0 +1,22 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "1. Start a Project",
+  "6. Save a table",
+  "The Workflows",
+  "Templates"
+ ],
+ "how_tos": [
+  "start_a_project",
+  "save_a_table",
+  "follow_a_workflow",
+  "set_your_database_settings"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "03_build_a_statement.txt",
+  "06_save_a_table.txt",
+  "08_check_and_compare.txt",
+  "14_workflows_new_tables_and_upkeep.txt"
+ ]
+}
