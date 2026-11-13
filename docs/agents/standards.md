@@ -119,13 +119,15 @@ or type checker holds them: the reviewer does.
 
 ## HTML pages
 
-The Toolbox's pages, each lineage page first, are written to the same care as its Python
-(Toolbox 8.7, ticket 04). The user's words: "maintain good code conventions for the html pages
-... add coding guidelines for the html that we have for python".
+The Toolbox's pages are written to the same care as its Python (Toolbox 8.7, ticket 04). The
+user's words: "maintain good code conventions for the html pages ... add coding guidelines for
+the html that we have for python". Today the module builds each lineage page; `how_to.html` and
+`examples.html`, which `tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under
+it yet, and a new page is built from it.
 
-- **One page module.** Every page is built by `sqlglot_composer/html_page.py`'s `page`, from
-  its colour tokens, its base CSS and each kind's CSS. A page adds its own CSS and script as
-  pieces after the module's, and takes what another page needs too from the module: a piece
+- **One page module.** Each page it builds comes from `sqlglot_composer/html_page.py`'s
+  `page`, from its colour tokens, its base CSS and each kind's CSS. A page adds its own CSS
+  and script as pieces after the module's, and takes what another page needs too from the module: a piece
   two pages need moves into the module, extended there, never copied into a second page.
 - **Colours only through named tokens.** A colour is written once, in the module's `COLOURS`;
   CSS names it as `var(--name)`, and the legend's swatches and the Mermaid `classDef` lines are
@@ -146,9 +148,9 @@ The Toolbox's pages, each lineage page first, are written to the same care as it
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 
-`tests/test_html_page.py` holds what a test can: no colour outside the token table, no
-`style=` on any page, every page passing the offline policy, and every page coming from the
-one module. What is left here is the reader's.
+`tests/test_html_page.py` holds what a test can, for the pages the module builds: no colour
+outside the token table, no `style=`, each page passing the offline policy, and each coming
+from the one module. What is left here is the reader's.
 
 ## No new public name without a ticket
 
