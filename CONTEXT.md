@@ -215,8 +215,8 @@ stays as it is, and a Hivevar is one answer it can be given,
 Toolbox runs the Hive, it sends the value as `SET hivevar:NAME=value` before each write
 holding it: the default, Hive text or a Run value's function, unless a Scheduled run gives
 another by its NAME. An export writes the default into a `.hivevars` file beside the `.hql`
-instead, for a scheduler running that `.hql` to pass, since Hive lets a SET in a script beat
-a value given on the command line.
+instead, for a scheduler running that `.hql`'s write() steps to pass, never its create() or
+seed(), since Hive lets a SET in a script beat a value given on the command line.
 _Avoid_: placeholder, runtime param
 
 **Reference sheet**:

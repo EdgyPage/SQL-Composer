@@ -782,20 +782,23 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      building_blocks/run_values.py by hand, then register the file once:
      `project.check()` names it as made by hand, with the call to run in the
      `project.register(...)` cell of `admin/check_project.ipynb`.
-   - If the table's exported `.hql` will run outside the Toolbox, and whatever runs it, such
-     as a scheduler, should give the tag's value each time, answer it with a **Hivevar**. A
-     Run value is worked out when the Statement is built and written into the Hive; a
-     Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever runs it to fill in. Write
-     `from sqlglot_composer import hivevar` at the top of the decisions cell, then
+   - If the write() steps of the table's exported `.hql` will run outside the Toolbox, and
+     whatever runs them, such as a scheduler, should give the tag's value each time, answer
+     it with a **Hivevar**. A Run value is worked out when the Statement is built and
+     written into the Hive; a Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever
+     runs it to fill in. Write `from sqlglot_composer import hivevar` at the top of the
+     decisions cell, then
      `{"tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-10-31'")}}`. The default
      is written as the answers above are, text or a Run value's function, such as
      `default=period_end`. The Hive holds `'${hivevar:PERIOD_END}'` where the tag stood, and
      the Toolbox sends `SET hivevar:PERIOD_END=2026-10-31` before each write holding it.
      `export_hive()` writes no SET line, since Hive lets a SET in a script beat a value given
-     on its command line (`hive --hivevar ... -f daily.hql`): it writes the default into a
-     `.hivevars` file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your
-     scheduler to pass with it. If your scheduler runs a Scheduled run's notebook instead,
-     give the value with `hivevars=` in its Build cell (Scheduled runs, step 6).
+     on its command line (`hive --hivevar ...`): it writes the default into a `.hivevars`
+     file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your scheduler to pass
+     when it runs the `.hql`'s write() steps. It never runs the file whole, nor its create()
+     or seed(), which a Workflow sends, a seed() once. If your scheduler runs a Scheduled
+     run's notebook instead, give the value with `hivevars=` in its Build cell (Scheduled
+     runs, step 6).
    - If several tables share an answer, give it once under `"all_tables"`, and a table's own
      answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
      period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
@@ -1458,8 +1461,10 @@ To make one:
      empty sends the default. The build prints each Statement holding it after its
      `SET hivevar:PERIOD_END=...` line, which the run sends first before a write; a SELECT
      has the value written in its place. A name no Statement holds is refused, naming those
-     they hold. If your scheduler runs the exported `.hql` itself, it passes the
-     `.hivevars` lines instead (section 9, step 4).
+     they hold. If your scheduler runs a table's write() steps from the `.hql` its
+     `export_hive()` writes, it passes that `.hivevars` file's lines instead (section 9, step
+     4). The `.hivevars` file `project.export_run_hive` writes beside the run's `.hql` is the
+     value the run sends for each Hivevar: to read, as that `.hql` is, never to send.
    - It builds the Hive fresh each time, so each Run value is worked out as it builds: one
      that reads the warehouse needs `connect(...)` first.
    - A loop among the tables, each waiting on another, is refused, naming its tables.
