@@ -561,3 +561,14 @@ run on the Example database; what works only at work, such as your own query and
 shown and not run. There are Getting started how-tos and Intermediate how-tos, on a page the
 Toolbox ships beside its Example gallery.
 _Avoid_: tutorial, guide, lesson, recipe
+
+**Workflows overview**:
+The page the Toolbox ships that shows every Workflow, and the Excel path, as one drawing:
+which leads into which, each one's steps in a few words, and the places people trip.
+Each Workflow's full walkthrough is its How-to.
+_Avoid_: workflow map, flowchart, dashboard
+
+**Excel path**:
+The way from a Formula workbook to Saved tables: a person fills in the workbook, Copilot
+turns it into Hive, and the convert Workflow makes that Hive the Toolbox's own.
+_Avoid_: Excel workflow, spreadsheet import

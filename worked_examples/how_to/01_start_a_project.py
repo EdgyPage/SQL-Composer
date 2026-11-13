@@ -106,7 +106,8 @@ it, and what you fill in:
   the tables, and save it. Convert, promote, new_table and references open with four cells,
   run in order: the names cell, "Run up to your Decisions", the decisions cell, where you
   answer, and "Run the rest". Each step's own cell is below them, under Step by step, to run
-  one step on purpose; in upgrade and change_a_saved_table, run each step's cell in turn.
+  one step on purpose; in upgrade, change_a_saved_table and schedule, run each step's cell in
+  turn.
   `project.do_next()` runs only the steps that change files, and `project.check()` names the
   next step.
 - admin/databases.py, the Database settings of your Dev Database, where you create and write
