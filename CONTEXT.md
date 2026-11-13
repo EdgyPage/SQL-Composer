@@ -206,6 +206,13 @@ function, what it was given, the value it gave, and each table the Toolbox read 
 ran.
 _Avoid_: parameter (a Scheduled run's), variable, runtime param, Hive variable
 
+**Hivevar**:
+A `${hivevar:NAME}` in the Hive, which the warehouse fills in each time the Hive runs, from
+a value given at that moment, such as a scheduler's. It's how a Script tag's place is left
+for whatever runs the Hive to fill in, rather than for the Toolbox: the Script tag stays as
+it is, and a Hivevar is one answer it can be given.
+_Avoid_: placeholder, Hive variable, runtime param
+
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
 type, its aliases and what it holds, to read and search outside Python.
@@ -479,8 +486,9 @@ _Avoid_: guard, quota, throttle, safety check
 
 **Example database**:
 A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements
-can be practised on it at work without touching the warehouse.
+Guard and Warning is shown catching a wrong number. It lives on dev only, outside the Toolbox:
+the user never runs it, but reads what it gave, each example shown with its tables' columns and
+some of their rows beside its code and output.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
@@ -491,7 +499,7 @@ _Avoid_: case, sample, recipe, demo
 **Example project**:
 A Project made for the Example database's tables, as the user makes their own - its Table
 references, Building blocks and a Table notebook per Saved table, filled in - to read and copy
-from. Where a Worked example shows one Statement and its Hive, an Example project shows the files
+from, as a page of the docs; the Project itself runs on dev only. Where a Worked example shows one Statement and its Hive, an Example project shows the files
 around many; a Template is the empty shape to fill in.
 _Avoid_: sample project, demo, template, starter kit
 
@@ -510,6 +518,14 @@ each objective, such as building a Statement or converting Hive, each small enou
 to take whole, and one that says which to load. They teach Copilot the Toolbox's names and
 how a Statement is built, so it writes code the user would otherwise write by hand.
 _Avoid_: prompt pack, system prompt, cheat sheet
+
+**Metric request**:
+Text a user writes, with Copilot's questions, that says exactly what each new column of a
+metric should hold: its formula in plain maths, each quantity in it, one row per what, the
+days counted, what is left out, the edge cases and a worked example, worked on sample rows
+when the user gives some, with each column asked for on its own. It is not SQL: it is given to a chatbot that knows the databases, which
+defines the columns from it.
+_Avoid_: spec, prompt, requirements doc
 
 **Formula workbook**:
 An Excel workbook laid out so its formulas can be read as SQL: a sample of raw data in Excel

@@ -66,6 +66,12 @@ Scheduled runs: a notebook an outside scheduler runs, its parameters typed, buil
 Statements it names with what they read in lineage order apart from running them, and the
 Project's lineage drawn by hand) is charted through `.scratch/toolbox-8-6/map.md`; read its
 Notes before working one of its tickets.
+Toolbox 8.7 (the testing pipelines and the pytest suite memoized and run on many cores; the
+lineage pages built from one page module, in bold colours, with a side panel; a Workflows
+overview page; the schedule Workflow; Hivevars with defaults; Copilot file 19, the Metric
+request; and the Example database out of the library, to dev only, its examples read as pages
+in main's `docs/`) is charted through `.scratch/toolbox-8-7/map.md`; read its Notes before
+working one of its tickets.
 
 ## Checks
 
