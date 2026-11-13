@@ -646,16 +646,17 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     4. write(), which project.run_tables sends: each of several by its place, write()[0]
        first.
 
-    Each step's Hive is show_hive's, so a write that fills Partitions from its rows has the SET
-    lines it needs above it, and a Python step in write() shows as comment lines saying what
-    it is, since nothing is sent for it. The file starts with lines saying it is generated: to
-    change it, edit the notebook's logic, save the notebook and run the cell again, which
-    writes the file again, the same text when nothing changed. The file is to read and to
-    commit, not to run top to bottom: send its steps as the Toolbox does, create() and seed()
-    from the Workflow's notebook and the rest with project.run_tables. A seed() is sent once;
-    sent again, as running the file would, it fills the table again from what the seed reads,
-    over the rows written since. Here a short Template stands in for a notebook of yours, and
-    os.chdir for opening it, since Jupyter runs a notebook in its own folder:
+    Each step's Hive is show_hive's, less each SET hivevar line, so a write that fills
+    Partitions from its rows has the SET lines it needs above it, and a Python step in write()
+    shows as comment lines saying what it is, since nothing is sent for it. The file starts
+    with lines saying it is generated: to change it, edit the notebook's logic, save the
+    notebook and run the cell again, which writes the file again, the same text when nothing
+    changed. The file is to read and to commit, not to run top to bottom: send its steps as
+    the Toolbox does, create() and seed() from the Workflow's notebook and the rest with
+    project.run_tables. A seed() is sent once; sent again, as running the file would, it fills
+    the table again from what the seed reads, over the rows written since. Here a short
+    Template stands in for a notebook of yours, and os.chdir for opening it, since Jupyter
+    runs a notebook in its own folder:
 
     >>> import os
     >>> from pathlib import Path
@@ -715,7 +716,9 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     beat a value given on the command line: each one's value, as worked out now, goes in a
     file beside it of the same name, ending .hivevars, such as daily.hivevars, as
     --hivevar PERIOD_END=2026-09-24, one to a line, for your scheduler to pass to Hive with
-    the .hql. With no Hivevar, a .hivevars file an export before wrote is deleted.
+    the .hql. A Table notebook's .hql is not run whole: a scheduler may run its write() steps'
+    Hive outside the Toolbox, passing those lines to Hive, never its create() or seed(). With
+    no Hivevar, a .hivevars file an export before wrote is deleted.
 
     Outside a Table notebook, export_hive() is refused: pass the Statement instead. Its write()
     is refused as project.run_tables refuses it, such as one that gives a read.
@@ -737,8 +740,13 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text(hive_to_show(s, frame, with_hivevars=False) + "\n", encoding="utf-8",
                     newline="\n")
-    hivevars_said = write_hivevars_file(path, hivevar_values(s),
-                                        f"export_hive({name or '...'})")
+    values = hivevar_values(s)
+    # The first Hivevar's NAME, in the header's example; with none, no header is written.
+    first = list(values)[0] if values else ""
+    use = (f"{_values_worked_out(path)} Pass each line below to Hive with it, as in "
+           f"hive --hivevar {first}=... -f {path.name}. {_CHANGE_A_VALUE}")
+    hivevars_said = write_hivevars_file(path, values, f"export_hive({name or '...'})", use=use,
+                                        said="for your scheduler to pass to Hive.")
     from .project import ProjectReport  # project.py imports this file
 
     if name is None:
@@ -772,8 +780,14 @@ def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
                                   f"{hive_to_show(sent, frame, with_hivevars=False)}")
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(pieces_of_the_file) + "\n", encoding="utf-8", newline="\n")
+    use = (f"{_values_worked_out(path)} {path.name} is never run whole: pass each line below "
+           "to Hive when your scheduler runs its write() steps outside the Toolbox, never its "
+           "create() or seed(), which a Workflow sends, a seed() once. " + _CHANGE_A_VALUE)
+    said = ("for your scheduler to pass to Hive with its write() steps, never its create() or "
+            "seed().")
     return ProjectReport([f"Wrote {path.name} beside its notebook, the Hive of {held}.",
-                          *write_hivevars_file(path, values, "export_hive()")])
+                          *write_hivevars_file(path, values, "export_hive()", use=use,
+                                               said=said)])
 
 
 def hivevar_values_of_each(sent: list[Statement | SessionSettings | UncheckedStatement
@@ -798,11 +812,26 @@ def hivevar_values_of_each(sent: list[Statement | SessionSettings | UncheckedSta
     return values
 
 
-def write_hivevars_file(hql: Path, values: dict[str, str], made_by: str) -> list[str]:
+# What a .hivevars file's header ends with when a scheduler passes its lines.
+_CHANGE_A_VALUE = ("Change a value where your scheduler passes it, not in this file: each "
+                   "export writes it again.")
+
+
+def _values_worked_out(hql: Path) -> str:
+    """What a .hivevars file's header says of its values, and why the .hql beside it, `hql`,
+    holds no SET line, when a scheduler passes its lines to Hive with that .hql."""
+    return ("Each one's value as it was worked out then, its default or what its Run value "
+            f"gave. {hql.name} holds no SET line for them, since Hive lets a SET in the script "
+            "beat a value given on its command line.")
+
+
+def write_hivevars_file(hql: Path, values: dict[str, str], made_by: str, *, use: str,
+                        said: str) -> list[str]:
     """Write the .hivevars file beside a .hql file the Toolbox wrote, `hql`: lines starting #
-    saying what it is and why, then --hivevar NAME=value for each of `values`, as a command
-    line takes it. With no value, one an export wrote before is deleted. What the report says
-    of it, a line or none."""
+    saying what it is, made by the call `made_by`, then `use`, what the values are and how
+    the lines are used; then --hivevar NAME=value for each of `values`, as a command line
+    takes it. With no value, one an export wrote before is deleted. What the report says of
+    it, a line or none, the line ending with `said`, what the values are for."""
     path = hql.with_suffix(_HIVEVARS_FILE_END)
     if not values:
         if not path.exists():
@@ -810,19 +839,13 @@ def write_hivevars_file(hql: Path, values: dict[str, str], made_by: str) -> list
         path.unlink()
         return [f"Deleted {path.name}, which an export before this one wrote: the Hive holds "
                 "no Hivevar now."]
-    first = list(values)[0]
-    about = (f"The Hivevars of {hql.name}, beside this file, generated by {made_by}: each "
-             "one's value as it was worked out then, its default or what its Run value gave. "
-             f"{hql.name} holds no SET line for them, since Hive lets a SET in the script beat "
-             "a value given on its command line. Pass each line below to Hive with it, as in "
-             f"hive --hivevar {first}=... -f {hql.name}. Change a value where your scheduler "
-             "passes it, not in this file: each export writes it again.")
+    about = f"The Hivevars of {hql.name}, beside this file, generated by {made_by}. {use}"
     header = ["# " + line for line in textwrap.wrap(about, width=_HEADER_WIDTH)]
     lines = [f"--hivevar {name}={shlex.quote(value)}" for name, value in values.items()]
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n".join([*header, *lines]) + "\n", encoding="utf-8", newline="\n")
     return [f"Wrote {path.name} beside it, the value of each Hivevar its Hive holds, "
-            f"{in_words(list(values))}, as worked out now, for your scheduler to pass to Hive."]
+            f"{in_words(list(values))}, as worked out now, {said}"]
 
 
 def hive_file_header(text: str) -> str:

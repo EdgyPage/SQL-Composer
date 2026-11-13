@@ -790,7 +790,9 @@ def write_run_hive(root: Path, name: str, call: str) -> list[str]:
     """Write the Hive of the Scheduled run `name`, built as its notebook's Build cell builds
     it, into scheduled_runs/<name>/<name>.hql: a header saying what it is, what the build
     prints before its first Statement, as comment lines, then each Statement as the build
-    prints it. What project.export_run_hive says it did, a line each."""
+    prints it, less each SET hivevar line; and <name>.hivevars beside it, the value the run
+    sends for each Hivevar, to read, or none. What project.export_run_hive says it did, a line
+    each."""
     built, _ = built_run_of(root, name, call)
     # Worked out first: a NAME given two values is refused before any file is written.
     values = hivevar_values_of_each([step.statement for step in built.steps], call)
@@ -807,10 +809,17 @@ def write_run_hive(root: Path, name: str, call: str) -> list[str]:
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(texts) + "\n", encoding="utf-8", newline="\n")
     it = singular_or_plural(len(built.steps), "it", "them")
+    use = ("The value the run sends for each, in a SET hivevar line before each Statement that "
+           f"holds it, as worked out when this file was written; {path.name} leaves those SET "
+           "lines out. Each time the run runs, its notebook works them out again, so this file "
+           f"is to read, as {path.name} is, never to edit or to send. To change a value, edit "
+           f"the notebook, save it and call {call} again.")
     return [f"Wrote {path.relative_to(root).as_posix()}: the Hive of {count}, in the order the "
             f"run sends {it}, {_built_as(it)}. It is to read, never to edit: the notebook "
             "builds its Hive again each time it runs.",
-            *write_hivevars_file(path, values, call)]
+            *write_hivevars_file(path, values, call, use=use,
+                                 said="which the run sends in its SET hivevar lines: to read, "
+                                 "as the .hql is.")]
 
 
 # The HTML page, in the look of a Statement's lineage page, built by to_html from the page

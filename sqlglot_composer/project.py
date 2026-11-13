@@ -93,9 +93,10 @@ entry to admin/admin_log.md, the log that also keeps every Admin statement run i
 Project. The rest add no entry of their own: check and load
 change no file, nor does describe_logic; export_project_lineage writes only its two files
 in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
-export_run_hive only <name>.hql; refresh_reference_sheet writes the Reference sheet and the
-Database modules, and no other file; run_tables writes only your tables in the warehouse,
-though an Admin or Unchecked statement it sends is logged, as run_execute logs one anywhere.
+export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
+Hivevar; refresh_reference_sheet writes the Reference sheet and the Database modules, and no
+other file; run_tables writes only your tables in the warehouse, though an Admin or
+Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -7663,14 +7664,18 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     parameter as used and the Run values run_values= gave; then each Statement in the order
     the run sends it, headed as the build prints it, such as -- 3 of 7: mart.team_days (read
     by week_totals), a table's session_settings() before its first write, and its Hive, as
-    show_hive shows it. The file is to read and to commit, never to edit or to send: the run
-    builds its Hive fresh each time, from its logic, so a Run value is worked out as it runs.
-    A Run value is worked out here too, as the file is written, so one that reads the
-    warehouse needs connect(...) first, as admin/scheduled_runs.ipynb's first cell has it.
-    Written again, it is the same text when nothing changed. It changes no other file and
-    adds no Admin log entry, as export_hive adds none. A run whose build is refused is
-    refused as the build refuses it; a name with no Scheduled run is refused, naming the
-    close ones. `name` may be a list of the runs' names, each written in turn.
+    show_hive shows it, less each SET hivevar line. The file is to read and to commit, never
+    to edit or to send: the run builds its Hive fresh each time, from its logic, so a Run
+    value is worked out as it runs. A Run value is worked out here too, as the file is
+    written, so one that reads the warehouse needs connect(...) first, as
+    admin/scheduled_runs.ipynb's first cell has it. Written again, it is the same text when
+    nothing changed. When the run's Hive holds a Hivevar (help(hivevar)), it also writes
+    <name>.hivevars beside the .hql: the value the run sends for each, in its SET hivevar
+    lines, as worked out now, to read as the .hql is; when it holds none, it deletes one an
+    export before wrote. It changes no other file and adds no Admin log entry, as export_hive
+    adds none. A run whose build is refused is refused as the build refuses it; a name with no
+    Scheduled run is refused, naming the close ones. `name` may be a list of the runs' names,
+    each written in turn.
 
     Here a short Template stands in for a Table notebook of yours, and the Scheduled run's
     one Statement is its write().
