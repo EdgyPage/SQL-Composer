@@ -109,6 +109,7 @@ next, here seven, and wrote a checklist for each, which its last line names in o
 - added admin/workflows/references/references.ipynb
 - added admin/workflows/upgrade/upgrade.ipynb
 - added admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+- added admin/workflows/schedule/schedule.ipynb
 - added admin/databases.py
 - added admin/sent.csv
 - recorded 8.0 in admin/project_version.txt
