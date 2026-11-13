@@ -53,7 +53,8 @@ wrote it.
 ## 2. Ask Copilot, one fresh chat per task and arm
 
 - **A1, before the files.** Open a new chat. Paste the README's opening, as
-  `.venv/Scripts/python tools/copilot_eval.py proxy A1 --split held_out` shows it between
+  `.venv/Scripts/python tools/copilot_eval.py proxy A1 --split held_out --model copilot-web`
+  shows it between
   `<<<` and `>>>`, as the first message, and send it. Then send the task's prompt.
 - **C, with the file.** Open a new chat. Paste the task's objective file (or attach it: the
   task's prompt heading names its id, and `tools/copilot_eval_tasks.py` gives its objective,
