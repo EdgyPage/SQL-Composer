@@ -16,7 +16,6 @@ import datetime
 import html
 import inspect
 import itertools
-import json
 import os
 import re
 from collections.abc import Callable, Iterable
@@ -25,7 +24,7 @@ from types import FrameType
 from typing import NoReturn
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import kinds, unchecked
+from . import html_page, kinds, unchecked
 from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, statement_keys, wanted_key, why_key_unproven
@@ -1174,25 +1173,22 @@ def _drawn_kind(box: dict[str, object]) -> str:
     return box["kind"]
 
 
-def _script_safe(data: dict[str, list[dict[str, object]] | list[list[str]]]) -> str:
-    """JSON that can sit inside a <script> without ending it."""
-    text = json.dumps(data, ensure_ascii=False)
-    return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-
-
 def to_html(graph: Graph, sections: list[dict[str, object]], title: str, markdown_name: str,
             footer: str) -> str:
-    """The HTML page: PAGE with its markers filled in."""
-    filled = {"TITLE": html.escape(title), "MD": html.escape(markdown_name),
-              "FOOTER": html.escape(footer), "REPORT": report_html(sections),
-              "DATA": _script_safe(graph_data(graph))}
-
-    def filling(marker: re.Match[str]) -> str:
-        """The text a __NAME__ marker is filled in with."""
-        return filled[marker[1]]
-
-    # One pass, so text that happens to look like a marker is never filled in itself.
-    return re.sub(r"__(TITLE|MD|FOOTER|REPORT|DATA)__", filling, PAGE)
+    """The HTML page, built from the page module: the title and legend, the controls, the
+    drawing SCRIPT draws, the report, the footer."""
+    body = (f"<header><h1>Lineage: {html.escape(title)}</h1>{html_page.legend(LEGEND)}"
+            f"</header>\n{CONTROLS}\n<main>\n<noscript><p><b>Scripts are off, so the graph "
+            "can't be drawn.</b> The report below and\n"
+            f"<code>{html.escape(markdown_name)}</code>, written beside this file, show the "
+            "same lineage.</p></noscript>\n"
+            '<div class="wrap" id="graph"></div>\n'
+            f'<section id="report">{report_html(sections)}</section>\n</main>\n'
+            f"<footer>{html.escape(footer)}</footer>")
+    # SCRIPT's one marker, filled in once: everything to draw, as JSON.
+    script = SCRIPT.replace("__DATA__", html_page.script_json(graph_data(graph)), 1)
+    return html_page.page(f"Lineage: {title}", body, [CSS, html_page.DRAWING_CSS],
+                          [html_page.DRAWING_SCRIPT, script])
 
 
 # --- Naming and placing the files ------------------------------------------------------------
@@ -1479,59 +1475,46 @@ def lineage_footer(when: datetime.datetime, commit: str, settings: list[SessionS
     return text
 
 
-# The HTML page. to_html fills in each __NAME__ marker; the script at the end draws the lineage.
-# This is an ordinary Python string, so a backslash in the script is written twice, and a
-# backslash at a line's end joins it to the next: a long line of the page is split here only.
-PAGE = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Lineage: __TITLE__</title><style>
-body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
-header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
-.key span{display:inline-block;margin-right:14px}
-.sw{display:inline-block;width:12px;height:12px;border:1px solid #888;vertical-align:-1px;\
-margin-right:4px}
-#controls{display:none;padding:8px 16px;border-bottom:1px solid #eee;gap:18px;flex-wrap:wrap;\
-align-items:center}
+# The HTML page, built by to_html from the page module, html_page.py, with these pieces of its
+# own. Each is an ordinary Python string, so a backslash in it is written twice, and a
+# backslash at a line's end joins it to the next: a long line is split here only.
+
+# The page's own CSS, after the page module's: the controls, the Grouped flowchart's groups,
+# the dotted arrows and the report. A colour is named only by its token, as var(--name).
+CSS = """\
+#controls{display:none;padding:8px 16px;border-bottom:1px solid var(--faint-rule);gap:18px;\
+flex-wrap:wrap;align-items:center}
 #controls label{white-space:nowrap} #controls details{position:relative}
-#groups{position:absolute;z-index:2;background:#fff;border:1px solid #ccc;padding:8px 10px;\
-box-shadow:0 2px 8px #0002;min-width:260px}
+#groups{position:absolute;z-index:2;background:var(--page);border:1px solid var(--menu-edge);\
+padding:8px 10px;box-shadow:0 2px 8px var(--shadow);min-width:260px}
 #groups div{display:flex;justify-content:space-between;gap:10px;margin:3px 0}
-main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
-svg{width:100%;height:auto;cursor:grab;display:block}
-.n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6}\
- .output rect{fill:#effaf0}
-.condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
-.unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
-.python rect{fill:#eaf6f6;stroke:#2b8a8a;stroke-width:2}
-.grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff}\
- .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
-.grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4}\
- .grp text{font:600 12px system-ui,sans-serif;fill:#555}
-.e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
-.n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace}\
- .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
-.dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2}\
- .e.hit{stroke:#d33;stroke-width:2;opacity:1}
-.n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
-summary{cursor:pointer} table{border-collapse:collapse}\
- td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
-#report details{margin:0 0 12px} #report summary{font-size:15px}\
- footer{padding:8px 16px 24px;color:#777;font-size:12px}
-</style></head><body>
-<header><h1>Lineage: __TITLE__</h1><div class="key">
-<span><i class="sw" style="background:#eef4ff"></i>table column</span>
-<span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
-<span><i class="sw" style="background:#effaf0"></i>output column</span>
-<span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
-<span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>\
-&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>\
-Python step: changed in Python, saved by your own call or, given rows=, \
-by a Scheduled run</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition \
-deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag \
-pans</span>
-</div></header>
+.collapsed rect{stroke-width:2}
+.grp rect{fill:var(--group);stroke:var(--group-edge)} .grp.table rect{fill:var(--table-group)}\
+ .grp.derived rect{fill:var(--derived-group)} .grp.output rect{fill:var(--output-group)}
+.grp.condition rect{fill:var(--condition-group);stroke-dasharray:5 4}\
+ .grp text{font:600 12px system-ui,sans-serif;fill:var(--group-label)}
+.e.filters{stroke:var(--filters-arrow)} .flabel{font-size:10px;fill:var(--filters-label)}
+.e.rows{stroke-dasharray:3 3;stroke:var(--rows-arrow)}
+summary{cursor:pointer}
+#report details{margin:0 0 12px} #report summary{font-size:15px}"""
+
+# The legend under the title: each kind of box, by its class in html_page.KINDS, then what the
+# arrows mean and what the mouse does.
+LEGEND = [
+    ("table", "table column"),
+    ("derived", "Derived table column"),
+    ("output", "output column"),
+    ("condition", "condition"),
+    ("unchecked", f"{UNCHECKED} Unchecked statement: Hive written by hand, not checked"),
+    ("python", "Python step: changed in Python, saved by your own call or, given rows=, by a "
+               "Scheduled run"),
+    (None, 'solid arrow: carries a value · dotted: a column read by a condition, or a '
+           'condition deciding which rows count ("filters") · click a box to light up its '
+           "path · scroll zooms, drag pans"),
+]
+
+# The controls above the drawing, hidden until the script shows them.
+CONTROLS = """\
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">\
 Grouped flowchart</option></select></label>
@@ -1541,17 +1524,14 @@ Grouped flowchart</option></select></label>
   <label><input type="checkbox" id="conditions" checked> Conditions</label>
   <label><input type="checkbox" id="showReport" checked> Report</label>
   <details><summary>Each group</summary><div id="groups"></div></details>
-</div>
-<main>
-<noscript><p><b>Scripts are off, so the graph can't be drawn.</b> The report below and
-<code>__MD__</code>, written beside this file, show the same lineage.</p></noscript>
-<div class="wrap" id="graph"></div>
-<section id="report">__REPORT__</section>
-</main>
-<footer>__FOOTER__</footer>
-<script>
+</div>"""
+
+# The page's own script, after html_page.DRAWING_SCRIPT, whose functions it calls. to_html
+# fills in its one marker, __DATA__.
+SCRIPT = """\
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
-// It is plain JavaScript that any browser runs, with nothing to install or download.
+// It is plain JavaScript that any browser runs, with nothing to install or download. The
+// page module's drawing script, before it, zooms, pans and lights up a path.
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
@@ -1577,33 +1557,8 @@ const MODES_BY_KIND = {
 // group's mode, and whether the conditions and the report show.
 const state = {view: 'graph', groupMode: {}, conditions: true, report: true};
 
-// An object holding each item under the key that keyFor(item) gives, to look items up by key.
-function indexBy(items, keyFor) {
-  const index = {};
-  items.forEach(item => {
-    index[keyFor(item)] = item;
-  });
-  return index;
-}
-
 // Each box, looked up by its id.
 const boxById = indexBy(graph.boxes, box => box.id);
-
-// Text made safe to put inside the page's markup: & < > and " become their HTML codes.
-function escapeHtml(text) {
-  const codes = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'};
-  return text.replace(/[&<>"]/g, character => codes[character]);
-}
-
-// Text cut to at most maxLength characters, ending in an ellipsis when it was cut, so it fits
-// in a box.
-function shortened(text, maxLength) {
-  if (text.length <= maxLength) {
-    return text;
-  }
-  // The ellipsis character. Its backslash is written twice only in the Python file.
-  return text.slice(0, maxLength - 1) + '\\u2026';
-}
 
 // Start from the settings saved in the page's address (after the ?), so a link opens the page
 // as it was left. Any group the address doesn't mention starts expanded.
@@ -1778,22 +1733,6 @@ function boxHeights(boxes) {
     heights[box.id] = boxHeight(box);
   });
   return heights;
-}
-
-// For each drawn box, the ids of the boxes with an arrow into it (its sources) and the ids of
-// the boxes it has an arrow into (its targets).
-function neighboursOf(visible) {
-  const sources = {};
-  const targets = {};
-  visible.boxes.forEach(box => {
-    sources[box.id] = [];
-    targets[box.id] = [];
-  });
-  visible.arrows.forEach(([source, target]) => {
-    sources[target].push(source);
-    targets[source].push(target);
-  });
-  return {sources: sources, targets: targets};
 }
 
 // The column each item goes in, counting from 0: one column right of its furthest source.
@@ -2100,7 +2039,7 @@ function renderFlowchart(visible) {
   return {parts: parts, width: layout.width, height: layout.height};
 }
 
-// --- Drawing, and what the mouse does -----------------------------------------------------
+// --- Drawing -----------------------------------------------------------------------------
 
 // Draw the page again from `state`: the picture, the report shown or not, the address and
 // the controls. Every control calls this after it changes `state`.
@@ -2109,124 +2048,15 @@ function draw() {
   const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
   // A 10-pixel margin all round, and the picture never shrunk below 80% of its full size.
   const viewBox = `-10 -10 ${drawing.width + 20} ${drawing.height + 20}`;
-  const size = `min-width:${Math.round(drawing.width * 0.8)}px;`
-    + `aspect-ratio:${drawing.width + 20}/${drawing.height + 20}`;
-  document.getElementById('graph').innerHTML = `<svg viewBox="${viewBox}" style="${size}">`
+  document.getElementById('graph').innerHTML = `<svg viewBox="${viewBox}">`
     + `${drawing.parts.join('')}</svg>`;
-  addMouseHandlers(document.querySelector('#graph svg'), visible);
+  const svg = document.querySelector('#graph svg');
+  svg.style.minWidth = `${Math.round(drawing.width * 0.8)}px`;
+  svg.style.aspectRatio = `${drawing.width + 20}/${drawing.height + 20}`;
+  addMouseHandlers(svg, visible);
   document.getElementById('report').style.display = state.report ? '' : 'none';
   saveSettingsInAddress();
   syncControls();
-}
-
-// Every box reachable from box `id` by following `next` (sources, or targets) again and
-// again. Each is added to the set `found`, which is returned.
-function collectReachable(id, next, found) {
-  (next[id] || []).forEach(other => {
-    if (!found.has(other)) {
-      found.add(other);
-      collectReachable(other, next, found);
-    }
-  });
-  return found;
-}
-
-// Make the picture answer the mouse: the wheel zooms, dragging pans, and clicking a box
-// lights up its path (everything that feeds it and everything it feeds) and dims the rest.
-function addMouseHandlers(svg, visible) {
-  const neighbours = neighboursOf(visible);
-  const boxIdsByGroup = {};
-  visible.boxes.forEach(box => {
-    if (!boxIdsByGroup[box.group]) {
-      boxIdsByGroup[box.group] = [];
-    }
-    boxIdsByGroup[box.group].push(box.id);
-  });
-
-  // The part of the picture in sight, as [left, top, width, height]. Zooming and panning
-  // change it.
-  let viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
-  // Where a drag started, kept from the mouse button going down until just after it comes up.
-  let drag = null;
-
-  function showViewBox() {
-    svg.setAttribute('viewBox', viewBox.join(' '));
-  }
-
-  // Zoom in or out, keeping the point under the mouse where it is.
-  function zoom(event) {
-    event.preventDefault();  // stop the page itself from scrolling
-    const bounds = svg.getBoundingClientRect();
-    const factor = event.deltaY > 0 ? 1.15 : 1 / 1.15;
-    const pointX = viewBox[0] + (event.clientX - bounds.left) / bounds.width * viewBox[2];
-    const pointY = viewBox[1] + (event.clientY - bounds.top) / bounds.height * viewBox[3];
-    viewBox = [
-      pointX - (pointX - viewBox[0]) * factor,
-      pointY - (pointY - viewBox[1]) * factor,
-      viewBox[2] * factor,
-      viewBox[3] * factor,
-    ];
-    showViewBox();
-  }
-
-  function startDrag(event) {
-    drag = {x: event.clientX, y: event.clientY, viewBox: viewBox.slice(), moved: false};
-  }
-
-  // Pan the picture with the mouse, while the button is down.
-  function moveDrag(event) {
-    if (!drag) {
-      return;
-    }
-    const bounds = svg.getBoundingClientRect();
-    const moveX = (event.clientX - drag.x) / bounds.width * viewBox[2];
-    const moveY = (event.clientY - drag.y) / bounds.height * viewBox[3];
-    if (Math.abs(moveX) + Math.abs(moveY) > 1) {
-      drag.moved = true;
-    }
-    viewBox = [drag.viewBox[0] - moveX, drag.viewBox[1] - moveY, viewBox[2], viewBox[3]];
-    showViewBox();
-  }
-
-  // Forget the drag only after the click that the browser sends when the button comes up,
-  // so that click can tell it ended a drag.
-  function endDrag() {
-    setTimeout(() => {
-      drag = null;
-    });
-  }
-
-  // Light up the clicked box's path and dim everything else. A click off every box clears
-  // the lighting; the click that ends a drag does nothing.
-  function lightUpPath(event) {
-    if (drag && drag.moved) {
-      return;
-    }
-    svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
-    const clicked = event.target.closest('.n');
-    if (!clicked) {
-      return;
-    }
-    const onPath = collectReachable(clicked.id, neighbours.sources, new Set([clicked.id]));
-    collectReachable(clicked.id, neighbours.targets, onPath);
-    svg.querySelectorAll('.n').forEach(box => {
-      box.classList.add(onPath.has(box.id) ? 'hit' : 'dim');
-    });
-    svg.querySelectorAll('.e').forEach(arrow => {
-      // A filters arrow ends at a group (data-g), so it is on the path if any box in the
-      // group is.
-      const ends = arrow.dataset.g ? boxIdsByGroup[arrow.dataset.g] : [arrow.dataset.b];
-      const lit = onPath.has(arrow.dataset.a) && ends.some(id => onPath.has(id));
-      arrow.classList.add(lit ? 'hit' : 'dim');
-    });
-  }
-
-  // passive: false lets zoom() stop the page from scrolling.
-  svg.addEventListener('wheel', zoom, {passive: false});
-  svg.addEventListener('pointerdown', startDrag);
-  svg.addEventListener('pointermove', moveDrag);
-  svg.addEventListener('pointerup', endDrag);
-  svg.addEventListener('click', lightUpPath);
 }
 
 // --- The controls -------------------------------------------------------------------------
@@ -2299,9 +2129,7 @@ function syncControls() {
 readSettingsFromAddress();
 setUpControls();
 document.getElementById('controls').style.display = 'flex';
-draw();
-</script></body></html>
-"""
+draw();"""
 
 
 __all__ = ["export_lineage"]

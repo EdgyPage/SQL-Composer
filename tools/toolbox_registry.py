@@ -26,7 +26,7 @@ LIBRARY_FILES = ("writing.py", "engine.py", "converting.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
                 "decisions.py",
                 "comparisons.py", "conditions.py", "converting.py", "describe.py", "engine.py",
-                "example_database.py", "joins.py",
+                "example_database.py", "html_page.py", "joins.py",
                 "keys.py", "kinds.py", "lineage.py", "notebooks.py", "project.py",
                 "project_files.py", "project_lineage.py", "project_templates.py", "public.py",
                 "python_steps.py",
