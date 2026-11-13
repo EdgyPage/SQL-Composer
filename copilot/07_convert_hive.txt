@@ -55,14 +55,13 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - mapped(column, values, otherwise=None)
 - first_match(cases, otherwise=None)
 - if_else(condition, then, otherwise)
-- fill_null(column, value)
 - is_in(column, values)
 - count_rows(where=None, over=None)
-- count_distinct(column, where=None)
 - sum_of(column, where=None, adds_up=False, over=None)
 - hive_function(name, *args)
 - unchecked_column(text, **columns)
 - hive_settings(*names, sets=None)
+- hivevar(name, *, default)
 
 ## In the Project
 
@@ -100,7 +99,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported; a day worked out each run: file 17.
+  imported; a day worked out each run: file 17; a value passed to Hive:
+  `hivevar("NAME", default="'2026-09-24'")`.
 
 ## Steps
 
@@ -146,6 +146,6 @@ s = statement(
 ## Self-check
 
 - The columns are the Hive's: same names, same order; each short name kept with AS.
-- Each Hive condition is there, even a needless one, none added; reads bounded as before.
+- Each Hive condition is there, none added; reads bounded as before.
 - No COUNT, CASE, WHEN or COALESCE is called as a Toolbox name.
 - Each part kept as Hive is named after the code.

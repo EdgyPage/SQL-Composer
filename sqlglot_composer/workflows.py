@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING
 
 from . import decisions
 from .project_files import table_stem
+from .run_values import hivevar
 from .shared import escaped_literal, in_words, split_table_name
 from .unchecked import SENT, hive_settings
 from .upgrades import MARK_LINE, marks_in, project_version
@@ -1997,15 +1998,31 @@ def _project_imports(root: Path, tree: ast.Module) -> dict[str, object]:
 
 def _value_of(node: ast.expr, imported: dict[str, object]) -> object:
     """A plain value a decisions cell writes, as ast.literal_eval reads one, but a name it
-    imported, which stands for what it imported."""
+    imported, which stands for what it imported, and a Script tag's answer hivevar(...),
+    whose default is either (Toolbox 8.7)."""
     if isinstance(node, ast.Name) and node.id in imported:
         return imported[node.id]
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (
+            node.func.id == "hivevar"):
+        return _hivevar_of(node, imported)
     if isinstance(node, ast.Dict):
         return {_value_of(key, imported): _value_of(value, imported)
                 for key, value in zip(node.keys, node.values, strict=True)}
     if isinstance(node, ast.List):
         return [_value_of(each, imported) for each in node.elts]
     return ast.literal_eval(node)
+
+
+def _hivevar_of(node: ast.Call, imported: dict[str, object]) -> object:
+    """The Hivevar a decisions cell's hivevar(...) makes, its NAME and default read as plain
+    values or imported names; ValueError, as for any value it can't read, when they aren't,
+    and when hivevar refuses them."""
+    arguments = [_value_of(each, imported) for each in node.args]
+    keywords = {each.arg: _value_of(each.value, imported) for each in node.keywords}
+    try:
+        return hivevar(*arguments, **keywords)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"hivevar(...) can't be read: {error}") from error
 
 
 def _plain_assignments(source: str, names: set[str]) -> dict[str, object]:

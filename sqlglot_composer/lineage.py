@@ -131,20 +131,27 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
     """The key of the box of each Run value a calculation or condition holds, a value a
     function of yours gave as the Statement was built, run_value's or a Script tag's: its
     function, what it was given, the tag it answers and what it gave, with an arrow into it
-    from each table, or column, the Toolbox read for it while it ran."""
+    from each table, or column, the Toolbox read for it while it ran. A Hivevar is drawn as a
+    value too: its NAME and default, and the SET line the Toolbox sends for it."""
     keys = []
     for node in tree.walk():
         traced = node.meta.get("traced")
-        if traced is None:
+        hivevar = node.meta.get("hivevar")
+        if traced is None and hivevar is None:
             continue
-        shown = f"{traced.function}({traced.arguments})"
-        if traced.tag:
-            shown = f"{traced.tag} = {shown}"
-        gave = f"gave {node.meta['value']}" if "value" in node.meta else "failed"
+        if hivevar is not None:
+            shown = f"hivevar {hivevar}, default {node.meta['hivevar_default']}"
+            gave = f"SET hivevar:{hivevar}={node.meta['hivevar_value']}"
+        else:
+            shown = f"{traced.function}({traced.arguments})"
+            if traced.tag:
+                shown = f"{traced.tag} = {shown}"
+            gave = f"gave {node.meta['value']}" if "value" in node.meta else "failed"
         key = graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
                         name=shown, full=f"{RUN_VALUES}.{shown}", type=gave, formula="",
                         calculated=False, in_key=False)
-        for read in traced.reads:
+        reads = traced.reads if traced is not None else []
+        for read in reads:
             if read.table is not None and read.column is not None:
                 box = _table_box(graph, read.table, read.column)
             else:

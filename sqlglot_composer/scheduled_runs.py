@@ -37,7 +37,7 @@ from .project import (LOGIC_FUNCTION, TableLogic, load, logic_functions_marked,
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry
 from .python_steps import PythonStep, changed_rows, is_partitioned, saving_hive, step_rows
 from .refusals import GuardLetThrough, guards_warn_in, need_warehouse_call, refuse
-from .run_values import values_given
+from .run_values import hivevars_given, values_given
 from .running import hive_to_show, run_execute, run_query, settings_needed, statement_text
 from .shared import (counted, in_words, items_of, python_literal, singular_or_plural,
                      with_article)
@@ -462,12 +462,14 @@ class BuiltRun:
     """A Scheduled run, built by project.build_run: the parameters as used, each Statement in
     the order it is sent, those START_FROM passes over, each table's Session settings, the
     value each Run value run_values= named was given, as read for its function, and as
-    run_values= gave it, and each Guard the run's own cell tripped, let through."""
+    run_values= gave it, each Guard the run's own cell tripped, let through, and the value
+    hivevars= gave each Hivevar it named, as read, and as hivevars= gave it."""
 
     def __init__(self, parameters: list[Parameter], steps: list[RunStep],
                  passed_over: list[RunStep], settings: dict[str, SessionSettings],
                  run_values: dict[str, object], run_values_read_from: dict[str, object],
-                 guards_let_through: list[GuardLetThrough]) -> None:
+                 guards_let_through: list[GuardLetThrough],
+                 hivevars: dict[str, object], hivevars_read_from: dict[str, object]) -> None:
         self.parameters = parameters
         self.steps = steps
         self.passed_over = passed_over
@@ -475,6 +477,8 @@ class BuiltRun:
         self.run_values = run_values
         self.run_values_read_from = run_values_read_from
         self.guards_let_through = guards_let_through
+        self.hivevars = hivevars
+        self.hivevars_read_from = hivevars_read_from
 
     def __repr__(self) -> str:
         count = counted(len(self.steps), "Statement")
@@ -541,25 +545,43 @@ class BuiltRun:
 
 
 def build_scheduled_run(statements: Callable[[], object], run_values: dict[str, object],
-                        leave_out: list[str], frame: FrameType, call: str) -> BuiltRun:
+                        hivevars: dict[str, object], leave_out: list[str], frame: FrameType,
+                        call: str) -> BuiltRun:
     """project.build_run's work, the caller's frame `frame`: the parameters read and printed,
-    then the Statements built within the Run values given, each read for its function, the
-    writes of each Project table they read added, all put in lineage order, and printed."""
+    then the Statements built within the Run values given, each read for its function, and the
+    Hivevars given, the writes of each Project table they read added, all put in lineage
+    order, and printed."""
     notebook, root = _scheduled_run_notebook(frame, call)
     parameters = use_parameters(notebook, _path_in_project(notebook, root), frame.f_globals,
                                 call)
     print("\n".join(parameter_lines(parameters)))
-    with values_given(run_values, partial(_run_value_read, call=call)) as run_values_given:
+    hivevars_read = {name: _hivevar_read(value) for name, value in hivevars.items()}
+    with (values_given(run_values, partial(_run_value_read, call=call)) as run_values_given,
+          hivevars_given(hivevars_read) as hivevars_met):
         given, guards_let_through = _given_by(statements, frame.f_globals)
         steps = _given_steps(given, call)
         added, settings = _added_writes(root, steps, leave_out, call)
     _check_values_given_were_met(run_values, run_values_given.met, call)
+    _check_hivevars_were_met(hivevars, hivevars_met.met, call)
     ordered = _steps_in_order(steps + added, call)
     passed_over, sent = _split_at_start_from(ordered, _start_from(parameters), call)
     built = BuiltRun(parameters, sent, passed_over, settings, run_values_given.used,
-                     run_values, guards_let_through)
+                     run_values, guards_let_through, hivevars_read, hivevars)
     _print_build(built)
     return built
+
+
+def _hivevar_read(given: object) -> object:
+    """A value hivevars= gives a Hivevar, read as a parameter's text is: a date written as
+    text, such as "2026-11-01", as a scheduler passes it, is that date, so it stands in quotes
+    where a bare tag stood; "", a parameter left empty, is None, which sends the default; any
+    other value is kept as it is. The Build cell's hivevars= is written before the build reads
+    the parameters, so it holds their text."""
+    if given == "":
+        return None
+    if isinstance(given, str) and _as_date(given) is not _UNREAD:
+        return _as_date(given)
+    return given
 
 
 def _scheduled_run_notebook(frame: FrameType, call: str) -> tuple[Path, Path]:
@@ -793,6 +815,28 @@ def _check_values_given_were_met(run_values: dict[str, object], run_values_met: 
     )
 
 
+def _check_hivevars_were_met(hivevars: dict[str, object], hivevars_met: list[str],
+                             call: str) -> None:
+    """Refuse a hivevars= name no Statement of the run holds a Hivevar of, naming those it
+    holds."""
+    unknown = [name for name in hivevars if name not in hivevars_met]
+    if not unknown:
+        return
+    held = list(dict.fromkeys(hivevars_met))
+    if held:
+        has = f"Its Statements' Hivevars are {in_words(held)}."
+    else:
+        has = "Its Statements hold no Hivevar: take hivevars= away."
+    refuse(
+        what=f"{call}: hivevars= names {in_words(unknown)}, but no Statement of this run has a "
+        "Hivevar by that name.",
+        why="hivevars= gives a Hivevar a value for this run, by its NAME, in place of its "
+        "default; a name no Statement holds gives nothing.",
+        fix=f"{has} Check the name against the NAME hivevar(...) was given, in TAGS.",
+        error=ValueError,
+    )
+
+
 def _steps_in_order(steps: list[RunStep], call: str) -> list[RunStep]:
     """The steps in lineage order: a write before each that reads its table; a loop refused,
     naming its tables."""
@@ -841,13 +885,14 @@ def _split_at_start_from(ordered: list[RunStep], start_from: str, call: str
     )
 
 
-def step_texts(built: BuiltRun) -> list[str]:
+def step_texts(built: BuiltRun, *, with_hivevars: bool = True) -> list[str]:
     """Each Statement the built run sends, in order, as the build prints it: its heading, such
     as -- 3 of 7: mart.team_days (read by week_totals); the Session setting
     "dynamic_partitions", once, before the first step that fills Partitions from its rows, as
     built.run sends it; a table's Session settings before its first write, as
     settings_before_each says; and its Hive, as show_hive shows it, but a write's without the
-    Session setting it needs, sent once already. project.export_run_hive writes them."""
+    Session setting it needs, sent once already. project.export_run_hive writes them, with
+    with_hivevars=False: with no SET hivevar line."""
     count = len(built.passed_over) + len(built.steps)
     settings_before = settings_before_each(built)
     first_filling = _first_filling_partitions(built)
@@ -859,9 +904,9 @@ def step_texts(built: BuiltRun) -> list[str]:
         if settings_before[index] is not None:
             lines.append(hive_to_show(settings_before[index], None))
         if kinds.kind(step.statement) == kinds.WRITE:
-            lines.append(statement_text(step.statement))
+            lines.append(statement_text(step.statement, with_hivevars=with_hivevars))
         else:
-            lines.append(hive_to_show(step.statement, None))
+            lines.append(hive_to_show(step.statement, None, with_hivevars=with_hivevars))
         texts.append("\n".join(lines))
     return texts
 
@@ -896,6 +941,16 @@ def _lines_after_parameters(built: BuiltRun) -> list[str]:
         read_from = built.run_values_read_from[name]
         if value is not read_from:
             line += f", read from {python_literal(read_from)}"
+        lines.append(line)
+    if built.hivevars:
+        lines.append("Hivevars given by hivevars=, in place of each one's default:")
+    for name, value in built.hivevars.items():
+        line = f"  {name} = {python_literal(value)}"
+        read_from = built.hivevars_read_from[name]
+        if value is not read_from:
+            line += f", read from {python_literal(read_from)}"
+        if value is None:
+            line += ", so its default is sent"
         lines.append(line)
     if built.passed_over:
         start = built.steps[0]

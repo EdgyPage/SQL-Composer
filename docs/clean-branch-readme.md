@@ -776,6 +776,20 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      building_blocks/run_values.py by hand, then register the file once:
      `project.check()` names it as made by hand, with the call to run in the
      `project.register(...)` cell of `admin/check_project.ipynb`.
+   - If the table's exported `.hql` will run outside the Toolbox, and whatever runs it, such
+     as a scheduler, should give the tag's value each time, answer it with a **Hivevar**. A
+     Run value is worked out when the Statement is built and written into the Hive; a
+     Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever runs it to fill in. Write
+     `from sqlglot_composer import hivevar` at the top of the decisions cell, then
+     `{"tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-10-31'")}}`. The default
+     is written as the answers above are, text or a Run value's function, such as
+     `default=period_end`. The Hive holds `'${hivevar:PERIOD_END}'` where the tag stood, and
+     the Toolbox sends `SET hivevar:PERIOD_END=2026-10-31` before each write holding it.
+     `export_hive()` writes no SET line, since Hive lets a SET in a script beat a value given
+     on its command line (`hive --hivevar ... -f daily.hql`): it writes the default into a
+     `.hivevars` file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your
+     scheduler to pass with it. If your scheduler runs a Scheduled run's notebook instead,
+     give the value with `hivevars=` in its Build cell (Scheduled runs, step 6).
    - If several tables share an answer, give it once under `"all_tables"`, and a table's own
      answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
      period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
@@ -1402,6 +1416,14 @@ To make one:
      whose function is named `period_end`, in place of calling it, wherever it is used: in
      a write the build adds, too, whose `write()` takes no arguments to give it a day. This
      is how a parameter reaches a write you don't call yourself. The build names each it gave.
+   - `hivevars={"PERIOD_END": RUN_DATE}` gives RUN_DATE, for this run, to every Hivevar
+     named `PERIOD_END`, a Script tag answered `hivevar("PERIOD_END", default=...)`, in place
+     of its default; a date as text, `"2026-11-01"`, is that date, and a parameter left
+     empty sends the default. The build prints each Statement holding it after its
+     `SET hivevar:PERIOD_END=...` line, which the run sends first before a write; a SELECT
+     has the value written in its place. A name no Statement holds is refused, naming those
+     they hold. If your scheduler runs the exported `.hql` itself, it passes the
+     `.hivevars` lines instead (section 9, step 4).
    - It builds the Hive fresh each time, so each Run value is worked out as it builds: one
      that reads the warehouse needs `connect(...)` first.
    - A loop among the tables, each waiting on another, is refused, naming its tables.
@@ -1789,7 +1811,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 118 names listed here before the admin module.
+- The star import brings the 119 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

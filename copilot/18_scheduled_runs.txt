@@ -23,7 +23,7 @@ building a Statement of its own, file 17 for a Run value's function in building_
 ## Names for this objective, with their arguments
 
 - project.load(name)
-- project.build_run(statements, *, run_values=None, leave_out=None)
+- project.build_run(statements, *, run_values=None, leave_out=None, hivevars=None)
 - run_value(function, *arguments, **keywords)
 - latest_partition(column, query=None)
 - statement(*clauses, returns_all_rows=False)
