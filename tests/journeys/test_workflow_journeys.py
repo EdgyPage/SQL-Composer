@@ -80,6 +80,8 @@ KNOWN_FIDDLING = {
     "upgrade": (
         "make each change an UPGRADE mark asks for",
     ),
+    # Its journey is the Scheduled run's, below, which makes the run in its notebook.
+    "schedule": (),
 }
 # How many actions each measured journey takes for the user, by the test's name: what 8.5
 # lowers, one ticket at a time (its ticket 01). A journey taking more fails; one taking fewer
@@ -87,8 +89,11 @@ KNOWN_FIDDLING = {
 KNOWN_ACTIONS: dict[str, int] = {
     "test_promote_a_seeded_table_limiting_its_prod_seed": 17,
     "test_convert_the_users_batch_with_run_values_through_the_runner": 12,
-    # Toolbox 8.6, ticket 09: a Scheduled run, made, filled in, read and scheduled.
-    "test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_failure": 10,
+    # Toolbox 8.6, ticket 09: a Scheduled run, made, filled in, read and scheduled. 8.7's
+    # ticket 08 makes it in the schedule Workflow's notebook, three cells run (the Project's
+    # path, the names cell and the run_workflow cell), where 8.6 counted one call in a cell of
+    # the user's own, which no notebook asks for.
+    "test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_failure": 12,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -1368,9 +1373,16 @@ class ScheduledRunJourney:
         self.started.actions.append(("scheduled_run", kind, what))
 
     def make(self) -> None:
-        """Make the run, as the user does in a cell of their own: no notebook holds one."""
-        self.took("ran", f'project.new_scheduled_run("{self.name}")')
-        project.new_scheduled_run(self.name)
+        """Make the run in the schedule Workflow's notebook (Toolbox 8.7), as the user does: its
+        names cell typed, unless it names the run already, as the Example project's does, then
+        the cells before step 1 run, and its last cell, project.run_workflow("schedule"),
+        which runs step 1's project.new_scheduled_run(NAME)."""
+        schedule = self.started.journey("schedule", by_hand=False)
+        if f"NAME = {self.name!r}" not in "\n".join(notebook_runner.code_cells(
+                schedule.notebook)):
+            schedule.type_names(NAME=self.name)
+        said = schedule.run_workflow()
+        assert said.endswith(f"schedule, {self.name}: every step is done."), said
 
     def type_cell(self, first_line: str, text: str, what: str) -> None:
         """Type the whole text of the code cell starting `first_line`, and save the notebook."""

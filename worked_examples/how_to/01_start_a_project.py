@@ -164,8 +164,9 @@ it, and what you fill in:
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.
 - `scheduled_runs/<name>/<name>.ipynb`, a Scheduled run, a notebook an outside scheduler runs
-  top to bottom: `project.new_scheduled_run("<name>")`. You fill in its `<...>` lines: its
-  parameters, its connection and the Statements it runs, as
+  top to bottom: `project.new_scheduled_run("<name>")`, run from the schedule Workflow's
+  notebook, admin/workflows/schedule/schedule.ipynb, its names cell naming the run. You fill
+  in its `<...>` lines: its parameters, its connection and the Statements it runs, as
   [Schedule a run](#schedule_a_run) shows.
 - `scheduled_runs/<name>/<name>.hql`, the run's built Hive, in order, and
   `scheduled_runs/<name>/lineage/`, its Lineage: `project.export_run_hive("<name>")` and

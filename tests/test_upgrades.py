@@ -71,7 +71,11 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
 # 8.6's ticket 12 emptied it.
-AWAITING_ITS_STEP: tuple[str, ...] = ()
+AWAITING_ITS_STEP: tuple[str, ...] = (
+    # 8.7's ticket 08: the intermediate's schedule notebook names weekly_team, as the user
+    # named it to make the run; 8.7's step makes the notebook empty (ticket 14).
+    "admin/workflows/schedule/schedule.ipynb",
+)
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
