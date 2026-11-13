@@ -6,11 +6,17 @@ same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files
 its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
 replies against the tasks' reference Hive.
 
-    python tools/excel_eval.py prompts --split dev
-    python tools/excel_eval.py proxy C --split dev
-    python tools/excel_eval.py template --split dev > answers.md
-    python tools/excel_eval.py score answers.md --record .scratch/copilot-eval/results.md
+    python tools/excel_eval.py plan C --split dev --tasks X01,X02 --model haiku
+    python tools/excel_eval.py prompts --arm C --split dev --model copilot-web
+    python tools/excel_eval.py proxy C --split dev --tasks X01,X02 --model haiku
+    python tools/excel_eval.py template --arm C --split dev --model haiku > answers.md
+    python tools/excel_eval.py score answers.md --split dev --tasks X01,X02 \\
+        --record .scratch/copilot-eval/results.md
     python tools/excel_eval.py workbooks --split held_out --into <folder>
+
+Each reply is kept in the same memo as `tools/copilot_eval.py`'s (`tools/eval_memo.py`), a
+held-out task in arm C by the Copilot files' version too, and `plan`, `prompts`, `proxy`,
+`template` and `score` take the round's tasks from it as that tool's do.
 
 An answers file is a copilot_eval answers file whose headings are the Excel tasks', `## X07`.
 Copilot reads an attached workbook, or the text `copilot/workbook_text.py` writes of it; a
@@ -71,6 +77,7 @@ from sqlglot import exp
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
+import eval_memo  # noqa: E402
 from copilot_eval import invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
 from formula_workbook import as_text, build  # noqa: E402
@@ -127,11 +134,37 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     return head + ask + "\n\n" + prompts
 
 
-def template(split: str) -> str:
-    """An answers file to fill in: its header, then a heading and an empty block per task."""
+def template(tasks: list[ExcelTask], memo_files: str = "<the files version plan prints>"
+             ) -> str:
+    """An answers file to fill in: its header, the memo's files version among it, then a
+    heading and an empty block per task."""
     head = ("date: <YYYY-MM-DD>\narm: <A0 or C>\nmodel: <the model>\n"
-            "files: <the Copilot files' hash, or none>\n")
-    return head + "".join(f"\n## {task.id}\n\n```sql\n```\n" for task in tasks_of(split))
+            f"files: <the Copilot files' hash, or none>\nmemo_files: {memo_files}\n")
+    return head + "".join(f"\n## {task.id}\n\n```sql\n```\n" for task in tasks)
+
+
+# --- The memo (Toolbox 8.7, ticket 02) -----------------------------------------------------
+
+
+def memo_key(task_id: str, reply: str, arm: str, model: str, files: str) -> eval_memo.Key:
+    """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
+    model, the text the arm loads, and, for a held-out task in arm C, the Copilot files'
+    version `files`. The reply changes no Excel task's key."""
+    task = BY_ID[task_id]
+    if task.split != "held_out" or arm != "C":
+        files = eval_memo.NO_FILES_VERSION
+    return eval_memo.hashed_key(task_id, prompt(task), arm, model, shared_text(arm) or "",
+                                files)
+
+
+def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
+    """What `prompts`, `template` or `proxy` writes for the tasks a round's plan says to ask."""
+    tasks = [BY_ID[task_id] for task_id in asked]
+    if given.command == "prompts":
+        return "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
+    if given.command == "template":
+        return template(tasks, eval_memo.files_version())
+    return proxy_message(given.arm, tasks)
 
 
 def read_answers(text: str) -> tuple[dict[str, str], dict[str, str]]:
@@ -728,8 +761,10 @@ def report(header: dict[str, str], results: list[ExcelScore]) -> str:
     return "\n".join(lines)
 
 
-def results_row(header: dict[str, str], split: str, results: list[ExcelScore]) -> str:
-    """One row of results.md's Excel table for a scored answers file."""
+def results_row(header: dict[str, str], split: str, results: list[ExcelScore],
+                from_memo: int = 0) -> str:
+    """One row of results.md's Excel table for a scored answers file, its last cell how many
+    of its replies came from the memo."""
     rates = [_rate([one.passed for one in results])]
     rates += list(_rates_by_check(results).values())
     rates += [_rate([not one.unnamed for one in results]),
@@ -737,7 +772,7 @@ def results_row(header: dict[str, str], split: str, results: list[ExcelScore]) -
               _rate([one.code == "parses" for one in results])]
     return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
             f"{header.get('model', '?')} | {header.get('arm', '?')} | {split} | "
-            + " | ".join(str(rate) for rate in rates) + " |")
+            + " | ".join(str(rate) for rate in rates) + f" | {from_memo} |")
 
 
 def write_workbooks(split: str, into: Path) -> list[Path]:
@@ -751,42 +786,59 @@ def write_workbooks(split: str, into: Path) -> list[Path]:
     return written
 
 
+def _add_task_filters(parser: argparse.ArgumentParser, split: str | None = "dev"
+                      ) -> argparse.ArgumentParser:
+    parser.add_argument("--split", choices=("dev", "held_out", "all"), default=split)
+    # A few tasks to a proxy, as a person sends one workbook to a fresh chat.
+    parser.add_argument("--tasks", default="",
+                        help="the tasks to give, such as X01,X02: all the split's")
+    return parser
+
+
+def _chosen_tasks(given: argparse.Namespace) -> list[ExcelTask]:
+    """The tasks of `--split`, or of every split, cut to `--tasks` where it names some."""
+    chosen = set(filter(None, given.tasks.split(",")))
+    return [task for task in tasks_of(given.split or "all") if not chosen or task.id in chosen]
+
+
+def _score_answers(given: argparse.Namespace) -> None:
+    """Score an answers file's replies, and the replies the memo keeps for the rest of the
+    round `--split` and `--tasks` name, keep each with its score, and print the report; with
+    `--record`, add its row to the results."""
+    header, answered = read_answers(given.answers.read_text(encoding="utf-8"))
+    if given.split or given.tasks:
+        tasks = [task.id for task in _chosen_tasks(given)]
+    else:
+        tasks = [task_id for task_id in BY_ID if task_id in answered]
+    found = eval_memo.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
+                                    given.memo)
+    results = scored(found.replies)
+    eval_memo.keep_round(found, {one.task: _answer_line(one) for one in results},
+                         header.get("date", "?"))
+    print(report(header, results))
+    print(eval_memo.memo_line(found))
+    if given.record:
+        splits = "+".join(sorted({BY_ID[one.task].split for one in results}))
+        with given.record.open("a", encoding="utf-8") as record:
+            record.write(results_row(header, splits, results, len(found.taken)) + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prompts", "template", "proxy", "workbooks"):
-        command = commands.add_parser(name)
-        command.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
-        if name == "proxy":
-            command.add_argument("arm", choices=sorted(ARMS))
-            # A few tasks to a proxy, as a person sends one workbook to a fresh chat.
-            command.add_argument("--tasks", default="",
-                                 help="the tasks to give, such as X01,X02: all the split's")
-        if name == "workbooks":
-            command.add_argument("--into", type=Path, required=True)
-    scoring = commands.add_parser("score")
-    scoring.add_argument("answers", type=Path)
-    scoring.add_argument("--record", type=Path)
+    eval_memo.add_round_commands(commands, sorted(ARMS), _add_task_filters)
+    workbooks = commands.add_parser("workbooks")
+    workbooks.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
+    workbooks.add_argument("--into", type=Path, required=True)
     given = parser.parse_args(argv)
-    if given.command == "prompts":
-        print("\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks_of(given.split)))
-    elif given.command == "template":
-        print(template(given.split), end="")
-    elif given.command == "proxy":
-        chosen = set(filter(None, given.tasks.split(",")))
-        print(proxy_message(given.arm, [task for task in tasks_of(given.split)
-                                        if not chosen or task.id in chosen]))
+    if given.command == "score":
+        _score_answers(given)
     elif given.command == "workbooks":
         for path in write_workbooks(given.split, given.into):
             print(path)
     else:
-        header, replies = read_answers(given.answers.read_text(encoding="utf-8"))
-        results = scored(replies)
-        print(report(header, results))
-        if given.record:
-            splits = "+".join(sorted({BY_ID[one.task].split for one in results}))
-            with given.record.open("a", encoding="utf-8") as record:
-                record.write(results_row(header, splits, results) + "\n")
+        tasks = [(task.id, task.split == "held_out") for task in _chosen_tasks(given)]
+        eval_memo.print_round(tasks, memo_key, given, functools.partial(asked_text, given))
     return 0
 
 
