@@ -1,0 +1,22 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "1. Start a Project",
+  "The Workflows",
+  "Have Copilot write it"
+ ],
+ "how_tos": [
+  "start_a_project",
+  "follow_a_workflow",
+  "set_your_database_settings"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "11_excel_formula_workbooks.txt",
+  "12_excel_power_query.txt",
+  "15_excel_workbook_steps.txt",
+  "07_convert_hive.txt",
+  "13_workflows.txt",
+  "14_workflows_new_tables_and_upkeep.txt"
+ ]
+}

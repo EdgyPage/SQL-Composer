@@ -14,7 +14,8 @@ the Hive its team's warehouse ran already, the files the user is given, any Proj
 start from, as `project`, a folder of dev's, or `start_from`, another scenario whose reference
 end makes it, and each phase: a role and the job in the user's words) and `key.json`, its
 answer key (each table the end goal holds, with its columns and rows, and each file it holds,
-from the Project's folder, with any text it must hold), never copied into a run.
+from the Project's folder, with any text it must hold), never copied into a run; and
+`reads.json`, what its path reads of main.
 
 A run's folder is made outside the repo, in the computer's temporary folder, so an agent finds
 nothing of dev's around it; its agents run Python from a virtual environment outside the repo
@@ -41,12 +42,16 @@ folder, is copied into `.scratch/usability-loop/runs/`, and a row added to
 `.scratch/usability-loop/results.md`, naming its inputs.
 
 The inputs, recorded and memoized (Toolbox 8.6, ticket 11). `inputs.json` holds the
-scenario, dev's commit, and a hash of each thing an agent is given: main's tree (each file, its
-export stamp left out), and each file of it the phases name; the Project brought in, file by
-file, but for its copy of the Toolbox; the team's warehouse as set up; the scenario's own files,
-its key among them; each phase's message, with the run's folder and the agents' Python left
-out; and the files the loop puts beside them. Its `inputs_hash` is one hash of all of those,
-the commit left out, so a commit that changes none of them keeps it. Main's tree is built once
+scenario, dev's commit, and a hash of each thing an agent is given, each file's export stamp
+left out: main by part (Toolbox 8.7, ticket 01), the Toolbox folder whole, the README by `##`
+section, each how-to and each Copilot file, and each other file of main the phases name; what
+the scenario's path reads of main, its `reads.json`: README sections, how-tos and Copilot
+files; the Project brought in, file by file, but for its copy of the Toolbox; the team's
+warehouse as set up; the scenario's own files, its key among them; each phase's message, with
+the run's folder and the agents' Python left out; and the files the loop puts beside them. Its
+`inputs_hash` is made from those but for the parts of main the scenario doesn't list, the
+commit left out, so a commit that changes none of what it reads keeps it; `plan` names each
+input that changed since the scenario's last recorded run. Main's tree is built once
 per commit into `<temp>/usability-loop/cache/main/<commit>/`, and each scenario's warehouse
 and Project once per commit into `cache/scenarios/<commit>/<scenario>-<hash>/`, the hash that
 of the scenario's files, any folder of dev's its Project is copied from and the files of any
@@ -119,6 +124,18 @@ EXPORT_STAMP = re.compile(rb"exported \d{4}-\d\d-\d\d \d\d:\d\d(?: from dev comm
 NAMED_IN_MAIN = re.compile(r"\bmain/([\w./-]*\w)")
 # How much of an inputs hash a row of results.md names.
 SHORT_HASH = 16
+# Main, hashed by part (Toolbox 8.7, ticket 01): its README, by `##` section; its how-to page,
+# by how-to, each an entry of the page; the Toolbox folder, whole, but for its how-tos; and
+# each Copilot file.
+README = ".github/README.md"
+TOOLBOX = "sqlglot_composer"
+HOW_TO_PAGE = f"{TOOLBOX}/how_to.html"
+COPILOT = "copilot"
+HOW_TO_ENTRY = re.compile(r'<section class="entry" id="([^"]+)">.*?</section>', re.DOTALL)
+# What a scenario's path reads of main, in the file beside its answer key: each kind, and how a
+# name of that kind is said.
+READS_FILE = "reads.json"
+READ_KINDS = {"readme": "README section", "how_tos": "how-to", "copilot": "Copilot file"}
 
 ROLE_TEXT = {
     "technical": "You are a data analyst who writes some Python and some SQL. You have never "
@@ -171,19 +188,28 @@ class Scenario:
     # top, or made by the reference end of the scenario it starts from, by that one's id.
     project: str = ""
     start_from: str = ""
+    # What its path reads of main, by kind, as READ_KINDS names them (Toolbox 8.7, ticket 01).
+    reads: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def read_scenario(scenario_id: str, folder: Path = SCENARIOS) -> Scenario:
-    """The scenario with this id, read from its folder."""
+    """The scenario with this id, read from its folder: scenario.json, and reads.json, what its
+    path reads of main, each kind of READ_KINDS a list of names, and no other kind."""
     held = json.loads((folder / scenario_id / "scenario.json").read_text(encoding="utf-8"))
     phases = tuple(Phase(each["role"], each["job"]) for each in held["phases"])
     for phase in phases:
         if phase.role not in ROLE_TEXT:
             raise ValueError(f"{scenario_id}: a phase's role is {phase.role!r}, not "
                              f"{in_words(list(ROLE_TEXT), last='or')}")
+    listed = json.loads((folder / scenario_id / READS_FILE).read_text(encoding="utf-8"))
+    others = sorted(set(listed) - set(READ_KINDS))
+    if others:
+        raise ValueError(f"{scenario_id}: {READS_FILE} lists {in_words(others)}, but it lists "
+                         f"only {in_words(list(READ_KINDS))}")
+    reads = {kind: tuple(listed.get(kind, [])) for kind in READ_KINDS}
     return Scenario(held["id"], held["split"], held["title"], phases,
                     tuple(held.get("hive_ran", [])), dict(held.get("given", {})), folder,
-                    held.get("project", ""), held.get("start_from", ""))
+                    held.get("project", ""), held.get("start_from", ""), reads)
 
 
 def read_answer_key(chosen: Scenario) -> dict[str, dict]:
@@ -559,38 +585,104 @@ def tree_hashes(folder: Path, hash_of: Callable[[Path], str] = file_hash,
     return hashes
 
 
-def main_tree_hash(main: Path) -> str:
-    """One hash of every file of main's tree, the export's stamp left out of each."""
-    return text_hash(json.dumps(tree_hashes(main, main_file_hash), sort_keys=True))
+def main_text(path: Path) -> str:
+    """A text file of main's tree, the export's stamp left out."""
+    return EXPORT_STAMP.sub(b"exported", path.read_bytes()).decode("utf-8")
+
+
+def readme_sections(text: str) -> dict[str, str]:
+    """A README's text, by section: each `##` heading's, from it to the next, by the heading,
+    and the part above the first by the README's `#` title. A line in a ``` block starts
+    none."""
+    sections: dict[str, list[str]] = {}
+    heading, title, in_code = "", "", False
+    for line in text.splitlines(keepends=True):
+        if line.startswith("```"):
+            in_code = not in_code
+        elif not in_code and line.startswith("## "):
+            heading = line[3:].strip()
+        elif not in_code and not heading and not title and line.startswith("# "):
+            title = line[2:].strip()
+        sections.setdefault(heading, []).append(line)
+    if "" in sections:
+        sections = {(name or title): lines for name, lines in sections.items()}
+    return {name: "".join(lines) for name, lines in sections.items()}
+
+
+def main_parts(main: Path) -> dict[str, object]:
+    """Main's tree, hashed by part, the export's stamp left out of each: `toolbox`, one hash
+    of the Toolbox folder, its how-to page's how-tos left out; `readme`, each `##` section of
+    the README; `how_tos`, each how-to of the how-to page, by its link; and `copilot`, each
+    Copilot file, by its path from copilot/. A part main hasn't is empty."""
+    toolbox = tree_hashes(main / TOOLBOX, main_file_hash) if (main / TOOLBOX).is_dir() else {}
+    how_tos = {}
+    if (main / HOW_TO_PAGE).is_file():
+        page = main_text(main / HOW_TO_PAGE)
+        how_tos = {found[1]: text_hash(found[0]) for found in HOW_TO_ENTRY.finditer(page)}
+        toolbox[Path(HOW_TO_PAGE).name] = text_hash(HOW_TO_ENTRY.sub("", page))
+    readme = {}
+    if (main / README).is_file():
+        readme = {heading: text_hash(text)
+                  for heading, text in readme_sections(main_text(main / README)).items()}
+    copilot = {}
+    if (main / COPILOT).is_dir():
+        copilot = tree_hashes(main / COPILOT, main_file_hash)
+    return {"toolbox": text_hash(json.dumps(toolbox, sort_keys=True)), "readme": readme,
+            "how_tos": how_tos, "copilot": copilot}
+
+
+def missing_reads(chosen: Scenario, parts: dict[str, object]) -> list[str]:
+    """Each name the scenario's list of what it reads holds that main's `parts` haven't, as it
+    is said, such as `README section "Update"`."""
+    missing = []
+    for kind in READ_KINDS:
+        missing += [part_in_words(kind, name) for name in chosen.reads.get(kind, ())
+                    if name not in parts[kind]]
+    return missing
+
+
+def part_in_words(kind: str, name: str) -> str:
+    """A name of what a scenario reads, as it is said, by its kind."""
+    return f'{READ_KINDS[kind]} "{name}"' if kind == "readme" else f"{READ_KINDS[kind]} {name}"
 
 
 def named_main_files(messages: list[str], main_tree: Path) -> dict[str, str]:
-    """Each file of main's tree the phases' messages name, such as main/.github/README.md, by
-    its path from main's tree, and its hash, the export's stamp left out, in order of path."""
+    """Each file of main's tree the phases' messages name, such as main/copilot/
+    formula_workbook.xlsx, by its path from main's tree, and its hash, the export's stamp left
+    out, in order of path; but for the README, which every message names and which is hashed
+    section by section."""
     named = {}
     for message in messages:
         for path in NAMED_IN_MAIN.findall(message):
-            if (main_tree / path).is_file():
+            if path != README and (main_tree / path).is_file():
                 named[path] = main_file_hash(main_tree / path)
     return dict(sorted(named.items()))
 
 
 def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
               commit: str) -> dict[str, object]:
-    """What a run of the scenario is given, as its inputs.json holds it: each thing hashed, and
-    one hash of them all, `inputs_hash`, which leaves out dev's commit, so a commit that
-    changes none of them keeps it. Each phase's message is hashed as written for no run in
-    particular, so every run's is the same."""
+    """What a run of the scenario is given, as its inputs.json holds it: main by part and
+    each file of it the phases name, what the scenario's path reads of main, and each other
+    thing hashed; and `inputs_hash`, a hash of only what the run's agents read, as memo_parts
+    picks it, which leaves out dev's commit, so a commit that changes none of it keeps it.
+    Each phase's message is hashed as written for no run in particular, so every run's is the
+    same. A scenario listing a name main hasn't is refused."""
+    parts = main_parts(main_tree)
+    missing = missing_reads(chosen, parts)
+    if missing:
+        raise ValueError(f"{chosen.id}'s {READS_FILE} lists {in_words(missing)}, which main "
+                         "hasn't: name each by what main calls it now, then prepare again")
     messages = [phase_message(phase, Path("<run>"), Path("<python>"), bool(chosen.given),
                               has_a_project(chosen)) for phase in chosen.phases]
     project = {}
     if has_a_project(chosen):
-        # Its copy of the Toolbox is main's, which main's tree hashes already.
+        # Its copy of the Toolbox is main's, which main's Toolbox folder hashes already.
         project = tree_hashes(set_up / "my_project",
                               leave_out=("__pycache__", "sqlglot_composer"))
-    given = {
-        "main": {"tree": main_tree_hash(main_tree),
-                 "named": named_main_files(messages, main_tree)},
+    inputs = {
+        "scenario": chosen.id, "commit": commit,
+        "main": {**parts, "named": named_main_files(messages, main_tree)},
+        "reads": {kind: list(chosen.reads.get(kind, ())) for kind in READ_KINDS},
         "project": project,
         "warehouse": file_hash(set_up / "_loop" / "warehouse.json"),
         "scenario_files": tree_hashes(chosen.folder / chosen.id),
@@ -603,8 +695,29 @@ def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
             "warehouse.py's conn line": text_hash(TEAMS_CONN),
             "each notebook's connect lines": text_hash(TEAMS_CONNECT)},
     }
-    return {"scenario": chosen.id, "commit": commit, **given,
-            "inputs_hash": text_hash(json.dumps(given, sort_keys=True))}
+    return {**inputs, "inputs_hash": text_hash(json.dumps(memo_parts(inputs), sort_keys=True))}
+
+
+def memo_parts(inputs: dict[str, object]) -> dict[str, str]:
+    """What a run's inputs hash is made from, each part by what it is, as plan names one that
+    changed, and its hash: the Toolbox folder; what the scenario's path reads of main, each
+    README section, how-to and Copilot file it lists; each file of main the phases name; each
+    file of the Project brought in; the team's warehouse; each file of the scenario; each
+    phase's message; each file the loop puts in; and the scenario's list of what it reads."""
+    main, reads = inputs["main"], inputs["reads"]
+    parts = {"the Toolbox folder": main["toolbox"]}
+    for kind in READ_KINDS:
+        parts |= {part_in_words(kind, name): main[kind][name] for name in reads[kind]}
+    parts |= {f"main/{path}": hashed for path, hashed in main["named"].items()}
+    parts |= {f"my_project/{path}": hashed for path, hashed in inputs["project"].items()}
+    parts["the team's warehouse"] = inputs["warehouse"]
+    parts |= {f"the scenario's {path}": hashed
+              for path, hashed in inputs["scenario_files"].items()}
+    parts |= {f"phase {number}'s message": hashed
+              for number, hashed in enumerate(inputs["phases"], 1)}
+    parts |= {f"the loop's {name}": hashed for name, hashed in inputs["loop_files"].items()}
+    parts["the scenario's list of what it reads"] = text_hash(json.dumps(reads, sort_keys=True))
+    return parts
 
 
 @dataclass(frozen=True)
@@ -672,12 +785,37 @@ def plan_text(chosen: Scenario, inputs_hash: str, recorded: list[RecordedRun]) -
 
 def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) -> str:
     """Whether the scenario is memoized, as `plan_text` says it, its inputs worked out as
-    `prepare` works them out, with main's tree and its set-up from `cache`."""
+    `prepare` works them out, with main's tree and its set-up from `cache`; and, when no run
+    was recorded with them, what changed since its last run, as `changes_text` says it."""
     with tempfile.TemporaryDirectory() as temporary:
         cache_folder = cache or Path(temporary)
         with hold_the_cache(cache_folder):
             inputs = the_inputs(chosen, cache_folder, main).inputs
-    return plan_text(chosen, inputs["inputs_hash"], read_recorded_runs(RESULTS))
+    recorded = read_recorded_runs(RESULTS)
+    planned = plan_text(chosen, inputs["inputs_hash"], recorded)
+    if runs_with_inputs(chosen, inputs["inputs_hash"], recorded):
+        return planned
+    return planned + changes_text(chosen, inputs, recorded)
+
+
+def changes_text(chosen: Scenario, inputs: dict[str, object],
+                 recorded: list[RecordedRun]) -> str:
+    """What changed in the scenario's inputs since its last recorded run, from the inputs.json
+    kept with it, such as `; changed since its last run, W1-3: the Toolbox folder`; or "" when
+    none of its runs is kept with its inputs."""
+    for each in reversed(recorded):
+        kept = KEPT / "runs" / each.run / "_loop" / "inputs.json"
+        if each.scenario != chosen.id or not kept.is_file():
+            continue
+        before = json.loads(kept.read_text(encoding="utf-8"))
+        if "toolbox" not in before["main"]:
+            return (f"; its last run, {each.run}, was recorded with main's whole tree as one "
+                    "input")
+        old, new = memo_parts(before), memo_parts(inputs)
+        changed = [part for part, hashed in new.items() if old.get(part) != hashed]
+        changed += [f"{part}, no longer there" for part in old if part not in new]
+        return f"; changed since its last run, {each.run}: {in_words(changed)}"
+    return ""
 
 
 # --- Questions to Copilot -------------------------------------------------------------------

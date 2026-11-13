@@ -26,9 +26,12 @@ installs, plus openpyxl, which stands in for Excel's own hands:
 `plan` prints one line per scenario. `memoized` means the runs a round gives it (three for a
 dev scenario, one for a held-out one) passed with the inputs it has now, and none failed: give
 it to no agent, and name those runs in the round's notes. `run it` says why: no run recorded
-with these inputs, fewer passed than a round asks, or one failed. The inputs are what an agent
-is given (see "What a run is given", below), not dev's commit, so a commit that changes none
-of them, such as one to `tools/` or `.scratch/`, leaves a scenario memoized.
+with these inputs, fewer passed than a round asks, or one failed. When no run was recorded with
+these inputs, it also names each input that changed since the scenario's last recorded run,
+such as `changed since its last run, 2026-11-10-W1-3: the Toolbox folder and README section
+"The Workflows"`. The inputs are what an agent is given and reads (see "What a run is given",
+below), not dev's commit, so a commit that changes none of them, such as one to `tools/` or
+`.scratch/`, or to a README section no scenario lists, leaves a scenario memoized.
 
 ## One run
 
@@ -72,11 +75,20 @@ of them, such as one to `tools/` or `.scratch/`, leaves a scenario memoized.
 ## What a run is given, and what is cached
 
 `_loop/inputs.json` holds the scenario, dev's commit, and a SHA-256 of each thing an agent is
-given:
+given, each with the export's stamp (when it ran, and from which commit) left out:
 
-- `main`: one hash of main's whole tree, `tree`, each file hashed with the export's stamp
-  (when it ran, and from which commit) left out; and `named`, each file of main the phases'
-  messages name, such as `.github/README.md`, on its own;
+- `main`, main's tree by part:
+  - `toolbox`: one hash of the Toolbox folder, whole, but for the how-tos on its how-to page,
+    since its code changes what every run does;
+  - `readme`: the README, one hash per `##` section, by its heading, the part above the first
+    by the README's title, `sqlglot Composer`;
+  - `how_tos`: each how-to of `how_to.html`, by its link, such as `convert_someone_elses_hive`;
+  - `copilot`: each Copilot file, by its path from `copilot/`;
+  - `named`: each other file of main the phases' messages name, such as
+    `copilot/formula_workbook.xlsx`, on its own; the README every message names is hashed by
+    section instead;
+- `reads`: what the scenario's path reads of main, from its `reads.json`, beside its answer
+  key: the README sections, by heading, the how-tos and the Copilot files;
 - `project`: each file of the Project the user starts from, as it is brought in, before its
   connection is filled in, but for its copy of the Toolbox, which is main's;
 - `warehouse`: the team's warehouse, as the scenario's Hive left it;
@@ -85,8 +97,25 @@ given:
 - `loop_files`: the runner, the warehouse's code and the team's connection the loop puts in,
   and the lines it gives a Project brought in that connection by, each hashed on its own.
 
-`inputs_hash` is one hash of all of those; dev's commit is left out of it. A change to any of
-them, such as a fix to a how-to an agent reads, gives a new hash, and the scenario runs again.
+`inputs_hash` is made only from what the scenario's agents read: the Toolbox folder, the parts
+of main its `reads.json` lists, the files the phases name, the rest of `inputs.json`
+(`project`, `warehouse`, `scenario_files`, `phases`, `loop_files`) and the list itself; dev's
+commit is left out of it. So:
+
+- a change to the Toolbox folder runs every scenario again;
+- a change to a README section, how-to or Copilot file runs again only the scenarios that list
+  it; one no scenario lists runs none;
+- a change to anything else of the scenario's, such as its answer key or its list, runs it
+  again.
+
+`prepare` and `plan` refuse a scenario whose list names a section, how-to or Copilot file main
+hasn't, so one renamed can't leave a scenario memoized on nothing; a test holds every list to
+main too. Each list is written by `tools/usability_scenario_files.py`, with the rest of the
+scenario's folder: change it there, then build the scenarios again.
+
+Runs recorded before Toolbox 8.7 name a hash made with one hash of main's whole tree, which no
+run's hash is now, so `plan` says to run each of those scenarios once more, and never reads
+those runs as memoized.
 
 Two things are cached, in `%TEMP%\usability-loop\cache\`, so a round builds each once:
 

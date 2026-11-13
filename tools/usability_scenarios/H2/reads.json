@@ -1,0 +1,16 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "The Workflows",
+  "Update"
+ ],
+ "how_tos": [
+  "upgrade_your_project_to_a_new_toolbox_version",
+  "follow_a_workflow",
+  "set_your_database_settings"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "14_workflows_new_tables_and_upkeep.txt"
+ ]
+}

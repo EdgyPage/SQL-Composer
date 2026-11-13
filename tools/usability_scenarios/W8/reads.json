@@ -1,0 +1,16 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "6. Save a table",
+  "Scheduled runs"
+ ],
+ "how_tos": [
+  "save_a_table",
+  "schedule_a_run"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "17_run_values_and_seed_limits.txt",
+  "18_scheduled_runs.txt"
+ ]
+}

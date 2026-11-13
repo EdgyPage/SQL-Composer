@@ -5,8 +5,10 @@
 
 Each scenario's folder holds `scenario.json`, the files it gives the user, the Hive its team's
 warehouse ran already, any presentation workbook (the user's own view, for an Excel scenario),
-and `key.json`, its answer key. A Workflow scenario's key comes from the warehouse itself: the
-rows the original Hive wrote, or an independent query's, never the Toolbox's own conversion. An
+`key.json`, its answer key, and `reads.json`, what its path reads of main, which its inputs
+hash is made from (Toolbox 8.7, ticket 01). A Workflow scenario's key comes from the warehouse
+itself: the rows the original Hive wrote, or an independent query's, never the Toolbox's own
+conversion. An
 Excel scenario's key is computed here in Python from the workbook's raw rows, as its formulas
 compute them. `reference_end` reaches each scenario's end with the Toolbox, in a prepared run,
 and `tests/journeys/test_usability_scenarios.py` holds that end to the key: so a key never asks
@@ -432,10 +434,47 @@ class Built:
     files: dict[str, str] = field(default_factory=dict)  # text files, by name
     workbooks: dict[str, Callable[[], openpyxl.Workbook]] = field(default_factory=dict)
     key: Callable[[], dict[str, object]] = dict
+    # What its path reads of main, written as reads.json (Toolbox 8.7, ticket 01).
+    reads: dict[str, list[str]] = field(default_factory=dict)
 
 
 def technical(job: str) -> dict[str, str]:
     return {"role": "technical", "job": job}
+
+
+def path_reads(readme: list[str], how_tos: list[str],
+               copilot: list[str]) -> dict[str, list[str]]:
+    """What a scenario's path reads of main, as reads.json holds it: the README's top, where
+    every agent starts, and each other section named, by its heading; each how-to, by its
+    link on how_to.html; and Copilot file 00, which every question opens with, and each other
+    Copilot file named. Its inputs hash is made from these, so a change to anything else
+    the docs hold runs it no more (Toolbox 8.7, ticket 01)."""
+    return {"readme": ["sqlglot Composer", *readme], "how_tos": how_tos,
+            "copilot": ["00_start_here.txt", *copilot]}
+
+
+CONVERT_READS = path_reads(
+    ["1. Start a Project", "9. Convert someone else's Hive", "The Workflows"],
+    ["start_a_project", "convert_someone_elses_hive", "follow_a_workflow",
+     "set_your_database_settings"],
+    ["07_convert_hive.txt", "08_check_and_compare.txt", "13_workflows.txt"])
+REFERENCES_READS = path_reads(
+    ["1. Start a Project", "2. Add your tables' references", "The Workflows"],
+    ["start_a_project", "add_your_tables_references", "follow_a_workflow", "keys"],
+    ["02_table_references.txt", "14_workflows_new_tables_and_upkeep.txt"])
+NEW_TABLE_READS = path_reads(
+    ["1. Start a Project", "6. Save a table", "The Workflows", "Templates"],
+    ["start_a_project", "save_a_table", "follow_a_workflow", "set_your_database_settings"],
+    ["03_build_a_statement.txt", "06_save_a_table.txt", "08_check_and_compare.txt",
+     "14_workflows_new_tables_and_upkeep.txt"])
+# Both phases of an Excel scenario: the Formula workbook filled in with Copilot's files, then
+# its Hive made into tables.
+EXCEL_READS = path_reads(
+    ["1. Start a Project", "The Workflows", "Have Copilot write it"],
+    ["start_a_project", "follow_a_workflow", "set_your_database_settings"],
+    ["11_excel_formula_workbooks.txt", "12_excel_power_query.txt",
+     "15_excel_workbook_steps.txt", "07_convert_hive.txt", "13_workflows.txt",
+     "14_workflows_new_tables_and_upkeep.txt"])
 
 
 def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
@@ -483,7 +522,7 @@ def workflow_scenarios() -> dict[str, Built]:
             key=lambda: {"tables": {team_fails: table_key(
                 [ONE_SCRIPT], "SELECT team, fails, dt FROM mart.team_fails")},
                 "files": [{"path": COMPARED.format(stem="mart_dev__team_fails"),
-                           "holds": ["Passed"]}]}),
+                           "holds": ["Passed"]}]}, reads=CONVERT_READS),
         "W6": Built({
             "id": "W6", "split": "dev", "title": "convert a script holding Script tags",
             "phases": [technical(
@@ -502,7 +541,7 @@ def workflow_scenarios() -> dict[str, Built]:
                 "files": [{"path": COMPARED.format(stem="mart_dev__daily_fails"),
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__daily_fails.py",
-                           "holds": ["'2026-09-24'"]}]}),
+                           "holds": ["'2026-09-24'"]}]}, reads=CONVERT_READS),
         "W4": Built({
             "id": "W4", "split": "dev", "title": "Table references",
             "phases": [technical(
@@ -512,7 +551,8 @@ def workflow_scenarios() -> dict[str, Built]:
                 f"{DATABASES_SAID}")]},
             key=lambda: {"files": [
                 {"path": "references/ops__jobs.py", "holds": ['key=["job_id"]']},
-                {"path": "references/ops__run_alerts.py", "holds": ['key=["alert_id"]']}]}),
+                {"path": "references/ops__run_alerts.py", "holds": ['key=["alert_id"]']}]},
+            reads=REFERENCES_READS),
     }
 
 
@@ -542,7 +582,9 @@ def run_value_scenarios() -> dict[str, Built]:
                 "files": [{"path": COMPARED.format(stem="mart_dev__run_log"),
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__run_log.py",
-                           "holds": ["# a Run value", "2026-09-24"]}]}),
+                           "holds": ["# a Run value", "2026-09-24"]}]},
+            reads={**CONVERT_READS, "copilot": [*CONVERT_READS["copilot"],
+                                                "17_run_values_and_seed_limits.txt"]}),
     }
 
 
@@ -558,7 +600,8 @@ def new_table_scenarios() -> dict[str, Built]:
                 f"its logic yourself, then write the table. {DATABASES_SAID}")]},
             key=lambda: {"tables": {f"{DEV}.runs_per_day": table_key([], RUNS_PER_DAY)},
                          "files": [{"path": "references/mart_dev__runs_per_day.py",
-                                    "holds": [location(f"{DEV}.runs_per_day")]}]}),
+                                    "holds": [location(f"{DEV}.runs_per_day")]}]},
+            reads=NEW_TABLE_READS),
         "W3": Built({
             "id": "W3", "split": "dev", "title": "a new table from a query",
             "phases": [technical(
@@ -569,7 +612,8 @@ def new_table_scenarios() -> dict[str, Built]:
             {"failed_runs.hql": FAILED_RUNS},
             key=lambda: {"tables": {f"{DEV}.failed_runs": table_key([], FAILED_RUNS)},
                          "files": [{"path": COMPARED.format(stem="mart_dev__failed_runs"),
-                                    "holds": ["Passed"]}]}),
+                                    "holds": ["Passed"]}]},
+            reads=NEW_TABLE_READS),
         "W5": Built({
             "id": "W5", "split": "dev", "title": "change a Saved table",
             "phases": [technical(
@@ -579,7 +623,10 @@ def new_table_scenarios() -> dict[str, Built]:
             "start_from": "W2"},
             key=lambda: {"tables": {f"{DEV}.runs_per_day": table_key(
                 [], RUNS_PER_DAY.replace("BETWEEN '2026-09-23' AND '2026-09-24'",
-                                         "= '2026-09-23'"))}}),
+                                         "= '2026-09-23'"))}},
+            reads=path_reads(["6. Save a table", "The Workflows"],
+                             ["follow_a_workflow", "rewrite_some_partitions"],
+                             ["14_workflows_new_tables_and_upkeep.txt"])),
     }
 
 
@@ -608,7 +655,10 @@ def scheduled_run_scenarios() -> dict[str, Built]:
                          "files": [{"path": f"scheduled_runs/{run}/{run}.ipynb",
                                     "holds": ["WEEK"]},
                                    {"path": "admin/registry.csv",
-                                    "holds": [f"scheduled_run,{run}"]}]}),
+                                    "holds": [f"scheduled_run,{run}"]}]},
+            reads=path_reads(["6. Save a table", "Scheduled runs"],
+                             ["save_a_table", "schedule_a_run"],
+                             ["17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt"])),
     }
 
 
@@ -633,7 +683,9 @@ def held_out_workflow_scenarios() -> dict[str, Built]:
                 f"{PROD}.job_runs_counted": table_key(
                     [LONG_SCRIPT], "SELECT job_id, runs, dt FROM mart.job_runs_counted"),
                 f"{PROD}.job_fails_counted": table_key(
-                    [LONG_SCRIPT], "SELECT job_id, fails, dt FROM mart.job_fails_counted")}}),
+                    [LONG_SCRIPT], "SELECT job_id, fails, dt FROM mart.job_fails_counted")}},
+            reads={**CONVERT_READS, "copilot": [*CONVERT_READS["copilot"],
+                                                "16_workflows_promote.txt"]}),
         "H2": Built({
             "id": "H2", "split": "held_out", "title": "upgrade a Project left by 8.0",
             "phases": [technical(
@@ -643,7 +695,11 @@ def held_out_workflow_scenarios() -> dict[str, Built]:
             "project": "tests/upgrade_from/8.0/starter"},
             key=lambda: {"files": [{"path": "admin/project_version.txt",
                                     "holds": [TOOLBOX_VERSION]},
-                                   {"path": "admin/databases.py", "holds": [f'"{DEV}"']}]}),
+                                   {"path": "admin/databases.py", "holds": [f'"{DEV}"']}]},
+            reads=path_reads(["The Workflows", "Update"],
+                             ["upgrade_your_project_to_a_new_toolbox_version",
+                              "follow_a_workflow", "set_your_database_settings"],
+                             ["14_workflows_new_tables_and_upkeep.txt"])),
     }
 
 
@@ -656,21 +712,24 @@ def excel_scenarios() -> dict[str, Built]:
                                    f"{DEV}.job_run_report, from its Report"),
             "given": {"from_your_team/run_report.xlsx": "run_report.xlsx"}},
             workbooks={"run_report.xlsx": run_report_workbook},
-            key=lambda: {"tables": {f"{DEV}.job_run_report": run_report_key()}}),
+            key=lambda: {"tables": {f"{DEV}.job_run_report": run_report_key()}},
+            reads=EXCEL_READS),
         "E2": Built({
             "id": "E2", "split": "dev", "title": "two data sources on two sheets, joined",
             "phases": excel_phases("team_report.xlsx", "the Teams sheet",
                                    f"{DEV}.team_report, from its Teams summary"),
             "given": {"from_your_team/team_report.xlsx": "team_report.xlsx"}},
             workbooks={"team_report.xlsx": team_report_workbook},
-            key=lambda: {"tables": {f"{DEV}.team_report": team_report_key()}}),
+            key=lambda: {"tables": {f"{DEV}.team_report": team_report_key()}},
+            reads=EXCEL_READS),
         "E3": Built({
             "id": "E3", "split": "dev", "title": "a Power Query step and a Total Row",
             "phases": excel_phases("daily_runs.xlsx", "the Daily sheet",
                                    f"{DEV}.daily_runs, from its Daily summary"),
             "given": {"from_your_team/daily_runs.xlsx": "daily_runs.xlsx"}},
             workbooks={"daily_runs.xlsx": daily_runs_workbook},
-            key=lambda: {"tables": {f"{DEV}.daily_runs": daily_runs_key()}}),
+            key=lambda: {"tables": {f"{DEV}.daily_runs": daily_runs_key()}},
+            reads=EXCEL_READS),
         "E4": Built({
             "id": "E4", "split": "held_out",
             "title": "two final Tables, a fixed value and a value typed over a formula",
@@ -678,7 +737,7 @@ def excel_scenarios() -> dict[str, Built]:
                                    f"{DEV}.job_costs and {DEV}.team_runs"),
             "given": {"from_your_team/costs.xlsx": "costs.xlsx"}},
             workbooks={"costs.xlsx": costs_workbook},
-            key=lambda: {"tables": costs_key()}),
+            key=lambda: {"tables": costs_key()}, reads=EXCEL_READS),
     }
 
 
@@ -1049,6 +1108,8 @@ def build_one(place: Path, scenario_id: str, built: Built) -> None:
         make().save(place / name)
     (place / "key.json").write_text(json.dumps(built.key(), indent=1) + "\n",
                                     encoding="utf-8")
+    (place / usability_loop.READS_FILE).write_text(json.dumps(built.reads, indent=1) + "\n",
+                                                   encoding="utf-8")
 
 
 if __name__ == "__main__":

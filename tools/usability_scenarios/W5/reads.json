@@ -1,0 +1,15 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "6. Save a table",
+  "The Workflows"
+ ],
+ "how_tos": [
+  "follow_a_workflow",
+  "rewrite_some_partitions"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "14_workflows_new_tables_and_upkeep.txt"
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "1. Start a Project",
+  "2. Add your tables' references",
+  "The Workflows"
+ ],
+ "how_tos": [
+  "start_a_project",
+  "add_your_tables_references",
+  "follow_a_workflow",
+  "keys"
+ ],
+ "copilot": [
+  "00_start_here.txt",
+  "02_table_references.txt",
+  "14_workflows_new_tables_and_upkeep.txt"
+ ]
+}
