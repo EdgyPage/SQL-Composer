@@ -83,7 +83,8 @@ warehouse.py the connection its permission steps send through, and until it is f
 their `query` and `execute` refuse. A step that only touches files runs without it.
 
 A **Scheduled run** is not a Workflow: it is a notebook of its own in `scheduled_runs/`, which
-an outside scheduler runs top to bottom, with no decision to wait on. Its Build cell,
+an outside scheduler runs top to bottom, with no decision to wait on. The schedule Workflow
+makes that notebook, with `project.new_scheduled_run(NAME)`. The run's Build cell,
 `project.build_run(statements)`, adds the write of each table its Statements read, in lineage
 order, and prints their Hive, sending nothing; its Run cell, `built.run(query, execute)`,
 sends them. The README's Scheduled runs section, and the how-to "Schedule a run", walk

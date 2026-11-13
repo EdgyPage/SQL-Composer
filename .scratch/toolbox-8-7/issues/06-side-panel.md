@@ -83,6 +83,10 @@ Built 2026-11-13.
 - **Decided: Session settings per Statement**: on `export_lineage`, those passed (sent before
   all); on a Scheduled run, its table's `session_settings()`, as `built.run` sends them;
   "dynamic_partitions" for a write that fills partitions from its rows.
+- **Merged with ticket 09 (Hivevar)**: a Statement holding a Hivevar lists its SET hivevar
+  lines among what is sent before it ("Hivevars PERIOD_END, sent before it: SET
+  hivevar:PERIOD_END=2026-09-24"), as 09's Answer asks; a Hivevar's box is named by the one
+  `_run_value_words`.
 - **Decided: Hive as the page showed it before**, `to_hive` (an Unchecked statement's text),
   so a run's Hive file stays the one place with `SET` lines and `;`.
 - **Decided: the Project's Scheduled runs list sits in a closed `<details>` under the title**,

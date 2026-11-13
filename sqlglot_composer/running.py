@@ -10,6 +10,7 @@ Hive, and export_hive keeps it in a file: a Table notebook's, beside the noteboo
 from __future__ import annotations
 
 import inspect
+import shlex
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
@@ -34,7 +35,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .project_files import TABLE_FOLDER
-from .run_values import note_read, refuse_failed_run_values
+from .run_values import HIVEVAR_IN_HIVE, note_read, refuse_failed_run_values
 from .shared import counted, in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
@@ -405,6 +406,61 @@ def settings_needed(s: Statement) -> list[str]:
                         for name, value in SHIPPED["dynamic_partitions"].items()]
 
 
+def hivevar_values(s: Statement | UncheckedStatement) -> dict[str, str]:
+    """Each Hivevar a hivevar(...) answer put in a Statement's Hive, by its NAME, in the order
+    the Hive holds them, with the value the Toolbox sends for it: as the Statement's tree notes
+    it, where script_tag wrote it, else as it was last worked out when the Statement was made,
+    where tag_text wrote it in a string. A ${hivevar:NAME} written by hand, as a text answer,
+    is left to you."""
+    if kinds.kind(s) in (kinds.SETTINGS, kinds.PYTHON):
+        return {}
+    if kinds.kind(s) == kinds.UNCHECKED:
+        text, tree = s._text, Node("Null")
+    else:
+        text = to_hive(s)
+        tree = statement_tree(s) if kinds.is_a_query(s) else Node("Null")
+    names = list(dict.fromkeys(HIVEVAR_IN_HIVE.findall(text)))
+    noted = {node.meta["hivevar"]: node.meta["hivevar_value"] for node in tree.walk()
+             if "hivevar" in node.meta}
+    values = {**s._hivevar_values, **noted}
+    return {name: values[name] for name in names if name in values}
+
+
+def hivevar_lines(s: Statement | UncheckedStatement) -> list[str]:
+    """The lines show_hive prints ahead of a Statement holding a Hivevar: a note naming each
+    and saying how it is sent, then its SET hivevar line; none for one with no Hivevar."""
+    values = hivevar_values(s)
+    if not values:
+        return []
+    names = in_words(list(values))
+    if kinds.sent_by(s) == kinds.QUERY:
+        note = (f"-- Hivevars {names}: run_query writes each value in its place; elsewhere, "
+                "send these SET lines first")
+    else:
+        note = (f"-- Hivevars {names}: run_execute sends each SET line first, in a call of its "
+                "own")
+    return [note] + [f"SET hivevar:{name}={value};" for name, value in values.items()]
+
+
+def send_hivevars(s: Statement | UncheckedStatement, execute: Callable[[str], None]) -> None:
+    """Send the SET hivevar line of each Hivevar a Statement holds through your execute, one
+    at a time, before the Statement, so the warehouse fills each in; nothing for one with no
+    Hivevar. A Statement holding a Run value that failed is refused first."""
+    if kinds.is_a_query(s):
+        refuse_failed_run_values(statement_tree(s))
+    for name, value in hivevar_values(s).items():
+        execute(f"SET hivevar:{name}={value}")
+
+
+def with_hivevar_values(s: Statement | UncheckedStatement, text: str) -> str:
+    """`text`, the Hive sent for a Statement through your query, with each Hivevar a
+    hivevar(...) answer put there written as its value: your query gives back rows, and a SET
+    line gives none."""
+    for name, value in hivevar_values(s).items():
+        text = text.replace(f"${{hivevar:{name}}}", value)
+    return text
+
+
 def admin_notes(s: Statement) -> list[str]:
     """The comment lines show_hive prints ahead of an Admin statement: what it changes, what
     can't be undone, and what to check first, each item wrapped on lines starting --."""
@@ -465,8 +521,11 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     A write that fills Partitions from its rows, into a table with partitioned_by=, is printed
     after the Session setting it needs: a line saying so, then its SET lines, which run_execute
     doesn't send with it: send them first with run_execute(hive_settings("dynamic_partitions"),
-    execute). An Admin statement, from the admin module, is printed after comment lines saying
-    what it changes, what can't be undone, and what to check first. A Python step has no Hive:
+    execute). A Statement holding a Hivevar (help(hivevar)) is printed after a line naming
+    each and saying how it is sent, then its SET hivevar line: run_execute sends that line
+    first, and run_query writes the value in the Hivevar's place instead. An Admin statement,
+    from the admin module, is printed after comment lines saying what it changes, what can't
+    be undone, and what to check first. A Python step has no Hive:
     it is printed as comment lines saying where its function lives, what it read and wrote, and
     that nothing is sent for it.
 
@@ -533,32 +592,38 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     return HiveText(text)
 
 
-def hive_to_show(s: object, frame: FrameType | None) -> str:
+def hive_to_show(s: object, frame: FrameType | None, *, with_hivevars: bool = True) -> str:
     """What show_hive prints for one of the things it is given, or the refusal of what isn't
     one: `frame` is its caller's, or None when the Toolbox gives it a Statement it built, as
-    a Scheduled run's build does."""
+    a Scheduled run's build does. With with_hivevars=False, as an export writes it, a
+    Statement's SET hivevar lines are left out."""
     if kinds.kind(s) == kinds.SETTINGS:
         return settings_text(s)
     if kinds.kind(s) == kinds.UNCHECKED:
-        return unchecked_text(s)
+        shown = hivevar_lines(s) if with_hivevars else []
+        return "\n".join([*shown, unchecked_text(s)])
     if kinds.kind(s) == kinds.PYTHON:
         return python_step_text(s)
     need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
-    return "\n".join([*settings_needed(s), statement_text(s)])
+    return "\n".join([*settings_needed(s), statement_text(s, with_hivevars=with_hivevars)])
 
 
-def statement_text(s: Statement) -> str:
-    """A Statement's Hive as show_hive prints it, less the Session setting it needs: its Admin
-    notes, then its Hive. A Scheduled run's build prints a write's so, as built.run sends
-    "dynamic_partitions" once, before the first write that needs it."""
-    return "\n".join([*admin_notes(s), to_hive(s) + ";"])
+def statement_text(s: Statement, *, with_hivevars: bool = True) -> str:
+    """A Statement's Hive as show_hive prints it, less the Session setting it needs: the SET
+    line of each Hivevar it holds, but with with_hivevars=False, its Admin notes, then its
+    Hive. A Scheduled run's build prints a write's so, as built.run sends "dynamic_partitions"
+    once, before the first write that needs it."""
+    shown = hivevar_lines(s) if with_hivevars else []
+    return "\n".join([*shown, *admin_notes(s), to_hive(s) + ";"])
 
 
 # --- Hive kept in a file ---------------------------------------------------------------------
 
 # The end of the name of each file export_hive writes, such as mart__daily_job_runs.hql.
 _HIVE_FILE_END = ".hql"
+# The end of the name of the file beside it that holds the value of each Hivevar in its Hive.
+_HIVEVARS_FILE_END = ".hivevars"
 # How wide the lines starting a Table notebook's Hive file are, after the -- that starts each.
 _HEADER_WIDTH = 86
 
@@ -646,6 +711,12 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     variable is written to statement.hql, over the one before. A list is refused, since a loop
     would write every Statement to the file of its one variable, each over the one before.
 
+    A Hivevar (help(hivevar)) has no SET line in the file, since Hive lets a SET in a script
+    beat a value given on the command line: each one's value, as worked out now, goes in a
+    file beside it of the same name, ending .hivevars, such as daily.hivevars, as
+    --hivevar PERIOD_END=2026-09-24, one to a line, for your scheduler to pass to Hive with
+    the .hql. With no Hivevar, a .hivevars file an export before wrote is deleted.
+
     Outside a Table notebook, export_hive() is refused: pass the Statement instead. Its write()
     is refused as project.run_tables refuses it, such as one that gives a read.
     """
@@ -664,15 +735,19 @@ def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep
     name = name_in(frame, s)
     path = here / f"{name or 'statement'}{_HIVE_FILE_END}"
     # \n line endings on every computer, so a file written again matches the one committed.
-    path.write_text(hive_to_show(s, frame) + "\n", encoding="utf-8", newline="\n")
+    path.write_text(hive_to_show(s, frame, with_hivevars=False) + "\n", encoding="utf-8",
+                    newline="\n")
+    hivevars_said = write_hivevars_file(path, hivevar_values(s),
+                                        f"export_hive({name or '...'})")
     from .project import ProjectReport  # project.py imports this file
 
     if name is None:
         return ProjectReport([f"Wrote {path.name}, beside your notebook or script: the Hive "
                               "you passed, as show_hive shows it. It is in no variable, so "
-                              "the next one in no variable is written over it."])
+                              "the next one in no variable is written over it.",
+                              *hivevars_said])
     return ProjectReport([f"Wrote {path.name}, beside your notebook or script: the Hive of "
-                          f"{name}, as show_hive shows it."])
+                          f"{name}, as show_hive shows it.", *hivevars_said])
 
 
 def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
@@ -684,6 +759,8 @@ def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
     name = TABLE_FOLDER.name_of(folder.name)
     steps = _steps_sent(name, load(name))
     path = folder / f"{folder.name}{_HIVE_FILE_END}"
+    # Worked out first: a NAME given two values is refused before any file is written.
+    values = hivevar_values_of_each([sent for _, _, sent in steps], "export_hive()")
     held = _steps_held(steps)
     header = (f"The Hive of {name}, generated by export_hive() from the logic cell of "
               f"{folder.name}.ipynb, beside this file. Edit the logic there, not this file: "
@@ -692,10 +769,60 @@ def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
     pieces_of_the_file = [hive_file_header(header)]
     for position, (_, heading, sent) in enumerate(steps, start=1):
         pieces_of_the_file.append(f"-- {position} of {len(steps)}: {heading}\n"
-                                  f"{hive_to_show(sent, frame)}")
+                                  f"{hive_to_show(sent, frame, with_hivevars=False)}")
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(pieces_of_the_file) + "\n", encoding="utf-8", newline="\n")
-    return ProjectReport([f"Wrote {path.name} beside its notebook, the Hive of {held}."])
+    return ProjectReport([f"Wrote {path.name} beside its notebook, the Hive of {held}.",
+                          *write_hivevars_file(path, values, "export_hive()")])
+
+
+def hivevar_values_of_each(sent: list[Statement | SessionSettings | UncheckedStatement
+                                      | PythonStep], call: str) -> dict[str, str]:
+    """The value of each Hivevar the Statements `sent` hold, by its NAME, in the order they
+    hold them, for one .hivevars file. A NAME given two values is refused, since a scheduler
+    gives Hive one value for each NAME."""
+    values: dict[str, str] = {}
+    for s in sent:
+        for name, value in hivevar_values(s).items():
+            if values.get(name, value) != value:
+                refuse(
+                    what=f"{call}: the Hivevar {name} is worked out as {values[name]!r} for "
+                    f"one Statement and {value!r} for another.",
+                    why="The .hivevars file gives Hive one value for each NAME, as a "
+                    "scheduler passes it, for every Statement the .hql holds.",
+                    fix=f"Give each Hivevar named {name} the same default, or give one a NAME "
+                    "of its own, in its Table reference's TAGS.",
+                    error=ValueError,
+                )
+            values[name] = value
+    return values
+
+
+def write_hivevars_file(hql: Path, values: dict[str, str], made_by: str) -> list[str]:
+    """Write the .hivevars file beside a .hql file the Toolbox wrote, `hql`: lines starting #
+    saying what it is and why, then --hivevar NAME=value for each of `values`, as a command
+    line takes it. With no value, one an export wrote before is deleted. What the report says
+    of it, a line or none."""
+    path = hql.with_suffix(_HIVEVARS_FILE_END)
+    if not values:
+        if not path.exists():
+            return []
+        path.unlink()
+        return [f"Deleted {path.name}, which an export before this one wrote: the Hive holds "
+                "no Hivevar now."]
+    first = list(values)[0]
+    about = (f"The Hivevars of {hql.name}, beside this file, generated by {made_by}: each "
+             "one's value as it was worked out then, its default or what its Run value gave. "
+             f"{hql.name} holds no SET line for them, since Hive lets a SET in the script beat "
+             "a value given on its command line. Pass each line below to Hive with it, as in "
+             f"hive --hivevar {first}=... -f {hql.name}. Change a value where your scheduler "
+             "passes it, not in this file: each export writes it again.")
+    header = ["# " + line for line in textwrap.wrap(about, width=_HEADER_WIDTH)]
+    lines = [f"--hivevar {name}={shlex.quote(value)}" for name, value in values.items()]
+    # \n line endings on every computer, so a file written again matches the one committed.
+    path.write_text("\n".join([*header, *lines]) + "\n", encoding="utf-8", newline="\n")
+    return [f"Wrote {path.name} beside it, the value of each Hivevar its Hive holds, "
+            f"{in_words(list(values))}, as worked out now, for your scheduler to pass to Hive."]
 
 
 def hive_file_header(text: str) -> str:
@@ -795,6 +922,8 @@ def run_query(s: Statement | UncheckedStatement,
     set_load_limits(rows=...) set, since it was probably cut short. Given explain(s), it gives
     back Hive's plan as text. Given an Unchecked statement, it sends your text as written,
     gives back its rows, and adds an entry to the Admin log (help(set_admin_log) says where).
+    A Hivevar (help(hivevar)) is sent with its value written in its place, since your query
+    gives back rows and a SET line gives back none.
     It refuses what changes something, a write, create_table(t), repair_partitions(t),
     compute_statistics(t), an Admin statement and hive_settings(...), saying to send it with
     run_execute; a Python step, which sends nothing; and your execute in query's place, which
@@ -812,10 +941,11 @@ def run_query(s: Statement | UncheckedStatement,
         for name, how in tables_read_and_written(s._text):
             if how == "reads":
                 note_read(name)
-        rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+        rows = logged_run("Unchecked statement", unchecked_call(s),
+                          with_hivevar_values(s, s._text), query)
         refuse_what_isnt_a_dataframe(rows)
         return rows
-    text = to_hive(s)
+    text = with_hivevar_values(s, to_hive(s))
     if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
     for table in tables_read_by(s):
@@ -849,9 +979,11 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     beside the script or notebook that sends it (help(set_admin_log)). It gives back None. A
     write that fills Partitions from its rows needs the Session setting "dynamic_partitions"
     sent first, as above, as show_hive prints and help(INSERT_OVERWRITE) explains: run_execute
-    sends the write alone. It refuses a read and explain(s), whose rows come back only through
-    run_query; a Python step, which sends nothing; and your query in execute's place, which it
-    knows by its name, before anything is sent.
+    sends the write alone. A Statement holding a Hivevar (help(hivevar)) has the SET
+    hivevar line of each sent first, one at a time, through your execute. It refuses a read
+    and explain(s), whose rows come back only through run_query; a Python step, which sends
+    nothing; and your query in execute's place, which it knows by its name, before anything
+    is sent.
     """
     _refuse_the_other_call("run_execute", "query", "run_query", removed)
     refuse_removed_arguments("run_execute", removed, run_execute)
@@ -864,6 +996,7 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
         for line in s._lines:  # Hive takes one SET per call
             execute(line)
         return
+    send_hivevars(s, execute)
     if kind == kinds.UNCHECKED:
         sent = s._text
         logged_run("Unchecked statement", unchecked_call(s), sent, execute)

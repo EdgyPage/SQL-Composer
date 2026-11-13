@@ -48,6 +48,7 @@ from .refusals import (
     warning_unchecked_partition_filter,
     warning_unchecked_where_on_kept_rows,
 )
+from .run_values import last_hivevar_values
 from .tables import (
     Column,
     NamedPartitions,
@@ -236,6 +237,9 @@ class Statement:
         # (the function's name, the Statements it stacks). Its _outputs are then its columns,
         # and it has none of the clauses above.
         self._stack = None
+        # Each Hivevar's value as last worked out when it was made, tag_text's in its strings
+        # among them (Toolbox 8.7): the values its SET hivevar lines send.
+        self._hivevar_values = last_hivevar_values()
 
     def __repr__(self) -> str:
         if not kinds.is_a_query(self):

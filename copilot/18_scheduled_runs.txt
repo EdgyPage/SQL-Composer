@@ -23,7 +23,7 @@ building a Statement of its own, file 17 for a Run value's function in building_
 ## Names for this objective, with their arguments
 
 - project.load(name)
-- project.build_run(statements, *, run_values=None, leave_out=None)
+- project.build_run(statements, *, run_values=None, leave_out=None, hivevars=None)
 - run_value(function, *arguments, **keywords)
 - latest_partition(column, query=None)
 - statement(*clauses, returns_all_rows=False)
@@ -78,6 +78,17 @@ building a Statement of its own, file 17 for a Run value's function in building_
    `# Build` line, the Build cell, in one block; then the `connect(...)` line.
 2. In words: which writes the build will add, and the papermill line, such as
    `papermill weekly.ipynb out.ipynb -p RUN_DATE 2026-11-01`.
+
+## Background, not a step of yours: how the notebook was made
+
+The user ran the schedule Workflow, admin/workflows/schedule/schedule.ipynb, its names cell
+such as `NAME = "weekly"`:
+
+1. Make the Scheduled run's notebook (it changes only files, so project.do_next() runs it for
+   you).
+
+       project.new_scheduled_run(NAME)
+
 
 ## Examples
 

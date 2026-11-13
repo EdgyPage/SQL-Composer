@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 import example_gallery
+import generated_memo
 import how_to_page
 import sqlglot_composer
 from offline_policy import external_references
@@ -56,10 +57,15 @@ def page_sections() -> dict[str, str]:
 
 
 def test_the_committed_page_is_what_the_tool_writes() -> None:
+    # Locally only when an input changed since it last passed; on CI, always.
+    memo = generated_memo.Memo("how_to_page")
+    if memo.is_unchanged():
+        return
     committed = page() if PAGE.exists() else ""
     assert how_to_page.how_to_page() == committed, (
         f"{PAGE.relative_to(ROOT).as_posix()} is out of date: run python tools/how_to_page.py"
     )
+    memo.keep()
 
 
 def test_there_is_a_how_to_and_how_to_1_starts_a_project() -> None:

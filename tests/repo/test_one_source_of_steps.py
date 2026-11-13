@@ -26,9 +26,11 @@ PAGES = (
     "docs/clean-branch-readme.md",
     "worked_examples/how_to/29_follow_a_workflow.py",
 )
-# The Copilot file that lists each Workflow's steps: 13 convert's, 16 promote's, 14 the rest.
+# The Copilot file that lists each Workflow's steps: 13 convert's, 16 promote's, 18 schedule's,
+# 14 the rest.
 COPILOT_FILE_OF = {"convert": "copilot/13_workflows.txt",
-                   "promote": "copilot/16_workflows_promote.txt"}
+                   "promote": "copilot/16_workflows_promote.txt",
+                   "schedule": "copilot/18_scheduled_runs.txt"}
 
 
 def copilot_file_of(workflow: workflows.Workflow) -> str:

@@ -91,8 +91,9 @@ class ConversionRefused(Exception):
 class Finding:
     """What a Conversion found at one line of the Hive.
 
-    Its kind is "unchecked", "constant", "settings", "dropped", "changed", "variable", "tag"
-    or "table"."""
+    Its kind is "unchecked", "constant", "settings", "dropped", "changed", "kept", "variable",
+    "tag" or "table"; "kept" is Hive kept as written that the user's Hive may refuse, such as
+    SORT_ARRAY's second argument."""
 
     line: int | None
     kind: str
@@ -587,6 +588,24 @@ class _Converter:
             how = "inside quotes" if quoted else "bare"
             self.note_finding(node, "tag", f'<PARM="{name}"/>, a Script tag, {how}. '
                               f"{TAG_FINDING}")
+
+    def leave_out_sort_arrays_true(self, tree: exp.Expression) -> None:
+        """Leave out each SORT_ARRAY's TRUE, Spark's second argument, which Hive's refuses, as
+        ascending is how Hive's sorts; a second argument of any other kind is kept, with a
+        finding that the user's Hive may refuse it."""
+        for node in list(tree.find_all(exp.SortArray)):
+            ascending = node.args.get("asc")
+            if ascending is None:
+                continue
+            if isinstance(ascending, exp.Boolean) and ascending.this is True:
+                node.set("asc", None)
+                self.note_finding(node, "changed", "SORT_ARRAY sorts ascending by default; "
+                                  "its TRUE is left out, as Hive's takes one argument")
+            else:
+                self.note_finding(node, "kept", f"SORT_ARRAY's {sql_text(ascending)} is kept "
+                                  "as written, though Hive's SORT_ARRAY takes one argument and "
+                                  "sorts ascending, so your Hive may refuse it: if it does, "
+                                  "and ascending will do, take out its second argument")
 
     # --- Queries ----------------------------------------------------------------------------
 
@@ -1783,6 +1802,7 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
     for name in query.find_all(exp.Identifier):
         if tag_name(name.name) is None:  # a Script tag's NAME keeps its case
             name.set("this", name.name.lower())  # Hive reads a name whatever its case
+    converter.leave_out_sort_arrays_true(query)
     # A WITH before INSERT ... SELECT is the INSERT's; before a SELECT, the SELECT's.
     with_ = query.args.get("with_")
     if isinstance(query, exp.MultitableInserts):

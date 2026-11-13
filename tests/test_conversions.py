@@ -419,6 +419,10 @@ WRITTEN_ANOTHER_WAY = {
         "SELECT r.job_id, SUM(CASE WHEN r.status = 'FAILED' THEN 1 END) AS f\n"
         "FROM ops.job_runs r WHERE r.dt = '2026-09-24' GROUP BY r.job_id",
         "it gives 0 where the SUM gave NULL"),
+    "sort_arrays_true": (
+        "SELECT r.job_id, CONCAT_WS(' | ', SORT_ARRAY(COLLECT_SET(r.status), TRUE)) AS s\n"
+        "FROM ops.job_runs r WHERE r.dt = '2026-09-24' GROUP BY r.job_id",
+        "SORT_ARRAY sorts ascending by default; its TRUE is left out"),
 }
 
 

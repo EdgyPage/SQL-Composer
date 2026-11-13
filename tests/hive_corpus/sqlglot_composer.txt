@@ -3244,6 +3244,58 @@ The columns that tell each step's rows apart, as the Toolbox works them out. A c
 ---
 
 
+== doc:hivevar
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt <= '${hivevar:PERIOD_END}'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+WHERE: job_runs.dt <= '${hivevar:PERIOD_END}'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
+
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table's column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
+
+## statement
+
+- Reads: ops.job_runs
+- Writes: no table, its rows come back to you
+- Hivevars PERIOD_END, sent before it: SET hivevar:PERIOD_END=2026-09-24
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt <= '${hivevar:PERIOD_END}'
+```
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+- `run_id` comes from ops.job_runs.run_id
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" on its box in the drawing.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+---
+
+
 == doc:run_value
 -- Statement 1: to_hive
 SELECT

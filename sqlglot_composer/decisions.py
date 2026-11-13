@@ -95,6 +95,10 @@ SEED_COMMENT = (
     '# all. Answer "seed" in the decisions cell, such as {"dt": {"from": "2026-01-01"}}.',
 )
 RUN_VALUE_MARK = "  # a Run value, for TAGS or SEED"
+# The import above TAGS while it holds a Hivevar (Toolbox 8.7), and how each one's value
+# starts in TAGS.
+HIVEVAR_IMPORT = "from sqlglot_composer import hivevar  # for a Hivevar in TAGS"
+HIVEVAR_CALL = "hivevar("
 RUN_VALUE_IMPORT = re.compile(
     rf"from [\w.]+ import (?P<function>\w+){re.escape(RUN_VALUE_MARK)}")
 # A location= line no one has filled in, its TODO taken off or not.
@@ -248,16 +252,24 @@ def _tag_answer_shown(line: str) -> str:
 
 def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
     """A Table reference's text with an import above TAGS, or above SEED, for each Run value's
-    function its TAGS or SEED names, and none for one they no longer name."""
+    function its TAGS or SEED names, a Hivevar's default among them, and none for one they no
+    longer name; and the import of hivevar while TAGS holds a Hivevar, and none once it
+    doesn't."""
     functions = [*_functions_in(answer.get(ANSWERS[TAG])), *_functions_in(answer.get(SEED))]
     lines = text.split("\n")
-    named = {_tag_value_text(line) for line in lines if kind_of(line) == TAG}
+    values = [_tag_value_text(line) for line in lines if kind_of(line) == TAG]
+    named = set(values)
+    hivevars = [value for value in values if value.startswith(HIVEVAR_CALL)]
+    for value in hivevars:
+        named |= set(re.findall(r"\w+", value))
     seed_line = _seed_line_number(lines)
     if seed_line is not None:
         named |= set(re.findall(r"\w+", lines[seed_line]))
-    lines = [line for line in lines if not _is_unused_run_value_import(line, named)]
-    for function in functions:
-        imported = run_value_import(function)
+    lines = [line for line in lines if not _is_unused_import(line, named, bool(hivevars))]
+    imports = [run_value_import(function) for function in functions]
+    if hivevars:
+        imports.append(HIVEVAR_IMPORT)
+    for imported in imports:
         starts = [number for number, line in enumerate(lines)
                   if line.startswith((TAGS_START, SEED_START.removesuffix("{")))]
         if imported not in lines and starts:
@@ -269,9 +281,12 @@ def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
 
 
 def _functions_in(value: object) -> list[Callable[..., object]]:
-    """Each function an answer holds, however deep in its dicts and lists."""
+    """Each function an answer holds, however deep in its dicts and lists, a Hivevar's default
+    among them."""
     if callable(value):
         return [value]
+    if _is_hivevar(value):
+        return _functions_in(value.default)
     parts: list[object] = []
     if isinstance(value, dict):
         parts = list(value.values())
@@ -281,6 +296,14 @@ def _functions_in(value: object) -> list[Callable[..., object]]:
     for part in parts:
         functions += _functions_in(part)
     return functions
+
+
+def _is_hivevar(value: object) -> bool:
+    """Whether a tag's answer is a Hivevar, as hivevar(...) makes one (Toolbox 8.7)."""
+    # tables.py imports this file, and run_values.py imports tables.py: it is read here.
+    from .run_values import Hivevar
+
+    return isinstance(value, Hivevar)
 
 
 def seed_line(text: str) -> str | None:
@@ -366,6 +389,14 @@ def seed_partitions(text: str) -> list[str] | None:
     return re.findall(r'"([^"]+)"', found.group(1)) if found else []
 
 
+def _is_unused_import(line: str, named: set[str], holds_a_hivevar: bool) -> bool:
+    """Whether a line is an import above TAGS or SEED nothing uses any more: a Run value's of a
+    function neither names, or hivevar's when TAGS holds no Hivevar."""
+    if line == HIVEVAR_IMPORT:
+        return not holds_a_hivevar
+    return _is_unused_run_value_import(line, named)
+
+
 def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
     """Whether a line is an import run_value_import wrote of a function neither TAGS nor
     SEED names any more."""
@@ -414,13 +445,18 @@ def tag_hint(quoted: bool, where: str = "") -> str:
 
 def tag_answer_problem(value: object, quoted: bool) -> str | None:
     """Why a tag's answer can't be written where the tag stood, or None when it can: it must
-    be Python text, not <FILL IN>, or a Run value's function a Table reference can import
-    (run_value_problem); a bare tag's text is one value of a kind a program puts there
-    (writing.tag_value_problem), and a quoted tag's has no quotes of its own."""
+    be Python text, not <FILL IN>, a Run value's function a Table reference can import
+    (run_value_problem), or a Hivevar whose default is either; a bare tag's text is one value
+    of a kind a program puts there (writing.tag_value_problem), and a quoted tag's has no
+    quotes of its own."""
     if is_left_to_fill_in(value):
         return still_to_fill_in("its answer")
     if callable(value):
         return run_value_problem(value)
+    if _is_hivevar(value) and callable(value.default):
+        return run_value_problem(value.default)
+    if _is_hivevar(value):
+        return _text_answer_problem(value.default, quoted)
     if not isinstance(value, str):
         return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
                 "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
@@ -776,7 +812,12 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     if tag_answer_problem(value, _tag_is_quoted(line)) is not None:
         return None, ""
     found = TAG_LINE.match(line)
-    written = value.__qualname__ if callable(value) else escaped_literal(value)
+    if callable(value):
+        written = value.__qualname__
+    elif _is_hivevar(value):
+        written = repr(value)
+    else:
+        written = escaped_literal(value)
     return f"    {found['name']}: {written},  {found['comment']}", f"tags: {name}"
 
 

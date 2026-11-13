@@ -156,6 +156,7 @@ from .python_steps import PythonStep
 from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
+from .run_values import Hivevar
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
 from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
@@ -456,9 +457,8 @@ ADMIN_NOTEBOOKS = {
     "scheduled_runs": (
         "# Scheduled runs, by hand\n\nWhat no Scheduled run does each time it runs, since it "
         "would be work for nothing each time: run these cells by hand, when you want them. "
-        "Name each Scheduled run to make in `NEW_RUNS`, such as `[\"weekly\"]`: "
-        "`project.new_scheduled_run(NEW_RUNS)` makes `scheduled_runs/<name>/<name>.ipynb` "
-        "from the Template, for you to fill in its `<...>`. `project.check()` reports a loop "
+        "To make a Scheduled run, use the schedule Workflow, "
+        "`workflows/schedule/schedule.ipynb`. `project.check()` reports a loop "
         "among your tables, two or more each waiting on another so that none can be written "
         "first, naming the logic cell to mend, and changes nothing. "
         "`project.export_project_lineage()` writes `lineage/<time>-project.html` and its "
@@ -474,8 +474,6 @@ ADMIN_NOTEBOOKS = {
         "Project's path connects to the warehouse: a Run value that reads the warehouse needs "
         "it even to build.",
         [f"from warehouse import connect\n{CONNECT_LINES}",
-         'NEW_RUNS = []  # Scheduled runs to make, such as ["weekly"]\n'
-         "if NEW_RUNS:\n    print(project.new_scheduled_run(NEW_RUNS))",
          "project.check()  # a loop among your tables, and what else needs you",
          "project.export_project_lineage()  # every Saved table, and the runs that write each",
          'RUNS = []  # Scheduled runs, for each one\'s lineage and Hive, such as ["weekly"]\n'
@@ -2316,8 +2314,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     # batch is run only to compare it again, on the Partitions PARTITIONS lists.
     instances = [workflows.read_again(root, found, each)
                  for each in workflows.one_per_name(root, started)
-                 if not workflows.is_finished(root, each)
-                 or workflows.is_compared_again(root, each)]
+                 if not workflows.is_finished(root, found, each)
+                 or workflows.is_compared_again(root, found, each)]
     if not instances:
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
@@ -2338,7 +2336,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
             ran.append(again)
         return ProjectReport([*lines, *ran])
     for inputs, its_calls in zip(instances, calls, strict=True):
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, found, inputs):
             ran, stopped = _compare_again(root, found, inputs, its_calls)
         else:
             ran, stopped = _run_steps(root, found, inputs, its_calls)
@@ -2500,7 +2498,7 @@ def _batch_state_lines(root: Path, workflow: workflows.Workflow,
         inputs = workflows.read_again(root, workflow, inputs)
         step = workflows.next_step(root, workflow, inputs)
         state = "every step is done"
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, workflow, inputs):
             state = (f"finished, every step done: its folder is "
                      f"{(BATCHES / FINISHED / str(inputs['NAME'])).as_posix()}/")
         elif step is not None:
@@ -4770,6 +4768,13 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
         logic = "\n".join(text for _, text in read_cells(notebook))
     notes = []
     for name, value in tags.items():
+        if isinstance(value, Hivevar):
+            notes.append(f"{table}: tags: {name} is the Hivevar {value.name}: the Toolbox "
+                         f"sends SET hivevar:{value.name}=<value> before each Statement that "
+                         "holds it. <value> is its default unless a Scheduled run's "
+                         "hivevars= gives another. export_hive() writes it into a .hivevars "
+                         "file beside the .hql.")
+            continue
         for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
             said = f"{table}: tags: {name} is {value}"
             # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
@@ -4780,7 +4785,9 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
             else:
                 notes.append(f"{said}: written, but no SET line of its scripts sets "
                              f"hivevar:{variable}, so the write would send it as it is: "
-                             "answer again with the value itself, such as \"'2026-10-31'\".")
+                             "answer again with the value itself, such as \"'2026-10-31'\", "
+                             f"or with hivevar(\"{variable}\", default=\"'2026-10-31'\"), "
+                             "which sends its own SET line.")
     return notes
 
 
@@ -7335,7 +7342,8 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
 
 def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
               run_values: dict[str, object] | None = None,
-              leave_out: list[str] | None = None) -> BuiltRun:
+              leave_out: list[str] | None = None,
+              hivevars: dict[str, object] | None = None) -> BuiltRun:
     """Build a Scheduled run's Statements in order and print their Hive, sending none.
 
     >>> import os
@@ -7391,6 +7399,14 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        RUN_DATE's text, "2026-11-01", is a datetime.date where period_end gives one; a
        function with no hint takes it as it is.
        A value that can't be read, and a name no Statement's Run value has, are refused.
+       hivevars={"PERIOD_END": RUN_DATE} gives each Hivevar named PERIOD_END, a Script tag
+       answered hivevar("PERIOD_END", default=...) (help(hivevar)), that value for this
+       build, in place of its default: a datetime.date, a number, or Hive text written as
+       the default is. A date as text, such as "2026-11-01" as a scheduler passes it, is that
+       date. A parameter left empty is None, or "", which sends the default. Each Statement
+       holding it is printed after its SET hivevar line: built.run sends that line first
+       before a write, and writes the value in its place in a SELECT. A name no Statement's
+       Hivevar has is refused, naming those they have.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
@@ -7419,7 +7435,7 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
     Hive, and gives back the built run, which built.run(query, execute) sends.
     """
-    call = _build_run_call(statements, run_values, leave_out)
+    call = _build_run_call(statements, run_values, leave_out, hivevars)
     if not callable(statements) or _arguments_needed(statements):
         refuse(
             what=f"{call} was given {statements!r}, where the function statements goes.",
@@ -7432,18 +7448,20 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     # scheduled_runs imports this file, so it is read here, when a run is built.
     from .scheduled_runs import build_scheduled_run
 
-    return build_scheduled_run(statements, run_values or {}, leave_out or [], callers_frame(),
-                               call)
+    return build_scheduled_run(statements, run_values or {}, hivevars or {}, leave_out or [],
+                               callers_frame(), call)
 
 
 def _build_run_call(statements: object, run_values: dict[str, object] | None,
-                    leave_out: list[str] | None) -> str:
+                    leave_out: list[str] | None, hivevars: dict[str, object] | None) -> str:
     """build_run's call as the Build cell writes it, its keywords shown when given."""
     shown = getattr(statements, "__name__", "statements")
     if run_values:
         shown += ", run_values={...}"
     if leave_out:
         shown += f", leave_out={leave_out!r}"
+    if hivevars:
+        shown += ", hivevars={...}"
     return f"project.build_run({shown})"
 
 

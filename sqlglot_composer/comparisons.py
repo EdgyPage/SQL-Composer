@@ -25,7 +25,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .running import (hive_without_automatic_limit, need_statement, send_logged,
-                      statement_tree, statements_within)
+                      statement_tree, statements_within, with_hivevar_values)
 from .script_tags import readable_tags
 from .shared import counted, in_words, singular_or_plural
 from .tables import Column, Table, Verdict, literal, python_text
@@ -225,7 +225,7 @@ def compare_with_original(statement: Statement, original: str, *,
         _need_partitions_named(statement, columns, call, named)
     hive = rows_compared(call, ours, original, columns, given_values, bounded, _MOST_ROWS_SHOWN)
     # Sent as run_query sends a Statement, so one holding Unchecked pieces is in the Admin log.
-    result = send_logged(statement, hive, query,
+    result = send_logged(statement, with_hivevar_values(statement, hive), query,
                          sent_for=f"compared with the original by {call}")
     refuse_what_isnt_a_dataframe(result)
     where = _compared_rows_where(statement, given_values, bounded, reads_all_partitions)

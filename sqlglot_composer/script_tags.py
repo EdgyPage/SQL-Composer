@@ -19,11 +19,15 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from .refusals import refuse
 from .tables import Column, python_text
 from .trees import Node
 from .writing import tag_value_problem
+
+if TYPE_CHECKING:  # run_values.py imports this file, so only the hint reads it here
+    from .run_values import Hivevar
 
 # A Script tag, its NAME any text but a quote, a backtick or a line break.
 TAG = re.compile(r'<PARM="([^"`\n]+)"/>')
@@ -192,7 +196,7 @@ def _is_built_of_values(node: Node) -> bool:
                if isinstance(part, Node))
 
 
-def script_tag(text: str | Callable[[], object]) -> Column:
+def script_tag(text: str | Callable[[], object] | Hivevar) -> Column:
     """The value a Script tag stands for, written where the tag stood, as a Column.
 
     >>> from sqlglot_composer import example_database
@@ -216,8 +220,11 @@ def script_tag(text: str | Callable[[], object]) -> Column:
     job_runs.duration_mins / 60 does. TAGS, in the table's Table reference, holds what each
     tag stands for: the Hive the program put there, such as '2026-09-24' with its quotes, 5,
     or '${hivevar:period_end}', a Hive variable your warehouse fills in when the query runs,
-    in quotes when it holds a date; or a Run value's function, such as period_end, written in
-    your Project, which script_tag calls each time the Statement is built. What it gives is
+    in quotes when it holds a date; a Run value's function, such as period_end, written in
+    your Project, which script_tag calls each time the Statement is built; or
+    hivevar("PERIOD_END", default="'2026-09-24'"), a Hivevar whose SET line the Toolbox sends
+    for you before the Statement (help(hivevar)), where '${hivevar:period_end}' written by
+    hand as text is one whose SET line you send yourself. What a Run value gives is
     written as Hive: a datetime.date as '2026-09-24', a number as it is, TRUE or FALSE, and
     text as the Hive it is. One that fails leaves `<PERIOD_END failed>` in the value's
     place, with a Warning saying why, so show_hive still shows the rest; run_query and
@@ -238,11 +245,13 @@ def script_tag(text: str | Callable[[], object]) -> Column:
     the text inside it, but at_most(runs.dt, script_tag(...)) still filters dt, a partition
     column, as at_most(runs.dt, "2026-09-24") does.
     """
+    # run_values.py reads this file's SCRIPT_TAG and check_tag_value, so it is read here.
+    from .run_values import Hivevar, hivevar_column, tag_value_column
+
+    if isinstance(text, Hivevar):
+        return hivevar_column(text)
     call = f"script_tag({python_text(text)})"
     if callable(text):
-        # run_values.py reads this file's SCRIPT_TAG and check_tag_value, so it is read here.
-        from .run_values import tag_value_column
-
         return tag_value_column(text)
     if not isinstance(text, str) or not text.strip():
         refuse(

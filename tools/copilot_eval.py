@@ -5,10 +5,19 @@ measures it: the same tasks (`tools/copilot_eval_tasks.py`) are answered with an
 files, by Copilot in its web chat or by a proxy model in a Claude session, each reply is kept
 in an answers file, and this scores the replies against the tasks' reference answers.
 
-    python tools/copilot_eval.py prompts --split dev
-    python tools/copilot_eval.py proxy C --split dev --objective 03
-    python tools/copilot_eval.py template --split dev > answers.md
-    python tools/copilot_eval.py score answers.md --record .scratch/copilot-eval/results.md
+    python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
+    python tools/copilot_eval.py prompts --arm C --split dev --model copilot-web
+    python tools/copilot_eval.py proxy C --split dev --objective 03 --model haiku
+    python tools/copilot_eval.py template --arm C --split dev --model haiku > answers.md
+    python tools/copilot_eval.py score answers.md --split dev --objective 03 \\
+        --record .scratch/copilot-eval/results.md
+
+Each reply is kept in the memo, `.scratch/copilot-eval/memo/` (`tools/eval_memo.py`), by its
+task's id and text, its arm, its model and the text the arm loads, and a held-out task in arm C
+or R by the Copilot files' version too. `plan` names the tasks of a round to ask and why;
+`prompts`, `proxy` and `template` write only those, and `score` scores the round's kept
+replies with the answers file's new ones, and keeps each with its score: a held-out reply by
+the files version its header's `memo_files:` names, the one it was asked on.
 
 An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
 Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
@@ -56,6 +65,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import functools
 import io
 import json
 import math
@@ -74,6 +84,7 @@ from sqlglot import exp
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
+import eval_memo  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E402
 from example_gallery import example_setting, what_happened  # noqa: E402
@@ -307,11 +318,53 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
                                              for task in tasks)
 
 
-def template(split: str) -> str:
-    """An answers file to fill in: its header, then a heading and an empty block per task."""
+def template(tasks: list[Task], memo_files: str = "<the files version plan prints>") -> str:
+    """An answers file to fill in: its header, the memo's files version among it, then a
+    heading and an empty block per task."""
     head = ("date: <YYYY-MM-DD>\narm: <A0, A1, C or R>\nmodel: <the model>\n"
-            "files: <the Copilot files' hash, or none>\n")
-    return head + "".join(f"\n## {task.id}\n\n```python\n```\n" for task in tasks_of(split))
+            f"files: <the Copilot files' hash, or none>\nmemo_files: {memo_files}\n")
+    return head + "".join(f"\n## {task.id}\n\n```python\n```\n" for task in tasks)
+
+
+# --- The memo (Toolbox 8.7, ticket 02) -----------------------------------------------------
+
+# The arms that load a Copilot file, in which a held-out task is asked once per files version.
+FILE_ARMS = ("C", "R")
+# A Copilot file's name, as an arm R reply names the file it would load.
+FILE_NAME = re.compile(r"\b\d\d_\w+\.txt\b")
+
+
+def loaded_text(arm: str, task: Task, reply: str) -> str:
+    """The text an arm loads before a task's prompt: in arm R, file 00 and the file the reply
+    names, and in the others what the user shares, the reply aside."""
+    if arm != "R":
+        return shared_text(arm, task.objective) or ""
+    text = shared_text("R", None) or ""
+    named = [name for name in FILE_NAME.findall(reply) if not name.startswith("00_")]
+    if named and (COPILOT / named[0]).is_file():
+        text += (COPILOT / named[0]).read_text(encoding="utf-8")
+    return text
+
+
+def memo_key(task_id: str, reply: str, arm: str, model: str, files: str) -> eval_memo.Key:
+    """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
+    model, the text the arm loads, and, for a held-out task in an arm that loads a Copilot
+    file, the Copilot files' version `files`."""
+    task = BY_ID[task_id]
+    if task.split != "held_out" or arm not in FILE_ARMS:
+        files = eval_memo.NO_FILES_VERSION
+    return eval_memo.hashed_key(task_id, prompt(task), arm, model,
+                                loaded_text(arm, task, reply), files)
+
+
+def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
+    """What `prompts`, `template` or `proxy` writes for the tasks a round's plan says to ask."""
+    tasks = [BY_ID[task_id] for task_id in asked]
+    if given.command == "prompts":
+        return "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
+    if given.command == "template":
+        return template(tasks, eval_memo.files_version())
+    return proxy_message(given.arm, tasks)
 
 
 # --- Reading an answers file ---------------------------------------------------------------
@@ -1036,49 +1089,61 @@ def report(header: dict[str, str], results: list[Score]) -> str:
     return "\n".join(lines)
 
 
-def results_row(header: dict[str, str], split: str, results: list[Score]) -> str:
-    """One row of .scratch/copilot-eval/results.md for a scored answers file."""
+def results_row(header: dict[str, str], split: str, results: list[Score],
+                from_memo: int = 0) -> str:
+    """One row of .scratch/copilot-eval/results.md for a scored answers file, its last cell
+    how many of its replies came from the memo."""
     total = summary(results)
     objectives = " ".join(f"{name}:{rate}" for name, rate in total.objectives.items())
     return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
             f"{header.get('model', '?')} | {header.get('arm', '?')} | {split} | "
             f"{total.passed} | " + " | ".join(str(getattr(total, check)) for check in CHECKS)
             + f" | {total.invented} | {total.needless} | {total.star} | {total.unrun} | "
-            f"{objectives} |")
+            f"{objectives} | {from_memo} |")
 
 
-def _add_task_filters(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
+def _add_task_filters(parser: argparse.ArgumentParser, split: str | None = "dev"
+                      ) -> argparse.ArgumentParser:
+    parser.add_argument("--split", choices=("dev", "held_out", "all"), default=split)
     parser.add_argument("--objective", choices=sorted(OBJECTIVES))
     return parser
+
+
+def _score_answers(given: argparse.Namespace) -> None:
+    """Score an answers file's replies, and the replies the memo keeps for the rest of the
+    round `--split` and `--objective` name, keep each with its score, and print the report;
+    with `--record`, add its row to the results."""
+    header, answered = read_answers(given.answers.read_text(encoding="utf-8"))
+    if given.split or given.objective:
+        tasks = [task.id for task in tasks_of(given.split or "all", given.objective)]
+    else:
+        tasks = [task_id for task_id in BY_ID if task_id in answered]
+    found = eval_memo.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
+                                    given.memo)
+    results = scored(found.replies)
+    eval_memo.keep_round(found, {one.task: _answer_line(one) for one in results},
+                         header.get("date", "?"))
+    print(report(header, results))
+    print(eval_memo.memo_line(found))
+    if given.record:
+        splits = {BY_ID[one.task].split for one in results}
+        row = results_row(header, "+".join(sorted(splits)), results, len(found.taken))
+        with given.record.open("a", encoding="utf-8") as record:
+            record.write(row + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    _add_task_filters(commands.add_parser("prompts"))
-    _add_task_filters(commands.add_parser("template"))
-    _add_task_filters(commands.add_parser("proxy")).add_argument("arm", choices=sorted(ARMS))
-    scoring = commands.add_parser("score")
-    scoring.add_argument("answers", type=Path)
-    scoring.add_argument("--record", type=Path)
+    eval_memo.add_round_commands(commands, sorted(ARMS), _add_task_filters)
     given = parser.parse_args(argv)
-    if given.command == "prompts":
-        tasks = tasks_of(given.split, given.objective)
-        print("\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks))
-    elif given.command == "template":
-        print(template(given.split), end="")
-    elif given.command == "proxy":
-        print(proxy_message(given.arm, tasks_of(given.split, given.objective)))
+    if given.command == "score":
+        _score_answers(given)
     else:
-        header, replies = read_answers(given.answers.read_text(encoding="utf-8"))
-        results = scored(replies)
-        print(report(header, results))
-        if given.record:
-            splits = {BY_ID[one.task].split for one in results}
-            row = results_row(header, "+".join(sorted(splits)), results)
-            with given.record.open("a", encoding="utf-8") as record:
-                record.write(row + "\n")
+        tasks = [(task.id, task.split == "held_out")
+                 for task in tasks_of(given.split, given.objective)]
+        eval_memo.print_round(tasks, memo_key, given,
+                              functools.partial(asked_text, given))
     return 0
 
 

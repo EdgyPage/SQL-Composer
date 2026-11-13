@@ -136,7 +136,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -159,12 +159,13 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <p>Done when it says <code>Started a Project</code>. Then step 6.</p>
 <h5>6. Know every file of a Project</h5>
 <p>Goal: know which call makes each file, and what you fill in. Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action: a one-time change to the Project&#x27;s files, recorded in the Admin log. Make each file with its Project action, never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You fill in nothing: each notebook gives it your connection with <code>connect(...)</code>, in its first code cells, as step 8 shows.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for your Scheduled runs: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/lineage/</code>, the Project&#x27;s lineage, every Saved table, what reads it and which Scheduled runs write it: <code>project.export_project_lineage()</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it. Convert, promote, new_table and references open with four cells, run in order: the names cell, &quot;Run up to your Decisions&quot;, the decisions cell, where you answer, and &quot;Run the rest&quot;. Each step&#x27;s own cell is below them, under Step by step, to run one step on purpose; in upgrade and change_a_saved_table, run each step&#x27;s cell in turn. <code>project.do_next()</code> runs only the steps that change files, and <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block, a Scheduled run or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.ipynb</code>, a Scheduled run, a notebook an outside scheduler runs top to bottom: <code>project.new_scheduled_run(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines: its parameters, its connection and the Statements it runs, as <a href="#schedule_a_run">Schedule a run</a> shows.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.hql</code>, the run&#x27;s built Hive, in order, and <code>scheduled_runs/&lt;name&gt;/lineage/</code>, its Lineage: <code>project.export_run_hive(&quot;&lt;name&gt;&quot;)</code> and <code>project.export_run_lineage(&quot;&lt;name&gt;&quot;)</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing: edit the run&#x27;s notebook and export again.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code>, <code>project.remove_block(...)</code> and <code>project.remove_scheduled_run(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You fill in nothing: each notebook gives it your connection with <code>connect(...)</code>, in its first code cells, as step 8 shows.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for your Scheduled runs: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/lineage/</code>, the Project&#x27;s lineage, every Saved table, what reads it and which Scheduled runs write it: <code>project.export_project_lineage()</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it. Convert, promote, new_table and references open with four cells, run in order: the names cell, &quot;Run up to your Decisions&quot;, the decisions cell, where you answer, and &quot;Run the rest&quot;. Each step&#x27;s own cell is below them, under Step by step, to run one step on purpose; in upgrade, change_a_saved_table and schedule, run each step&#x27;s cell in turn. <code>project.do_next()</code> runs only the steps that change files, and <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block, a Scheduled run or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.ipynb</code>, a Scheduled run, a notebook an outside scheduler runs top to bottom: <code>project.new_scheduled_run(&quot;&lt;name&gt;&quot;)</code>, run from the schedule Workflow&#x27;s notebook, admin/workflows/schedule/schedule.ipynb, its names cell naming the run. You fill in its <code>&lt;...&gt;</code> lines: its parameters, its connection and the Statements it runs, as <a href="#schedule_a_run">Schedule a run</a> shows.</li><li><code>scheduled_runs/&lt;name&gt;/&lt;name&gt;.hql</code>, the run&#x27;s built Hive, in order, and <code>scheduled_runs/&lt;name&gt;/lineage/</code>, its Lineage: <code>project.export_run_hive(&quot;&lt;name&gt;&quot;)</code> and <code>project.export_run_lineage(&quot;&lt;name&gt;&quot;)</code>, run by hand from admin/scheduled_runs.ipynb. You fill in nothing: edit the run&#x27;s notebook and export again.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code>, <code>project.remove_block(...)</code> and <code>project.remove_scheduled_run(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code>, <code>tables/</code> and <code>scheduled_runs/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -398,7 +399,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -421,6 +422,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -980,7 +982,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -1003,6 +1005,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -1459,7 +1462,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -1482,6 +1485,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -2396,7 +2400,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -2419,6 +2423,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -2927,7 +2932,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -2950,6 +2955,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -3857,7 +3863,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -3880,6 +3886,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -5486,7 +5493,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -5509,6 +5516,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
@@ -6559,7 +6567,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;starter&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 52 files</p>
+<p class="label">It writes 53 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -6583,6 +6591,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/runs_per_job.py
 references/mart.py
@@ -7594,7 +7603,7 @@ except ValueError as refused:
 <h5>Answering a bare Script tag without its quotes</h5>
 <p>A bare tag&#x27;s answer is put exactly where the tag stood, so a date needs its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;: written 2026-09-24, Hive reads it as a subtraction, 2026 - 9 - 24. project.write_decisions names that answer and writes nothing for it. A tag inside quotes, &#x27;&lt;PARM=&quot;NAME&quot;/&gt;&#x27;, is answered with no quotes.</p>
 <h5>Answering a nightly tag with one day</h5>
-<p>A day answered in the decisions cell is the day the table is written for, every night after, until you answer it again. For a day that changes each run, answer it with a Run value&#x27;s function, as step 8 does: the Hive sent holds the day itself. If your warehouse lets you send Hive variables, &quot;&#x27;${hivevar:run_day}&#x27;&quot; works too, with a line that sets it, SET hivevar:run_day=..., kept at the top of the script you convert: the table&#x27;s session_settings() keeps it, project.run_tables sends it before each write, and project.write_decisions says whether a line sets it.</p>
+<p>A day answered in the decisions cell is the day the table is written for, every night after, until you answer it again. For a day that changes each run, answer it with a Run value&#x27;s function, as step 8 does: the Hive sent holds the day itself. If your warehouse lets you send Hive variables, &quot;&#x27;${hivevar:run_day}&#x27;&quot; works too, with a line that sets it, SET hivevar:run_day=..., kept at the top of the script you convert: the table&#x27;s session_settings() keeps it, project.run_tables sends it before each write, and project.write_decisions says whether a line sets it. With no such line, answer it with hivevar(&quot;RUN_DAY&quot;, default=run_day) (help(hivevar)): the Toolbox sends its SET line for you, and export_hive() writes its value beside the .hql for a scheduler to pass.</p>
 <h5>Writing the function&#x27;s name with brackets</h5>
 <p>Answer a tag with the function itself, <code>run_day</code>, never <code>run_day()</code>: with brackets, Python calls it once, as the decisions cell runs, and the answer is that one day. The Workflow&#x27;s step 3 leaves a date given so unwritten, naming it in its report, and the tag stays open: answer with the name alone.</p>
 <h5>Working on a table converted before 8.4</h5>
@@ -7620,7 +7629,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7647,6 +7656,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -8106,7 +8116,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8133,6 +8143,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -8467,7 +8478,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8494,6 +8505,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -9067,7 +9079,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9094,6 +9106,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -9466,7 +9479,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9493,6 +9506,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -9803,7 +9817,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9830,6 +9844,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -10275,7 +10290,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10302,6 +10317,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -10605,7 +10621,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10632,6 +10648,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -10911,7 +10928,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10938,6 +10955,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -11514,7 +11532,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11541,6 +11559,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -12395,7 +12414,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12422,6 +12441,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -13164,7 +13184,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13191,6 +13211,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -13877,7 +13898,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13904,6 +13925,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -14531,7 +14553,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14558,6 +14580,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -14840,7 +14863,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14867,6 +14890,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -15256,7 +15280,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15283,6 +15307,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -15496,7 +15521,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15523,6 +15548,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -16652,7 +16678,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16679,6 +16705,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -17344,7 +17371,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -17371,6 +17398,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -17456,7 +17484,7 @@ print(project.check())</pre>
 8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
 8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
 Read each step&#x27;s checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md and admin/upgrade_8.6.md.</pre>
-<p class="label">It writes 58 files</p>
+<p class="label">It writes 65 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_references.ipynb
 admin/databases.py
@@ -17469,6 +17497,7 @@ admin/removed/20260925-090000-upgrade_8.1/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/upgrade/upgrade.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/check_references.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
@@ -17476,30 +17505,35 @@ admin/removed/20260925-090000-upgrade_8.2/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/upgrade/upgrade.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/upgrade/upgrade.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.4/admin/workflows/upgrade/upgrade.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.5/admin/workflows/upgrade/upgrade.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/new_table/new_table.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.6/admin/workflows/schedule/schedule.ipynb
 admin/removed/20260925-090000-upgrade_8.6/admin/workflows/upgrade/upgrade.ipynb
 admin/sent.csv
 admin/upgrade_8.0.md
@@ -17514,6 +17548,7 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb</pre>
 <p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.6.&quot;. Then step 4.</p>
 <h5>4. Read each checklist</h5>
@@ -17530,6 +17565,7 @@ for line in checklist.splitlines():
 - added admin/workflows/references/references.ipynb
 - added admin/workflows/upgrade/upgrade.ipynb
 - added admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+- added admin/workflows/schedule/schedule.ipynb
 - added admin/databases.py
 - added admin/sent.csv
 - recorded 8.0 in admin/project_version.txt
@@ -17594,7 +17630,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.</pre>
-<p class="label">It writes 24 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
@@ -17617,12 +17653,13 @@ admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <p>Done when <code>project.start()</code> says it started a Project. Then step 2.</p>
 <h5>2. Choose the Workflow for your job</h5>
 <p>Goal: the one Workflow whose end goal is yours. Each Workflow is described after these steps, with its chart, its names cell and its steps.</p>
-<ul><li>If you want a Workflow that turns Hive someone else wrote, one query or a batch of scripts, into your own code, choose convert: admin/workflows/convert/convert.ipynb.</li><li>If you want a Workflow that carries Saved tables from your Dev Database to your Prod Database, choose promote: admin/workflows/promote/promote.ipynb.</li><li>If you want a Workflow that makes a Table folder for each new Saved table, choose new_table: admin/workflows/new_table/new_table.ipynb.</li><li>If you want a Workflow that writes a Table reference for each table your Project reads, from its DESCRIBE, choose references: admin/workflows/references/references.ipynb.</li><li>If you want a Workflow that carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel, choose upgrade: admin/workflows/upgrade/upgrade.ipynb.</li><li>If you want a Workflow that changes a Saved table in the warehouse with one of the admin module&#x27;s Admin statements, each logged in admin/admin_log.md, choose change_a_saved_table: admin/workflows/change_a_saved_table/change_a_saved_table.ipynb.</li></ul>
+<ul><li>If you want a Workflow that turns Hive someone else wrote, one query or a batch of scripts, into your own code, choose convert: admin/workflows/convert/convert.ipynb.</li><li>If you want a Workflow that carries Saved tables from your Dev Database to your Prod Database, choose promote: admin/workflows/promote/promote.ipynb.</li><li>If you want a Workflow that makes a Table folder for each new Saved table, choose new_table: admin/workflows/new_table/new_table.ipynb.</li><li>If you want a Workflow that writes a Table reference for each table your Project reads, from its DESCRIBE, choose references: admin/workflows/references/references.ipynb.</li><li>If you want a Workflow that carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel, choose upgrade: admin/workflows/upgrade/upgrade.ipynb.</li><li>If you want a Workflow that changes a Saved table in the warehouse with one of the admin module&#x27;s Admin statements, each logged in admin/admin_log.md, choose change_a_saved_table: admin/workflows/change_a_saved_table/change_a_saved_table.ipynb.</li><li>If you want a Workflow that makes a Scheduled run, a notebook an outside scheduler runs top to bottom, from admin/templates/scheduled_run.py, choose schedule: admin/workflows/schedule/schedule.ipynb.</li></ul>
 <p>In each chart, a plain box is a step that changes only files, or only prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with round corners something a step needs or makes.</p>
 <p>Done when you know the notebook to open. Then step 3.</p>
 <h5>3. Open its notebook</h5>
@@ -18147,6 +18184,30 @@ print(query(&quot;SHOW PARTITIONS &quot; + TABLE))</pre>
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;change_a_saved_table&quot;, query=query, execute=execute, change=change)</pre>
+<h5>The schedule Workflow</h5>
+<p>Makes a Scheduled run, a notebook an outside scheduler runs top to bottom, from admin/templates/scheduled_run.py: you fill in its cells in its own notebook, in scheduled_runs/.</p>
+<p>Its chart, drawn from the steps of its notebook, admin/workflows/schedule/schedule.ipynb:</p>
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
+flowchart TD
+    s0[&quot;1. Make the Scheduled run&#x27;s notebook&quot;]:::files_only
+    t0(&quot;the Scheduled run&#x27;s name&quot;):::thing
+    t1(&quot;the Scheduled run&#x27;s notebook&quot;):::thing
+    t0 --&gt; s0
+    s0 --&gt; t1
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef thing fill:#ffffff,stroke:#888888
+```</pre></details>
+<p>Its names cell, which you fill in and save first:</p>
+<pre class="python"># the Scheduled run&#x27;s name, a Python name such as &quot;weekly&quot;, or a list of them
+NAME = &#x27;&#x27;</pre>
+<p>Its steps&#x27; own cells, in order:</p>
+<ol start="1"><li>Make the Scheduled run&#x27;s notebook (it changes only files, so project.do_next() runs it for you).</li></ol>
+<pre class="python">project.new_scheduled_run(NAME)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do.
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
+project.run_workflow(&quot;schedule&quot;)</pre>
 <h4>Check it worked</h4>
 <p>Before you go on, check that:</p>
 <ul><li><code>project.check()</code> names the next step of each Workflow you have started, or says that every step is done;</li><li><code>project.check()</code> names no open Decision for the tables of the Workflow you ran.</li></ul>
@@ -18171,7 +18232,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18198,6 +18259,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -18512,7 +18574,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 84 files</p>
+<p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18539,6 +18601,7 @@ admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
@@ -18619,7 +18682,7 @@ def week_totals(first_day: str, last_day: str) -&gt; Statement:
     &quot;&quot;&quot;Each team&#x27;s events, runs, minutes and cost per week, from the days this table saved.&quot;&quot;&quot;
 def team_day_from_job_events(day: str) -&gt; Statement:
     &quot;&quot;&quot;Each team&#x27;s events, runs and minutes for a day, from ops.job_events and ops.job_owners themselves, through the Building blocks mart.job_day_facts saves: so it runs on the Example database.&quot;&quot;&quot;</pre>
-<p>This run calls two of them: write(), which saves mart.team_days&#x27;s last 3 days, ending on the day its own logic cell names, and team_day_from_job_events(day), a SELECT of each team&#x27;s numbers for the day you give it. At work a run would read back the table it just wrote; here the SELECT reads ops tables, since the Example database holds no mart table to read. Paste the same list into a Copilot chat, after Copilot file 18, and Copilot fills in the run for you.</p>
+<p>This run calls two of them: write(), which saves mart.team_days&#x27;s last 3 days, ending on the day its own logic cell names, and team_day_from_job_events(day), a SELECT of each team&#x27;s numbers for the day you give it. At work a run would read back the table it just wrote; here the SELECT reads ops tables, since the Example database holds no mart table to read. Paste the same list into a Copilot chat, after Copilot file 18, and Copilot fills in the run for you. In your Project, the <code>TABLES = [&quot;mart.team_days&quot;]</code> cell of admin/scheduled_runs.ipynb runs <code>project.describe_logic</code> the same way.</p>
 <p>Done when you know the functions the run calls. Then step 3.</p>
 <h5>3. Make the run</h5>
 <p>Goal: the run&#x27;s notebook. <code>project.new_scheduled_run</code> makes it from the scheduled_run Template in admin/templates/, in a folder of its own under scheduled_runs/, and registers it:</p>
@@ -18763,7 +18826,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 </details>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>scheduled_runs/team_day/team_day.ipynb</code> too.</p>
-<p>In your Project, admin/scheduled_runs.ipynb makes the same call: name the run in its cell <code>NEW_RUNS = [&quot;team_day&quot;]</code> and run that cell. Its <code>TABLES = [&quot;mart.team_days&quot;]</code> cell runs step 2&#x27;s <code>project.describe_logic</code> the same way.</p>
+<p>In your Project, the schedule Workflow&#x27;s notebook, admin/workflows/schedule/schedule.ipynb, makes the same call: name the run in its names cell, <code>NAME = &quot;team_day&quot;</code>, save the notebook, and run its cells down to the one under step 1, which gives that name to <code>project.new_scheduled_run</code>.</p>
 <p>Done when scheduled_runs/team_day/team_day.ipynb is there. Then step 4.</p>
 <h5>4. Fill in its cells</h5>
 <p>Goal: a run that builds. Open team_day.ipynb in Jupyter. Its cells run top to bottom:</p>

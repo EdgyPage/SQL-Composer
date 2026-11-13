@@ -194,8 +194,9 @@ def test_while_answers_run_nothing_is_written_outside_their_folder(tmp_path: Pat
 
 
 def test_the_template_reads_back_with_a_heading_and_no_answer_for_each_task() -> None:
-    header, replies = copilot_eval.read_answers(copilot_eval.template("held_out"))
-    assert set(header) == {"date", "arm", "model", "files"}
+    header, replies = copilot_eval.read_answers(
+        copilot_eval.template(copilot_eval.tasks_of("held_out")))
+    assert set(header) == {"date", "arm", "model", "files", "memo_files"}
     assert list(replies) == [task.id for task in TASKS if task.split == "held_out"]
     assert all(copilot_eval.answer_code(reply) is None for reply in replies.values())
 

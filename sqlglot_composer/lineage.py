@@ -32,8 +32,9 @@ from .conditions import Condition
 from .keys import Keys, statement_keys, wanted_key, why_key_unproven
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
 from .refusals import refuse
-from .running import name_in, settings_needed, statement_tree, statements_within, to_hive
-from .shared import possessive, singular_or_plural
+from .running import (hivevar_values, name_in, settings_needed, statement_tree,
+                      statements_within, to_hive)
+from .shared import in_words, possessive, singular_or_plural
 from .stacking import STACK_HOW, nth
 from .tables import Table, is_unchecked, readable
 from .trees import Node, rows_text, unchecked_calls
@@ -134,17 +135,20 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
     """The key of the box of each Run value a calculation or condition holds, a value a
     function of yours gave as the Statement was built, run_value's or a Script tag's: its
     function, what it was given, the tag it answers and what it gave, with an arrow into it
-    from each table, or column, the Toolbox read for it while it ran."""
+    from each table, or column, the Toolbox read for it while it ran. A Hivevar is drawn as a
+    value too: its NAME and default, and the SET line the Toolbox sends for it."""
     keys = []
     for node in tree.walk():
         traced = node.meta.get("traced")
-        if traced is None:
+        hivevar = node.meta.get("hivevar")
+        if traced is None and hivevar is None:
             continue
         shown, gave = _run_value_words(node)
-        key = graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
+        key =graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
                         name=shown, full=f"{RUN_VALUES}.{shown}", type=gave, formula="",
                         calculated=False, in_key=False)
-        for read in traced.reads:
+        reads = traced.reads if traced is not None else []
+        for read in reads:
             if read.table is not None and read.column is not None:
                 box = _table_box(graph, read.table, read.column)
             else:
@@ -156,7 +160,12 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
 
 def _run_value_words(node: Node) -> tuple[str, str]:
     """How a Run value's box names it, from its node: its function and what it was given,
-    after the Script tag it answers, if any; then what it gave, or that it failed."""
+    after the Script tag it answers, if any; then what it gave, or that it failed. A
+    Hivevar's: its NAME and default, then the SET line the Toolbox sends for it."""
+    hivevar = node.meta.get("hivevar")
+    if hivevar is not None:
+        return (f"hivevar {hivevar}, default {node.meta['hivevar_default']}",
+                f"SET hivevar:{hivevar}={node.meta['hivevar_value']}")
     traced = node.meta["traced"]
     shown = f"{traced.function}({traced.arguments})"
     if traced.tag:
@@ -184,8 +193,14 @@ def settings_lines(s: Statement | UncheckedStatement | PythonStep,
     sent = list(settings)
     if kinds.kind(s) == kinds.WRITE and settings_needed(s):
         sent.append(hive_settings("dynamic_partitions"))
-    return [f"Session settings {' and '.join(each._names)}, sent before it: "
-            f"{'; '.join(each._lines)}" for each in sent]
+    lines = [f"Session settings {' and '.join(each._names)}, sent before it: "
+             f"{'; '.join(each._lines)}" for each in sent]
+    hivevars = hivevar_values(s) if kinds.kind(s) != kinds.PYTHON else {}
+    if hivevars:
+        lines.append(f"Hivevars {in_words(list(hivevars))}, sent before it: "
+                     + "; ".join(f"SET hivevar:{name}={value}"
+                                 for name, value in hivevars.items()))
+    return lines
 
 
 def _resolver(graph: Graph, step: Statement, index: int) -> Callable[[Node], str | None]:
