@@ -595,7 +595,7 @@ def test_reading_one_whose_text_reads_a_table_the_toolbox_doesnt_know_warns() ->
 def test_lineage_traces_an_unchecked_column_to_the_columns_it_names(tmp_path: Path) -> None:
     named = statement(SELECT(jobs.job_id, AS(team_region(), "team_region")), FROM(jobs))
     markdown, page = read(export_lineage(named, to=tmp_path / "lineage.html"))
-    got = chart(markdown)
+    got = chart(page)
     assert ("ops.jobs.team", "⚠ team_region", "value") in got["arrows"]
     assert ("ops.jobs.region", "⚠ team_region", "value") in got["arrows"]
     assert ('unchecked_column("concat_ws(\'-\', {team}, {region})", team=jobs.team, '
@@ -607,8 +607,8 @@ def test_lineage_traces_an_unchecked_column_to_the_columns_it_names(tmp_path: Pa
 def test_lineage_marks_an_unchecked_condition_with_the_badge(tmp_path: Path) -> None:
     failed = statement(SELECT(job_runs.run_id), FROM(job_runs),
                        WHERE(equals(job_runs.dt, "2026-09-24"), failing()))
-    markdown, _ = read(export_lineage(failed, to=tmp_path / "lineage.html"))
-    assert "⚠ WHERE in failed" in chart(markdown)["boxes"]
+    markdown, page = read(export_lineage(failed, to=tmp_path / "lineage.html"))
+    assert "⚠ WHERE in failed" in chart(page)["boxes"]
 
 
 def test_lineage_draws_an_unchecked_derived_table_as_one_opaque_box(tmp_path: Path) -> None:
@@ -617,7 +617,7 @@ def test_lineage_draws_an_unchecked_derived_table_as_one_opaque_box(tmp_path: Pa
                                          FROM(table, reads_all_partitions=True),
                                          GROUP_BY(table.step)))
     markdown, page = read(export_lineage(per_step, to=tmp_path / "lineage.html"))
-    got = chart(markdown)
+    got = chart(page)
     assert got["boxes"]["⚠ Unchecked derived table"] == "steps"
     assert ("ops.job_runs", "⚠ Unchecked derived table", "value") in got["arrows"]
     assert ("⚠ Unchecked derived table", "steps.step", "value") in got["arrows"]
@@ -634,7 +634,7 @@ def test_lineage_draws_an_unchecked_derived_table_as_one_opaque_box(tmp_path: Pa
 def test_lineage_says_a_statement_holds_hive_written_by_hand(tmp_path: Path) -> None:
     failed = statement(SELECT(job_runs.run_id), FROM(job_runs),
                        WHERE(equals(job_runs.dt, "2026-09-24"), failing()))
-    markdown, _ = read(export_lineage(failed, to=tmp_path / "lineage.html"))
+    markdown, page = read(export_lineage(failed, to=tmp_path / "lineage.html"))
     about = section(markdown, "## failed")
     assert "⚠ It holds Hive written by hand, which no Guard, Warning or Load limit looked " \
            "inside:" in about
@@ -654,7 +654,7 @@ def test_an_unchecked_derived_table_orders_its_statement_after_the_writer_it_rea
         later = unchecked_derived("later", "SELECT step FROM mart.daily_steps",
                                   columns={"step": "string"})
     read_later = statement(SELECT(later.step), FROM(later, reads_all_partitions=True))
-    markdown, _ = read(export_lineage(read_later, fill, to=tmp_path / "lineage.html"))
+    markdown, page = read(export_lineage(read_later, fill, to=tmp_path / "lineage.html"))
     assert markdown.startswith("# Lineage: fill, read_later\n")
 
 

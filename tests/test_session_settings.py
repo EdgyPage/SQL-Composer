@@ -205,8 +205,14 @@ def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path: 
                 "SET hive.auto.convert.join.noconditionaltask=true | "
                 "SET hive.ignore.mapjoin.hint=false | SET hive.stats.autogather=true | "
                 "SET hive.stats.column.autogather=true.") in text
-    # Drawn nowhere else: only the footer holds them.
-    assert markdown_file.read_text(encoding="utf-8").count("SET hive.auto.convert.join=") == 1
+    # Drawn in no box: the footer holds them, and so does each Statement's section, as sent
+    # before it.
+    markdown = markdown_file.read_text(encoding="utf-8")
+    assert markdown.count("SET hive.auto.convert.join=") == 2
+    assert ("- Session settings map_joins and statistics_on_write, sent before it: "
+            "SET hive.auto.convert.join=true; ") in markdown
+    assert "SET hive.auto.convert.join=" not in html_file.read_text(encoding="utf-8").split(
+        "const graph = ", 1)[1].split("\n", 1)[0]
 
 
 def test_lineage_of_settings_alone_is_refused() -> None:

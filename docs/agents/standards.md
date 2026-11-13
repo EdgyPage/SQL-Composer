@@ -128,9 +128,12 @@ The Toolbox's pages, each lineage page first, are written to the same care as it
   pieces after the module's, and takes what another page needs too from the module: a piece
   two pages need moves into the module, extended there, never copied into a second page.
 - **Colours only through named tokens.** A colour is written once, in the module's `COLOURS`;
-  CSS names it as `var(--name)`, and the legend's swatches and the Mermaid `classDef` lines are
-  made from `KINDS`, which names tokens. A new kind of box is a row of `KINDS`; a palette
-  change is an edit to `COLOURS` alone.
+  CSS names it as `var(--name)`, and the legend's swatches are made from `KINDS`, which names
+  tokens. A new kind of box is a row of `KINDS`; a palette change is an edit to `COLOURS`
+  alone. A page's Markdown twin has no colour, and no drawing.
+- **The HTML page is the full view.** A page's Markdown twin is its text alone; whatever the
+  Markdown says, the page says too. A section both show is a `Part`, written to the page by
+  the module's `panel` and to the Markdown by `part_markdown`, never written twice.
 - **No inline `style=`.** A look is a class and a CSS rule. A script may set a size it works
   out, through `element.style`, but never a colour.
 - **Offline.** A page loads nothing from outside its own file: no font, script, stylesheet or
@@ -141,14 +144,15 @@ The Toolbox's pages, each lineage page first, are written to the same care as it
 - **No build step.** A script is plain JavaScript a browser runs as written: no library, no
   bundler, no framework, nothing to install. Of this file's other rules, "Names" and "One way
   per job" hold for it: a function is named for what it returns or does, and a job two pages'
-  scripts do is one function in the module's `DRAWING_SCRIPT`. The limits ruff and
-  `test_standard.py` hold on Python don't reach it.
+  scripts do is one function in the module's `DRAWING_SCRIPT` or `PANEL_SCRIPT`. The limits
+  ruff and `tests/repo/test_standard.py` hold on Python don't reach it.
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 
 `tests/test_html_page.py` holds what a test can: no colour outside the token table, no
-`style=` on any page, every page passing the offline policy, and every page coming from the
-one module. What is left here is the reader's.
+`style=` on any page, every page passing the offline policy, every page coming from the one
+module, and each line of a page's Markdown being on its HTML page too. What is left here is
+the reader's.
 
 ## No new public name without a ticket
 

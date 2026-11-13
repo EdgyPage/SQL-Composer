@@ -440,9 +440,10 @@ def test_a_group_by_after_a_full_join_shows_its_key() -> None:
 def test_lineage_names_each_join_s_condition(make: Callable[..., Statement], said: str,
                                              tmp_path: Path) -> None:
     s = make()
-    _, markdown_file = export_lineage(s, to=tmp_path / "lineage.html")
-    markdown = markdown_file.read_text(encoding="utf-8")
-    assert said in markdown
+    html_file, _ = export_lineage(s, to=tmp_path / "lineage.html")
+    # The condition's box, in what the page's script draws.
+    drawn = html_file.read_text(encoding="utf-8").split("const graph = ", 1)[1]
+    assert f'"lines": ["{said}"' in drawn.split("\n", 1)[0]
 
 
 def test_lineage_says_where_a_full_join_lost_the_key(tmp_path: Path) -> None:

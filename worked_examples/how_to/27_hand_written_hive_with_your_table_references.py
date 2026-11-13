@@ -165,6 +165,9 @@ through it.
 ⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked
     inside, so its columns can't be followed through it. It reads ops.job_events and ops.jobs.
 <BLANKLINE>
+- Reads: ops.job_events, ops.jobs
+- Writes: no table
+<BLANKLINE>
 <BLANKLINE>
 
 A Statement built with Clause functions, such as the same question with `SEMI_JOIN`, is drawn
