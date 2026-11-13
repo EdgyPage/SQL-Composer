@@ -1,5 +1,6 @@
 """The HTML standard's rules a test can hold, and the one page module every lineage page comes
-from: Toolbox 8.7, ticket 04 (docs/agents/standards.md, "HTML pages").
+from: Toolbox 8.7, ticket 04 (docs/agents/standards.md, "HTML pages"); and its bold colours,
+ticket 05.
 
 export_lineage, project.export_run_lineage and project.export_project_lineage each write an
 HTML page and its Markdown twin. Each page is built from `sqlglot_composer/html_page.py`, which
@@ -192,10 +193,76 @@ def test_the_drawings_script_comes_from_the_module(pages: dict[str, tuple[str, s
 def test_the_projects_markdown_colours_its_boxes_with_the_modules_classdefs(
         pages: dict[str, tuple[str, str]]) -> None:
     lines = html_page().mermaid_class_defs(["folder", "saved", "read", "shared", "loop"])
-    assert lines[0] == "  classDef folder fill:#eef4ff,stroke:#888"
+    assert lines[0] == "  classDef folder fill:#56b4e9,stroke:#888"
     for made_by in ("export_project_lineage", "export_project_lineage, a loop"):
         markdown = pages[made_by][1]
         assert "\n".join(lines) in markdown, made_by
+
+
+# --- Bold colours (ticket 05) -----------------------------------------------------------------
+
+def six_digits(colour: str) -> str:
+    """A hex colour written #rrggbb in lower case, however the token table writes it."""
+    digits = colour.lstrip("#").lower()
+    if len(digits) == 3:
+        digits = "".join(digit * 2 for digit in digits)
+    return f"#{digits}"
+
+
+def luminance(colour: str) -> float:
+    """A colour's relative luminance, as WCAG 2 works it out from its sRGB value."""
+    digits = six_digits(colour)[1:]
+    channels = []
+    for start in (0, 2, 4):
+        value = int(digits[start:start + 2], 16) / 255
+        channels.append(value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4)
+    red, green, blue = channels
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def contrast(one: str, other: str) -> float:
+    """WCAG 2's contrast ratio of two colours, from 1 to 21."""
+    lighter, darker = sorted([luminance(one), luminance(other)], reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def page_kinds(made_by: str) -> list[str]:
+    """The kinds of box the page made by `made_by` draws, as its legend names them."""
+    builder = toolbox_module("project_lineage" if "project" in made_by else "lineage")
+    return [kind for kind, _ in builder.LEGEND if kind is not None]
+
+
+def kind_colour(name: str) -> str:
+    """A kind's colour, the one that tells it apart: its fill, or its edge if it has none."""
+    kind = html_page().KINDS[name]
+    return six_digits(html_page().COLOURS[kind.fill or kind.edge])
+
+
+def test_the_contrast_is_worked_out_as_wcag_says() -> None:
+    assert contrast("#000", "#fff") == pytest.approx(21)
+    assert contrast("#777", "#fff") == pytest.approx(4.48, abs=0.01)
+
+
+def test_a_boxs_text_reads_on_every_kinds_fill() -> None:
+    colours = html_page().COLOURS
+    for name, kind in html_page().KINDS.items():
+        if kind.fill is None:
+            continue
+        for text in ("ink", "box-text"):  # a box's first line, and its others
+            assert contrast(colours[text], colours[kind.fill]) >= 4.5, (name, text)
+    assert contrast(colours["loop-text"], colours["page"]) >= 4.5
+
+
+def test_no_two_kinds_on_one_page_share_a_colour(pages: dict[str, tuple[str, str]]) -> None:
+    for made_by in pages:
+        colours = [kind_colour(name) for name in page_kinds(made_by)]
+        assert len(colours) == len(set(colours)), made_by
+
+
+def test_the_loops_red_is_used_for_nothing_else() -> None:
+    colours = html_page().COLOURS
+    red = six_digits(colours["loop"])
+    assert [name for name, value in colours.items() if six_digits(value) == red] == ["loop"]
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda path: path.name)
