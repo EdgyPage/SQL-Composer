@@ -102,7 +102,9 @@ of main its `reads.json` lists, the files the phases name, the rest of `inputs.j
 (`project`, `warehouse`, `scenario_files`, `phases`, `loop_files`) and the list itself; dev's
 commit is left out of it. So:
 
-- a change to the Toolbox folder runs every scenario again;
+- a change to the Toolbox folder runs every scenario again, but for a change to a how-to on its
+  how-to page, `how_to.html`, which runs again only the scenarios that list that how-to (a
+  change to the page around the how-tos runs them all);
 - a change to a README section, how-to or Copilot file runs again only the scenarios that list
   it; one no scenario lists runs none;
 - a change to anything else of the scenario's, such as its answer key or its list, runs it

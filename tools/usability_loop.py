@@ -201,12 +201,12 @@ def read_scenario(scenario_id: str, folder: Path = SCENARIOS) -> Scenario:
         if phase.role not in ROLE_TEXT:
             raise ValueError(f"{scenario_id}: a phase's role is {phase.role!r}, not "
                              f"{in_words(list(ROLE_TEXT), last='or')}")
-    listed = json.loads((folder / scenario_id / READS_FILE).read_text(encoding="utf-8"))
-    others = sorted(set(listed) - set(READ_KINDS))
-    if others:
-        raise ValueError(f"{scenario_id}: {READS_FILE} lists {in_words(others)}, but it lists "
-                         f"only {in_words(list(READ_KINDS))}")
-    reads = {kind: tuple(listed.get(kind, [])) for kind in READ_KINDS}
+    listed_reads = json.loads((folder / scenario_id / READS_FILE).read_text(encoding="utf-8"))
+    unknown_kinds = sorted(set(listed_reads) - set(READ_KINDS))
+    if unknown_kinds:
+        raise ValueError(f"{scenario_id}: {READS_FILE} lists {in_words(unknown_kinds)}, but it "
+                         f"lists only {in_words(list(READ_KINDS))}")
+    reads = {kind: tuple(listed_reads.get(kind, [])) for kind in READ_KINDS}
     return Scenario(held["id"], held["split"], held["title"], phases,
                     tuple(held.get("hive_ran", [])), dict(held.get("given", {})), folder,
                     held.get("project", ""), held.get("start_from", ""), reads)
@@ -592,24 +592,23 @@ def main_text(path: Path) -> str:
 
 def readme_sections(text: str) -> dict[str, str]:
     """A README's text, by section: each `##` heading's, from it to the next, by the heading,
-    and the part above the first by the README's `#` title. A line in a ``` block starts
-    none."""
-    sections: dict[str, list[str]] = {}
-    heading, title, in_code = "", "", False
+    and the part above the first by the README's `#` title, or "the top" when it has none. A
+    line in a ``` block starts none."""
+    sections: dict[str, list[str]] = {"": []}
+    heading, in_code = "", False
     for line in text.splitlines(keepends=True):
         if line.startswith("```"):
             in_code = not in_code
         elif not in_code and line.startswith("## "):
             heading = line[3:].strip()
-        elif not in_code and not heading and not title and line.startswith("# "):
-            title = line[2:].strip()
         sections.setdefault(heading, []).append(line)
-    if "" in sections:
-        sections = {(name or title): lines for name, lines in sections.items()}
-    return {name: "".join(lines) for name, lines in sections.items()}
+    top = "".join(sections.pop(""))
+    titles = [line[2:].strip() for line in top.splitlines() if line.startswith("# ")]
+    title = titles[0] if titles else "the top"
+    return {title: top, **{name: "".join(lines) for name, lines in sections.items()}}
 
 
-def main_parts(main: Path) -> dict[str, object]:
+def main_parts(main: Path) -> dict[str, str | dict[str, str]]:
     """Main's tree, hashed by part, the export's stamp left out of each: `toolbox`, one hash
     of the Toolbox folder, its how-to page's how-tos left out; `readme`, each `##` section of
     the README; `how_tos`, each how-to of the how-to page, by its link; and `copilot`, each
@@ -631,7 +630,7 @@ def main_parts(main: Path) -> dict[str, object]:
             "how_tos": how_tos, "copilot": copilot}
 
 
-def missing_reads(chosen: Scenario, parts: dict[str, object]) -> list[str]:
+def missing_reads(chosen: Scenario, parts: dict[str, str | dict[str, str]]) -> list[str]:
     """Each name the scenario's list of what it reads holds that main's `parts` haven't, as it
     is said, such as `README section "Update"`."""
     missing = []
@@ -663,8 +662,9 @@ def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
               commit: str) -> dict[str, object]:
     """What a run of the scenario is given, as its inputs.json holds it: main by part and
     each file of it the phases name, what the scenario's path reads of main, and each other
-    thing hashed; and `inputs_hash`, a hash of only what the run's agents read, as memo_parts
-    picks it, which leaves out dev's commit, so a commit that changes none of it keeps it.
+    thing hashed; and `inputs_hash`, a hash of only what the run's agents read, as
+    inputs_hashed_by_part picks it, which leaves out dev's commit, so a commit that changes
+    none of it keeps it.
     Each phase's message is hashed as written for no run in particular, so every run's is the
     same. A scenario listing a name main hasn't is refused."""
     parts = main_parts(main_tree)
@@ -695,10 +695,11 @@ def inputs_of(chosen: Scenario, main_tree: Path, set_up: Path,
             "warehouse.py's conn line": text_hash(TEAMS_CONN),
             "each notebook's connect lines": text_hash(TEAMS_CONNECT)},
     }
-    return {**inputs, "inputs_hash": text_hash(json.dumps(memo_parts(inputs), sort_keys=True))}
+    hashed_by_part = inputs_hashed_by_part(inputs)
+    return {**inputs, "inputs_hash": text_hash(json.dumps(hashed_by_part, sort_keys=True))}
 
 
-def memo_parts(inputs: dict[str, object]) -> dict[str, str]:
+def inputs_hashed_by_part(inputs: dict[str, object]) -> dict[str, str]:
     """What a run's inputs hash is made from, each part by what it is, as plan names one that
     changed, and its hash: the Toolbox folder; what the scenario's path reads of main, each
     README section, how-to and Copilot file it lists; each file of main the phases name; each
@@ -792,10 +793,10 @@ def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) 
         with hold_the_cache(cache_folder):
             inputs = the_inputs(chosen, cache_folder, main).inputs
     recorded = read_recorded_runs(RESULTS)
-    planned = plan_text(chosen, inputs["inputs_hash"], recorded)
+    plan_line = plan_text(chosen, inputs["inputs_hash"], recorded)
     if runs_with_inputs(chosen, inputs["inputs_hash"], recorded):
-        return planned
-    return planned + changes_text(chosen, inputs, recorded)
+        return plan_line
+    return plan_line + changes_text(chosen, inputs, recorded)
 
 
 def changes_text(chosen: Scenario, inputs: dict[str, object],
@@ -804,16 +805,17 @@ def changes_text(chosen: Scenario, inputs: dict[str, object],
     kept with it, such as `; changed since its last run, W1-3: the Toolbox folder`; or "" when
     none of its runs is kept with its inputs."""
     for each in reversed(recorded):
-        kept = KEPT / "runs" / each.run / "_loop" / "inputs.json"
-        if each.scenario != chosen.id or not kept.is_file():
+        kept_inputs = KEPT / "runs" / each.run / "_loop" / "inputs.json"
+        if each.scenario != chosen.id or not kept_inputs.is_file():
             continue
-        before = json.loads(kept.read_text(encoding="utf-8"))
-        if "toolbox" not in before["main"]:
+        inputs_then = json.loads(kept_inputs.read_text(encoding="utf-8"))
+        if "toolbox" not in inputs_then["main"]:
             return (f"; its last run, {each.run}, was recorded with main's whole tree as one "
                     "input")
-        old, new = memo_parts(before), memo_parts(inputs)
-        changed = [part for part, hashed in new.items() if old.get(part) != hashed]
-        changed += [f"{part}, no longer there" for part in old if part not in new]
+        parts_then = inputs_hashed_by_part(inputs_then)
+        parts_now = inputs_hashed_by_part(inputs)
+        changed = [part for part, hashed in parts_now.items() if parts_then.get(part) != hashed]
+        changed += [f"{part}, no longer there" for part in parts_then if part not in parts_now]
         return f"; changed since its last run, {each.run}: {in_words(changed)}"
     return ""
 

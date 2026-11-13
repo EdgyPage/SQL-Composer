@@ -453,11 +453,12 @@ def path_reads(readme: list[str], how_tos: list[str],
             "copilot": ["00_start_here.txt", *copilot]}
 
 
-CONVERT_READS = path_reads(
-    ["1. Start a Project", "9. Convert someone else's Hive", "The Workflows"],
-    ["start_a_project", "convert_someone_elses_hive", "follow_a_workflow",
-     "set_your_database_settings"],
-    ["07_convert_hive.txt", "08_check_and_compare.txt", "13_workflows.txt"])
+# What a conversion's path reads; W7 and H1 read a Copilot file more.
+CONVERT_README = ["1. Start a Project", "9. Convert someone else's Hive", "The Workflows"]
+CONVERT_HOW_TOS = ["start_a_project", "convert_someone_elses_hive", "follow_a_workflow",
+                   "set_your_database_settings"]
+CONVERT_COPILOT = ["07_convert_hive.txt", "08_check_and_compare.txt", "13_workflows.txt"]
+CONVERT_READS = path_reads(CONVERT_README, CONVERT_HOW_TOS, CONVERT_COPILOT)
 REFERENCES_READS = path_reads(
     ["1. Start a Project", "2. Add your tables' references", "The Workflows"],
     ["start_a_project", "add_your_tables_references", "follow_a_workflow", "keys"],
@@ -583,8 +584,8 @@ def run_value_scenarios() -> dict[str, Built]:
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__run_log.py",
                            "holds": ["# a Run value", "2026-09-24"]}]},
-            reads={**CONVERT_READS, "copilot": [*CONVERT_READS["copilot"],
-                                                "17_run_values_and_seed_limits.txt"]}),
+            reads=path_reads(CONVERT_README, CONVERT_HOW_TOS,
+                             [*CONVERT_COPILOT, "17_run_values_and_seed_limits.txt"])),
     }
 
 
@@ -684,8 +685,8 @@ def held_out_workflow_scenarios() -> dict[str, Built]:
                     [LONG_SCRIPT], "SELECT job_id, runs, dt FROM mart.job_runs_counted"),
                 f"{PROD}.job_fails_counted": table_key(
                     [LONG_SCRIPT], "SELECT job_id, fails, dt FROM mart.job_fails_counted")}},
-            reads={**CONVERT_READS, "copilot": [*CONVERT_READS["copilot"],
-                                                "16_workflows_promote.txt"]}),
+            reads=path_reads(CONVERT_README, CONVERT_HOW_TOS,
+                             [*CONVERT_COPILOT, "16_workflows_promote.txt"])),
         "H2": Built({
             "id": "H2", "split": "held_out", "title": "upgrade a Project left by 8.0",
             "phases": [technical(
