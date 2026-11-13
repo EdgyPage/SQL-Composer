@@ -25,5 +25,8 @@ The version the user named (Q1), and the Upgrade step every raise ships.
   - the docs' new place;
   - the schedule Workflow;
   - Hivevars;
-  - the lineage pages' look.
+  - the lineage pages' look;
+  - a Conversion leaving out `SORT_ARRAY`'s `TRUE`, and keeping any other second argument
+    with a `kept` finding (ticket 10);
+  - every other change a user of 8.6 would notice, from each merged ticket's Answer.
 - No drift item open.
