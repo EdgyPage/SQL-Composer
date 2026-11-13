@@ -29,7 +29,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
-from . import kinds, unchecked
+from . import html_page, kinds, unchecked
 from .clauses import Statement
 from .lineage import (lineage_footer, names_in_a_loop, scripts_commit, shortened, tables_read,
                       tables_written, write_lineage)
@@ -543,7 +543,8 @@ def to_markdown(lineage: ProjectLineage, footer: str) -> str:
 
 def _mermaid_chart(lineage: ProjectLineage) -> list[str]:
     """The Markdown's Mermaid chart, as lines: a box for each table, then the arrows, then the
-    colours: a loop's boxes and arrows red."""
+    colours of each kind in the legend, as the page draws them: a loop's boxes and arrows
+    red."""
     ids = {table: f"n{number}" for number, table in enumerate(lineage.tables)}
     lines = ["```mermaid", "flowchart LR"]
     for table in lineage.tables:
@@ -556,15 +557,11 @@ def _mermaid_chart(lineage: ProjectLineage) -> list[str]:
         lines.append(f"  {ids[read]} --> {ids[written]}")
         if (read, written) in loop_arrows:
             red.append(str(number))
-    lines += ["  classDef folder fill:#eef4ff,stroke:#888",
-              "  classDef saved fill:#effaf0,stroke:#888",
-              "  classDef read fill:#f4f4f4,stroke:#888,stroke-dasharray:4 3",
-              "  classDef shared fill:#fff1e0,stroke:#d9822b,stroke-width:2px",
-              "  classDef loop stroke:#d33,stroke-width:2px"]
+    lines += html_page.mermaid_class_defs([kind for kind, _ in LEGEND if kind is not None])
     for table in lineage.tables:
         lines.append(f"  class {ids[table]} {','.join(_box_classes(lineage, table))}")
     if red:
-        lines.append(f"  linkStyle {','.join(red)} stroke:#d33,stroke-width:2px")
+        lines.append(html_page.mermaid_link_style(red, "loop"))
     return lines + ["```"]
 
 
@@ -601,7 +598,15 @@ def _columns(lineage: ProjectLineage) -> dict[str, int]:
     return columns
 
 
-def _drawing(lineage: ProjectLineage) -> str:
+class Drawing(NamedTuple):
+    """The page's picture: its SVG, and the CSS line that sizes it, never shrunk below 80% of
+    its full size."""
+
+    svg: str
+    size_css: str
+
+
+def _drawing(lineage: ProjectLineage) -> Drawing:
     """The SVG picture: each table's box, in its column, and a curve for each arrow, from the
     middle of a box's right side to the middle of the next one's left side."""
     columns = _columns(lineage)
@@ -625,9 +630,10 @@ def _drawing(lineage: ProjectLineage) -> str:
         parts.append(_box_svg(lineage, table, places[table], heights[table]))
     width = len(tops) * (BOX_WIDTH + COLUMN_GAP) - COLUMN_GAP
     height = max(tops, default=0)
-    return (f'<svg viewBox="-10 -10 {width + 20} {height + 20}" style="min-width:'
-            f'{round(width * 0.8)}px;aspect-ratio:{width + 20}/{height + 20}">'
-            f"{''.join(parts)}</svg>")
+    # A 10-pixel margin all round.
+    return Drawing(f'<svg viewBox="-10 -10 {width + 20} {height + 20}">{"".join(parts)}</svg>',
+                   f".wrap svg{{min-width:{round(width * 0.8)}px;"
+                   f"aspect-ratio:{width + 20}/{height + 20}}}")
 
 
 def _box_svg(lineage: ProjectLineage, table: str, place: tuple[int, int], height: int) -> str:
@@ -674,21 +680,21 @@ def _html_with_code(text: str) -> str:
 
 
 def to_html(lineage: ProjectLineage, markdown_name: str, footer: str) -> str:
-    """The HTML page: PAGE with its markers filled in. It runs no script, so it draws the same
-    with scripts off."""
+    """The HTML page, built from the page module: the title, what the page shows and its
+    legend, the loop, the drawing, the report, the footer. It runs no script, so it draws the
+    same with scripts off, and nothing it shows is fetched."""
     loop = ""
     if lineage.loop:
         loop = f'<p class="loopnote">{html.escape(_loop_note(lineage))}</p>'
-    filled = {"ABOUT": _html_with_code(ABOUT), "LOOP": loop,
-              "MD": html.escape(markdown_name), "DRAWING": _drawing(lineage),
-              "REPORT": _report_html(lineage), "FOOTER": html.escape(footer)}
-
-    def filling(marker: re.Match[str]) -> str:
-        """The text a __NAME__ marker is filled in with."""
-        return filled[marker[1]]
-
-    # One pass, so text that happens to look like a marker is never filled in itself.
-    return re.sub(r"__(ABOUT|LOOP|MD|DRAWING|REPORT|FOOTER)__", filling, PAGE)
+    drawing = _drawing(lineage)
+    body = (f"<header><h1>Lineage: the Project</h1><p>{_html_with_code(ABOUT)}</p>"
+            f"{html_page.legend(LEGEND)}</header>\n{loop}\n<main>\n"
+            f'<div class="wrap">{drawing.svg}</div>\n'
+            f"<p>The same lineage is in <code>{html.escape(markdown_name)}</code>, written "
+            "beside this file.</p>\n"
+            f'<section id="report">{_report_html(lineage)}</section>\n</main>\n'
+            f"<footer>{html.escape(footer)}</footer>")
+    return html_page.page("Lineage: the Project", body, [CSS, drawing.size_css], [])
 
 
 # --- Writing the files ------------------------------------------------------------------------
@@ -803,45 +809,27 @@ def write_run_hive(root: Path, name: str, call: str) -> list[str]:
             "builds its Hive again each time it runs."]
 
 
-# The HTML page, in the look of a Statement's lineage page. to_html fills in each __NAME__
-# marker; it holds no script, and nothing it shows is fetched.
-PAGE = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Lineage: the Project</title><style>
-body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
-header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
+# The HTML page, in the look of a Statement's lineage page, built by to_html from the page
+# module, html_page.py, with these pieces of its own.
+
+# The page's own CSS, after the page module's: what the page shows under its title, the note
+# at the top of a loop, a loop's arrows, and an error's text wrapped. A colour is named only by
+# its token, as var(--name).
+CSS = """\
 header p{margin:0 0 8px;max-width:72em}
-.key span{display:inline-block;margin-right:14px}
-.sw{display:inline-block;width:12px;height:12px;border:1px solid #888;vertical-align:-1px;\
-margin-right:4px}
-.loopnote{margin:8px 16px;padding:8px 12px;border:2px solid #d33;color:#a11;font-weight:600}
-main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
-svg{width:100%;height:auto;display:block}
-.n rect{fill:#fff;stroke:#888} .folder rect{fill:#eef4ff} .saved rect{fill:#effaf0}
-.read rect{fill:#f4f4f4;stroke-dasharray:4 3}
-.shared rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2} .loop rect{stroke:#d33;stroke-width:2}
-.n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace}\
- .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.loop{stroke:#d33;stroke-width:2}
-pre{background:#f7f7f7;padding:8px;overflow:auto;white-space:pre-wrap}
-table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
-footer{padding:8px 16px 24px;color:#777;font-size:12px}
-</style></head><body>
-<header><h1>Lineage: the Project</h1><p>__ABOUT__</p><div class="key">
-<span><i class="sw" style="background:#eef4ff"></i>table with a Table folder</span>
-<span><i class="sw" style="background:#effaf0"></i>Saved table with no Table folder</span>
-<span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>read, not written \
-here</span>
-<span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; written by \
-more than one Scheduled run</span>
-<span><i class="sw" style="border-color:#d33;border-width:2px"></i>in a loop</span>
-<span>arrow: from a table to each table that reads it</span>
-</div></header>
-__LOOP__
-<main>
-<div class="wrap">__DRAWING__</div>
-<p>The same lineage is in <code>__MD__</code>, written beside this file.</p>
-<section id="report">__REPORT__</section>
-</main>
-<footer>__FOOTER__</footer>
-</body></html>
-"""
+.loopnote{margin:8px 16px;padding:8px 12px;border:2px solid var(--loop);color:var(--loop-text);\
+font-weight:600}
+.e.loop{stroke:var(--loop);stroke-width:2}
+pre{white-space:pre-wrap}"""
+
+# The legend under the title: each kind of box, by its class in html_page.KINDS, as
+# _box_classes gives them, then what an arrow means. The Markdown's Mermaid colours the same
+# kinds.
+LEGEND = [
+    ("folder", "table with a Table folder"),
+    ("saved", SAVED_ALONE),
+    ("read", READ_ONLY),
+    ("shared", "⚠ written by more than one Scheduled run"),
+    ("loop", "in a loop"),
+    (None, "arrow: from a table to each table that reads it"),
+]
