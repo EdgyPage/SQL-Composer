@@ -144,13 +144,15 @@ it yet, and a new page is built from it.
   bundler, no framework, nothing to install. Of this file's other rules, "Names" and "One way
   per job" hold for it: a function is named for what it returns or does, and a job two pages'
   scripts do is one function in the module's `DRAWING_SCRIPT`. The limits ruff and
-  `test_standard.py` hold on Python don't reach it.
+  `tests/repo/test_standard.py` hold on Python don't reach it.
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 
 `tests/test_html_page.py` holds what a test can, for the pages the module builds: no colour
 outside the token table, no `style=`, each page passing the offline policy, and each coming
-from the one module. What is left here is the reader's.
+from the one module; and of the colours, a box's text readable on every kind's fill (WCAG
+AA, 4.5:1), no two kinds on one page sharing a colour, and the loops' red used for nothing
+else. What is left here is the reader's.
 
 ## No new public name without a ticket
 

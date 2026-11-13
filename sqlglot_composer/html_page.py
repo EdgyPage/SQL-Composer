@@ -36,35 +36,41 @@ COLOURS: dict[str, str] = {
     # The drawing
     "box": "#fff",  # a box of no kind
     "box-edge": "#888",  # a box's edge, and a legend swatch's
-    "box-text": "#666",  # a box's lines after its first
+    "box-text": "#000",  # a box's lines after its first, dark enough for every kind's fill
     "arrow": "#aaa",
     "rows-arrow": "#c9c9c9",  # a dotted arrow
     "filters-arrow": "#b5b5b5",
     "filters-label": "#999",
-    "lit": "#d33",  # a path lit up by a click
+    "lit": "#000",  # a path lit up by a click: black, as red is the loops' alone
     "group": "#fafafa",  # a group's frame, in the Grouped flowchart
     "group-edge": "#c8c8c8",
     "group-label": "#555",
-    "table-group": "#f5f8ff",
-    "derived-group": "#fffcf3",
-    "output-group": "#f6fcf6",
+    # A group of a kind's frame: a pale tint of its kind's colour
+    "table-group": "#eef7fd",
+    "derived-group": "#fefcec",
+    "output-group": "#e6f5f1",
     "condition-group": "#fbfbfb",
-    # Each kind of box, as KINDS names them
-    "table": "#eef4ff",
-    "derived": "#fff8e6",
-    "output": "#effaf0",
-    "condition": "#f4f4f4",
-    "unchecked": "#fff1e0",
-    "unchecked-edge": "#d9822b",
-    "python": "#eaf6f6",
-    "python-edge": "#2b8a8a",
-    "folder": "#eef4ff",
-    "saved": "#effaf0",
-    "read": "#f4f4f4",
-    "shared": "#fff1e0",
-    "shared-edge": "#d9822b",
-    "loop": "#d33",
-    "loop-text": "#a11",  # the words of the note at the top of a loop
+    # Each kind of box, as KINDS names them: saturated colours from the Okabe–Ito set, chosen
+    # to stay distinguishable with colour blindness, a grey for the dashed kinds, and the
+    # loops' red, used for nothing else. Every fill takes the same dark text, and no two kinds
+    # on one page share a colour.
+    "table": "#56b4e9",  # sky blue
+    "derived": "#f0e442",  # yellow
+    "output": "#009e73",  # bluish green
+    "condition": "#bbb",  # grey, dashed: a condition decides rows, it carries no value
+    "unchecked": "#e69f00",  # orange
+    "unchecked-edge": "#000",  # black, as each edge drawn to be looked at
+    "python": "#cc79a7",  # reddish purple
+    "python-edge": "#000",
+    "folder": "#56b4e9",  # as a table column's
+    "saved": "#009e73",  # as an output column's
+    "read": "#bbb",  # as a condition's
+    # Yellow, not Unchecked's orange: a shared table in a loop takes the loop's red edge,
+    # which orange would hide.
+    "shared": "#f0e442",
+    "shared-edge": "#000",
+    "loop": "#d33",  # red: Okabe–Ito's vermillion reads as orange
+    "loop-text": "#a11",  # the words of the note at the top of a loop: a darker red
 }
 
 
