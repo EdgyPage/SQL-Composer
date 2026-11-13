@@ -4,15 +4,18 @@ ticket 05.
 
 export_lineage, project.export_run_lineage and project.export_project_lineage each write an
 HTML page and its Markdown twin. Each page is built from `sqlglot_composer/html_page.py`, which
-holds the colour tokens, each written once, the base CSS, the legend, the Mermaid classDef lines
-and the drawing's script. The tests read the pages the three exports write, and the Toolbox's
-own files: no colour is written outside the token table, no page has an inline style, every
-page loads nothing from outside itself, and every page comes from the one module.
+holds the colour tokens, each written once, the base CSS, the legend, the drawing's script and
+the side panel's. The tests read the pages the three exports write, and the Toolbox's own files:
+no colour is written outside the token table, no page has an inline style, every page loads
+nothing from outside itself, and every page comes from the one module. Since ticket 06, a click
+on a box opens a panel, and each line of a page's Markdown twin is on its HTML page too.
 """
 
 from __future__ import annotations
 
 import ast
+import html
+import json
 import re
 from pathlib import Path
 from types import ModuleType
@@ -23,7 +26,7 @@ from offline_policy import external_references
 from test_lineage import BY_HAND, runs_per_team
 from test_project_lineage import LOGIC, NOW, STEM, make_a_loop, new_run
 
-from sqlglot_composer import export_lineage, project, set_admin_log, unchecked_hive
+from sqlglot_composer import export_lineage, project, set_admin_log, to_hive, unchecked_hive
 
 TOOLBOX = toolbox_folder()
 # The name project.export_run_lineage gives the run weekly's page, at the time the tests pin.
@@ -129,14 +132,13 @@ def test_each_token_is_a_colour_and_each_kind_names_tokens() -> None:
         assert {kind.fill, kind.edge} - {None} <= set(module.COLOURS)
 
 
-def test_a_colour_changed_in_the_token_table_changes_the_page_and_the_markdown(
+def test_a_colour_changed_in_the_token_table_changes_the_page(
         pages: dict[str, tuple[str, str]], monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path) -> None:
     monkeypatch.setitem(html_page().COLOURS, "folder", "#123456")
     project.export_project_lineage()
-    page, markdown = texts(project_page(tmp_path / "project"))
+    page, _ = texts(project_page(tmp_path / "project"))
     assert "--folder:#123456" in TOKEN_BLOCK.search(page)[0]
-    assert "  classDef folder fill:#123456,stroke:#888" in markdown
 
 
 # --- The rules each page keeps ----------------------------------------------------------------
@@ -152,11 +154,11 @@ def test_each_page_names_its_colours_only_through_the_tokens(
         assert set(TOKEN_USE.findall(page)) <= set(tokens), made_by
 
 
-def test_each_markdown_writes_only_the_tokens_colours(
-        pages: dict[str, tuple[str, str]]) -> None:
-    tokens = set(html_page().COLOURS.values())
+def test_no_markdown_draws_or_colours(pages: dict[str, tuple[str, str]]) -> None:
     for made_by, (_, markdown) in pages.items():
-        assert set(HEX.findall(markdown)) <= tokens, made_by
+        assert "```mermaid" not in markdown, made_by
+        assert "classDef" not in markdown, made_by
+        assert HEX.findall(markdown) == [], made_by
 
 
 def test_no_page_has_an_inline_style(pages: dict[str, tuple[str, str]]) -> None:
@@ -182,21 +184,122 @@ def test_every_page_comes_from_the_one_module(pages: dict[str, tuple[str, str]])
         assert '<div class="key">' in page, made_by
 
 
-def test_the_drawings_script_comes_from_the_module(pages: dict[str, tuple[str, str]]) -> None:
+def test_the_drawings_and_the_panels_script_comes_from_the_module(
+        pages: dict[str, tuple[str, str]]) -> None:
     module = html_page()
+    for made_by, (page, _) in pages.items():
+        for piece in (module.DRAWING_CSS, module.PANEL_CSS, module.DRAWING_SCRIPT,
+                      module.PANEL_SCRIPT):
+            assert piece in page, made_by
+
+
+# --- The side panel and the Markdown: Toolbox 8.7, ticket 06 --------------------------------
+
+
+def text_shown(page: str) -> str:
+    """What a reader of an HTML page can read in it: its body, scripts left out, every tag
+    taken away and every character code read."""
+    body = page.split("<body>", 1)[1]
+    body = re.sub(r"<script>.*?</script>", "", body, flags=re.DOTALL)
+    return html.unescape(re.sub(r"<[^>]+>", "", body))
+
+
+def markdown_text(line: str) -> str:
+    """A line of Markdown as a reader reads it: its heading's #s, its list's "- ", its quote's
+    "> ", its bold's ** and its inline code's backticks taken away."""
+    line = re.sub(r"^(?:#+ |- |> )", "", line).replace("**", "")
+    return re.sub(r"(`+) ?(.*?) ?\1", r"\2", line)
+
+
+def markdown_lines(markdown: str) -> list[str]:
+    """Each line of a Markdown page a reader reads, as markdown_text gives it: a fenced block's
+    lines as they are, and no fence, rule or empty line."""
+    lines, fenced = [], False
+    for line in markdown.splitlines():
+        if line.startswith("```"):
+            fenced = not fenced
+        elif fenced:
+            lines.append(line)
+        elif line.strip() and line != "---":
+            lines.append(markdown_text(line))
+    return lines
+
+
+def test_every_line_of_each_markdown_is_in_its_html_too(
+        pages: dict[str, tuple[str, str]]) -> None:
+    for made_by, (page, markdown) in pages.items():
+        shown = text_shown(page)
+        assert [line for line in markdown_lines(markdown) if line not in shown] == [], made_by
+
+
+def test_each_page_has_a_panel_and_no_report(pages: dict[str, tuple[str, str]]) -> None:
+    for made_by, (page, _) in pages.items():
+        assert '<aside id="panel"' in page, made_by
+        assert 'id="report"' not in page, made_by
+
+
+def test_the_markdown_keeps_each_step_what_it_reads_and_writes_and_its_hive(
+        pages: dict[str, tuple[str, str]]) -> None:
+    markdown = pages["export_lineage"][1]
+    assert "\n## statement_1\n" in markdown
+    assert ("- Reads: ops.job_runs, ops.jobs\n- Writes: no table, its rows come back to you"
+            in markdown)
+    assert "### Hive as submitted\n\n```sql\nSELECT\n" in markdown
+    project_markdown = pages["export_project_lineage"][1]
+    assert "\n## `mart.teams`\n" in project_markdown
+    assert "- Written by Scheduled runs: weekly and daily ⚠" in project_markdown
+    assert "INSERT OVERWRITE TABLE mart.teams" in project_markdown
+
+
+def boxes_of(page: str) -> list[str]:
+    """Each box a page draws in Python, as its <g ...> tag."""
+    return re.findall(r'<g class="n [^"]*"[^>]*>', page)
+
+
+def test_each_project_box_is_reached_with_tab_and_opens_its_part(
+        pages: dict[str, tuple[str, str]]) -> None:
+    for made_by in ("export_project_lineage", "export_project_lineage, a loop"):
+        page = pages[made_by][0]
+        boxes = boxes_of(page)
+        assert boxes, made_by
+        for box in boxes:
+            assert 'tabindex="0"' in box and 'role="button"' in box, box
+            for part in re.search(r'data-parts="([^"]*)"', box)[1].split():
+                assert f'<div class="part" id="{part}">' in page, box
+
+
+def test_each_statement_box_opens_a_part_of_its_step(
+        pages: dict[str, tuple[str, str]]) -> None:
     for made_by in ("export_lineage", "export_run_lineage"):
         page = pages[made_by][0]
-        assert module.DRAWING_CSS in page, made_by
-        assert module.DRAWING_SCRIPT in page, made_by
+        data = json.loads(re.search(r"const graph = (\{.*\});\n", page)[1])
+        for box in data["boxes"]:
+            assert box["parts"], box
+            for part in box["parts"]:
+                assert f'<div class="part" id="{part}">' in page, box
+            if box["entry"]:
+                assert f'<div class="part" id="{box["entry"]}">' in page, box
+        assert 'tabindex="0" role="button"' in page, made_by
 
 
-def test_the_projects_markdown_colours_its_boxes_with_the_modules_classdefs(
+def test_the_panel_shows_a_steps_hive_whole_with_a_copy_button(
         pages: dict[str, tuple[str, str]]) -> None:
-    lines = html_page().mermaid_class_defs(["folder", "saved", "read", "shared", "loop"])
-    assert lines[0] == "  classDef folder fill:#56b4e9,stroke:#888"
-    for made_by in ("export_project_lineage", "export_project_lineage, a loop"):
-        markdown = pages[made_by][1]
-        assert "\n".join(lines) in markdown, made_by
+    page = pages["export_lineage"][0]
+    hive = html.escape(to_hive(runs_per_team()))
+    button = '<button type="button" class="copy">Copy</button>'
+    assert f'<div class="hive">{button}<pre>{hive}</pre>' in page
+    assert "<li>Reads: ops.job_runs, ops.jobs</li>" in page
+
+
+def test_the_project_panel_shows_each_table_its_runs_and_its_hive(
+        pages: dict[str, tuple[str, str]]) -> None:
+    page = pages["export_project_lineage"][0]
+    team_jobs = page.split("<h2><code>mart.team_jobs</code></h2>", 1)[1].split("<h2>", 1)[0]
+    assert "<li>Written by Scheduled runs: weekly and daily ⚠</li>" in team_jobs
+    assert "<li>Run value: logic of mart.team_jobs.first_job() gave 1</li>" in team_jobs
+    assert "<h3>Hive as submitted by its Table folder, the Scheduled run weekly and the " \
+        "Scheduled run daily</h3>" in team_jobs
+    assert '<button type="button" class="copy">Copy</button>' in team_jobs
 
 
 # --- Bold colours (ticket 05) -----------------------------------------------------------------

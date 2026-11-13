@@ -122,17 +122,21 @@ or type checker holds them: the reviewer does.
 The Toolbox's pages are written to the same care as its Python (Toolbox 8.7, ticket 04). The
 user's words: "maintain good code conventions for the html pages ... add coding guidelines for
 the html that we have for python". Today the module builds each lineage page;
-`sqlglot_composer/how_to.html` and `sqlglot_composer/examples.html`, which `tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under
-it yet, and a new page is built from it.
+`sqlglot_composer/how_to.html` and `sqlglot_composer/examples.html`, which
+`tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under it yet, and a new
+page is built from it.
 
 - **One page module.** Each page it builds comes from `sqlglot_composer/html_page.py`'s
   `page`, from its colour tokens, its base CSS and each kind's CSS. A page adds its own CSS
   and script as pieces after the module's, and takes what another page needs too from the module: a piece
   two pages need moves into the module, extended there, never copied into a second page.
 - **Colours only through named tokens.** A colour is written once, in the module's `COLOURS`;
-  CSS names it as `var(--name)`, and the legend's swatches and the Mermaid `classDef` lines are
-  made from `KINDS`, which names tokens. A new kind of box is a row of `KINDS`; a palette
-  change is an edit to `COLOURS` alone.
+  CSS names it as `var(--name)`, and the legend's swatches are made from `KINDS`, which names
+  tokens. A new kind of box is a row of `KINDS`; a palette change is an edit to `COLOURS`
+  alone. A page's Markdown twin has no colour, and no drawing.
+- **The HTML page is the full view.** A page's Markdown twin is its text alone; whatever the
+  Markdown says, the page says too. A section both show is a `Part`, written to the page by
+  the module's `panel` and to the Markdown by `part_markdown`, never written twice.
 - **No inline `style=`.** A look is a class and a CSS rule. A script may set a size it works
   out, through `element.style`, but never a colour.
 - **Offline.** A page loads nothing from outside its own file: no font, script, stylesheet or
@@ -143,16 +147,17 @@ it yet, and a new page is built from it.
 - **No build step.** A script is plain JavaScript a browser runs as written: no library, no
   bundler, no framework, nothing to install. Of this file's other rules, "Names" and "One way
   per job" hold for it: a function is named for what it returns or does, and a job two pages'
-  scripts do is one function in the module's `DRAWING_SCRIPT`. The limits ruff and
-  `tests/repo/test_standard.py` hold on Python don't reach it.
+  scripts do is one function in the module's `DRAWING_SCRIPT` or `PANEL_SCRIPT`. The limits
+  ruff and `tests/repo/test_standard.py` hold on Python don't reach it.
 - **Plain words.** What a page says to the user is as plain as the Python's messages, in the
   glossary's words ("Beginner readability", "Glossary words").
 
 `tests/test_html_page.py` holds what a test can, for the pages the module builds: no colour
-outside the token table, no `style=`, each page passing the offline policy, and each coming
-from the one module; and of the colours, a box's text readable on every kind's fill (WCAG
-AA, 4.5:1), no two kinds on one page sharing a colour, and the loops' red used for nothing
-else. What is left here is the reader's.
+outside the token table, no `style=`, each page passing the offline policy, each coming from
+the one module, and each line of a page's Markdown being on its HTML page too; and of the
+colours, a box's text readable on every kind's fill (WCAG AA, 4.5:1), no two kinds on one
+page sharing a colour, and the loops' red used for nothing else. What is left here is the
+reader's.
 
 ## No new public name without a ticket
 

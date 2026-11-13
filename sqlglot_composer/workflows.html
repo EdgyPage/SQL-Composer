@@ -194,6 +194,8 @@ function addMouseHandlers(svg, visible) {
     }
     svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
     const clicked = event.target.closest('.n');
+    // Say which box was chosen, or null for none, so the side panel can show or close.
+    svg.dispatchEvent(new CustomEvent('boxchosen', {bubbles: true, detail: clicked}));
     if (!clicked) {
       return;
     }

@@ -165,7 +165,8 @@ def test_lineage_draws_a_write_into_an_unpartitioned_table(tmp_path: Path) -> No
     html_file, markdown_file = export_lineage(teams(), to=tmp_path / "l.html")
     text = markdown_file.read_text(encoding="utf-8")
     assert "the whole Saved table mart.job_teams" in text
-    assert "day" not in text.split("```mermaid", 1)[1].split("```", 1)[0]
+    data = html_file.read_text(encoding="utf-8").split("const graph = ", 1)[1].split("\n")[0]
+    assert "day" not in data
 
 
 def test_lineage_draws_a_write_that_reads_every_partition(tmp_path: Path) -> None:

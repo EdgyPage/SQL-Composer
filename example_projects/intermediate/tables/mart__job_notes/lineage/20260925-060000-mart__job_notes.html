@@ -36,18 +36,28 @@ footer{padding:8px 16px 24px;color:var(--muted);font-size:12px}
 .e.filters{stroke:var(--filters-arrow)} .flabel{font-size:10px;fill:var(--filters-label)}
 .e.rows{stroke-dasharray:3 3;stroke:var(--rows-arrow)}
 summary{cursor:pointer}
-#report details{margin:0 0 12px} #report summary{font-size:15px}
+header p{margin:0 0 8px;max-width:72em}
 svg{cursor:grab} .n{cursor:pointer}
 .dim{opacity:.15} .hit rect{stroke:var(--lit);stroke-width:2} .e.hit{stroke:var(--lit);stroke-width:2;opacity:1}
+body.panel-open main{display:flex;gap:12px;align-items:flex-start}
+body.panel-open .wrap{flex:1 1 0;min-width:0}
+#panel{border-top:1px solid var(--rule);margin-top:12px;background:var(--page)}
+body.panel-open #panel{flex:0 0 40%;max-width:640px;margin-top:0;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;border:1px solid var(--faint-rule);padding:0 12px}
+#panel .close{float:right;margin-top:10px}
+#panel pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.hive{position:relative} .hive .copy{position:absolute;top:4px;right:4px}
+#panel-box:not(:empty){border-bottom:1px solid var(--rule);margin-bottom:8px}
+.n:focus{outline:none} .n:focus-visible rect{stroke:var(--ink);stroke-width:3}
+@media (max-width:800px){body.panel-open main{display:block} body.panel-open #panel{position:static;max-height:none;max-width:none;margin-top:12px}}
 </style></head><body>
-<header><h1>Lineage: write_job_notes</h1><div class="key">
+<header><h1>Lineage: write_job_notes</h1><p>Made by <code>export_lineage</code>. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.</p><p>Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.</p><div class="key">
 <span><i class="sw table"></i>table column</span>
 <span><i class="sw derived"></i>Derived table column</span>
 <span><i class="sw output"></i>output column</span>
 <span><i class="sw condition"></i>condition</span>
 <span><i class="sw unchecked"></i>⚠ Unchecked statement: Hive written by hand, not checked</span>
 <span><i class="sw python"></i>Python step: changed in Python, saved by your own call or, given rows=, by a Scheduled run</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count (&quot;filters&quot;) · click a box to light up its path · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count (&quot;filters&quot;) · click a box, or Tab to it and press Enter, to light up what feeds it and what it feeds and open its panel · Escape closes it · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -55,20 +65,14 @@ svg{cursor:grab} .n{cursor:pointer}
   <label>Derived tables <select data-kind="derived"></select></label>
   <label>Outputs <select data-kind="output"></select></label>
   <label><input type="checkbox" id="conditions" checked> Conditions</label>
-  <label><input type="checkbox" id="showReport" checked> Report</label>
   <details><summary>Each group</summary><div id="groups"></div></details>
 </div>
 <main>
-<noscript><p><b>Scripts are off, so the graph can't be drawn.</b> The report below and
-<code>20260925-060000-mart__job_notes.md</code>, written beside this file, show the same lineage.</p></noscript>
+<noscript><p><b>Scripts are off, so the graph can't be drawn.</b> Each Statement's section is below, and in
+<code>20260925-060000-mart__job_notes.md</code>, written beside this file.</p></noscript>
 <div class="wrap" id="graph"></div>
-<section id="report"><h2>write_job_notes</h2>
-<p>It writes the whole Saved table mart.job_notes.</p>
-<h3>Calculated columns</h3>
-<p>None: every column is copied.</p>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>ops.job_owners.job_id</td></tr><tr><td><code>team</code></td><td>ops.team_notes.team</td></tr><tr><td><code>note</code></td><td>ops.team_notes.note</td></tr><tr><td><code>written_on</code></td><td>ops.team_notes.written_on</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>write_job_notes: no Key the Toolbox can see, since team_notes declares no Key.</li><li>mart.job_notes declares no Key, so its rows aren&#x27;t checked.</li></ul>
-<h3>Hive as submitted</h3><pre>INSERT OVERWRITE TABLE mart.job_notes
+<aside id="panel" aria-label="What the box you clicked holds"><button type="button" class="close" hidden>Close</button><div id="panel-box"></div>
+<div class="part" id="step-0"><h2>write_job_notes</h2><p>It writes the whole Saved table mart.job_notes.</p><ul><li>Reads: ops.job_owners, ops.team_notes</li><li>Writes: mart.job_notes</li></ul><h3>Hive as submitted</h3><div class="hive"><button type="button" class="copy">Copy</button><pre>INSERT OVERWRITE TABLE mart.job_notes
 SELECT
   job_owners.job_id,
   team_notes.team,
@@ -78,7 +82,8 @@ FROM ops.team_notes AS team_notes
 JOIN ops.job_owners AS job_owners
   ON job_owners.team = team_notes.team
   AND job_owners.dt = team_notes.written_on
-  AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;</pre></section>
+  AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;</pre></div><h3>Calculated columns</h3><p>Every column that is calculated rather than copied, in the order it is calculated.</p><p>None: every column is copied.</p><h3>Copied columns</h3><ul><li><code>job_id</code> comes from ops.job_owners.job_id</li><li><code>team</code> comes from ops.team_notes.team</li><li><code>note</code> comes from ops.team_notes.note</li><li><code>written_on</code> comes from ops.team_notes.written_on</li></ul><h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.</p><ul><li>write_job_notes: no Key the Toolbox can see, since team_notes declares no Key.</li><li>mart.job_notes declares no Key, so its rows aren&#x27;t checked.</li></ul></div>
+</aside>
 </main>
 <footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.6.</footer>
 <script>
@@ -213,6 +218,8 @@ function addMouseHandlers(svg, visible) {
     }
     svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
     const clicked = event.target.closest('.n');
+    // Say which box was chosen, or null for none, so the side panel can show or close.
+    svg.dispatchEvent(new CustomEvent('boxchosen', {bubbles: true, detail: clicked}));
     if (!clicked) {
       return;
     }
@@ -238,13 +245,131 @@ function addMouseHandlers(svg, visible) {
   svg.addEventListener('click', lightUpPath);
 }
 
+// The side panel's script, shared by every page whose boxes open a panel: a click on a box,
+// or Enter on a box reached with Tab, shows what the box holds beside the drawing; a click
+// off every box, Escape or the Close button closes it. It is plain JavaScript that any
+// browser runs, with nothing to install or download.
+
+// Copy the Hive beside a Copy button. Where the browser won't let a page copy, the Hive is
+// selected instead, for Ctrl+C.
+function copyHive(button) {
+  const hive = button.parentElement.querySelector('pre');
+  function say(words) {
+    button.textContent = words;
+    setTimeout(() => {
+      button.textContent = 'Copy';
+    }, 2000);
+  }
+  function selectIt() {
+    const range = document.createRange();
+    range.selectNodeContents(hive);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    say(document.execCommand('copy') ? 'Copied' : 'Selected: press Ctrl+C');
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(hive.textContent).then(() => say('Copied'), selectIt);
+  } else {
+    selectIt();
+  }
+}
+
+// Make the boxes in `drawing` open the panel. The drawing's script says which box was chosen;
+// Enter on a box clicks it, as the mouse would, and Escape clicks off every box.
+function addPanelHandlers(drawing) {
+  const panel = document.getElementById('panel');
+  const parts = panel.querySelectorAll(':scope > .part');
+  const entryPlace = document.getElementById('panel-box');
+  const closeButton = panel.querySelector('.close');
+  let openedFrom = null;  // the box whose panel is open
+
+  function closePanel() {
+    panel.hidden = true;
+    document.body.classList.remove('panel-open');
+    entryPlace.innerHTML = '';
+  }
+
+  function openPanel(box) {
+    const shown = new Set((box.dataset.parts || '').split(' '));
+    parts.forEach(part => {
+      part.hidden = !shown.has(part.id);
+    });
+    entryPlace.innerHTML = '';
+    const entry = box.dataset.entry ? document.getElementById(box.dataset.entry) : null;
+    if (entry) {
+      const copy = entry.cloneNode(true);
+      copy.removeAttribute('id');
+      entryPlace.appendChild(copy);
+    }
+    panel.hidden = false;
+    document.body.classList.add('panel-open');
+    panel.scrollTop = 0;
+    openedFrom = box;
+  }
+
+  // Close the panel and clear the lit path, as a click on the drawing off every box does.
+  function closeAll() {
+    const svg = drawing.querySelector('svg');
+    if (svg) {
+      svg.dispatchEvent(new MouseEvent('click'));
+    }
+    closePanel();
+  }
+
+  // Close it all, then give the keyboard back to the box.
+  function closeAndReturn() {
+    closeAll();
+    if (openedFrom && openedFrom.isConnected) {
+      openedFrom.focus();
+    }
+  }
+
+  drawing.addEventListener('boxchosen', event => {
+    if (event.detail) {
+      openPanel(event.detail);
+    } else {
+      closePanel();
+    }
+  });
+  drawing.addEventListener('keydown', event => {
+    const box = event.target.closest('.n');
+    if (box && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();  // a space would scroll the page
+      box.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !panel.hidden) {
+      closeAndReturn();
+    }
+  });
+  // A click on the page off the drawing, the panel and the controls closes it too.
+  document.addEventListener('click', event => {
+    const kept = event.target.closest(
+      '#panel, #controls, .wrap, a, button, select, input, summary');
+    if (!kept && !panel.hidden) {
+      closeAll();
+    }
+  });
+  closeButton.addEventListener('click', closeAndReturn);
+  panel.addEventListener('click', event => {
+    const button = event.target.closest('.copy');
+    if (button) {
+      copyHive(button);
+    }
+  });
+  closeButton.hidden = false;
+  closePanel();
+}
+
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
 // It is plain JavaScript that any browser runs, with nothing to install or download. The
-// page module's drawing script, before it, zooms, pans and lights up a path.
+// page module's drawing script, before it, zooms, pans and lights up a path, and its panel
+// script opens the panel of the box clicked.
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.job_id", "bigint", "in the Key"], "title": "ops.job_owners.job_id\nbigint"}, {"id": "n1", "kind": "output", "group": "write_job_notes", "lines": ["job_id", "job_owners.job_id"], "title": "write_job_notes.job_id\njob_owners.job_id"}, {"id": "n2", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.team", "string"], "title": "ops.team_notes.team\nstring"}, {"id": "n3", "kind": "output", "group": "write_job_notes", "lines": ["team", "team_notes.team"], "title": "write_job_notes.team\nteam_notes.team"}, {"id": "n4", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.note", "string"], "title": "ops.team_notes.note\nstring"}, {"id": "n5", "kind": "output", "group": "write_job_notes", "lines": ["note", "team_notes.note"], "title": "write_job_notes.note\nteam_notes.note"}, {"id": "n6", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.written_on", "string"], "title": "ops.team_notes.written_on\nstring"}, {"id": "n7", "kind": "output", "group": "write_job_notes", "lines": ["written_on", "team_notes.written_on"], "title": "write_job_notes.written_on\nteam_notes.written_on"}, {"id": "n8", "kind": "condition", "group": "write_job_notes", "lines": ["JOIN ON in write_job_notes", "all_of(equals(job_owners.team, team_notes.team), equals(job_owners.dt, team_notes.written_on), between(job_owners.dt, \"2026-09-11\", \"2026-09-24\"))"], "title": "JOIN ON in write_job_notes\njob_owners.team = team_notes.team AND job_owners.dt = team_notes.written_on AND job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24'"}, {"id": "n9", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.dt", "string", "in the Key"], "title": "ops.job_owners.dt\nstring"}, {"id": "n10", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.team", "string"], "title": "ops.job_owners.team\nstring"}, {"id": "n11", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.job_id", "bigint"], "title": "mart.job_notes.job_id\nbigint"}, {"id": "n12", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.team", "string"], "title": "mart.job_notes.team\nstring"}, {"id": "n13", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.note", "string"], "title": "mart.job_notes.note\nstring"}, {"id": "n14", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.written_on", "string"], "title": "mart.job_notes.written_on\nstring"}], "arrows": [["n0", "n1", "value"], ["n2", "n3", "value"], ["n4", "n5", "value"], ["n6", "n7", "value"], ["n9", "n8", "rows"], ["n10", "n8", "rows"], ["n2", "n8", "rows"], ["n6", "n8", "rows"], ["n8", "n1", "rows"], ["n8", "n3", "rows"], ["n8", "n5", "rows"], ["n8", "n7", "rows"], ["n1", "n11", "value"], ["n3", "n12", "value"], ["n5", "n13", "value"], ["n7", "n14", "value"]], "groups": [{"name": "ops.job_owners", "kind": "table"}, {"name": "write_job_notes", "kind": "output"}, {"name": "ops.team_notes", "kind": "table"}, {"name": "mart.job_notes", "kind": "table"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.job_id", "bigint", "in the Key"], "title": "ops.job_owners.job_id\nbigint", "parts": ["step-0"], "entry": ""}, {"id": "n1", "kind": "output", "group": "write_job_notes", "lines": ["job_id", "job_owners.job_id"], "title": "write_job_notes.job_id\njob_owners.job_id", "parts": ["step-0"], "entry": ""}, {"id": "n2", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.team", "string"], "title": "ops.team_notes.team\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n3", "kind": "output", "group": "write_job_notes", "lines": ["team", "team_notes.team"], "title": "write_job_notes.team\nteam_notes.team", "parts": ["step-0"], "entry": ""}, {"id": "n4", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.note", "string"], "title": "ops.team_notes.note\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n5", "kind": "output", "group": "write_job_notes", "lines": ["note", "team_notes.note"], "title": "write_job_notes.note\nteam_notes.note", "parts": ["step-0"], "entry": ""}, {"id": "n6", "kind": "table", "group": "ops.team_notes", "lines": ["ops.team_notes.written_on", "string"], "title": "ops.team_notes.written_on\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n7", "kind": "output", "group": "write_job_notes", "lines": ["written_on", "team_notes.written_on"], "title": "write_job_notes.written_on\nteam_notes.written_on", "parts": ["step-0"], "entry": ""}, {"id": "n8", "kind": "condition", "group": "write_job_notes", "lines": ["JOIN ON in write_job_notes", "all_of(equals(job_owners.team, team_notes.team), equals(job_owners.dt, team_notes.written_on), between(job_owners.dt, \"2026-09-11\", \"2026-09-24\"))"], "title": "JOIN ON in write_job_notes\njob_owners.team = team_notes.team AND job_owners.dt = team_notes.written_on AND job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24'", "parts": ["step-0"], "entry": ""}, {"id": "n9", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.dt", "string", "in the Key"], "title": "ops.job_owners.dt\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n10", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.team", "string"], "title": "ops.job_owners.team\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n11", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.job_id", "bigint"], "title": "mart.job_notes.job_id\nbigint", "parts": ["step-0"], "entry": ""}, {"id": "n12", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.team", "string"], "title": "mart.job_notes.team\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n13", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.note", "string"], "title": "mart.job_notes.note\nstring", "parts": ["step-0"], "entry": ""}, {"id": "n14", "kind": "table", "group": "mart.job_notes", "lines": ["mart.job_notes.written_on", "string"], "title": "mart.job_notes.written_on\nstring", "parts": ["step-0"], "entry": ""}], "arrows": [["n0", "n1", "value"], ["n2", "n3", "value"], ["n4", "n5", "value"], ["n6", "n7", "value"], ["n9", "n8", "rows"], ["n10", "n8", "rows"], ["n2", "n8", "rows"], ["n6", "n8", "rows"], ["n8", "n1", "rows"], ["n8", "n3", "rows"], ["n8", "n5", "rows"], ["n8", "n7", "rows"], ["n1", "n11", "value"], ["n3", "n12", "value"], ["n5", "n13", "value"], ["n7", "n14", "value"]], "groups": [{"name": "ops.job_owners", "kind": "table"}, {"name": "write_job_notes", "kind": "output"}, {"name": "ops.team_notes", "kind": "table"}, {"name": "mart.job_notes", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;
@@ -263,8 +388,8 @@ const MODES_BY_KIND = {
 };
 
 // What the reader has chosen: the Graph or the Grouped flowchart ('graph' or 'flow'), each
-// group's mode, and whether the conditions and the report show.
-const state = {view: 'graph', groupMode: {}, conditions: true, report: true};
+// group's mode, and whether the conditions show.
+const state = {view: 'graph', groupMode: {}, conditions: true};
 
 // Each box, looked up by its id.
 const boxById = indexBy(graph.boxes, box => box.id);
@@ -288,9 +413,6 @@ function readSettingsFromAddress() {
   if (settings.get('conditions') === 'off') {
     state.conditions = false;
   }
-  if (settings.get('report') === 'off') {
-    state.report = false;
-  }
 }
 
 // Save the settings in the page's address, so reloading the page or sharing its link keeps
@@ -307,9 +429,6 @@ function saveSettingsInAddress() {
   });
   if (!state.conditions) {
     settings.set('conditions', 'off');
-  }
-  if (!state.report) {
-    settings.set('report', 'off');
   }
   try {
     const address = settings.toString() ? '?' + settings.toString() : location.pathname;
@@ -391,6 +510,8 @@ function visibleGraph() {
         group: box.kind === 'condition' ? 'filters on ' + box.group : box.group,
         lines: box.lines,
         title: box.title,
+        parts: box.parts,
+        entry: box.entry,
       };
     } else if (!drawnBoxes[drawnId]) {
       // The first box met in a collapsed group makes the one box that stands for the group.
@@ -402,6 +523,8 @@ function visibleGraph() {
         group: box.group,
         lines: [box.group, columnCount + ' columns, collapsed'],
         title: box.group,
+        parts: box.parts,
+        entry: '',
       };
     }
   });
@@ -656,7 +779,8 @@ function flowchartLayout(visible) {
 // --- The SVG ------------------------------------------------------------------------------
 
 // The SVG for one box: its rectangle, its lines of text (the first in bold), and a tooltip
-// with its full name and its Hive or type.
+// with its full name and its Hive or type. Tab reaches it, and data-parts and data-entry name
+// what its panel shows.
 function boxSvg(box, x, y, height) {
   const lines = box.lines.map((line, number) => {
     const bold = number ? '' : ' class="l"';
@@ -665,7 +789,9 @@ function boxSvg(box, x, y, height) {
     // 8 pixels in from the box's left edge; the first line's baseline 17 pixels down.
     return `<text x="8" y="${17 + number * LINE_HEIGHT}"${bold}>${text}</text>`;
   });
-  return `<g class="n ${box.kind}" id="${box.id}" transform="translate(${x},${y})">`
+  return `<g class="n ${box.kind}" id="${box.id}" tabindex="0" role="button" `
+    + `data-parts="${box.parts.join(' ')}" data-entry="${box.entry}" `
+    + `transform="translate(${x},${y})">`
     + `<rect width="${BOX_WIDTH}" height="${height}" rx="4"/>`
     + lines.join('')
     + `<title>${escapeHtml(box.title)}</title></g>`;
@@ -750,8 +876,8 @@ function renderFlowchart(visible) {
 
 // --- Drawing -----------------------------------------------------------------------------
 
-// Draw the page again from `state`: the picture, the report shown or not, the address and
-// the controls. Every control calls this after it changes `state`.
+// Draw the page again from `state`: the picture, the address and the controls. Every control
+// calls this after it changes `state`.
 function draw() {
   const visible = visibleGraph();
   const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
@@ -763,7 +889,6 @@ function draw() {
   svg.style.minWidth = `${Math.round(drawing.width * 0.8)}px`;
   svg.style.aspectRatio = `${drawing.width + 20}/${drawing.height + 20}`;
   addMouseHandlers(svg, visible);
-  document.getElementById('report').style.display = state.report ? '' : 'none';
   saveSettingsInAddress();
   syncControls();
 }
@@ -812,10 +937,6 @@ function setUpControls() {
     state.conditions = event.target.checked;
     draw();
   };
-  document.getElementById('showReport').onchange = event => {
-    state.report = event.target.checked;
-    draw();
-  };
 }
 
 // Make every control show the current settings.
@@ -830,13 +951,14 @@ function syncControls() {
   });
   document.getElementById('view').value = state.view;
   document.getElementById('conditions').checked = state.conditions;
-  document.getElementById('showReport').checked = state.report;
 }
 
 // Start: read the settings, set up the controls, show them (they stay hidden when scripts
-// are off), and draw.
+// are off), make the boxes open the panel, and draw. The panel's handlers sit on the
+// drawing's frame, which stays as the picture inside it is drawn again.
 readSettingsFromAddress();
 setUpControls();
 document.getElementById('controls').style.display = 'flex';
+addPanelHandlers(document.getElementById('graph'));
 draw();
 </script></body></html>

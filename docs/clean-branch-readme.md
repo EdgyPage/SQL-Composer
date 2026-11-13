@@ -633,8 +633,12 @@ Goal: each output column followed back to the table columns it reads.
    that follow each output column back to the table columns it reads, and list every condition
    that decides which rows count. Action: run `export_lineage(...)`; from a Table notebook, run
    its lineage cell, which writes them into its Table folder's `lineage/`, named by the time
-   and the table, so each export joins the table's history. Done when the new pages are in
-   `lineage/`; then step 2.
+   and the table, so each export joins the table's history. Open the HTML page: click a box,
+   or Tab to it and press Enter, to light up what feeds it and what it feeds, and to open a
+   panel on the right, with its Statement's Hive, whole, and a Copy button; the tables it reads and writes; its
+   Run values and the Session settings sent before it; and, for a calculated column, how it
+   is worked out and the rows that count. Escape closes it. The Markdown twin is the same
+   text, with no drawing. Done when the new pages are in `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
    column; then go on to section 8, "Keep the Project in order".
@@ -1502,7 +1506,9 @@ the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list 
 - `project.export_project_lineage()` writes `admin/lineage/<time>-project.html` and its
   Markdown twin: every Saved table, what reads it and which Scheduled runs write it, a table
   more than one run writes marked, and a loop drawn red. Two runs may write the same table:
-  it is shown, never refused.
+  it is shown, never refused. Click a table's box on the page to open its panel: what it
+  reads, what reads it, the Scheduled runs that write it, and the Hive that writes it, with
+  its Run values and Session settings.
 - `RUNS = ["weekly"]`: `project.export_run_hive(RUNS)` writes
   `scheduled_runs/weekly/weekly.hql`, the run's Hive as its Build cell builds it, with its
   parameters' defaults, to read and commit, and `project.export_run_lineage(RUNS)` its

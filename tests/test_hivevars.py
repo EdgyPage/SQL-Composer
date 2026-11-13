@@ -256,6 +256,12 @@ def test_a_hivevars_run_value_default_draws_what_it_read() -> None:
     assert ("table:ops.job_runs.dt", key, "value") in graph.arrows
 
 
+def test_a_statements_section_lists_its_hivevars_set_line_as_sent_before_it() -> None:
+    built = a_write(hivevar("PERIOD_END", default="'2026-09-24'"))
+    assert ("Hivevars PERIOD_END, sent before it: SET hivevar:PERIOD_END=2026-09-24"
+            in lineage.settings_lines(built, []))
+
+
 # --- Exported --------------------------------------------------------------------------------
 
 

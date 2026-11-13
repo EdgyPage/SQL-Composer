@@ -264,6 +264,15 @@ the file was made, and so differs every time:
 ...                 shown = where
 ...             print(line[:100])
 >>> changed_lines("before.md", "after.md")
+In facts_write, Hive as submitted:
+-     COALESCE(
+-       SUM(
+-         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
++     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0)
+  AS mi
+-       ),
+-       0
+-     ) AS minutes
 In facts_write, `events_per_job in facts_write.minutes`:
 - Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes,
   where=is_
@@ -273,7 +282,7 @@ In facts_write, `events_per_job in facts_write.minutes`:
   where=is_in(job_event
 + events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes,
   where=equals(job_even
-In facts_write, Hive as submitted:
+In team_day, Hive as submitted:
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
@@ -296,15 +305,6 @@ In team_day, `minutes`:
   where=is_in(job_event
 + └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes,
   where=equals(job_even
-In team_day, Hive as submitted:
--     COALESCE(
--       SUM(
--         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
-+     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0)
-  AS mi
--       ),
--       0
--     ) AS minutes
 
 Each line is cut at 100 characters here. Under the minutes column of each Statement's
 events_per_job, the calculation changed, so every number added up from it may change, in

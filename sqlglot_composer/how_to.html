@@ -3848,9 +3848,9 @@ int(rows[&quot;alerts&quot;].sum())</pre>
 <section class="entry" id="follow_lineage">
 <h3>7. Follow lineage <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>See where each column of a Statement&#x27;s result comes from: the table columns that feed it, the conditions that decide which rows count towards it, and the Hive that ran. A Statement is one query; its Lineage is the record of which table columns feed each of its output columns. <code>export_lineage</code> writes this Lineage as two files, an HTML page to explore in your browser and a Markdown file to read anywhere. You export one Statement&#x27;s, then a Saved table&#x27;s from its Table notebook, into its Table folder&#x27;s lineage/, then a table that reads another Saved table, drawn together with it, all the way back to the tables they start from; <code>project.run_tables</code> writes them in that same order. A Saved table is a real table in the warehouse that your Statements write; its Table folder holds everything about it, and its Table notebook is the notebook in that folder whose cells create and write it. Last, you declare a change made in pandas with <code>python_step</code>, so the Lineage goes on through it.</p>
+<p>See where each column of a Statement&#x27;s result comes from: the table columns that feed it, the conditions that decide which rows count towards it, and the Hive that ran. A Statement is one query; its Lineage is the record of which table columns feed each of its output columns. <code>export_lineage</code> writes this Lineage as two files, an HTML page to explore in your browser, where a click on a box opens what it holds, and a Markdown file, its text alone, to read anywhere. You export one Statement&#x27;s, then a Saved table&#x27;s from its Table notebook, into its Table folder&#x27;s lineage/, then a table that reads another Saved table, drawn together with it, all the way back to the tables they start from; <code>project.run_tables</code> writes them in that same order. A Saved table is a real table in the warehouse that your Statements write; its Table folder holds everything about it, and its Table notebook is the notebook in that folder whose cells create and write it. Last, you declare a change made in pandas with <code>python_step</code>, so the Lineage goes on through it.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If you hand someone a number, export its Lineage first, so you can answer &quot;where does this come from?&quot; by pointing at the files.</li><li>If a number looks wrong, read its Markdown file: it lists every condition that decides which rows count towards it, from every step, in one place.</li><li>If a Saved table&#x27;s logic changes, export its Lineage again: each export is kept, beside the ones before, to compare.</li><li>If a step of a table is done in pandas, declare it with <code>python_step</code>, as steps 10 to 13 do.</li></ul>
+<ul><li>If you hand someone a number, export its Lineage first, so you can answer &quot;where does this come from?&quot; by pointing at the files.</li><li>If a number looks wrong, click its box on the HTML page, or find it in the Markdown file: each lists every condition that decides which rows count towards it, from every step, in one place.</li><li>If a Saved table&#x27;s logic changes, export its Lineage again: each export is kept, beside the ones before, to compare.</li><li>If a step of a table is done in pandas, declare it with <code>python_step</code>, as steps 10 to 13 do.</li></ul>
 <h4>Steps</h4>
 <h5>1. Set up the Project the last how-to left</h5>
 <p>Goal: a Project with the Table references and the Building block the steps read. A Table reference is the file that describes one table; a Building block is a piece of your own code reused across notebooks, here a Derived table, a named Statement another Statement reads from.</p>
@@ -4194,86 +4194,14 @@ run_query(team_runs, query)  # -&gt; DataFrame</pre>
 <p class="label">It writes lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.md</p>
 <pre class="file"># Lineage: team_runs
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.jobs&quot;]
-    n0[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n8[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;team_runs&quot;]
-    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n2[&quot;runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n4[&quot;failed_runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_runs.status, #quot;F…&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;ops.job_runs&quot;]
-    n3[&quot;ops.job_runs.status&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n6[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n9[&quot;ops.job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-  end
-  subgraph g3[&quot;filters on team_runs&quot;]
-    n5{{&quot;WHERE in team_runs&lt;br/&gt;&lt;small&gt;between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…&lt;/small&gt;&quot;}}
-    n7{{&quot;JOIN ON in team_runs&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, job_runs.job_id)&lt;/small&gt;&quot;}}
-  end
-  n0 --&gt; n1
-  n3 --&gt; n4
-  n6 -.-&gt; n5
-  n8 -.-&gt; n7
-  n9 -.-&gt; n7
-  n5 -.-&gt;|filters| g1
-  n7 -.-&gt;|filters| g1
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## team_runs
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `runs`
-
-Calculated in **team_runs** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-team_runs.runs = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in team_runs: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- JOIN ON in team_runs: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
-
-One value for each different `jobs.team`.
-
-#### `failed_runs`
-
-Calculated in **team_runs** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
-
-```text
-team_runs.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
-└─ ops.job_runs.status  (string)
-```
-
-Rows that count:
-- WHERE in team_runs: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- JOIN ON in team_runs: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
-
-One value for each different `jobs.team`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `team` | ops.jobs.team |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- team_runs: Key (team), since GROUP_BY makes one row for each team.
+- Reads: ops.job_runs, ops.jobs
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -4291,6 +4219,52 @@ GROUP BY
   jobs.team
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **team_runs** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+team_runs.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in team_runs: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- JOIN ON in team_runs: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+#### `failed_runs`
+
+Calculated in **team_runs** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
+
+```text
+team_runs.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
+└─ ops.job_runs.status  (string)
+```
+
+Rows that count:
+
+- WHERE in team_runs: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- JOIN ON in team_runs: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+- `team` comes from ops.jobs.team
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- team_runs: Key (team), since GROUP_BY makes one row for each team.
+
 ---
 
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
@@ -4300,10 +4274,10 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <pre class="python">markdown_file.parent.name  # -&gt; str</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;lineage&#x27;</pre>
 <p>Done when the Markdown file is in lineage/, named for <code>team_runs</code>. Then step 4.</p>
-<h5>4. Read the Markdown file</h5>
-<p>Goal: where each column of the result comes from. Read the Markdown file from the top. Graph is a chart in Mermaid, a text format for charts that JupyterLab and GitHub draw: each table read is a group holding the columns the Statement uses, a solid arrow carries a value, and a dotted one carries a column into a condition. Then the Statement&#x27;s own section, <code>team_runs</code>:</p>
-<ul><li>Calculated columns: each column worked out rather than copied, here <code>&quot;runs&quot;</code> and <code>&quot;failed_runs&quot;</code>, with a small tree down to the table columns it reads (<code>&quot;failed_runs&quot;</code> reads <code>ops.job_runs.status</code>), its Rows that count, every condition that decides which rows count (here the two days in WHERE, and the match in JOIN&#x27;s <code>ON=</code>; when a number looks wrong, look here first), and what one row stands for, from GROUP_BY;</li><li>Copied columns: <code>&quot;team&quot;</code>, from <code>ops.jobs.team</code>;</li><li>Keys: which columns tell the rows apart, here <code>&quot;team&quot;</code>; a table&#x27;s Key is the columns whose values name exactly one row;</li><li>Hive as submitted: the Hive <code>run_query</code> or <code>run_execute</code> sends.</li></ul>
-<p>The HTML page draws the same Lineage as boxes and arrows: click a box to light up every column it comes from and every condition that decides its rows. It needs no internet.</p>
+<h5>4. Read the Lineage</h5>
+<p>Goal: where each column of the result comes from. Open the HTML page in your browser; it needs no internet. It draws each table read as a group holding the columns the Statement uses: a solid arrow carries a value, and a dotted one carries a column into a condition. Click a box, or press Tab until it is outlined and press Enter, to light up every column it comes from, every condition that decides its rows and everything it feeds, and to open a panel on the right. Escape, or a click on empty space, closes it. The panel shows, for a calculated column, the column first, then its Statement&#x27;s section, <code>team_runs</code>:</p>
+<ul><li>what it reads and writes, here <code>ops.job_runs</code> and <code>ops.jobs</code>, and no table: its rows come back to you; then any Run values it holds, and any Session settings sent before it;</li><li>Hive as submitted: the Hive <code>run_query</code> or <code>run_execute</code> sends, whole, its long lines wrapped, with a Copy button;</li><li>Calculated columns: each column worked out rather than copied, here <code>&quot;runs&quot;</code> and <code>&quot;failed_runs&quot;</code>, with a small tree down to the table columns it reads (<code>&quot;failed_runs&quot;</code> reads <code>ops.job_runs.status</code>), its Rows that count, every condition that decides which rows count (here the two days in WHERE, and the match in JOIN&#x27;s <code>ON=</code>; when a number looks wrong, look here first), and what one row stands for, from GROUP_BY;</li><li>Copied columns: <code>&quot;team&quot;</code>, from <code>ops.jobs.team</code>;</li><li>Keys: which columns tell the rows apart, here <code>&quot;team&quot;</code>; a table&#x27;s Key is the columns whose values name exactly one row.</li></ul>
+<p>The Markdown file is the same sections as text, with no drawing, to read anywhere, such as in a review: every line of it is on the HTML page too.</p>
 <p>Done when you can name the condition that decides which rows <code>&quot;failed_runs&quot;</code> counts. Then step 5.</p>
 <h5>5. Make a Saved table&#x27;s Table folder</h5>
 <p>Goal: a Saved table, mart.daily_job_runs, whose Lineage step 6 exports. It saves each job&#x27;s runs, failed runs and minutes per day, from the Building block. Make its Table folder, and fill in its notebook and its Table reference, as <a href="#save_a_table">Save a table</a> does; here they are filled in, shortened from the Starter Example project&#x27;s, a Project made for the Example database, the small made-up tables this page runs on:</p>
@@ -4485,130 +4459,19 @@ project.refresh_reference_sheet(&quot;mart.daily_job_runs&quot;)</pre>
 write_daily_job_runs = daily.write()  # -&gt; Statement
 html_file, markdown_file = export_lineage(write_daily_job_runs)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.md</p>
-<details><summary>Show its 154 lines</summary>
 <pre class="file"># Lineage: write_daily_job_runs
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_runs&quot;]
-    n0[&quot;ops.job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n5[&quot;ops.job_runs.status&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n7[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;runs_per_job&quot;]
-    n1[&quot;runs_per_job.job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;runs_per_job.dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
-    n4[&quot;runs_per_job.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n6[&quot;runs_per_job.failed_runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_runs.status, #quot;F…&lt;/small&gt;&quot;]
-    n8[&quot;runs_per_job.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_runs.duration_mins)&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on runs_per_job&quot;]
-    n9{{&quot;WHERE in runs_per_job&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;write_daily_job_runs&quot;]
-    n10[&quot;job_id&lt;br/&gt;&lt;small&gt;runs_per_job.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n11[&quot;runs&lt;br/&gt;&lt;small&gt;runs_per_job.runs&lt;/small&gt;&quot;]
-    n12[&quot;failed_runs&lt;br/&gt;&lt;small&gt;runs_per_job.failed_runs&lt;/small&gt;&quot;]
-    n13[&quot;minutes&lt;br/&gt;&lt;small&gt;runs_per_job.minutes&lt;/small&gt;&quot;]
-    n14[&quot;dt&lt;br/&gt;&lt;small&gt;runs_per_job.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;mart.daily_job_runs&quot;]
-    n15[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n16[&quot;mart.daily_job_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n17[&quot;mart.daily_job_runs.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n18[&quot;mart.daily_job_runs.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n19[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n5 --&gt; n6
-  n7 --&gt; n8
-  n2 -.-&gt; n9
-  n1 --&gt; n10
-  n4 --&gt; n11
-  n6 --&gt; n12
-  n8 --&gt; n13
-  n3 --&gt; n14
-  n10 --&gt; n15
-  n11 --&gt; n16
-  n12 --&gt; n17
-  n13 --&gt; n18
-  n14 --&gt; n19
-  n9 -.-&gt;|filters| g1
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## write_daily_job_runs
 
 It writes the Saved table mart.daily_job_runs, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `runs_per_job.runs`
-
-Calculated in **runs_per_job** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-runs_per_job.runs = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-#### `runs_per_job.failed_runs`
-
-Calculated in **runs_per_job** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
-
-```text
-runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
-└─ ops.job_runs.status  (string)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-#### `runs_per_job.minutes`
-
-Calculated in **runs_per_job** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
-
-```text
-runs_per_job.minutes = sum_of(job_runs.duration_mins)
-└─ ops.job_runs.duration_mins  (int)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `job_id` | runs_per_job.job_id ← ops.job_runs.job_id |
-| `runs` | runs_per_job.runs (calculated) |
-| `failed_runs` | runs_per_job.failed_runs (calculated) ← ops.job_runs.status |
-| `minutes` | runs_per_job.minutes (calculated) ← ops.job_runs.duration_mins |
-| `dt` | runs_per_job.dt ← ops.job_runs.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- derived(&#x27;runs_per_job&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
-- write_daily_job_runs: Key (job_id), since runs_per_job&#x27;s rows are told apart by job_id.
-- mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
+- Reads: ops.job_runs
+- Writes: mart.daily_job_runs
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -4637,10 +4500,74 @@ SELECT
 FROM runs_per_job
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs_per_job.runs`
+
+Calculated in **runs_per_job** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+runs_per_job.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id` and `job_runs.dt`.
+
+#### `runs_per_job.failed_runs`
+
+Calculated in **runs_per_job** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
+
+```text
+runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
+└─ ops.job_runs.status  (string)
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id` and `job_runs.dt`.
+
+#### `runs_per_job.minutes`
+
+Calculated in **runs_per_job** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
+
+```text
+runs_per_job.minutes = sum_of(job_runs.duration_mins)
+└─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id` and `job_runs.dt`.
+
+### Copied columns
+
+- `job_id` comes from runs_per_job.job_id ← ops.job_runs.job_id
+- `runs` comes from runs_per_job.runs (calculated)
+- `failed_runs` comes from runs_per_job.failed_runs (calculated) ← ops.job_runs.status
+- `minutes` comes from runs_per_job.minutes (calculated) ← ops.job_runs.duration_mins
+- `dt` comes from runs_per_job.dt ← ops.job_runs.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- derived(&#x27;runs_per_job&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_daily_job_runs: Key (job_id), since runs_per_job&#x27;s rows are told apart by job_id.
+- mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
+
 ---
 
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
-</details>
 <p class="note">It writes <code>tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.relative_to(Path.cwd()).as_posix()  # -&gt; str</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.md&#x27;</pre>
@@ -4886,167 +4813,20 @@ write_team_day = team.write()  # -&gt; Statement
 html_file, markdown_file = export_lineage(  # -&gt; tuple[Path, Path]
     write_daily_job_runs, write_team_day)</pre>
 <p class="label">It writes tables/mart__team_day/lineage/20260925-090000-mart__team_day.md</p>
-<details><summary>Show its 289 lines</summary>
+<details><summary>Show its 212 lines</summary>
 <pre class="file"># Lineage: write_daily_job_runs, write_team_day
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_runs&quot;]
-    n0[&quot;ops.job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n5[&quot;ops.job_runs.status&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n7[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;runs_per_job&quot;]
-    n1[&quot;runs_per_job.job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;runs_per_job.dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
-    n4[&quot;runs_per_job.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n6[&quot;runs_per_job.failed_runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_runs.status, #quot;F…&lt;/small&gt;&quot;]
-    n8[&quot;runs_per_job.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_runs.duration_mins)&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on runs_per_job&quot;]
-    n9{{&quot;WHERE in runs_per_job&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;write_daily_job_runs&quot;]
-    n10[&quot;job_id&lt;br/&gt;&lt;small&gt;runs_per_job.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n11[&quot;runs&lt;br/&gt;&lt;small&gt;runs_per_job.runs&lt;/small&gt;&quot;]
-    n12[&quot;failed_runs&lt;br/&gt;&lt;small&gt;runs_per_job.failed_runs&lt;/small&gt;&quot;]
-    n13[&quot;minutes&lt;br/&gt;&lt;small&gt;runs_per_job.minutes&lt;/small&gt;&quot;]
-    n14[&quot;dt&lt;br/&gt;&lt;small&gt;runs_per_job.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;mart.daily_job_runs&quot;]
-    n15[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n16[&quot;mart.daily_job_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n17[&quot;mart.daily_job_runs.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n18[&quot;mart.daily_job_runs.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n19[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;ops.jobs&quot;]
-    n20[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n28[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g6[&quot;write_team_day&quot;]
-    n21[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n22[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.runs)&lt;/small&gt;&quot;]
-    n23[&quot;failed_runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.failed_runs)&lt;/small&gt;&quot;]
-    n24[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.minutes)&lt;/small&gt;&quot;]
-    n25[&quot;dt&lt;br/&gt;&lt;small&gt;daily_job_runs.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g7[&quot;filters on write_team_day&quot;]
-    n26{{&quot;WHERE in write_team_day&lt;br/&gt;&lt;small&gt;equals(daily_job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-    n27{{&quot;JOIN ON in write_team_day&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, daily_job_runs.job_id)&lt;/small&gt;&quot;}}
-  end
-  subgraph g8[&quot;mart.team_day&quot;]
-    n29[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n30[&quot;mart.team_day.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n31[&quot;mart.team_day.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n32[&quot;mart.team_day.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n33[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n5 --&gt; n6
-  n7 --&gt; n8
-  n2 -.-&gt; n9
-  n1 --&gt; n10
-  n4 --&gt; n11
-  n6 --&gt; n12
-  n8 --&gt; n13
-  n3 --&gt; n14
-  n10 --&gt; n15
-  n11 --&gt; n16
-  n12 --&gt; n17
-  n13 --&gt; n18
-  n14 --&gt; n19
-  n20 --&gt; n21
-  n16 --&gt; n22
-  n17 --&gt; n23
-  n18 --&gt; n24
-  n19 --&gt; n25
-  n19 -.-&gt; n26
-  n28 -.-&gt; n27
-  n15 -.-&gt; n27
-  n21 --&gt; n29
-  n22 --&gt; n30
-  n23 --&gt; n31
-  n24 --&gt; n32
-  n25 --&gt; n33
-  n9 -.-&gt;|filters| g1
-  n26 -.-&gt;|filters| g6
-  n27 -.-&gt;|filters| g6
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## write_daily_job_runs
 
 It writes the Saved table mart.daily_job_runs, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `runs_per_job.runs`
-
-Calculated in **runs_per_job** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-runs_per_job.runs = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-#### `runs_per_job.failed_runs`
-
-Calculated in **runs_per_job** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
-
-```text
-runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
-└─ ops.job_runs.status  (string)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-#### `runs_per_job.minutes`
-
-Calculated in **runs_per_job** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
-
-```text
-runs_per_job.minutes = sum_of(job_runs.duration_mins)
-└─ ops.job_runs.duration_mins  (int)
-```
-
-Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.job_id` and `job_runs.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `job_id` | runs_per_job.job_id ← ops.job_runs.job_id |
-| `runs` | runs_per_job.runs (calculated) |
-| `failed_runs` | runs_per_job.failed_runs (calculated) ← ops.job_runs.status |
-| `minutes` | runs_per_job.minutes (calculated) ← ops.job_runs.duration_mins |
-| `dt` | runs_per_job.dt ← ops.job_runs.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- derived(&#x27;runs_per_job&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
-- write_daily_job_runs: Key (job_id), since runs_per_job&#x27;s rows are told apart by job_id.
-- mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
+- Reads: ops.job_runs
+- Writes: mart.daily_job_runs
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -5075,83 +4855,78 @@ SELECT
 FROM runs_per_job
 ```
 
-## write_team_day
-
-It reads the Saved table mart.daily_job_runs, written by write_daily_job_runs above. It writes the Saved table mart.team_day, replacing each partition its rows fill.
-
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `runs`
+#### `runs_per_job.runs`
 
-Calculated in **write_team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
+Calculated in **runs_per_job** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-write_team_day.runs = sum_of(daily_job_runs.runs)
-└─ mart.daily_job_runs.runs  (bigint)
-   └─ write_daily_job_runs.runs
-      └─ runs_per_job.runs = count_rows()
+runs_per_job.runs = count_rows()
+└─ (no columns: it counts rows)
 ```
 
 Rows that count:
+
 - WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
 
-One value for each different `jobs.team` and `daily_job_runs.dt`.
+One value for each different `job_runs.job_id` and `job_runs.dt`.
 
-#### `failed_runs`
+#### `runs_per_job.failed_runs`
 
-Calculated in **write_team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
+Calculated in **runs_per_job** as `count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))`, which is `COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)`.
 
 ```text
-write_team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
-└─ mart.daily_job_runs.failed_runs  (bigint)
-   └─ write_daily_job_runs.failed_runs
-      └─ runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
-         └─ ops.job_runs.status  (string)
+runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
+└─ ops.job_runs.status  (string)
 ```
 
 Rows that count:
+
 - WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
 
-One value for each different `jobs.team` and `daily_job_runs.dt`.
+One value for each different `job_runs.job_id` and `job_runs.dt`.
 
-#### `minutes`
+#### `runs_per_job.minutes`
 
-Calculated in **write_team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
+Calculated in **runs_per_job** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
 
 ```text
-write_team_day.minutes = sum_of(daily_job_runs.minutes)
-└─ mart.daily_job_runs.minutes  (bigint)
-   └─ write_daily_job_runs.minutes
-      └─ runs_per_job.minutes = sum_of(job_runs.duration_mins)
-         └─ ops.job_runs.duration_mins  (int)
+runs_per_job.minutes = sum_of(job_runs.duration_mins)
+└─ ops.job_runs.duration_mins  (int)
 ```
 
 Rows that count:
-- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
 
-One value for each different `jobs.team` and `daily_job_runs.dt`.
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id` and `job_runs.dt`.
 
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `team` | ops.jobs.team |
-| `dt` | mart.daily_job_runs.dt ← write_daily_job_runs.dt ← runs_per_job.dt ← ops.job_runs.dt |
+- `job_id` comes from runs_per_job.job_id ← ops.job_runs.job_id
+- `runs` comes from runs_per_job.runs (calculated)
+- `failed_runs` comes from runs_per_job.failed_runs (calculated) ← ops.job_runs.status
+- `minutes` comes from runs_per_job.minutes (calculated) ← ops.job_runs.duration_mins
+- `dt` comes from runs_per_job.dt ← ops.job_runs.dt
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
-- write_team_day: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
-- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
+- derived(&#x27;runs_per_job&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_daily_job_runs: Key (job_id), since runs_per_job&#x27;s rows are told apart by job_id.
+- mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
+
+## write_team_day
+
+It reads the Saved table mart.daily_job_runs, written by write_daily_job_runs above. It writes the Saved table mart.team_day, replacing each partition its rows fill.
+
+- Reads: mart.daily_job_runs, ops.jobs
+- Writes: mart.team_day
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -5172,6 +4947,81 @@ GROUP BY
   jobs.team,
   daily_job_runs.dt
 ```
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
+
+```text
+write_team_day.runs = sum_of(daily_job_runs.runs)
+└─ mart.daily_job_runs.runs  (bigint)
+   └─ write_daily_job_runs.runs
+      └─ runs_per_job.runs = count_rows()
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+#### `failed_runs`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
+
+```text
+write_team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
+└─ mart.daily_job_runs.failed_runs  (bigint)
+   └─ write_daily_job_runs.failed_runs
+      └─ runs_per_job.failed_runs = count_rows(where=equals(job_runs.status, &quot;FAILED&quot;))
+         └─ ops.job_runs.status  (string)
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+#### `minutes`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
+
+```text
+write_team_day.minutes = sum_of(daily_job_runs.minutes)
+└─ mart.daily_job_runs.minutes  (bigint)
+   └─ write_daily_job_runs.minutes
+      └─ runs_per_job.minutes = sum_of(job_runs.duration_mins)
+         └─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+
+- WHERE in runs_per_job: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+### Copied columns
+
+- `team` comes from ops.jobs.team
+- `dt` comes from mart.daily_job_runs.dt ← write_daily_job_runs.dt ← runs_per_job.dt ← ops.job_runs.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
+- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
 
 ---
 
@@ -5485,7 +5335,7 @@ Passed over 1 Python step, of mart.run_speed: run each one&#x27;s notebook, whos
 <p class="label">Python shows</p><pre class="output">[&#x27;20260925-090000-mart__team_day.html&#x27;, &#x27;20260925-090000-mart__team_day.md&#x27;]</pre>
 <pre class="python">text = markdown_file.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 [line for line in text.splitlines() if line.startswith(&quot;## &quot;)]</pre>
-<p class="label">Python shows</p><pre class="output">[&#x27;## Graph&#x27;, &#x27;## write_daily_job_runs&#x27;, &#x27;## write_team_day&#x27;]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;## write_daily_job_runs&#x27;, &#x27;## write_team_day&#x27;]</pre>
 <pre class="python">&quot;written by write_daily_job_runs above&quot; in text, &quot;ops.job_runs.status&quot; in text</pre>
 <p class="label">Python shows</p><pre class="output">(True, True)</pre>
 <p>Before you go on, check that:</p>
@@ -5496,127 +5346,19 @@ Passed over 1 Python step, of mart.run_speed: run each one&#x27;s notebook, whos
 <pre class="python">alone_html, alone_markdown = export_lineage(  # -&gt; tuple[Path, Path]
     write_team_day, to=&quot;lineage/team_alone.html&quot;)</pre>
 <p class="label">It writes lineage/team_alone.md</p>
-<details><summary>Show its 144 lines</summary>
 <pre class="file"># Lineage: write_team_day
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.jobs&quot;]
-    n0[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;write_team_day&quot;]
-    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.runs)&lt;/small&gt;&quot;]
-    n5[&quot;failed_runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.failed_runs)&lt;/small&gt;&quot;]
-    n7[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.minutes)&lt;/small&gt;&quot;]
-    n9[&quot;dt&lt;br/&gt;&lt;small&gt;daily_job_runs.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;mart.daily_job_runs&quot;]
-    n2[&quot;mart.daily_job_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n4[&quot;mart.daily_job_runs.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n6[&quot;mart.daily_job_runs.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n8[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n13[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g3[&quot;filters on write_team_day&quot;]
-    n10{{&quot;WHERE in write_team_day&lt;br/&gt;&lt;small&gt;equals(daily_job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-    n11{{&quot;JOIN ON in write_team_day&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, daily_job_runs.job_id)&lt;/small&gt;&quot;}}
-  end
-  subgraph g4[&quot;mart.team_day&quot;]
-    n14[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n15[&quot;mart.team_day.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n16[&quot;mart.team_day.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n17[&quot;mart.team_day.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n18[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n4 --&gt; n5
-  n6 --&gt; n7
-  n8 --&gt; n9
-  n8 -.-&gt; n10
-  n12 -.-&gt; n11
-  n13 -.-&gt; n11
-  n1 --&gt; n14
-  n3 --&gt; n15
-  n5 --&gt; n16
-  n7 --&gt; n17
-  n9 --&gt; n18
-  n10 -.-&gt;|filters| g1
-  n11 -.-&gt;|filters| g1
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## write_team_day
 
 It writes the Saved table mart.team_day, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `runs`
-
-Calculated in **write_team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
-
-```text
-write_team_day.runs = sum_of(daily_job_runs.runs)
-└─ mart.daily_job_runs.runs  (bigint)
-```
-
-Rows that count:
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-
-One value for each different `jobs.team` and `daily_job_runs.dt`.
-
-#### `failed_runs`
-
-Calculated in **write_team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
-
-```text
-write_team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
-└─ mart.daily_job_runs.failed_runs  (bigint)
-```
-
-Rows that count:
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-
-One value for each different `jobs.team` and `daily_job_runs.dt`.
-
-#### `minutes`
-
-Calculated in **write_team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
-
-```text
-write_team_day.minutes = sum_of(daily_job_runs.minutes)
-└─ mart.daily_job_runs.minutes  (bigint)
-```
-
-Rows that count:
-- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
-- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-
-One value for each different `jobs.team` and `daily_job_runs.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `team` | ops.jobs.team |
-| `dt` | mart.daily_job_runs.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- write_team_day: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
-- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
+- Reads: mart.daily_job_runs, ops.jobs
+- Writes: mart.team_day
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -5638,10 +5380,73 @@ GROUP BY
   daily_job_runs.dt
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
+
+```text
+write_team_day.runs = sum_of(daily_job_runs.runs)
+└─ mart.daily_job_runs.runs  (bigint)
+```
+
+Rows that count:
+
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+#### `failed_runs`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
+
+```text
+write_team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
+└─ mart.daily_job_runs.failed_runs  (bigint)
+```
+
+Rows that count:
+
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+#### `minutes`
+
+Calculated in **write_team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
+
+```text
+write_team_day.minutes = sum_of(daily_job_runs.minutes)
+└─ mart.daily_job_runs.minutes  (bigint)
+```
+
+Rows that count:
+
+- WHERE in write_team_day: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `daily_job_runs.dt`.
+
+### Copied columns
+
+- `team` comes from ops.jobs.team
+- `dt` comes from mart.daily_job_runs.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
+- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
+
 ---
 
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
-</details>
 <p class="note">It writes <code>lineage/team_alone.html</code> too, a page to open in your browser.</p>
 <pre class="python">&quot;ops.job_runs&quot; in alone_markdown.read_text(encoding=&quot;utf-8&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">False</pre>
@@ -9039,104 +8844,17 @@ results[&quot;ops.job_runs&quot;]</pre>
 <pre class="python">html_file, markdown_file = export_lineage(*daily.values(),
                                           to=&quot;daily_totals.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes daily_totals.md</p>
-<details><summary>Show its 205 lines</summary>
+<details><summary>Show its 166 lines</summary>
 <pre class="file"># Lineage: statement_1, statement_2, statement_3
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_runs&quot;]
-    n0[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n3[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;statement_1&quot;]
-    n1[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n2[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n4[&quot;total_duration_mins&lt;br/&gt;&lt;small&gt;sum_of(job_runs.duration_mins)&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on statement_1&quot;]
-    n5{{&quot;WHERE in statement_1&lt;br/&gt;&lt;small&gt;between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;ops.run_alerts&quot;]
-    n6[&quot;ops.run_alerts.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;statement_2&quot;]
-    n7[&quot;dt&lt;br/&gt;&lt;small&gt;run_alerts.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n8[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;filters on statement_2&quot;]
-    n9{{&quot;WHERE in statement_2&lt;br/&gt;&lt;small&gt;between(run_alerts.dt, #quot;2026-09-23#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g6[&quot;ops.scheduler_runs&quot;]
-    n10[&quot;ops.scheduler_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-  end
-  subgraph g7[&quot;statement_3&quot;]
-    n11[&quot;dt&lt;br/&gt;&lt;small&gt;scheduler_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n12[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-  end
-  subgraph g8[&quot;filters on statement_3&quot;]
-    n13{{&quot;WHERE in statement_3&lt;br/&gt;&lt;small&gt;between(scheduler_runs.dt, #quot;2026-09-23#quot;, #quot;2…&lt;/small&gt;&quot;}}
-  end
-  n0 --&gt; n1
-  n3 --&gt; n4
-  n0 -.-&gt; n5
-  n6 --&gt; n7
-  n6 -.-&gt; n9
-  n10 --&gt; n11
-  n10 -.-&gt; n13
-  n5 -.-&gt;|filters| g1
-  n9 -.-&gt;|filters| g4
-  n13 -.-&gt;|filters| g7
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## statement_1
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `row_count`
-
-Calculated in **statement_1** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-statement_1.row_count = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in statement_1: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.dt`.
-
-#### `total_duration_mins`
-
-Calculated in **statement_1** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
-
-```text
-statement_1.total_duration_mins = sum_of(job_runs.duration_mins)
-└─ ops.job_runs.duration_mins  (int)
-```
-
-Rows that count:
-- WHERE in statement_1: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-
-One value for each different `job_runs.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `dt` | ops.job_runs.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- statement_1: Key (dt), since GROUP_BY makes one row for each dt.
+- Reads: ops.job_runs
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -9152,7 +8870,67 @@ GROUP BY
   job_runs.dt
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `row_count`
+
+Calculated in **statement_1** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement_1.row_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in statement_1: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.dt`.
+
+#### `total_duration_mins`
+
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
+
+```text
+statement_1.total_duration_mins = sum_of(job_runs.duration_mins)
+└─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+
+- WHERE in statement_1: `between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.dt`.
+
+### Copied columns
+
+- `dt` comes from ops.job_runs.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- statement_1: Key (dt), since GROUP_BY makes one row for each dt.
+
 ## statement_2
+
+- Reads: ops.run_alerts
+- Writes: no table, its rows come back to you
+
+### Hive as submitted
+
+```sql
+SELECT
+  run_alerts.dt,
+  COUNT(*) AS row_count
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  run_alerts.dt
+```
 
 ### Calculated columns
 
@@ -9168,36 +8946,38 @@ statement_2.row_count = count_rows()
 ```
 
 Rows that count:
+
 - WHERE in statement_2: `between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `run_alerts.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.run_alerts.dt)
 
 One value for each different `run_alerts.dt`.
 
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `dt` | ops.run_alerts.dt |
+- `dt` comes from ops.run_alerts.dt
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
 - statement_2: Key (dt), since GROUP_BY makes one row for each dt.
+
+## statement_3
+
+- Reads: ops.scheduler_runs
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
 ```sql
 SELECT
-  run_alerts.dt,
+  scheduler_runs.dt,
   COUNT(*) AS row_count
-FROM ops.run_alerts AS run_alerts
+FROM ops.scheduler_runs AS scheduler_runs
 WHERE
-  run_alerts.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  scheduler_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  run_alerts.dt
+  scheduler_runs.dt
 ```
-
-## statement_3
 
 ### Calculated columns
 
@@ -9213,34 +8993,20 @@ statement_3.row_count = count_rows()
 ```
 
 Rows that count:
+
 - WHERE in statement_3: `between(scheduler_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `scheduler_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.scheduler_runs.dt)
 
 One value for each different `scheduler_runs.dt`.
 
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `dt` | ops.scheduler_runs.dt |
+- `dt` comes from ops.scheduler_runs.dt
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
 - statement_3: Key (dt), since GROUP_BY makes one row for each dt.
-
-### Hive as submitted
-
-```sql
-SELECT
-  scheduler_runs.dt,
-  COUNT(*) AS row_count
-FROM ops.scheduler_runs AS scheduler_runs
-WHERE
-  scheduler_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
-GROUP BY
-  scheduler_runs.dt
-```
 
 ---
 
@@ -11924,185 +11690,20 @@ test_team_day(team_day, &quot;2026-09-18&quot;, ending=[&quot;finish&quot;, &quo
 <pre class="python">html_file, markdown_file = export_lineage(facts_write, team_day,
                                           to=&quot;before.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes before.md</p>
-<details><summary>Show its 362 lines</summary>
+<details><summary>Show its 271 lines</summary>
 <pre class="file"># Lineage: facts_write, team_day
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_events&quot;]
-    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n5[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n7[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;events_per_job in facts_write&quot;]
-    n1[&quot;events_per_job in facts_write.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;events_per_job in facts_write.dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n4[&quot;events_per_job in facts_write.events&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n6[&quot;events_per_job in facts_write.runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
-    n8[&quot;events_per_job in facts_write.minutes&lt;br/&gt;&lt;small&gt;fill_null(sum_of(job_events.minutes, where=…&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on events_per_job in facts_write&quot;]
-    n9{{&quot;WHERE in events_per_job in facts_write&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;facts_write&quot;]
-    n10[&quot;job_id&lt;br/&gt;&lt;small&gt;events_per_job.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n12[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&quot;]
-    n13[&quot;events&lt;br/&gt;&lt;small&gt;events_per_job.events&lt;/small&gt;&quot;]
-    n14[&quot;runs&lt;br/&gt;&lt;small&gt;events_per_job.runs&lt;/small&gt;&quot;]
-    n15[&quot;minutes&lt;br/&gt;&lt;small&gt;events_per_job.minutes&lt;/small&gt;&quot;]
-    n16[&quot;dt&lt;br/&gt;&lt;small&gt;events_per_job.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;ops.job_owners&quot;]
-    n11[&quot;ops.job_owners.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n18[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n19[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;filters on facts_write&quot;]
-    n17{{&quot;LEFT JOIN ON in facts_write&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, events_per…&lt;/small&gt;&quot;}}
-  end
-  subgraph g6[&quot;mart.job_day_facts&quot;]
-    n20[&quot;mart.job_day_facts.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n21[&quot;mart.job_day_facts.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n22[&quot;mart.job_day_facts.events&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n23[&quot;mart.job_day_facts.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n24[&quot;mart.job_day_facts.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n25[&quot;mart.job_day_facts.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g7[&quot;events_per_job in team_day&quot;]
-    n26[&quot;events_per_job in team_day.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n27[&quot;events_per_job in team_day.dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n28[&quot;events_per_job in team_day.events&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n29[&quot;events_per_job in team_day.runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
-    n30[&quot;events_per_job in team_day.minutes&lt;br/&gt;&lt;small&gt;fill_null(sum_of(job_events.minutes, where=…&lt;/small&gt;&quot;]
-  end
-  subgraph g8[&quot;filters on events_per_job in team_day&quot;]
-    n31{{&quot;WHERE in events_per_job in team_day&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g9[&quot;team_day&quot;]
-    n32[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n33[&quot;events&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.events)&lt;/small&gt;&quot;]
-    n34[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.runs)&lt;/small&gt;&quot;]
-    n35[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.minutes)&lt;/small&gt;&quot;]
-  end
-  subgraph g10[&quot;filters on team_day&quot;]
-    n36{{&quot;LEFT JOIN ON in team_day&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, events_per…&lt;/small&gt;&quot;}}
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n5 --&gt; n6
-  n7 --&gt; n8
-  n5 --&gt; n8
-  n2 -.-&gt; n9
-  n1 --&gt; n10
-  n11 --&gt; n12
-  n4 --&gt; n13
-  n6 --&gt; n14
-  n8 --&gt; n15
-  n3 --&gt; n16
-  n18 -.-&gt; n17
-  n19 -.-&gt; n17
-  n1 -.-&gt; n17
-  n3 -.-&gt; n17
-  n10 --&gt; n20
-  n12 --&gt; n21
-  n13 --&gt; n22
-  n14 --&gt; n23
-  n15 --&gt; n24
-  n16 --&gt; n25
-  n0 --&gt; n26
-  n2 --&gt; n27
-  n5 --&gt; n29
-  n7 --&gt; n30
-  n5 --&gt; n30
-  n2 -.-&gt; n31
-  n11 --&gt; n32
-  n28 --&gt; n33
-  n29 --&gt; n34
-  n30 --&gt; n35
-  n18 -.-&gt; n36
-  n19 -.-&gt; n36
-  n26 -.-&gt; n36
-  n27 -.-&gt; n36
-  n9 -.-&gt;|filters| g1
-  n17 -.-&gt;|filters| g3
-  n31 -.-&gt;|filters| g7
-  n36 -.-&gt;|filters| g9
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## facts_write
 
 It writes the Saved table mart.job_day_facts, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `events_per_job in facts_write.events`
-
-Calculated in **events_per_job in facts_write** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-events_per_job in facts_write.events = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-#### `events_per_job in facts_write.runs`
-
-Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
-
-```text
-events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-└─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-#### `events_per_job in facts_write.minutes`
-
-Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)`.
-
-```text
-events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
-├─ ops.job_events.minutes  (int)
-└─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `job_id` | events_per_job in facts_write.job_id ← ops.job_events.job_id |
-| `team` | ops.job_owners.team |
-| `events` | events_per_job in facts_write.events (calculated) |
-| `runs` | events_per_job in facts_write.runs (calculated) ← ops.job_events.event_type |
-| `minutes` | events_per_job in facts_write.minutes (calculated) ← ops.job_events.minutes |
-| `dt` | events_per_job in facts_write.dt ← ops.job_events.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- facts_write: Key (job_id, dt), since events_per_job&#x27;s rows are told apart by job_id, dt.
-- mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.
+- Reads: ops.job_events, ops.job_owners
+- Writes: mart.job_day_facts
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -12141,112 +11742,77 @@ LEFT JOIN ops.job_owners AS job_owners
   AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
 ```
 
-## team_day
-
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `events_per_job in team_day.events`
+#### `events_per_job in facts_write.events`
 
-Calculated in **events_per_job in team_day** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **events_per_job in facts_write** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-events_per_job in team_day.events = count_rows()
+events_per_job in facts_write.events = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job in team_day.runs`
+#### `events_per_job in facts_write.runs`
 
-Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
 
 ```text
-events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job in team_day.minutes`
+#### `events_per_job in facts_write.minutes`
 
-Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)`.
+Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)`.
 
 ```text
-events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
 ├─ ops.job_events.minutes  (int)
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events`
-
-Calculated in **team_day** as `sum_of(events_per_job.events)`, which is `SUM(events_per_job.events)`.
-
-```text
-team_day.events = sum_of(events_per_job.events)
-└─ events_per_job in team_day.events = count_rows()
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
-#### `runs`
-
-Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(events_per_job.runs)`.
-
-```text
-team_day.runs = sum_of(events_per_job.runs)
-└─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-   └─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
-#### `minutes`
-
-Calculated in **team_day** as `sum_of(events_per_job.minutes)`, which is `SUM(events_per_job.minutes)`.
-
-```text
-team_day.minutes = sum_of(events_per_job.minutes)
-└─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
-   ├─ ops.job_events.minutes  (int)
-   └─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `team` | ops.job_owners.team |
+- `job_id` comes from events_per_job in facts_write.job_id ← ops.job_events.job_id
+- `team` comes from ops.job_owners.team
+- `events` comes from events_per_job in facts_write.events (calculated)
+- `runs` comes from events_per_job in facts_write.runs (calculated) ← ops.job_events.event_type
+- `minutes` comes from events_per_job in facts_write.minutes (calculated) ← ops.job_events.minutes
+- `dt` comes from events_per_job in facts_write.dt ← ops.job_events.dt
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
 - derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- team_day: Key (team), since GROUP_BY makes one row for each team.
+- facts_write: Key (job_id, dt), since events_per_job&#x27;s rows are told apart by job_id, dt.
+- mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.
+
+## team_day
+
+- Reads: ops.job_events, ops.job_owners
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -12283,6 +11849,115 @@ LEFT JOIN ops.job_owners AS job_owners
 GROUP BY
   job_owners.team
 ```
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `events_per_job in team_day.events`
+
+Calculated in **events_per_job in team_day** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+events_per_job in team_day.events = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events_per_job in team_day.runs`
+
+Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+
+```text
+events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events_per_job in team_day.minutes`
+
+Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)`.
+
+```text
+events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+├─ ops.job_events.minutes  (int)
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events`
+
+Calculated in **team_day** as `sum_of(events_per_job.events)`, which is `SUM(events_per_job.events)`.
+
+```text
+team_day.events = sum_of(events_per_job.events)
+└─ events_per_job in team_day.events = count_rows()
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+#### `runs`
+
+Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(events_per_job.runs)`.
+
+```text
+team_day.runs = sum_of(events_per_job.runs)
+└─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+   └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+#### `minutes`
+
+Calculated in **team_day** as `sum_of(events_per_job.minutes)`, which is `SUM(events_per_job.minutes)`.
+
+```text
+team_day.minutes = sum_of(events_per_job.minutes)
+└─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+   ├─ ops.job_events.minutes  (int)
+   └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+### Copied columns
+
+- `team` comes from ops.job_owners.team
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- team_day: Key (team), since GROUP_BY makes one row for each team.
 
 ---
 
@@ -12344,185 +12019,20 @@ facts_write, team_day = build_statements(&quot;2026-09-18&quot;)</pre>
 <pre class="python">html_file, markdown_file = export_lineage(facts_write, team_day,
                                           to=&quot;after.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes after.md</p>
-<details><summary>Show its 352 lines</summary>
+<details><summary>Show its 261 lines</summary>
 <pre class="file"># Lineage: facts_write, team_day
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_events&quot;]
-    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n5[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n7[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;events_per_job in facts_write&quot;]
-    n1[&quot;events_per_job in facts_write.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;events_per_job in facts_write.dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n4[&quot;events_per_job in facts_write.events&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n6[&quot;events_per_job in facts_write.runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
-    n8[&quot;events_per_job in facts_write.minutes&lt;br/&gt;&lt;small&gt;fill_null(sum_of(job_events.minutes, where=…&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on events_per_job in facts_write&quot;]
-    n9{{&quot;WHERE in events_per_job in facts_write&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;facts_write&quot;]
-    n10[&quot;job_id&lt;br/&gt;&lt;small&gt;events_per_job.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n12[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&quot;]
-    n13[&quot;events&lt;br/&gt;&lt;small&gt;events_per_job.events&lt;/small&gt;&quot;]
-    n14[&quot;runs&lt;br/&gt;&lt;small&gt;events_per_job.runs&lt;/small&gt;&quot;]
-    n15[&quot;minutes&lt;br/&gt;&lt;small&gt;events_per_job.minutes&lt;/small&gt;&quot;]
-    n16[&quot;dt&lt;br/&gt;&lt;small&gt;events_per_job.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;ops.job_owners&quot;]
-    n11[&quot;ops.job_owners.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n18[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n19[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;filters on facts_write&quot;]
-    n17{{&quot;LEFT JOIN ON in facts_write&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, events_per…&lt;/small&gt;&quot;}}
-  end
-  subgraph g6[&quot;mart.job_day_facts&quot;]
-    n20[&quot;mart.job_day_facts.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n21[&quot;mart.job_day_facts.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n22[&quot;mart.job_day_facts.events&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n23[&quot;mart.job_day_facts.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n24[&quot;mart.job_day_facts.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n25[&quot;mart.job_day_facts.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g7[&quot;events_per_job in team_day&quot;]
-    n26[&quot;events_per_job in team_day.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n27[&quot;events_per_job in team_day.dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n28[&quot;events_per_job in team_day.events&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n29[&quot;events_per_job in team_day.runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
-    n30[&quot;events_per_job in team_day.minutes&lt;br/&gt;&lt;small&gt;fill_null(sum_of(job_events.minutes, where=…&lt;/small&gt;&quot;]
-  end
-  subgraph g8[&quot;filters on events_per_job in team_day&quot;]
-    n31{{&quot;WHERE in events_per_job in team_day&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g9[&quot;team_day&quot;]
-    n32[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n33[&quot;events&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.events)&lt;/small&gt;&quot;]
-    n34[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.runs)&lt;/small&gt;&quot;]
-    n35[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(events_per_job.minutes)&lt;/small&gt;&quot;]
-  end
-  subgraph g10[&quot;filters on team_day&quot;]
-    n36{{&quot;LEFT JOIN ON in team_day&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, events_per…&lt;/small&gt;&quot;}}
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n5 --&gt; n6
-  n7 --&gt; n8
-  n5 --&gt; n8
-  n2 -.-&gt; n9
-  n1 --&gt; n10
-  n11 --&gt; n12
-  n4 --&gt; n13
-  n6 --&gt; n14
-  n8 --&gt; n15
-  n3 --&gt; n16
-  n18 -.-&gt; n17
-  n19 -.-&gt; n17
-  n1 -.-&gt; n17
-  n3 -.-&gt; n17
-  n10 --&gt; n20
-  n12 --&gt; n21
-  n13 --&gt; n22
-  n14 --&gt; n23
-  n15 --&gt; n24
-  n16 --&gt; n25
-  n0 --&gt; n26
-  n2 --&gt; n27
-  n5 --&gt; n29
-  n7 --&gt; n30
-  n5 --&gt; n30
-  n2 -.-&gt; n31
-  n11 --&gt; n32
-  n28 --&gt; n33
-  n29 --&gt; n34
-  n30 --&gt; n35
-  n18 -.-&gt; n36
-  n19 -.-&gt; n36
-  n26 -.-&gt; n36
-  n27 -.-&gt; n36
-  n9 -.-&gt;|filters| g1
-  n17 -.-&gt;|filters| g3
-  n31 -.-&gt;|filters| g7
-  n36 -.-&gt;|filters| g9
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## facts_write
 
 It writes the Saved table mart.job_day_facts, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `events_per_job in facts_write.events`
-
-Calculated in **events_per_job in facts_write** as `count_rows()`, which is `COUNT(*)`.
-
-```text
-events_per_job in facts_write.events = count_rows()
-└─ (no columns: it counts rows)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-#### `events_per_job in facts_write.runs`
-
-Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
-
-```text
-events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-└─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-#### `events_per_job in facts_write.minutes`
-
-Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0)`.
-
-```text
-events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
-├─ ops.job_events.minutes  (int)
-└─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `job_id` | events_per_job in facts_write.job_id ← ops.job_events.job_id |
-| `team` | ops.job_owners.team |
-| `events` | events_per_job in facts_write.events (calculated) |
-| `runs` | events_per_job in facts_write.runs (calculated) ← ops.job_events.event_type |
-| `minutes` | events_per_job in facts_write.minutes (calculated) ← ops.job_events.minutes |
-| `dt` | events_per_job in facts_write.dt ← ops.job_events.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- facts_write: Key (job_id, dt), since events_per_job&#x27;s rows are told apart by job_id, dt.
-- mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.
+- Reads: ops.job_events, ops.job_owners
+- Writes: mart.job_day_facts
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -12556,112 +12066,77 @@ LEFT JOIN ops.job_owners AS job_owners
   AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
 ```
 
-## team_day
-
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `events_per_job in team_day.events`
+#### `events_per_job in facts_write.events`
 
-Calculated in **events_per_job in team_day** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **events_per_job in facts_write** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-events_per_job in team_day.events = count_rows()
+events_per_job in facts_write.events = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job in team_day.runs`
+#### `events_per_job in facts_write.runs`
 
-Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
 
 ```text
-events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job in team_day.minutes`
+#### `events_per_job in facts_write.minutes`
 
-Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0)`.
+Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0)`.
 
 ```text
-events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
+events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
 ├─ ops.job_events.minutes  (int)
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+- WHERE in events_per_job in facts_write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events`
-
-Calculated in **team_day** as `sum_of(events_per_job.events)`, which is `SUM(events_per_job.events)`.
-
-```text
-team_day.events = sum_of(events_per_job.events)
-└─ events_per_job in team_day.events = count_rows()
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
-#### `runs`
-
-Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(events_per_job.runs)`.
-
-```text
-team_day.runs = sum_of(events_per_job.runs)
-└─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-   └─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
-#### `minutes`
-
-Calculated in **team_day** as `sum_of(events_per_job.minutes)`, which is `SUM(events_per_job.minutes)`.
-
-```text
-team_day.minutes = sum_of(events_per_job.minutes)
-└─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
-   ├─ ops.job_events.minutes  (int)
-   └─ ops.job_events.event_type  (string)
-```
-
-Rows that count:
-- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_owners.team`.
-
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `team` | ops.job_owners.team |
+- `job_id` comes from events_per_job in facts_write.job_id ← ops.job_events.job_id
+- `team` comes from ops.job_owners.team
+- `events` comes from events_per_job in facts_write.events (calculated)
+- `runs` comes from events_per_job in facts_write.runs (calculated) ← ops.job_events.event_type
+- `minutes` comes from events_per_job in facts_write.minutes (calculated) ← ops.job_events.minutes
+- `dt` comes from events_per_job in facts_write.dt ← ops.job_events.dt
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
 - derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- team_day: Key (team), since GROUP_BY makes one row for each team.
+- facts_write: Key (job_id, dt), since events_per_job&#x27;s rows are told apart by job_id, dt.
+- mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.
+
+## team_day
+
+- Reads: ops.job_events, ops.job_owners
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -12694,6 +12169,115 @@ GROUP BY
   job_owners.team
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `events_per_job in team_day.events`
+
+Calculated in **events_per_job in team_day** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+events_per_job in team_day.events = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events_per_job in team_day.runs`
+
+Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+
+```text
+events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events_per_job in team_day.minutes`
+
+Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0)`.
+
+```text
+events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
+├─ ops.job_events.minutes  (int)
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `events`
+
+Calculated in **team_day** as `sum_of(events_per_job.events)`, which is `SUM(events_per_job.events)`.
+
+```text
+team_day.events = sum_of(events_per_job.events)
+└─ events_per_job in team_day.events = count_rows()
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+#### `runs`
+
+Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(events_per_job.runs)`.
+
+```text
+team_day.runs = sum_of(events_per_job.runs)
+└─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+   └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+#### `minutes`
+
+Calculated in **team_day** as `sum_of(events_per_job.minutes)`, which is `SUM(events_per_job.minutes)`.
+
+```text
+team_day.minutes = sum_of(events_per_job.minutes)
+└─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.event_type, &quot;finish&quot;)), 0)
+   ├─ ops.job_events.minutes  (int)
+   └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+
+- WHERE in events_per_job in team_day: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-18&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-18&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_owners.team`.
+
+### Copied columns
+
+- `team` comes from ops.job_owners.team
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- team_day: Key (team), since GROUP_BY makes one row for each team.
+
 ---
 
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
@@ -12719,12 +12303,20 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
                 shown = where
             print(line[:100])
 changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
-<p class="label">Python prints</p><pre class="output">In facts_write, `events_per_job in facts_write.minutes`:
+<p class="label">Python prints</p><pre class="output">In facts_write, Hive as submitted:
+-     COALESCE(
+-       SUM(
+-         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
++     COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0) AS mi
+-       ),
+-       0
+-     ) AS minutes
+In facts_write, `events_per_job in facts_write.minutes`:
 - Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_
 + Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=equ
 - events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
 + events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
-In facts_write, Hive as submitted:
+In team_day, Hive as submitted:
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12739,15 +12331,7 @@ In team_day, `events_per_job in team_day.minutes`:
 + events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.
 In team_day, `minutes`:
 - └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
-+ └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
-In team_day, Hive as submitted:
--     COALESCE(
--       SUM(
--         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
-+     COALESCE(SUM(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN job_events.minutes END), 0) AS mi
--       ),
--       0
--     ) AS minutes</pre>
++ └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even</pre>
 <p>Each line is cut at 100 characters here. Under the minutes column of each Statement&#x27;s events_per_job, the calculation changed, so every number added up from it may change, in both Statements; in each Hive, the minutes&#x27; CASE WHEN changed. Nothing else did: no column came or went, and no column takes its value from anywhere new.</p>
 <p>Done when every changed line is under a minutes column or a Hive&#x27;s minutes. Then step 11.</p>
 <h5>11. Run the test against the old oracle</h5>
@@ -14022,128 +13606,17 @@ last_events = statement(  # -&gt; Statement
 <pre class="python">html_file, markdown_file = export_lineage(last_events, write,  # -&gt; tuple[Path, Path]
                                           to=&quot;lineage/keys.html&quot;)</pre>
 <p class="label">It writes lineage/keys.md</p>
-<details><summary>Show its 219 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Lineage: last_events, write
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_events&quot;]
-    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n4[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n6[&quot;ops.job_events.event_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n21[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;numbered&quot;]
-    n1[&quot;numbered.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;numbered.dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n5[&quot;numbered.event_type&lt;br/&gt;&lt;small&gt;job_events.event_type&lt;/small&gt;&quot;]
-    n7[&quot;numbered.last_first&lt;br/&gt;&lt;small&gt;row_number(PARTITION_BY=[job_events.job_id,…&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on numbered&quot;]
-    n8{{&quot;WHERE in numbered&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-23#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;last_events&quot;]
-    n9[&quot;job_id&lt;br/&gt;&lt;small&gt;numbered.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n10[&quot;dt&lt;br/&gt;&lt;small&gt;numbered.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n11[&quot;event_type&lt;br/&gt;&lt;small&gt;numbered.event_type&lt;/small&gt;&quot;]
-    n13[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;ops.job_owners&quot;]
-    n12[&quot;ops.job_owners.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n16[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n17[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;filters on last_events&quot;]
-    n14{{&quot;WHERE in last_events&lt;br/&gt;&lt;small&gt;equals(numbered.last_first, 1)&lt;/small&gt;&quot;}}
-    n15{{&quot;JOIN ON in last_events&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, numbered.j…&lt;/small&gt;&quot;}}
-  end
-  subgraph g6[&quot;write&quot;]
-    n18[&quot;job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n19[&quot;dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n20[&quot;events&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n22[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
-  end
-  subgraph g7[&quot;filters on write&quot;]
-    n23{{&quot;WHERE in write&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
-  end
-  subgraph g8[&quot;mart.job_day_events&quot;]
-    n24[&quot;mart.job_day_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n25[&quot;mart.job_day_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n26[&quot;mart.job_day_events.events&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n27[&quot;mart.job_day_events.minutes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n4 --&gt; n5
-  n0 --&gt; n7
-  n2 --&gt; n7
-  n6 --&gt; n7
-  n2 -.-&gt; n8
-  n1 --&gt; n9
-  n3 --&gt; n10
-  n5 --&gt; n11
-  n12 --&gt; n13
-  n7 -.-&gt; n14
-  n16 -.-&gt; n15
-  n17 -.-&gt; n15
-  n1 -.-&gt; n15
-  n3 -.-&gt; n15
-  n0 --&gt; n18
-  n2 --&gt; n19
-  n21 --&gt; n22
-  n2 -.-&gt; n23
-  n18 --&gt; n24
-  n19 --&gt; n25
-  n20 --&gt; n26
-  n22 --&gt; n27
-  n8 -.-&gt;|filters| g1
-  n14 -.-&gt;|filters| g3
-  n15 -.-&gt;|filters| g3
-  n23 -.-&gt;|filters| g6
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## last_events
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-#### `numbered.last_first`
-
-Calculated in **numbered** as `row_number(PARTITION_BY=[job_events.job_id, job_events.dt], ORDER_BY=descending(job_events.event_id))`, which is `ROW_NUMBER() OVER (PARTITION BY job_events.job_id, job_events.dt ORDER BY job_events.event_id DESC)`.
-
-```text
-numbered.last_first = row_number(PARTITION_BY=[job_events.job_id, job_events.dt], ORDER_BY=descending(job_events.event_id))
-├─ ops.job_events.job_id  (bigint)
-├─ ops.job_events.dt  (string)
-└─ ops.job_events.event_id  (bigint)
-```
-
-Rows that count:
-- Window of row_number(...), its groups: `PARTITION_BY=job_events.job_id, job_events.dt`, which is `PARTITION BY job_events.job_id, job_events.dt`
-- Window of row_number(...), its order: `ORDER_BY=descending(job_events.event_id)`, which is `ORDER BY job_events.event_id DESC`
-- WHERE in numbered: `between(job_events.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `job_id` | numbered.job_id ← ops.job_events.job_id |
-| `dt` | numbered.dt ← ops.job_events.dt |
-| `event_type` | numbered.event_type ← ops.job_events.event_type |
-| `team` | ops.job_owners.team |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- derived(&#x27;numbered&#x27;, ...): Key (job_id, dt, last_first), since row_number(...) numbers the rows of each job_id, dt.
-- last_events: Key (job_id, dt), since numbered&#x27;s rows are told apart by job_id, dt, last_first, with last_first held to one value.
+- Reads: ops.job_events, ops.job_owners
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -14172,55 +13645,48 @@ WHERE
   numbered.last_first = 1
 ```
 
-## write
-
-It writes the Saved table mart.job_day_events, replacing each partition its rows fill.
-
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `events`
+#### `numbered.last_first`
 
-Calculated in **write** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **numbered** as `row_number(PARTITION_BY=[job_events.job_id, job_events.dt], ORDER_BY=descending(job_events.event_id))`, which is `ROW_NUMBER() OVER (PARTITION BY job_events.job_id, job_events.dt ORDER BY job_events.event_id DESC)`.
 
 ```text
-write.events = count_rows()
-└─ (no columns: it counts rows)
+numbered.last_first = row_number(PARTITION_BY=[job_events.job_id, job_events.dt], ORDER_BY=descending(job_events.event_id))
+├─ ops.job_events.job_id  (bigint)
+├─ ops.job_events.dt  (string)
+└─ ops.job_events.event_id  (bigint)
 ```
 
 Rows that count:
-- WHERE in write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
-One value for each different `job_events.job_id` and `job_events.dt`.
-
-#### `minutes`
-
-Calculated in **write** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
-
-```text
-write.minutes = sum_of(job_events.minutes)
-└─ ops.job_events.minutes  (int)
-```
-
-Rows that count:
-- WHERE in write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
-
-One value for each different `job_events.job_id` and `job_events.dt`.
+- Window of row_number(...), its groups: `PARTITION_BY=job_events.job_id, job_events.dt`, which is `PARTITION BY job_events.job_id, job_events.dt`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_events.event_id)`, which is `ORDER BY job_events.event_id DESC`
+- WHERE in numbered: `between(job_events.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
 
 ### Copied columns
 
-| Output | Comes from |
-| --- | --- |
-| `job_id` | ops.job_events.job_id |
-| `dt` | ops.job_events.dt |
+- `job_id` comes from numbered.job_id ← ops.job_events.job_id
+- `dt` comes from numbered.dt ← ops.job_events.dt
+- `event_type` comes from numbered.event_type ← ops.job_events.event_type
+- `team` comes from ops.job_owners.team
 
 ### Keys
 
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
 
-- write: Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- mart.job_day_events&#x27; Key (job_id, dt) holds: each row written has its own.
+- derived(&#x27;numbered&#x27;, ...): Key (job_id, dt, last_first), since row_number(...) numbers the rows of each job_id, dt.
+- last_events: Key (job_id, dt), since numbered&#x27;s rows are told apart by job_id, dt, last_first, with last_first held to one value.
+
+## write
+
+It writes the Saved table mart.job_day_events, replacing each partition its rows fill.
+
+- Reads: ops.job_events
+- Writes: mart.job_day_events
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -14238,6 +13704,52 @@ GROUP BY
   job_events.job_id,
   job_events.dt
 ```
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `events`
+
+Calculated in **write** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+write.events = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+#### `minutes`
+
+Calculated in **write** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+write.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+
+- WHERE in write: `between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.job_id` and `job_events.dt`.
+
+### Copied columns
+
+- `job_id` comes from ops.job_events.job_id
+- `dt` comes from ops.job_events.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- write: Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- mart.job_day_events&#x27; Key (job_id, dt) holds: each row written has its own.
 
 ---
 
@@ -17006,111 +16518,16 @@ html_file, markdown_file = export_lineage(
     speed.rows(), speed_step, slow.write(),  # -&gt; tuple[Path, Path]
     to=&quot;lineage/run_speed.html&quot;)</pre>
 <p class="label">It writes lineage/run_speed.md</p>
-<details><summary>Show its 169 lines</summary>
 <pre class="file"># Lineage: statement_1, speed_step, statement_3
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;ops.job_events&quot;]
-    n0[&quot;ops.job_events.event_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n2[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n4[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-    n6[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n10[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;statement_1&quot;]
-    n1[&quot;event_id&lt;br/&gt;&lt;small&gt;job_events.event_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n3[&quot;job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
-    n5[&quot;minutes&lt;br/&gt;&lt;small&gt;job_events.minutes&lt;/small&gt;&quot;]
-    n7[&quot;dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;filters on statement_1&quot;]
-    n8{{&quot;WHERE in statement_1&lt;br/&gt;&lt;small&gt;equals(job_events.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-    n9{{&quot;WHERE in statement_1&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
-  end
-  subgraph g3[&quot;speed_step&quot;]
-    n11[&quot;Python step&lt;br/&gt;&lt;small&gt;building_blocks/run_speed.py:add_minutes_ov…&lt;/small&gt;&lt;br/&gt;&lt;small&gt;line 10&lt;/small&gt;&quot;]
-  end
-  subgraph g4[&quot;mart.run_speed&quot;]
-    n12[&quot;mart.run_speed.event_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n13[&quot;mart.run_speed.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n14[&quot;mart.run_speed.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
-    n15[&quot;mart.run_speed.minutes_over_median&lt;br/&gt;&lt;small&gt;double&lt;/small&gt;&quot;]
-    n16[&quot;mart.run_speed.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-  end
-  subgraph g5[&quot;statement_3&quot;]
-    n17[&quot;event_id&lt;br/&gt;&lt;small&gt;run_speed.event_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n18[&quot;job_id&lt;br/&gt;&lt;small&gt;run_speed.job_id&lt;/small&gt;&quot;]
-    n19[&quot;minutes_over_median&lt;br/&gt;&lt;small&gt;run_speed.minutes_over_median&lt;/small&gt;&quot;]
-    n20[&quot;dt&lt;br/&gt;&lt;small&gt;run_speed.dt&lt;/small&gt;&quot;]
-  end
-  subgraph g6[&quot;filters on statement_3&quot;]
-    n21{{&quot;WHERE in statement_3&lt;br/&gt;&lt;small&gt;equals(run_speed.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
-    n22{{&quot;WHERE in statement_3&lt;br/&gt;&lt;small&gt;more_than(run_speed.minutes_over_median, 5)&lt;/small&gt;&quot;}}
-  end
-  subgraph g7[&quot;mart.slow_runs&quot;]
-    n23[&quot;mart.slow_runs.event_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
-    n24[&quot;mart.slow_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n25[&quot;mart.slow_runs.minutes_over_median&lt;br/&gt;&lt;small&gt;double&lt;/small&gt;&quot;]
-    n26[&quot;mart.slow_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-  end
-  n0 --&gt; n1
-  n2 --&gt; n3
-  n4 --&gt; n5
-  n6 --&gt; n7
-  n6 -.-&gt; n8
-  n10 -.-&gt; n9
-  n0 --&gt; n11
-  n2 --&gt; n11
-  n4 --&gt; n11
-  n6 --&gt; n11
-  n11 --&gt; n12
-  n11 --&gt; n13
-  n11 --&gt; n14
-  n11 --&gt; n15
-  n11 --&gt; n16
-  n12 --&gt; n17
-  n13 --&gt; n18
-  n15 --&gt; n19
-  n16 --&gt; n20
-  n16 -.-&gt; n21
-  n15 -.-&gt; n22
-  n17 --&gt; n23
-  n18 --&gt; n24
-  n19 --&gt; n25
-  n20 --&gt; n26
-  n8 -.-&gt;|filters| g1
-  n9 -.-&gt;|filters| g1
-  n21 -.-&gt;|filters| g5
-  n22 -.-&gt;|filters| g5
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## statement_1
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-None: every column is copied.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `event_id` | ops.job_events.event_id |
-| `job_id` | ops.job_events.job_id |
-| `minutes` | ops.job_events.minutes |
-| `dt` | ops.job_events.dt |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- statement_1: Key (event_id), since job_events&#x27; rows are told apart by event_id.
+- Reads: ops.job_events
+- Writes: no table, its rows come back to you
 
 ### Hive as submitted
 
@@ -17125,9 +16542,31 @@ WHERE
   job_events.dt = &#x27;2026-09-24&#x27; AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+- `event_id` comes from ops.job_events.event_id
+- `job_id` comes from ops.job_events.job_id
+- `minutes` comes from ops.job_events.minutes
+- `dt` comes from ops.job_events.dt
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- statement_1: Key (event_id), since job_events&#x27; rows are told apart by event_id.
+
 ## speed_step
 
 A Python step: a change made in Python, outside any Statement, and saved by your own call or, given rows=, by a Scheduled run. The Toolbox can&#x27;t see inside it, so its columns can&#x27;t be followed through it. It reads ops.job_events.event_id, ops.job_events.job_id, ops.job_events.minutes and ops.job_events.dt, and writes mart.run_speed.
+
+- Reads: ops.job_events
+- Writes: mart.run_speed
 
 ### Where it lives
 
@@ -17137,27 +16576,9 @@ Changed in Python by `building_blocks/run_speed.py:add_minutes_over_median`, lin
 
 It reads the Saved table mart.run_speed, written by speed_step above. It writes the Saved table mart.slow_runs, replacing each partition its rows fill.
 
-### Calculated columns
-
-Every column that is calculated rather than copied, in the order it is calculated.
-
-None: every column is copied.
-
-### Copied columns
-
-| Output | Comes from |
-| --- | --- |
-| `event_id` | mart.run_speed.event_id ← speed_step: Python step |
-| `job_id` | mart.run_speed.job_id ← speed_step: Python step |
-| `minutes_over_median` | mart.run_speed.minutes_over_median ← speed_step: Python step |
-| `dt` | mart.run_speed.dt ← speed_step: Python step |
-
-### Keys
-
-The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
-
-- statement_3: Key (event_id), since run_speed&#x27;s rows are told apart by event_id.
-- mart.slow_runs&#x27; Key (event_id) holds: each row written has its own.
+- Reads: mart.run_speed
+- Writes: mart.slow_runs
+- Session settings dynamic_partitions, sent before it: SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict
 
 ### Hive as submitted
 
@@ -17173,10 +16594,29 @@ WHERE
   run_speed.dt = &#x27;2026-09-24&#x27; AND run_speed.minutes_over_median &gt; 5
 ```
 
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+- `event_id` comes from mart.run_speed.event_id ← speed_step: Python step
+- `job_id` comes from mart.run_speed.job_id ← speed_step: Python step
+- `minutes_over_median` comes from mart.run_speed.minutes_over_median ← speed_step: Python step
+- `dt` comes from mart.run_speed.dt ← speed_step: Python step
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.
+
+- statement_3: Key (event_id), since run_speed&#x27;s rows are told apart by event_id.
+- mart.slow_runs&#x27; Key (event_id) holds: each row written has its own.
+
 ---
 
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
-</details>
 <p class="note">It writes <code>lineage/run_speed.html</code> too, a page to open in your browser.</p>
 <p>The chart draws the step as one box, &quot;Python step&quot;, naming the function and its line, with an arrow in from each column it read and out to each column of mart.run_speed. The Toolbox can&#x27;t see inside it, so it can&#x27;t tell which column made which: the columns of mart.slow_runs go back as far as the step, and the step&#x27;s own section says what it read and where its function lives.</p>
 <p>Done when export_lineage has written lineage/run_speed.html and its .md beside it. Then check it worked, below.</p>
@@ -17679,28 +17119,16 @@ SHOW PARTITIONS ops.job_events
 <p class="label">It writes lineage/busy_jobs.md</p>
 <pre class="file"># Lineage: busy_jobs
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+Made by `export_lineage`. Each Statement has a section: what it reads and writes, its Run values and the Session settings sent before it, its Hive, then where each of its columns comes from.
 
-## Graph
-
-```mermaid
-flowchart LR
-  subgraph g0[&quot;busy_jobs&quot;]
-    n0[&quot;⚠ Unchecked statement&lt;br/&gt;&lt;small&gt;SELECT jobs.job_id, jobs.job_name FROM ops.…&lt;/small&gt;&quot;]
-  end
-  subgraph g1[&quot;ops.job_events&quot;]
-    n1[&quot;ops.job_events&lt;br/&gt;&lt;small&gt;(the whole table)&lt;/small&gt;&quot;]
-  end
-  subgraph g2[&quot;ops.jobs&quot;]
-    n2[&quot;ops.jobs&lt;br/&gt;&lt;small&gt;(the whole table)&lt;/small&gt;&quot;]
-  end
-  n1 --&gt; n0
-  n2 --&gt; n0
-```
+Written as two files side by side, named alike: an HTML page, which draws the lineage, and a Markdown twin, the same sections as text, with no drawing. On the page, click a box, or press Tab until it is outlined and press Enter, to light up every box that feeds it and every box it feeds, and to open a panel on the right: for a calculated column, the column first, then the section of the Statement that makes it; for a table&#x27;s column, the section of each Statement that writes or reads it. Escape, or a click on empty space, closes it.
 
 ## busy_jobs
 
 ⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can&#x27;t be followed through it. It reads ops.job_events and ops.jobs.
+
+- Reads: ops.job_events, ops.jobs
+- Writes: no table
 
 ### Hive as submitted
 
@@ -17713,7 +17141,10 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SE
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.6.</pre>
 <p class="note">It writes <code>lineage/busy_jobs.html</code> too, a page to open in your browser.</p>
 <pre class="python">print(markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;## busy_jobs&quot;)[1].split(&quot;###&quot;)[0])</pre>
-<p class="label">Python prints</p><pre class="output">⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can&#x27;t be followed through it. It reads ops.job_events and ops.jobs.</pre>
+<p class="label">Python prints</p><pre class="output">⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can&#x27;t be followed through it. It reads ops.job_events and ops.jobs.
+
+- Reads: ops.job_events, ops.jobs
+- Writes: no table</pre>
 <p>A Statement built with Clause functions, such as the same question with <code>SEMI_JOIN</code>, is drawn column by column: rewrite the Hive that way once you have time, and its Lineage says where each column comes from.</p>
 <p>Done when the Lineage names ops.job_events and ops.jobs as read. Then check it worked, below.</p>
 <h4>Check it worked</h4>
