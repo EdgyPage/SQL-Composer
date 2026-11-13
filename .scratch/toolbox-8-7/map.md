@@ -224,10 +224,10 @@ It also freezes the Example projects at 8.6 in `tests/upgrade_from/8.6/`.
 
 ### Words
 
-- **Hivevar** (CONTEXT.md, 2026-11-13). _Avoid_: placeholder, Hive variable, runtime param.
+- **Hivevar** (CONTEXT.md, 2026-11-13). _Avoid_: placeholder, runtime param.
 - **Metric request** (CONTEXT.md, 2026-11-13). _Avoid_: spec, prompt, requirements doc.
-- **Example database** and **Example project** changed with it: dev only, read on main as
-  pages.
+- **Example database** and **Example project** change with ticket 12: dev only, read on main
+  as pages.
 
 ## Tickets
 
@@ -273,8 +273,8 @@ chain, and 13 after 12. 14 and 15 come last. The real dependencies are in each t
   - `docs/agents/standards.md` (04);
   - the README, the how-tos, the Copilot files (07 to 13);
   - `docs/usability-loop.md` and `docs/copilot-eval.md` (01, 02, 11).
-- **CONTEXT.md:** Hivevar, Metric request, Example database, Example project (already,
-  2026-11-13).
+- **CONTEXT.md:** Hivevar and Metric request (already, 2026-11-13); Example database and
+  Example project (12).
 - **CLAUDE.md:** this map, and what main holds (12, 13). CHANGES.md's `## 8.7`.
 
 ## Decisions so far
