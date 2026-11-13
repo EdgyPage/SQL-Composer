@@ -37,6 +37,17 @@ def install() -> None:
     _backstop_the_socket_methods()
     _refuse_the_network()
     sys.addaudithook(backstop)
+    installed_in.append(os.getpid())
+
+
+# The process this module's install() ran in, once it had run: a test or a pytest-xdist worker
+# says from it that it carries the trap (Toolbox 8.7, ticket 03).
+installed_in: list[int] = []
+
+
+def is_installed() -> bool:
+    """Whether install() ran in this Python, so it carries the trap."""
+    return os.getpid() in installed_in
 
 
 def backstop(event: str, args: tuple[object, ...]) -> None:

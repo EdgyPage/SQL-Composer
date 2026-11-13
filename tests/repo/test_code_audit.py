@@ -213,6 +213,103 @@ def test_the_command_line_finds_a_macro_in_a_workbook_through_the_offline_policy
     assert "w.xlsx:0 dynamic code: xl/vbaProject.bin" in capsys.readouterr().out
 
 
+# --- The memo: each file's findings kept by its bytes' hash (Toolbox 8.7, ticket 03) ----------
+
+
+def counted_reads(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Each path the audit reads for findings from here on, as it reads it."""
+    read: list[str] = []
+    original = code_audit.findings_in_text
+
+    def counting(root: Path, data: bytes, path: str, suffix: str) -> list[code_audit.Finding]:
+        read.append(path)
+        return original(root, data, path, suffix)
+
+    monkeypatch.setattr(code_audit, "findings_in_text", counting)
+    return read
+
+
+def planted_repo(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    for path, text in {"notes.md": f"Read it.{RLO}\n", "tools/x.py": "x = 1\n",
+                       "tools/y.py": "import base64\n"}.items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text, encoding="utf-8")
+    return root
+
+
+def test_a_file_whose_bytes_are_unchanged_is_not_read_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, kept = planted_repo(tmp_path), tmp_path / "memo" / "code_audit.json"
+    read = counted_reads(monkeypatch)
+    first = code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    assert sorted(read) == ["notes.md", "tools/x.py", "tools/y.py"]
+    read.clear()
+    # The next run: a memo read again from its file, as a new pytest run reads it.
+    assert code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules")) == first
+    assert read == []
+    (root / "tools" / "x.py").write_text("import zlib\n", encoding="utf-8")
+    again = code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    assert read == ["tools/x.py"]
+    assert [finding.path for finding in again] == ["notes.md", "tools/x.py", "tools/y.py"]
+
+
+def test_a_change_to_the_rules_reads_every_file_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, kept = planted_repo(tmp_path), tmp_path / "memo" / "code_audit.json"
+    code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    read = counted_reads(monkeypatch)
+    code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "other rules"))
+    assert sorted(read) == ["notes.md", "tools/x.py", "tools/y.py"]
+
+
+def test_with_no_memo_kept_every_file_is_read(tmp_path: Path,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    # A fresh checkout keeps no memo, or a broken one: the audit reads everything.
+    root, kept = planted_repo(tmp_path), tmp_path / "memo" / "code_audit.json"
+    read = counted_reads(monkeypatch)
+    code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    assert len(read) == 3
+    kept.write_text("not json", encoding="utf-8")
+    read.clear()
+    code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    assert len(read) == 3
+
+
+def test_a_hooks_settings_file_is_read_again_each_time(tmp_path: Path) -> None:
+    # Its findings hang on another file, the hook it runs, so its own bytes don't say them.
+    command = 'python "$CLAUDE_PROJECT_DIR/.claude/hooks/x.py"'
+    settings = json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command",
+                                                          "command": command}]}]}})
+    root, kept = tmp_path / "repo", tmp_path / "memo.json"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "settings.json").write_text(settings, encoding="utf-8")
+    found = code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules"))
+    assert [finding.kind for finding in found] == ["config"]
+    (root / ".claude" / "hooks" / "x.py").write_text("x = 1\n", encoding="utf-8")
+    assert code_audit.audit(root, audited=(), memo=code_audit.Memo(kept, "rules")) == []
+
+
+def test_the_rules_hash_covers_the_audit_its_audited_list_and_the_policy(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    audit, policy = tmp_path / "code_audit.py", tmp_path / "offline_policy.py"
+    audit.write_bytes(Path(code_audit.__file__).read_bytes())
+    policy.write_bytes(Path(code_audit.offline_policy.__file__).read_bytes())
+    monkeypatch.setattr(code_audit, "RULES_FILES", (audit, policy))
+    before = code_audit.rules_hash()
+    audit.write_bytes(audit.read_bytes() + b"\nAUDITED = AUDITED[:-1]\n")
+    after_audited = code_audit.rules_hash()
+    policy.write_bytes(policy.read_bytes() + b"\n")
+    assert len({before, after_audited, code_audit.rules_hash()}) == 3
+
+
+def test_the_repos_memo_is_kept_where_git_and_both_readers_skip() -> None:
+    folder = code_audit.MEMO.relative_to(ROOT).parts[0]
+    ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert f"{folder}/" in ignored or folder in ignored
+    assert folder in code_audit.offline_policy.NOT_READ
+
+
 def test_a_clean_workbook_is_not_found(tmp_path: Path) -> None:
     with zipfile.ZipFile(tmp_path / "w.xlsx", "w") as written:
         written.writestr("xl/workbook.xml", "<workbook/>")
