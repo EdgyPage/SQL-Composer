@@ -144,3 +144,39 @@ Table's rows, it says which Tables are the sources and which the finals, it name
 task refuses, marks or leaves alone, and it invents no name. Files 15, 11 and 12 ask for no
 Toolbox code: the convert Workflow writes it from the Hive, checked; a reply that has some
 still has it scored apart.
+
+## The Metric request: Copilot file 19
+
+File 19 writes no code: it asks the user about a new metric and ends with a Metric request,
+which a chatbot that knows the user's databases defines the columns from. It is measured on
+six tasks (`tools/metric_eval_tasks.py`), four dev and two held out, each a vague goal and the
+answer key the user keeps to themselves, by `tools/metric_eval.py` and three proxies a task,
+each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on the round's model, or, in a
+session that can't spawn it yet, a `copilot-proxy` told its part is in its message file:
+
+- **the stand-in user** says the vague goal and answers from the key;
+- **Copilot**, loaded with file 19, asks a question at a time and writes the request;
+- **the stand-in chatbot**, given only the Example database's column descriptions and the
+  request, writes the column as one Hive SELECT.
+
+The column passes when its Hive gives the key's numbers on the Example database, whatever its
+columns are called; in arm C the request must also be there and hold no SQL. Arm A0, the
+baseline, is the same chatbot given the vague goal alone. The thresholds are in
+`.scratch/copilot-eval/results.md`'s Metric request section.
+
+1. **Plan, then write the messages.** `metric_eval.py plan C --split dev --model haiku` says
+   which tasks to ask, as the memo keeps them; `messages C ... --into <run>` writes a folder
+   per task: user.md and copilot.md in C, chatbot-message.md in A0.
+2. **Grill.** Spawn a proxy for each part. Copilot reads copilot.md and writes
+   turn-01-copilot.md; the user reads user.md and that turn, and writes turn-01-user.md; and
+   so on, each continued with the other's newest turn, until Copilot's turn holds the Metric
+   request, or after 12 of Copilot's turns.
+3. **The chatbot.** `metric_eval.py chatbot <run>/M01` writes the folder's transcript.md,
+   request.md and chatbot-message.md. A chatbot proxy reads chatbot-message.md and writes
+   chatbot.md. In A0 this is the only step.
+4. **Score.** `metric_eval.py answers <run> --arm C --model haiku --files <hash> --memo-files
+   <version> --into <run>/answers.md` gathers the folders, `--memo-files` the version `plan`
+   printed; then `score <run>/answers.md --split dev --record .scratch/copilot-eval/results.md`.
+
+In Copilot's web chat the same steps run by hand: paste file 19 first, then the vague goal,
+and answer as the user would.

@@ -121,8 +121,8 @@ or type checker holds them: the reviewer does.
 
 The Toolbox's pages are written to the same care as its Python (Toolbox 8.7, ticket 04). The
 user's words: "maintain good code conventions for the html pages ... add coding guidelines for
-the html that we have for python". Today the module builds each lineage page; `how_to.html` and
-`examples.html`, which `tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under
+the html that we have for python". Today the module builds each lineage page;
+`sqlglot_composer/how_to.html` and `sqlglot_composer/examples.html`, which `tools/how_to_page.py` and `tools/example_gallery.py` write, aren't under
 it yet, and a new page is built from it.
 
 - **One page module.** Each page it builds comes from `sqlglot_composer/html_page.py`'s

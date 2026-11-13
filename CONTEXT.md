@@ -525,12 +525,29 @@ how a Statement is built, so it writes code the user would otherwise write by ha
 _Avoid_: prompt pack, system prompt, cheat sheet
 
 **Metric request**:
-Text a user writes, with Copilot's questions, that says exactly what each new column of a
-metric should hold: its formula in plain maths, each quantity in it, one row per what, the
-days counted, what is left out, the edge cases and a worked example, worked on sample rows
-when the user gives some, with each column asked for on its own. It is not SQL: it is given to a chatbot that knows the databases, which
-defines the columns from it.
+Text a user writes, with Copilot's questions (Copilot file 19), that says exactly what each
+new column of a metric should hold, in a section per column, each column asked for on its own:
+its name and one plain sentence, its formula in plain maths, each quantity in it (by column
+name where the user knows one), one row per what, the days counted, what is left out, the edge
+cases, a worked example, on sample rows when the user gives some, and the questions still open.
+It is not SQL: it is given to a chatbot that knows the databases, which defines the columns
+from it.
 _Avoid_: spec, prompt, requirements doc
+
+**Quantity**:
+A number a Metric request's formula uses, such as "failed runs", said so exactly that a chatbot
+can't read it two ways: which rows count, by which column's values, and what is left out.
+_Avoid_: measure, field, variable
+
+**Grain**:
+What one row of a new column's result is, as a Metric request says it: "one row per job", "one
+row per team per day".
+_Avoid_: level, granularity, key (a Key is a table's)
+
+**Sample rows**:
+Rows a user pastes into a Copilot chat, from a table or a spreadsheet, for Copilot to work a
+Metric request's formula on, row by row.
+_Avoid_: sample data, test data, dataset
 
 **Formula workbook**:
 An Excel workbook laid out so its formulas can be read as SQL: a sample of raw data in Excel

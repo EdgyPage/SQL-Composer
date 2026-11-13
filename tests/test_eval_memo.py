@@ -109,7 +109,7 @@ def test_plan_and_proxy_name_only_the_copilot_tasks_to_ask(
     prompts = capsys.readouterr().out
     assert "## T08\n" in prompts and "## T07\n" not in prompts
     assert copilot_eval.main(["template", "--arm", "C", *round_of, *memo]) == 0
-    _, replies = copilot_eval.read_answers(capsys.readouterr().out)
+    _, replies = eval_memo.read_answers(capsys.readouterr().out, "T")
     assert list(replies) == ["T08"]
 
 
@@ -190,7 +190,7 @@ def test_a_template_names_the_files_version_its_replies_are_asked_on(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert copilot_eval.main(["template", "--arm", "C", "--split", "held_out", "--objective",
                               "03", "--model", "haiku", "--memo", str(tmp_path)]) == 0
-    header, replies = copilot_eval.read_answers(capsys.readouterr().out)
+    header, replies = eval_memo.read_answers(capsys.readouterr().out, "T")
     assert header["memo_files"] == eval_memo.files_version()
     assert list(replies) == ["T09"]
 

@@ -56,6 +56,7 @@ you can ask it in plain words.
   some Partitions, load file 17.
 - If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
   paste what `project.describe_logic([...])` prints for the tables it uses.
+- If you want a new metric defined for your chatbot, not code, load file 19.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -97,6 +98,9 @@ you can ask it in plain words.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
+- `19_metric_request.txt`: a new metric, defined a question at a time: one column or two,
+  each quantity, the days, what is left out, worked on your sample rows; it ends with a
+  Metric request, text for your chatbot that knows your databases, not code.
 
 ## Fitting Copilot
 
