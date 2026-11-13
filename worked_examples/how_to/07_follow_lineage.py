@@ -353,7 +353,7 @@ meaningful name first:
 The write fills a table with a Table folder, so the pair goes in that folder's lineage/, named
 by the time and the table alone, the second form above. Each export adds a pair, so lineage/
 keeps every one before: the table's history, oldest first, to compare when its logic changes.
-Its Graph draws the Building block as a group of its own, named `"runs_per_job"` as the block
+Its HTML page draws the Building block as a group of its own, named `"runs_per_job"` as the block
 names it: `"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the
 table.
 

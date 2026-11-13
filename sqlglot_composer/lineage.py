@@ -45,8 +45,7 @@ from .writing import hive_text
 
 
 # --- What a box shows ------------------------------------------------------------------------
-# Both views read box_lines, so a line added there shows in the HTML page and the Mermaid chart
-# alike.
+# The HTML page's boxes read box_lines, so a line added there shows on each box.
 
 
 def formula_line(box: dict[str, object]) -> str:
