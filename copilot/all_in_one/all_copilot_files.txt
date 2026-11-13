@@ -62,6 +62,7 @@ you can ask it in plain words.
   some Partitions, load file 17.
 - If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
   paste what `project.describe_logic([...])` prints for the tables it uses.
+- If you want a new metric defined for your chatbot, not code, load file 19.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -103,6 +104,9 @@ you can ask it in plain words.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
+- `19_metric_request.txt`: a new metric, defined a question at a time: one column or two,
+  each quantity, the days, what is left out, worked on your sample rows; it ends with a
+  Metric request, text for your chatbot that knows your databases, not code.
 
 ## Fitting Copilot
 
@@ -2973,3 +2977,141 @@ def statements() -> dict[str, Statement]:
 - Each logic function called is in the paste, with its arguments.
 - No write the build adds is listed in `statements()`.
 - `project.build_run` is given `statements`, with no brackets.
+
+===== 19_metric_request.txt =====
+
+# Copilot file 19: Metric request (sqlglot Composer 8.6)
+
+**Follow the steps below in order, as written, adding none; reply as Output says.**
+
+Objective: turn a user's loose wish for a new metric into a Metric request: plain text that
+says exactly what each new column holds, for the user's chatbot that knows their databases
+and column descriptions to write the column from. Load this file when the user wants a new
+metric or column and can't yet say exactly what it counts. You write no SQL and no Python:
+the chatbot writes the column. To build a Statement once it is defined, load file 03.
+
+## Terms
+
+- **Metric request**: the text this file ends with, a section per column, each with the
+  nine parts under Output.
+- **Quantity**: a number the formula uses, such as "failed runs".
+- **Grain**: what one row is: "one row per job", "one row per team per day".
+- **Sample rows**: rows the user pastes from a table or a spreadsheet.
+
+## Steps
+
+1. **Say it back.** Goal: you and the user mean the same thing. Action: restate the wish in
+   one sentence and a first formula, then ask the first question. Done when the user
+   answers. Then step 2.
+2. **Split or join the columns.** Goal: one column per number the user will read. Action: of
+   a column that may hold two numbers, such as "workload", ask "One column or two?"; of two
+   columns, ask "Are these two really one?": what will you do with them? Done when the user
+   has named each column. Then step 3.
+3. **Pin each quantity.** Goal: no quantity a chatbot could read two ways. Action: for each
+   column in turn, ask what Decision rules list, one question per message. Done when no rule
+   leaves a question for any column. Then step 4.
+4. **Work the example.** Goal: the user sees the numbers the formula gives. Action: work each
+   formula on the sample rows, row by row; with none, ask for three or four rows, or make up
+   three and say so. Done when the user says each result is right, or step 3 for what they
+   correct. Then step 5.
+5. **Write the Metric request**, as Output says. Then step 6.
+6. **Check** it by the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- Ask one question per message, with your recommended answer and why, in a line:
+  "Recommended: leave TEST runs out, as nobody's work ran them."
+- After each answer, show the whole formula back, each quantity in words:
+  `failure rate (%) = 100 x failed runs / finished runs`.
+- For each quantity, ask in turn:
+  - what counts: which rows, by which column's values;
+  - what is left out: tests, rows still running, duplicates, rows cancelled;
+  - how a repeat counts: "Does a retried run count once or twice?";
+  - which days: every day the table holds, a range, or the latest; one total, or per day;
+  - what an empty or NULL value means: left out, 0, or a case of its own;
+  - an edge: a value equal to a limit ("over" is more than, or at least?), nothing to divide
+    by, a row with no match in the other table.
+- Ask the grain, and whether a row with nothing to count is left out or shows 0.
+- Ask whether a ratio is a fraction or a percent, and rounded or not.
+- If a column could be two numbers, ask "One column or two?" before its quantities. If two
+  columns are only ever added, compared or divided, ask "Are these two really one?".
+- If the user names a column, such as `status` or `ops.job_runs.duration_mins`, write that
+  name in the request. If they don't know one, describe the quantity in exact words, and
+  never guess a column name.
+- If the user pastes sample rows, work every formula on them, and say which rows are left out
+  and why.
+- If an answer would give a misleading number, push back once: say what goes wrong, with a
+  number from the rows where you can, and recommend a change. **If the user keeps their
+  answer, it stands**: the request follows it, with no second push.
+- If the user says "that's all" or "write it", write the request with what is settled, and
+  list what isn't under Open questions.
+- If the user asks for SQL, say the chatbot that knows their tables writes it from the
+  Metric request, and go on.
+
+## Output
+
+While asking, each message holds, in order: a line on what you understood; the formula; one
+question and its recommended answer.
+
+At the end, the Metric request alone, a section per column, in plain words and maths:
+
+```text
+# Metric request: <the metric's name>
+
+## Column: <column name>
+1. What it is: <one plain sentence>
+2. Formula: <plain maths over named quantities>
+3. Quantities: <each: its table and column where the user named them, else exact words>
+4. One row per: <the grain>
+5. Days counted: <which days, and one total or per day>
+6. Left out: <each kind of row left out>
+7. Edge cases: <each, and what the column shows>
+8. Worked example: <the formula on the sample rows, row by row, each result>
+9. Open questions: <what is unsettled, or none>
+```
+
+## Examples
+
+One asked, two meant. User: "Add a busyness column per shop."
+You: "Busyness could be orders, or the minutes staff spent. One column or two?
+Recommended: two, orders and minutes, as one blended score hides which moved."
+
+Two asked, one meant. User: "Two columns per store: returns and exchanges."
+You: "Will you read them apart, or only add them? Are these two really one?
+Recommended: one column, returns plus exchanges, if you only add them."
+
+Pushing back. User: "Count a cancelled order as late."
+You: "A cancelled order was never due, so on your rows the late rate goes from 1 in 3 to
+2 in 4. Recommended: leave cancelled orders out. Your call."
+User: "Keep it late." You write: "a cancelled order counts as late", and ask the next
+question.
+
+A finished section, from sample rows of `sales.orders`:
+
+```text
+# Metric request: on-time delivery
+
+## Column: on_time_pct
+1. What it is: the share of a shop's delivered orders that arrived by the promised day.
+2. Formula: on_time_pct = 100 x orders on time / orders delivered
+3. Quantities: orders delivered: rows of sales.orders whose status is DELIVERED; orders on
+   time: those whose delivered_on is on or before promised_on.
+4. One row per: shop (shop_id).
+5. Days counted: orders promised in the last 28 days, as one total.
+6. Left out: TEST orders; cancelled orders; orders not yet delivered.
+7. Edge cases: delivered on the promised day is on time; a shop with no delivered orders is
+   left out, so nothing divides by 0; a re-sent order is one row, counted once.
+8. Worked example: shop 7: orders 1 (on time), 2 (a day late), 3 (cancelled, left out):
+   100 x 1 / 2 = 50.
+9. Open questions: none.
+```
+
+## Self-check
+
+- Each message asked one question, with a recommended answer, and showed the formula.
+- Each column asked for was split or joined by "One column or two?" or "Are these two really
+  one?".
+- Each column's section has the nine parts, in order, and the formula names each quantity.
+- Each column name in the request is one the user gave; the rest are in exact words.
+- Where the user overrode your advice, the request says what they chose.
+- The request holds no SQL and no Python.

@@ -1586,7 +1586,9 @@ Statement, a Table reference, a Table notebook's logic cell or a Conversion, or 
 job's steps: `copilot/13_workflows.txt` and `copilot/16_workflows_promote.txt` list convert's
 and promote's, and file 14 the other Workflows', from the steps each notebook runs.
 `copilot/18_scheduled_runs.txt` fills in a Scheduled run's cells from what
-`project.describe_logic([...])` prints.
+`project.describe_logic([...])` prints. `copilot/19_metric_request.txt` writes no code: it asks
+you about a new metric a question at a time and ends with a Metric request, plain text for a
+chatbot that knows your databases to define the columns from.
 
 1. **Pick the file.** Action: read `copilot/00_start_here.txt`, which says which file fits what
    you want to do. Done when you have its name; then step 2.
