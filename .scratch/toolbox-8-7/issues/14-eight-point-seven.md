@@ -15,6 +15,11 @@ The version the user named (Q1), and the Upgrade step every raise ships.
   - rewrites each `from sqlglot_composer import example_database` (and other import forms) in
     the Project's notebooks and `warehouse.py`, marking any it can't, with what to do;
   - makes `admin/workflows/schedule/`;
+  - rewrites or replaces each mark earlier Upgrade steps leave that names the Example database
+    as the connection, or `from sqlglot_composer import example_database` (`upgrades.py`'s
+    `_CONN_GONE`, `_CONNECT_AS_CONN_WAS` and `_CONNECTED`), so an 8.5 Project upgraded straight
+    to 8.7 is told only what 8.7 can do (drift D514);
+    and empties `tests/conftest.py`'s `AWAITING_ITS_REWRITE` (ticket 12's Answer);
   - takes `NEW_RUNS` out of `admin/scheduled_runs.ipynb`, keeping the user's other cells;
   - loses none of the user's code.
 - **The Example projects are frozen at 8.6** in `tests/upgrade_from/8.6/`, without their
