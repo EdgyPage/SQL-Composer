@@ -27,6 +27,7 @@ from . import kinds
 from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
+from .run_values import last_hivevar_values
 from .shared import HIVE_VARIABLE, in_words, python_literal
 from .tables import Column, Table, UncheckedSelect, literal, python_text, type_family
 from .trees import SIMPLE_NAME, Node
@@ -318,6 +319,9 @@ class UncheckedStatement:
 
     def __init__(self, text: str) -> None:
         self._text = text  # the Hive as written, without a last ;
+        # Each Hivevar's value as last worked out when it was made, tag_text's in its text
+        # among them (Toolbox 8.7): the values its SET hivevar lines send.
+        self._hivevar_values = last_hivevar_values()
 
     def __repr__(self) -> str:
         return "<Unchecked statement - show_hive(...) shows its Hive>"

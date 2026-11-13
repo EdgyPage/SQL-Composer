@@ -672,7 +672,9 @@ function, as step 8 does: the Hive sent holds the day itself. If your warehouse 
 Hive variables, "'${hivevar:run_day}'" works too, with a line that sets it, SET
 hivevar:run_day=..., kept at the top of the script you convert: the table's
 session_settings() keeps it, project.run_tables sends it before each write, and
-project.write_decisions says whether a line sets it.
+project.write_decisions says whether a line sets it. With no such line, answer it with
+hivevar("RUN_DAY", default=run_day) (help(hivevar)): the Toolbox sends its SET line for you,
+and export_hive() writes its value beside the .hql for a scheduler to pass.
 
 ### Writing the function's name with brackets
 

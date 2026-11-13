@@ -14,7 +14,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 ## Names for this objective, with their arguments
 
-{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, fill_null, is_in, count_rows, count_distinct, sum_of, hive_function, unchecked_column, hive_settings}
+{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, is_in, count_rows, sum_of, hive_function, unchecked_column, hive_settings, hivevar}
 
 ## In the Project
 
@@ -52,7 +52,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported; a day worked out each run: file 17.
+  imported; a day worked out each run: file 17; a value passed to Hive:
+  `hivevar("NAME", default="'2026-09-24'")`.
 
 ## Steps
 
@@ -98,6 +99,6 @@ s = statement(
 ## Self-check
 
 - The columns are the Hive's: same names, same order; each short name kept with AS.
-- Each Hive condition is there, even a needless one, none added; reads bounded as before.
+- Each Hive condition is there, none added; reads bounded as before.
 - No COUNT, CASE, WHEN or COALESCE is called as a Toolbox name.
 - Each part kept as Hive is named after the code.

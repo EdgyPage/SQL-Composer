@@ -208,9 +208,15 @@ _Avoid_: parameter (a Scheduled run's), variable, runtime param, Hive variable
 
 **Hivevar**:
 A `${hivevar:NAME}` in the Hive, which the warehouse fills in each time the Hive runs, from
-a value given at that moment, such as a scheduler's. It's how a Script tag's place is left
-for whatever runs the Hive to fill in, rather than for the Toolbox: the Script tag stays as
-it is, and a Hivevar is one answer it can be given.
+a value given at that moment. It's how a Script tag's place is left for whatever runs the
+Hive to fill in, where a Run value's is filled in as the Statement is built: the Script tag
+stays as it is, and a Hivevar is one answer it can be given,
+`hivevar("PERIOD_END", default=...)`, standing in quotes where its value does. When the
+Toolbox runs the Hive, it sends the value as `SET hivevar:NAME=value` before each write
+holding it: the default, Hive text or a Run value's function, unless a Scheduled run gives
+another by its NAME. An export writes the default into a `.hivevars` file beside the `.hql`
+instead, for a scheduler running that `.hql` to pass, since Hive lets a SET in a script beat
+a value given on the command line.
 _Avoid_: placeholder, runtime param
 
 **Reference sheet**:

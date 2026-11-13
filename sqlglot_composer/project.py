@@ -156,6 +156,7 @@ from .python_steps import PythonStep
 from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
+from .run_values import Hivevar
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
 from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
@@ -4770,6 +4771,13 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
         logic = "\n".join(text for _, text in read_cells(notebook))
     notes = []
     for name, value in tags.items():
+        if isinstance(value, Hivevar):
+            notes.append(f"{table}: tags: {name} is the Hivevar {value.name}: the Toolbox "
+                         f"sends SET hivevar:{value.name}=<value> before each Statement that "
+                         "holds it. <value> is its default unless a Scheduled run's "
+                         "hivevars= gives another. export_hive() writes it into a .hivevars "
+                         "file beside the .hql.")
+            continue
         for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
             said = f"{table}: tags: {name} is {value}"
             # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
@@ -4780,7 +4788,9 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
             else:
                 notes.append(f"{said}: written, but no SET line of its scripts sets "
                              f"hivevar:{variable}, so the write would send it as it is: "
-                             "answer again with the value itself, such as \"'2026-10-31'\".")
+                             "answer again with the value itself, such as \"'2026-10-31'\", "
+                             f"or with hivevar(\"{variable}\", default=\"'2026-10-31'\"), "
+                             "which sends its own SET line.")
     return notes
 
 
@@ -7335,7 +7345,8 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
 
 def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
               run_values: dict[str, object] | None = None,
-              leave_out: list[str] | None = None) -> BuiltRun:
+              leave_out: list[str] | None = None,
+              hivevars: dict[str, object] | None = None) -> BuiltRun:
     """Build a Scheduled run's Statements in order and print their Hive, sending none.
 
     >>> import os
@@ -7391,6 +7402,14 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        RUN_DATE's text, "2026-11-01", is a datetime.date where period_end gives one; a
        function with no hint takes it as it is.
        A value that can't be read, and a name no Statement's Run value has, are refused.
+       hivevars={"PERIOD_END": RUN_DATE} gives each Hivevar named PERIOD_END, a Script tag
+       answered hivevar("PERIOD_END", default=...) (help(hivevar)), that value for this
+       build, in place of its default: a datetime.date, a number, or Hive text written as
+       the default is. A date as text, such as "2026-11-01" as a scheduler passes it, is that
+       date. A parameter left empty is None, or "", which sends the default. Each Statement
+       holding it is printed after its SET hivevar line: built.run sends that line first
+       before a write, and writes the value in its place in a SELECT. A name no Statement's
+       Hivevar has is refused, naming those they have.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
@@ -7419,7 +7438,7 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
     Hive, and gives back the built run, which built.run(query, execute) sends.
     """
-    call = _build_run_call(statements, run_values, leave_out)
+    call = _build_run_call(statements, run_values, leave_out, hivevars)
     if not callable(statements) or _arguments_needed(statements):
         refuse(
             what=f"{call} was given {statements!r}, where the function statements goes.",
@@ -7432,18 +7451,20 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     # scheduled_runs imports this file, so it is read here, when a run is built.
     from .scheduled_runs import build_scheduled_run
 
-    return build_scheduled_run(statements, run_values or {}, leave_out or [], callers_frame(),
-                               call)
+    return build_scheduled_run(statements, run_values or {}, hivevars or {}, leave_out or [],
+                               callers_frame(), call)
 
 
 def _build_run_call(statements: object, run_values: dict[str, object] | None,
-                    leave_out: list[str] | None) -> str:
+                    leave_out: list[str] | None, hivevars: dict[str, object] | None) -> str:
     """build_run's call as the Build cell writes it, its keywords shown when given."""
     shown = getattr(statements, "__name__", "statements")
     if run_values:
         shown += ", run_values={...}"
     if leave_out:
         shown += f", leave_out={leave_out!r}"
+    if hivevars:
+        shown += ", hivevars={...}"
     return f"project.build_run({shown})"
 
 
