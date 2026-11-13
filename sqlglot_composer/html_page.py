@@ -6,7 +6,8 @@ page keeps.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: export_lineage
 and project.export_run_lineage build their page with lineage.py, and
-project.export_project_lineage with project_lineage.py, each from here.
+project.export_project_lineage with project_lineage.py, each from here. The Workflows overview,
+workflows.html, beside this file, is built from here too, by a tool on dev (ticket 07).
 
 A page is `page(title, body, css, script)`: the head, the tokens, the base CSS and each kind's
 CSS come from here; `css` and `script` are the page's own pieces after them, its own and those
@@ -71,6 +72,10 @@ COLOURS: dict[str, str] = {
     "shared-edge": "#000",
     "loop": "#d33",  # red: Okabe–Ito's vermillion reads as orange
     "loop-text": "#a11",  # the words of the note at the top of a loop: a darker red
+    "workflow": "#56b4e9",  # sky blue: a Workflow on the overview page
+    "workflow-edge": "#000",
+    "excel": "#009e73",  # bluish green: the Excel path
+    "excel-edge": "#000",
 }
 
 
@@ -99,6 +104,9 @@ KINDS: dict[str, Kind] = {
     "read": Kind("read", dashed=True),
     "shared": Kind("shared", "shared-edge"),
     "loop": Kind(None, "loop"),
+    # The Workflows overview: a box for each Workflow, and one for the Excel path
+    "workflow": Kind("workflow", "workflow-edge"),
+    "excel": Kind("excel", "excel-edge"),
 }
 
 # The CSS every page starts with, after its tokens.

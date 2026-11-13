@@ -856,6 +856,11 @@ Decision such as its Key, you answer in its decisions cell,
 `DECISIONS = {"mart_dev.weekly": {"key": ["job_id"]}}`, and a step writes each answer in for
 you.
 
+For every Workflow at a glance, open the
+[Workflows overview](../sqlglot_composer/workflows.html), `sqlglot_composer/workflows.html`, in
+your browser: one drawing of the Workflows and the Excel path, with an arrow where one hands
+off to the next. Click a box for its steps and its common tripping points, in short.
+
 **Run a Workflow notebook's cells one at a time, never all at once (Run All), since a step after
 a decision would write before you make it.**
 

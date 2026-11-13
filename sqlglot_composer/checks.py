@@ -35,7 +35,8 @@ _EXPORTED = re.compile(r"exported (?P<when>\d{4}-\d\d-\d\d \d\d:\d\d) from dev c
 _FILE_LINE = re.compile(r"(?P<hash>[0-9a-f]{40})  (?P<name>\S+)")
 
 # What each file of a Toolbox folder that isn't Python holds, for a stop that finds it missing.
-_PAGES = {"examples.html": "the Example gallery", "how_to.html": "the how-tos"}
+_PAGES = {"examples.html": "the Example gallery", "how_to.html": "the how-tos",
+          "workflows.html": "the Workflows overview"}
 
 
 class VersionFile(NamedTuple):
