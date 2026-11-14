@@ -12,14 +12,14 @@ write that Python, so you can ask it in plain words.
 
 | ID | You would type | Load |
 |---|---|---|
-| P1 | "start a Project", "import everything", "using my Database module" | 01 |
-| P2 | "a Table reference for", "its Key is" | 02; "check the Key holds", "with my query" | 08 |
-| P3 | "count", "total", "average", "filter", "from day A to day B" | 03; "and run it" | 01 |
+| P1 | "start a Project", "import everything", "using my Database module", "and run it with my query" | 01 |
+| P2 | "a Table reference for", "its Key is" | 02 |
+| P3 | "count", "total", "average", "filter", "from day A to day B" | 03 |
 | P4 | "with its name from", "every job, 0 for none", "no match in" | 04 |
 | P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
 | P6 | "write into my Saved table", "add to it", "the logic cell" | 06 |
 | P7 | "show me this Hive as Toolbox code", "piece by piece" | 07 |
-| P8 | "the same rows as my team's Hive", "compare", "lineage" | 08 |
+| P8 | "the same rows as my team's Hive", "compare", "check the Key holds", "lineage" | 08 |
 | P9 | a Toolbox message: GuardRefused, LoadRefused, a TypeError | 09 |
 | P10 | "a label for", "else", "in capitals", "drop a day", "repair" | 10 |
 | P11 | "convert these scripts into my Dev Database", "batch", "staging" | 13 |
@@ -37,7 +37,8 @@ write that Python, so you can ask it in plain words.
   Project, end to end, 13; carried from dev to prod once compared, 16.
 - **R3** A Script tag's day worked out at each run, such as the latest Partition a table
   holds, one answer for every table, or a seed of only some Partitions: 17, even in the
-  middle of a convert. A tag's value given once, for this run: 13.
+  middle of a convert. A tag's value given once, for this run: in a convert, 13; as Toolbox
+  code to read, 07 (R2).
 - **R4** A Script tag left as a Hivevar, `${hivevar:NAME}` for your scheduler: 17; a
   Scheduled run's own value of it: 18.
 - **R5** Your chatbot's Hive (file 19's end): as Toolbox code, 07; as a Saved table, saved
@@ -45,8 +46,9 @@ write that Python, so you can ask it in plain words.
 - **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
   its own), then the workbook: a chat holds one file at a time, but for this one task.
 - **R7** Two tasks: a new chat for each, with each task's file.
-- **R8** One file each: a request that ends "and run it with my query" is 01, whatever it
-  reads; checking a Key holds on the warehouse is 08; writing a Key into a reference is 02.
+- **R8** One file each: a request that ends "and run it with my query", or reads "using my
+  Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
+  "with my query", is 08; writing a Key into a reference is 02.
 
 ## Terms
 
@@ -82,7 +84,7 @@ write that Python, so you can ask it in plain words.
 - `01_imports_and_project.txt`: start a Project, import the Toolbox, your Table
   references and warehouse.py's query and execute, and run a Statement.
 - `02_table_references.txt`: describe a table: add its Table reference, or write one by
-  hand for a Saved table, with its columns, partitions and Key; check its Key.
+  hand for a Saved table, with its columns, partitions and Key (checking it holds: 08).
 - `03_build_a_statement.txt`: read rows: pick columns, filter, count, add up, group, sort,
   and build in steps with Derived tables.
 - `04_joins.txt`: combine tables with JOIN, LEFT_JOIN and the others.

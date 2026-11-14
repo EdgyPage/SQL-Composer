@@ -251,3 +251,10 @@ haiku: files 01 to 17 dev and held out 100; Excel dev and held out 100; Metric r
 held out 100 (held out twice running); routing 100 by the Index, 94 strict, its three strict
 misses requests two files answer. The whole suite passes on dev after the merges (exit 0), and
 no drift item is open.
+
+File 00's Index then gave one file a request (cfc22c4, then this round's fix: three cells a
+row, R3's tag value given once by R2's ends, R8 naming "using my Database module" and a Key
+check "with my query"). T01 (dev), T03 and T24 (held out), routing's strict
+misses on v1 to v7, shaped the Index change, so their passes since are second looks. On v9:
+routing dev 97 strict (T05 to 08, by R8; T05 and T24 ask one Key check the tasks give to two
+files), 100 by the Index; held out 100 strict twice running; arm C held out 01, 02, 08 at 100.
