@@ -1,7 +1,7 @@
 """The Copilot files, `copilot/` (Toolbox 7.2, ticket 13).
 
-Each file is what tools/copilot_files.py writes from its source, fits the 9,000 characters
-Copilot takes at once, spaces and line breaks included, and teaches only what is true:
+Each file is what tools/copilot_files.py writes from its source, keeps to the 9,000 characters
+each file is held to, spaces and line breaks included, and teaches only what is true:
 every Python block in it runs on the Example database in a stand-in Project (a block calling a
 Project action, which changes the Project, is read and its names checked, not run), every
 Toolbox name it uses is public, and it uses none of the words the glossary avoids that can only

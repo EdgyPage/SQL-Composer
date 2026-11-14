@@ -33,5 +33,7 @@ The version the user named (Q1), and the Upgrade step every raise ships.
   - the lineage pages' look;
   - a Conversion leaving out `SORT_ARRAY`'s `TRUE`, and keeping any other second argument
     with a `kept` finding (ticket 10);
+  - the Copilot files' limit raised from 8,000 to 9,000 characters (the user's call, dev
+    257d9724; `copilot/count_characters.py` allows 9,000);
   - every other change a user of 8.6 would notice, from each merged ticket's Answer.
 - No drift item open.

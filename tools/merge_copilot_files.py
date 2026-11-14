@@ -2,10 +2,10 @@
 
     python tools/merge_copilot_files.py
 
-The Copilot files, `copilot/[0-9][0-9]_*.txt`, are one per objective, each at most the 9,000
-characters Copilot takes at once. For convenience, this writes them into one document as well,
-in order, each under a line naming it: for reading them all at once, searching them, or a chat
-that takes more than 9,000 characters. It is far over that limit, so it lives in a folder of its
+The Copilot files, `copilot/[0-9][0-9]_*.txt`, are one per objective, each keeping to 9,000
+characters, one message to Copilot. For convenience, this writes them into one document as
+well, in order, each under a line naming it: for reading them all at once or searching them.
+It is far over that limit, so it lives in a folder of its
 own, which the per-file checks don't read. `tools/copilot_files.py` runs this after writing the
 files, and a test holds the document to them.
 """
@@ -20,7 +20,8 @@ COPILOT = ROOT / "copilot"
 MERGED = COPILOT / "all_in_one" / "all_copilot_files.txt"
 # What the document is, at its top, for someone who opens it before the README.
 HEADER = ("Every Copilot file in one document, for reading or searching them together. It is\n"
-          "many times the 9,000 characters each Copilot file keeps to, so it is not for Copilot: "
+          "many times the 9,000 characters each Copilot file keeps to, so it is not for "
+          "Copilot: "
           "there,\n"
           "paste or attach the separate files in copilot/, as 00_start_here.txt says.\n\n")
 

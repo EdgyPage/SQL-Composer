@@ -1,5 +1,5 @@
 """copilot/count_characters.py, which counts each Copilot file against the 9,000 characters
-Copilot takes at once (Toolbox 7.2, ticket 13)."""
+each one keeps to (Toolbox 7.2, ticket 13; raised from 8,000 in 8.7)."""
 
 from __future__ import annotations
 
