@@ -72,14 +72,15 @@ T1_READS = {"readme": ["sqlglot Composer", "The Workflows"], "how_tos": ["follow
 
 
 def _write_small_main(main: Path) -> Path:
-    """Enough of main for a run that isn't built: a README, a Toolbox folder with its how-to
-    page, and the Copilot files' start and one file."""
+    """Enough of main for a run that isn't built: a README, a Toolbox folder, the how-to page
+    and one other page in docs/, and the Copilot files' start and one file."""
     (main / ".github").mkdir(parents=True)
     (main / ".github" / "README.md").write_text(SMALL_README, encoding="utf-8")
     (main / "sqlglot_composer").mkdir()
     (main / "sqlglot_composer" / "shared.py").write_text("X = 1\n", encoding="utf-8")
-    (main / "sqlglot_composer" / "how_to.html").write_text(SMALL_HOW_TO_PAGE,
-                                                            encoding="utf-8")
+    (main / "docs").mkdir()
+    (main / "docs" / "how_to.html").write_text(SMALL_HOW_TO_PAGE, encoding="utf-8")
+    (main / "docs" / "examples.html").write_text("<p>Examples.</p>\n", encoding="utf-8")
     (main / "copilot").mkdir()
     for name in ("00_start_here.txt", "07_convert_hive.txt"):
         (main / "copilot" / name).write_text(
@@ -428,12 +429,13 @@ def _replace_in(path: Path, old: str, new: str) -> None:
 CHANGES = {
     "a README section it lists": (".github/README.md", "Each Workflow.", "Each one.", True),
     "a README section it doesn't list": (".github/README.md", "Start it.", "Start.", False),
-    "a how-to it lists": ("sqlglot_composer/how_to.html", "Follow one.", "Follow.", True),
-    "a how-to it doesn't list": ("sqlglot_composer/how_to.html", "Start one.", "Start.",
+    "a how-to it lists": ("docs/how_to.html", "Follow one.", "Follow.", True),
+    "a how-to it doesn't list": ("docs/how_to.html", "Start one.", "Start.",
                                  False),
-    "the how-to page around its how-tos": ("sqlglot_composer/how_to.html", "page's own",
+    "the how-to page around its how-tos": ("docs/how_to.html", "page's own",
                                            "page's", True),
     "a file of the Toolbox": ("sqlglot_composer/shared.py", "X = 1", "X = 2", True),
+    "another page of main's docs": ("docs/examples.html", "Examples.", "Example.", True),
     "a Copilot file it lists": ("copilot/07_convert_hive.txt", "Copilot file 07",
                                 "Copilot file seven", True),
 }

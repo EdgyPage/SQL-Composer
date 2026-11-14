@@ -40,14 +40,16 @@ import snapshot_recorder
 
 ROOT = Path(__file__).resolve().parent.parent
 FOLDER = ROOT / ".pytest_cache" / "memo" / "generated"
-SHARED_INPUTS = ("sqlglot_composer", "tools", "worked_examples", "tests/conftest.py",
-                 "tests/snapshot_recorder.py", "tests/generated_memo.py",
+SHARED_INPUTS = ("sqlglot_composer", "example_database", "tools", "worked_examples",
+                 "tests/conftest.py", "tests/snapshot_recorder.py", "tests/generated_memo.py",
                  "requirements-dev.txt")
 # Each generated output: what it is generated from beside SHARED_INPUTS, the committed output
 # and its test's file.
 INPUTS = {
-    "how_to_page": ("sqlglot_composer/how_to.html", "tests/test_how_tos.py"),
-    "example_gallery": ("sqlglot_composer/examples.html", "tests/test_example_gallery.py"),
+    "how_to_page": ("docs/main/how_to.html", "example_projects", "tests/test_how_tos.py"),
+    "example_gallery": ("docs/main/examples.html", "tests/test_example_gallery.py"),
+    "example_projects_page": ("docs/main/example_projects.html", "example_projects",
+                              "tests/test_example_projects_page.py"),
     "example_project_starter": ("example_projects/starter", "tests/test_example_projects.py"),
     "example_project_intermediate": ("example_projects/intermediate",
                                      "tests/test_example_projects.py"),

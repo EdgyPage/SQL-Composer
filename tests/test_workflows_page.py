@@ -17,14 +17,14 @@ from pathlib import Path
 import pytest
 import toolbox_registry
 import workflows_page
-from conftest import toolbox_folder, toolbox_module
+from conftest import docs_folder, toolbox_module
 from offline_policy import external_references
 from test_example_gallery import TagCounter
 from test_html_page import COLOUR_FUNCTION, HEX, STYLE_ATTRIBUTE, TOKEN_BLOCK, TOKEN_USE
 
 ROOT = Path(__file__).resolve().parent.parent
 workflows = toolbox_module("workflows")
-PAGE = toolbox_folder() / "workflows.html"
+PAGE = docs_folder() / "workflows.html"
 # Every Workflow the page draws, as the ticket names them, and the Excel path. The schedule
 # Workflow is ticket 08's, built alongside this one.
 EXPECTED = ("references", "new_table", "convert", "promote", "change_a_saved_table", "upgrade",
@@ -164,8 +164,8 @@ def test_every_tag_on_the_page_is_closed() -> None:
 def test_the_readme_links_the_page_from_the_workflows() -> None:
     readme = (ROOT / "docs" / "clean-branch-readme.md").read_text(encoding="utf-8")
     workflows_section = readme.split("\n## The Workflows\n", 1)[1].split("\n## ", 1)[0]
-    assert f"](../{toolbox_registry.FOLDER}/workflows.html)" in workflows_section
+    assert f"](../{toolbox_registry.DOCS}/workflows.html)" in workflows_section
 
 
-def test_the_page_ships_with_the_toolbox() -> None:
+def test_the_page_ships_in_mains_docs() -> None:
     assert "workflows.html" in toolbox_registry.PAGES

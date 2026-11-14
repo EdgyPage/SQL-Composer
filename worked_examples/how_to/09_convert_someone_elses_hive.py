@@ -44,26 +44,24 @@ so you get the rest converted rather than none of it.
 
 Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox's
 fixed layout. Work in your own Project. This page uses a copy of the Starter Example project,
-the one the how-tos before this one build, whose Dev Database, DEV's "database" in
+which the download's Example projects page shows file by file, made in the folder the page runs
+in by `example_project("starter")`, a line you leave out in your own Project. It is much like
+the one the how-tos before this one build, and its Dev Database, DEV's "database" in
 admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV's
 "location_root", the folder its tables' files go under, as
 [Set your Database settings](#set_your_database_settings) shows; this page stands in for your
 edit:
 
->>> import shutil
 >>> from pathlib import Path
->>> import sqlglot_composer
->>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
->>> _ = shutil.copytree(download / "example_projects" / "starter", ".", dirs_exist_ok=True)
->>> import example_database
+>>> example_project("starter")
 >>> from sqlglot_composer import project, run_execute, hive_settings, show_hive
 >>> from warehouse import connect, query, execute
->>> connect(example_database)
+>>> connect(conn)
 >>> databases = Path("admin/databases.py")
 >>> _ = databases.write_text(databases.read_text(encoding="utf-8").replace(
 ...     '"<DEV_LOCATION_ROOT>"', '"/data/dev"'), encoding="utf-8")
 
-Done when `connect(example_database)` runs without an error. Then step 2.
+Done when `connect(conn)` runs without an error. Then step 2.
 
 ### 2. Save the scripts
 
@@ -127,22 +125,21 @@ Done when `project.convert` prints `Converted ops_reports: ...`. Then step 4.
 ### 4. Read what each statement became
 
 Goal: know what the Conversion made of each statement. The scripts' order doesn't matter: the
-batch orders each statement by what reads what. Each table the scripts write is a Saved table
-in mart, with its Table folder, the folder that holds everything about one Saved table, its
-Table reference, the file that describes the table's columns, Partitions and Key, and its
-Decisions to answer. Its location=, the folder its files go in, is placed under DEV's
-"location_root", as /data/dev/mart.db/fail_history, so it is no Decision. The one exception is the temporary table: a Staging table, a table a
-script writes only so a statement after it can read it. The weekly script reads it, so it is
-folded into fail_history, its query a Derived table there, a named query that lives only
-inside the Statement that reads it, and never made a table of its own. To keep it a table
-instead, give staging={"ops_reports.failed_runs": "keep"}. The FROM with two INSERTs gives each
-target a Saved table of its own. The DROP becomes nothing, and the SET line becomes the Session
-settings of the writes after it: a Session setting is a Hive SET sent before a Statement. The
-Script tag is read past, as if a day stood there: alerts_by_severity's WHERE becomes
-WHERE(equals(a.dt, script_tag(TAGS["RUN_DAY"]))), and TAGS, in its Table reference, says
-<PARM="RUN_DAY"/> until you answer it.
-admin/workflows/convert/ops_reports/batch.md names where each script is, read where it is,
-and lists what each statement became:
+batch orders each statement by what reads what. Each table the scripts write is a Saved table in
+mart, with its Table folder, the folder that holds everything about one Saved table, its Table
+reference, the file that describes the table's columns, Partitions and Key, and its Decisions to
+answer. Its location=, the folder its files go in, is placed under DEV's "location_root", as
+/data/dev/mart.db/fail_history, so it is no Decision. The one exception is the temporary table:
+a Staging table, a table a script writes only so a statement after it can read it. The weekly
+script reads it, so it is folded into fail_history, its query a Derived table there, a named
+query that lives only inside the Statement that reads it, and never made a table of its own. To
+keep it a table instead, give staging={"ops_reports.failed_runs": "keep"}. The FROM with two
+INSERTs gives each target a Saved table of its own. The DROP becomes nothing, and the SET line
+becomes the Session settings of the writes after it: a Session setting is a Hive SET sent before
+a Statement. The Script tag is read past, as if a day stood there: alerts_by_severity's WHERE
+becomes WHERE(equals(a.dt, script_tag(TAGS["RUN_DAY"]))), and TAGS, in its Table reference, says
+<PARM="RUN_DAY"/> until you answer it. admin/workflows/convert/ops_reports/batch.md names where
+each script is, read where it is, and lists what each statement became:
 
 >>> print(Path("admin/workflows/convert/ops_reports/batch.md").read_text(encoding="utf-8"))
 # Batch ops_reports

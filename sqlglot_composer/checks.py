@@ -34,11 +34,6 @@ _EXPORTED = re.compile(r"exported (?P<when>\d{4}-\d\d-\d\d \d\d:\d\d) from dev c
 # Each file's line: its git hash, two spaces, and its name.
 _FILE_LINE = re.compile(r"(?P<hash>[0-9a-f]{40})  (?P<name>\S+)")
 
-# What each file of a Toolbox folder that isn't Python holds, for a stop that finds it missing.
-_PAGES = {"examples.html": "the Example gallery", "how_to.html": "the how-tos",
-          "workflows.html": "the Workflows overview"}
-
-
 class VersionFile(NamedTuple):
     """What a folder's version.txt says: the Toolbox, its version, when it was exported (None on
     dev) and each file's hash (None on dev)."""
@@ -165,21 +160,13 @@ def _stop_for_extra_files(extra: list[str], on_disk: str, product: str, number: 
 
 def _stop_for_missing_files(missing: list[str], on_disk: str, product: str, number: str,
                             importing: str) -> NoReturn:
-    """Stop for files version.txt lists that the folder, named `on_disk`, doesn't hold, saying
-    what each missing kind of file leaves you without."""
-    lost = ["a missing .py file would make a part of it fail later, far from the cause"]
-    lost += [f"a missing {name} leaves you without {_PAGES[name]}"
-             for name in missing if name in _PAGES]
-    # The losses as a list with a comma before its "and", unlike shared.in_words.
-    if len(lost) > 1:
-        losses = ", ".join(lost[:-1]) + f", and {lost[-1]}"
-    else:
-        losses = lost[0]
+    """Stop for files version.txt lists that the folder, named `on_disk`, doesn't hold."""
     _stop(
         what=f"{', '.join(missing)} "
         f"{singular_or_plural(len(missing), 'is', 'are')} missing "
         f"from the {on_disk} folder.",
-        why=f"Every file of {product} {number} is needed: {losses}.",
+        why=f"Every file of {product} {number} is needed: a missing .py file would make a "
+        "part of it fail later, far from the cause.",
         fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
         f"the {number} download.",
         folder=importing,

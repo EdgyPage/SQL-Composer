@@ -21,10 +21,10 @@ import pytest
 import generated_memo
 import sqlglot_composer
 from offline_policy import external_references
-from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
+from conftest import docs_folder, gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
-GALLERY = toolbox_folder() / "examples.html"
+GALLERY = docs_folder() / "examples.html"
 sys.path.insert(0, str(ROOT / "tools"))
 
 import example_gallery  # noqa: E402

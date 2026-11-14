@@ -1,4 +1,5 @@
-"""Write the how-to page, `sqlglot_composer/how_to.html`, from the how-tos.
+"""Write the how-to page, `docs/main/how_to.html` (main's `docs/how_to.html`), from the
+how-tos.
 
 Run it on `dev` after changing a how-to in `worked_examples/how_to/`, or anything that changes
 what a how-to's steps show:
@@ -78,9 +79,15 @@ While the steps run, today is 2026-09-25, as on the Example gallery, and each ho
 folder of its own, deleted afterwards. A lineage's or a Project action's time, your scripts'
 commit and the Toolbox version are pinned, so the page comes out the same on every run.
 
+A how-to connects as a notebook does, `connect(conn)`, where `conn` is your team's connection:
+here, and in the doctest, `conn` is the Example database, given to the steps before they run,
+since main doesn't hold it (Toolbox 8.7, ticket 13). Its tables are shown instead: under each
+how-to's title, each table of the Example database its Hive reads, sent to query or execute or
+built in a Statement it makes, with its columns, their types and its first rows.
+
 A how-to links only to how-tos and the Example gallery, and check_links refuses any other link.
-It names the Example projects in prose, by their folder, which main holds beside the Toolbox's
-folder.
+It names the Example projects in prose, by their folder, which main's Example projects page,
+beside this one in docs/, shows.
 """
 
 from __future__ import annotations
@@ -93,8 +100,10 @@ import importlib.util
 import io
 import os
 import re
+import shutil
 import sys
 import textwrap
+import types
 import warnings
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -116,6 +125,7 @@ from sqlglot_composer import (  # noqa: E402
     unchecked,
 )
 from sqlglot_composer.clauses import Statement  # noqa: E402
+from sqlglot_composer.shared import items_of  # noqa: E402
 from example_gallery import (  # noqa: E402
     FILTER_SCRIPT,
     PANDAS_LABEL,
@@ -136,8 +146,10 @@ from example_gallery import (  # noqa: E402
 )
 
 HOW_TOS = ROOT / "worked_examples" / "how_to"
-PAGE_PATH = ROOT / toolbox_registry.FOLDER / "how_to.html"
-GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
+PAGE_PATH = ROOT / toolbox_registry.DOCS_ON_DEV / "how_to.html"
+GALLERY = ROOT / toolbox_registry.DOCS_ON_DEV / "examples.html"
+# The Example projects page, beside this one, which the page's header links.
+EXAMPLE_PROJECTS_PAGE = "example_projects.html"
 
 HEADINGS = ("Goal", "When you'd use it", "Steps", "Check it worked", "Common mistakes", "Next")
 
@@ -412,12 +424,12 @@ def run_as_doctest(path: Path) -> tuple[int, str]:
 
     A Warning a step gives is shown on the page, and here doesn't stop the step.
     """
-    scope: dict[str, object] = {}
+    scope: dict[str, object] = given_names()
     runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
     report: list[str] = []
     line = 0
     with (warnings.catch_warnings(record=True), times_pinned(), project_on_the_path(Path.cwd()),
-          pandas_standing_in(stand_ins_of(path), scope, [])):
+          team_connection_given(), pandas_standing_in(stand_ins_of(path), scope, [])):
         warnings.simplefilter("always")
         for number, part in enumerate(with_file_blocks(docstring_of(path)), start=1):
             if isinstance(part, FileBlock):
@@ -524,6 +536,113 @@ def pandas_standing_in(stand_ins: dict[str, Callable[[], pd.DataFrame]],
 
     with mock.patch.object(example_database, "query", query):
         yield
+
+
+# --- The tables a how-to reads ---------------------------------------------------------------
+
+# The connection a how-to's steps give connect(...), as `conn`: the Example database.
+CONNECTION = "conn"
+# Dev's Example projects, which main shows as a page, not as folders.
+EXAMPLE_PROJECTS = ROOT / toolbox_registry.EXAMPLE_PROJECTS
+
+
+def example_project(name: str) -> None:
+    """Copy dev's Example project `name`, such as "intermediate", into the folder the steps
+    run in, as an Intermediate how-to's first step does: main holds no Example project to copy,
+    so the page gives its steps this, as it gives them `conn`."""
+    shutil.copytree(EXAMPLE_PROJECTS / name, ".", dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("__pycache__"))
+
+
+@contextlib.contextmanager
+def team_connection_given() -> Iterator[None]:
+    """While it lasts, `from team_connection import conn`, as a notebook a how-to shows writes
+    it, gives the Example database, as a file of your team's gives its connection at work."""
+    module = types.ModuleType("team_connection")
+    module.conn = example_database
+    with mock.patch.dict(sys.modules, {"team_connection": module}):
+        yield
+
+
+def given_names() -> dict[str, object]:
+    """What a how-to's steps use that main doesn't hold, given to them before they run:
+    `conn`, the Example database's connection, and `example_project`."""
+    return {CONNECTION: example_database, "example_project": example_project}
+# Each table of the Example database, by its full name, such as ops.job_runs.
+EXAMPLE_TABLES = tuple(f"ops.{name}" for name, value in example_database.doctest_names().items()
+                       if isinstance(value, sqlglot_composer.Table))
+# A table named in Hive, such as ops.job_runs, or `ops`.`job_runs`.
+TABLE_IN_HIVE = re.compile(r"\bops`?\.`?(\w+)")
+# How many of a table's rows its preview shows.
+PREVIEW_ROWS = 5
+
+
+@contextlib.contextmanager
+def hive_recorded(sent: list[str]) -> Iterator[None]:
+    """While it lasts, each Hive string sent to the Example database's query or execute is
+    added to `sent`, before it runs."""
+    real_query, real_execute = example_database.query, example_database.execute
+
+    def query(hive: str) -> pd.DataFrame:
+        sent.append(hive)
+        return real_query(hive)
+
+    def execute(hive: str) -> None:
+        sent.append(hive)
+        real_execute(hive)
+
+    with (mock.patch.object(example_database, "query", query),
+          mock.patch.object(example_database, "execute", execute)):
+        yield
+
+
+def built_hive(scope: dict[str, object]) -> list[str]:
+    """The Hive of each Statement the steps made, by any name, alone or in a list."""
+    hives = []
+    for value in scope.values():
+        for one in items_of(value):
+            if isinstance(one, Statement):
+                hives.append(sqlglot_composer.to_hive(one))
+    return hives
+
+
+def tables_read(hives: list[str]) -> list[str]:
+    """The Example database's tables `hives` name, in the order EXAMPLE_TABLES lists them."""
+    named = set()
+    for hive in hives:
+        named.update(f"ops.{name}" for name in TABLE_IN_HIVE.findall(hive))
+    return [table for table in EXAMPLE_TABLES if table in named]
+
+
+def table_preview_html(table: str) -> str:
+    """One table of the Example database: its columns and their types, what it is partitioned
+    by, and its first PREVIEW_ROWS rows, folded under a line naming it."""
+    described = example_database.query(f"DESCRIBE {table}")
+    names = list(described["col_name"])
+    # DESCRIBE lists the columns, then a blank row, then the partition columns again.
+    end = names.index("") if "" in names else len(names)
+    columns = described.iloc[:end].rename(columns={"col_name": "column", "data_type": "type",
+                                                   "comment": "what it holds"})
+    partitioned_by = [name for name in names[end:] if name and not name.startswith("#")]
+    count = int(example_database.query(f"SELECT COUNT(*) AS n FROM {table}")["n"][0])
+    rows = example_database.query(f"SELECT * FROM {table} LIMIT {PREVIEW_ROWS}")
+    by = (f", partitioned by {', '.join(partitioned_by)}" if partitioned_by
+          else ", not partitioned")
+    return (f'<details class="table" data-table="{escape(table)}"><summary><code>'
+            f"{escape(table)}</code>: {len(columns)} columns{by}, {count} rows</summary>\n"
+            + label("Its columns and their types") + table_html(columns)
+            + label(f"Its first {min(PREVIEW_ROWS, count)} rows of {count}")
+            + table_html(rows) + "\n</details>")
+
+
+def tables_html(tables: list[str]) -> str:
+    """The tables a how-to reads, each to open, or a line saying it reads none."""
+    if not tables:
+        return ('<div class="tables"><p class="note">It reads none of the Example database\'s '
+                "tables.</p></div>")
+    return ('<div class="tables">\n<p class="label">The Example database\'s tables it reads: '
+            "open one to see its columns and first rows</p>\n"
+            + "\n".join(table_preview_html(table) for table in tables) + "\n</div>")
 
 
 # A written file longer than this, in lines, is folded on the page, such as a Lineage file of
@@ -738,12 +857,17 @@ def times_pinned() -> Iterator[None]:
 def how_to_html(how_to: HowTo) -> str:
     """A how-to's entry on the page, its steps run in a fresh notebook's scope."""
     shown = []
-    with example_setting(), times_pinned(), project_on_the_path(Path.cwd()):
-        # A notebook's own scope is named __main__.
-        notebook = Notebook(scope={"__name__": "__main__"}, folder=Path.cwd())
-        with pandas_standing_in(how_to.stand_ins, notebook.scope, notebook.answered):
+    sent: list[str] = []
+    with (example_setting(), times_pinned(), project_on_the_path(Path.cwd()),
+          team_connection_given()):
+        # A notebook's own scope is named __main__; conn is the connection it gives connect.
+        notebook = Notebook(scope={"__name__": "__main__", **given_names()},
+                            folder=Path.cwd())
+        with (hive_recorded(sent),
+              pandas_standing_in(how_to.stand_ins, notebook.scope, notebook.answered)):
             for heading, text in sections(how_to):
                 shown += [f"<h4>{escape(heading)}</h4>", section_html(text, notebook)]
+    tables = tables_html(tables_read(sent + built_hive(notebook.scope)))
     for name in how_to.stand_ins:
         if not isinstance(notebook.scope.get(name), Statement):
             raise HowToRefused(f"How-to {how_to.number} has {name}_in_pandas, but none of its "
@@ -755,7 +879,7 @@ def how_to_html(how_to: HowTo) -> str:
     group = GROUP_NAMED[how_to.group]
     badge = f'<span class="badge {group.id}">{escape(group.name)}</span>'
     return (f'<section class="entry" id="{how_to.slug}">\n'
-            f"<h3>{how_to.number}. {inline(how_to.title)} {badge}</h3>\n"
+            f"<h3>{how_to.number}. {inline(how_to.title)} {badge}</h3>\n{tables}\n"
             + "\n".join(block for block in shown if block) + "\n"
             + names_html(names_in("\n".join(notebook.sources))) + "\n</section>")
 
@@ -771,13 +895,15 @@ def gallery_ids() -> set[str]:
 
 
 def check_links(page: str) -> None:
-    """Refuse a link to anything but a place on the page or an entry of the Example gallery."""
+    """Refuse a link to anything but a place on the page, an entry of the Example gallery, or
+    the Example projects page, which the page's header links."""
     on_page = set(re.findall(r'\bid="([^"]+)"', page))
     entries = gallery_ids()
     for target in re.findall(r'href="([^"]*)"', page):
         page_name, _, place = unescape(target).partition("#")
         if (page_name == "" and place in on_page) or (
-                page_name == "examples.html" and (not place or place in entries)):
+                page_name == "examples.html" and (not place or place in entries)) or (
+                target == EXAMPLE_PROJECTS_PAGE):
             continue
         raise HowToRefused(f"A how-to links to {target}, which is neither a how-to nor an "
                            "entry of the Example gallery. Link to [text](#slug) or "
@@ -807,7 +933,6 @@ def how_to_page() -> str:
     filled = {
         "STYLE": STYLE + HOW_TO_STYLE,
         "PRODUCT": escape(toolbox_registry.PRODUCT),
-        "FOLDER": escape(toolbox_registry.FOLDER),
         "VERSION": escape(sqlglot_composer.TOOLBOX_VERSION),
         "CHAIN": chain_html(),
         "CONTENTS": "\n".join(contents),
@@ -857,6 +982,8 @@ vertical-align:2px}
 .badge.intermediate{color:#6b4500;background:#fbefdc}
 pre.file{white-space:pre-wrap}
 details summary{cursor:pointer;color:#555;margin:4px 0}
+.tables{background:#fafafa;border:1px solid #eee;border-radius:4px;padding:2px 10px;\
+margin:6px 0 10px} .tables .label{margin-top:4px}
 .code{position:relative} .code pre{padding-right:64px}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;\
 cursor:pointer}
@@ -900,14 +1027,23 @@ are one notebook: paste them in order, starting with the import. Each step shows
 then what it gives: its Hive (ready to paste into another program), its result on the Example
 database, or a file it writes. The Example database is nine made-up tables the Toolbox's makers
 keep, which the download doesn't hold: in your own notebook, your tables and your warehouse
-take their place. Every Hive, result, refusal and Warning here comes from running the steps.</p>
+take their place, and <code>connect(conn)</code> gives your team's connection, where here it
+gave the Example database's. An Intermediate how-to starts with
+<code>example_project("intermediate")</code>, a line of this page alone, not a Toolbox name: it
+copies the Intermediate Example project, which the Example projects page shows, into the folder
+the page runs in, and in your own Project you leave it out. Under each how-to's title, each
+table it reads opens to show its columns, their types and its first rows. Every Hive, result,
+refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
-2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
-run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
-your real today, so in your own notebook it finds no rows on the Example database: write
-<code>between</code> with the dates instead.</p>
-<p>The <a href="examples.html">Example gallery</a>, beside this page in the
-<code>__FOLDER__</code> folder, holds every Worked example, and the how-tos link to it.</p>
+2026-09-24 (<code>ops.job_events</code>, <code>ops.job_owners</code> and
+<code>ops.region_costs</code>, which the Intermediate how-tos read most, hold 14 days), and the
+steps here were run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it
+counts back from your real today, so in your own notebook it finds no rows on the Example
+database: write <code>between</code> with the dates instead.</p>
+<p>The <a href="examples.html">Example gallery</a>, beside this page in the download's
+<code>docs</code> folder, holds every Worked example, and the how-tos link to it. The
+<a href="example_projects.html">Example projects</a> page, beside it, shows the Starter and
+Intermediate Example projects the how-tos name, each file and notebook with what it gives.</p>
 <p>A Statement is built along a chain of types, each made by a call on the one before. A step
 says the type of each value it makes in a comment, such as <code># -&gt; Statement</code>.</p>
 __CHAIN__

@@ -28,8 +28,8 @@ tables.
 
 The Example database, the small made-up tables this page runs on, can be read but not written
 to. So on this page each write shows its Hive, ready to paste, and a write that is sent goes to
-warehouse.py's execute, which here calls `example_database.execute`: it prints the write's
-first line and changes nothing. At work, the same calls send it to your warehouse, through your
+warehouse.py's execute, which here calls the Example database's execute: it prints the
+write's first line and changes nothing. At work, the same calls send it to your warehouse, through your
 own execute.
 
 ## Steps
@@ -50,8 +50,7 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
@@ -298,7 +297,8 @@ Its text cell starts with a list of what each `<...>` is for. Type over each one
 cells. Then, in the text cell, put one line saying what a row is in place of the TODO line.
 Once every step the text cell lists is done, you may cut it down to that line and what the
 table is, as here. Here is the whole notebook, filled in, as it is in the Starter Example
-project, a Project made for the Example database to read and copy from:
+project, a Project made for the Example database, shown on the download's Example projects
+page:
 
 The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, after you fill it in:
 
@@ -808,10 +808,11 @@ Done when it says `Printed 1 write in order, and sent nothing.` Then step 12.
 
 Goal: each Saved table written, in order. With your query and execute, from warehouse.py,
 `project.run_tables` sends the writes. This page gave connect(...) the Example database as its
-connection, in step 1, so here its execute prints the first line of each thing sent. It takes query= as well as execute=, since a write() may give an Admin statement, one
-that changes a Saved table's definition or deletes its data, or an Unchecked statement, Hive
-written by hand, and one that reads rows goes to your query. A write fills dt from its rows, so
-the Session setting `"dynamic_partitions"` goes first:
+connection, in step 1, so here its execute prints the first line of each thing sent. It takes
+query= as well as execute=, since a write() may give an Admin statement, one that changes a
+Saved table's definition or deletes its data, or an Unchecked statement, Hive written by hand,
+and one that reads rows goes to your query. A write fills dt from its rows, so the Session
+setting `"dynamic_partitions"` goes first:
 
 >>> project.run_tables(execute=execute)
 execute: SET hive.exec.dynamic.partition=true

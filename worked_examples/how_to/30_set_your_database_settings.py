@@ -28,16 +28,14 @@ as the account a connection runs as, reaches your code the same way.
 
 ### 1. Start from the Intermediate Example project
 
-Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in a copy of
-the Intermediate Example project, at its top: copy `example_projects/intermediate/` from the
-download to a folder of your own, copy the `sqlglot_composer` folder into it, as a Project
-holds it, and open a notebook there. This page makes the same copy in its first step:
+Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in your own
+Project, at its top. This page works in a copy of the Intermediate Example project, which the
+download's Example projects page shows file by file: `example_project("intermediate")` makes
+that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name,
+as `conn` is this page's connection: in your own Project leave it out.
 
->>> import shutil
 >>> from pathlib import Path
->>> import sqlglot_composer
->>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
->>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
+>>> example_project("intermediate")
 >>> from sqlglot_composer import database_settings, project
 
 Done when the folder you work in holds the Project's admin/ folder. Then step 2.

@@ -26,7 +26,7 @@ READ = [ROOT / "docs" / "clean-branch-readme.md", ROOT / "CONTEXT.md",
         *sorted((ROOT / "example_projects").rglob("*.ipynb")),
         *[path for path in sorted((ROOT / "sqlglot_composer").glob("*.py"))
           if path.name != "upgrades.py"],
-        ROOT / "sqlglot_composer" / "how_to.html", ROOT / "sqlglot_composer" / "examples.html"]
+        *sorted((ROOT / "docs" / "main").glob("*.html"))]
 RETIRED = [
     *[f"admin/{name}.ipynb" for name in upgrades.RETIRED_IN_8_0],
     "admin/conversions/", "finish_conversion", "conversion_notebook",

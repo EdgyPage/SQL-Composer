@@ -31,15 +31,15 @@ line.
 ### 1. Start from a Project an older Toolbox wrote
 
 Goal: a Project to upgrade. Work in your own Project. This page makes one: a copy of the
-Intermediate Example project, with the files and the folder 8.0's Upgrade adds taken out, and
+Intermediate Example project, which the download's Example projects page shows file by file,
+made by `example_project("intermediate")`, a line you leave out in your own Project, with the
+files and the folder 8.0's Upgrade adds taken out, and
 7.2 recorded as the version that last wrote it, so it looks to `project.upgrade()` like a
 Project 7.2 left:
 
 >>> import shutil
 >>> from pathlib import Path
->>> import sqlglot_composer
->>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
->>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
+>>> example_project("intermediate")
 >>> for added in ["admin/databases.py", "admin/sent.csv", "admin/remove.ipynb"]:
 ...     Path(added).unlink()
 >>> shutil.rmtree("admin/workflows")

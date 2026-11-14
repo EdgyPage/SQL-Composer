@@ -128,11 +128,12 @@ NAMED_IN_MAIN = re.compile(r"\bmain/([\w./-]*\w)")
 # How much of an inputs hash a row of results.md names.
 SHORT_HASH = 16
 # Main, hashed by part (Toolbox 8.7, ticket 01): its README, by `##` section; its how-to page,
-# by how-to, each an entry of the page; the Toolbox folder, whole, but for its how-tos; and
-# each Copilot file.
+# by how-to, each an entry of the page; the Toolbox folder and the other pages of main's docs/
+# (ticket 13), whole, but for the how-tos; and each Copilot file.
 README = ".github/README.md"
 TOOLBOX = "sqlglot_composer"
-HOW_TO_PAGE = f"{TOOLBOX}/how_to.html"
+DOCS = export_clean.DOCS
+HOW_TO_PAGE = f"{DOCS}/how_to.html"
 COPILOT = "copilot"
 HOW_TO_ENTRY = re.compile(r'<section class="entry" id="([^"]+)">.*?</section>', re.DOTALL)
 # What a scenario's path reads of main, in the file beside its answer key: each kind, and how a
@@ -507,7 +508,7 @@ def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True,
     the team gave files, names `from_your_team/`, and `project_given`, when the user has a
     Project already, `my_project/`."""
     folders = ["Its `main/` folder is the Toolbox as you downloaded it, with its README "
-               "(`main/.github/README.md`) and its guides."]
+               "(`main/.github/README.md`) and its guides, the pages in `main/docs/`."]
     if given:
         folders.append("`from_your_team/` holds what your team gave you.")
     if project_given:
@@ -622,15 +623,19 @@ def readme_sections(text: str) -> dict[str, str]:
 
 def main_parts(main: Path) -> dict[str, str | dict[str, str]]:
     """Main's tree, hashed by part, the export's stamp left out of each: `toolbox`, one hash
-    of the Toolbox folder, its how-to page's how-tos left out; `readme`, each `##` section of
-    the README; `how_tos`, each how-to of the how-to page, by its link; and `copilot`, each
-    Copilot file, by its path from copilot/. A part main hasn't is empty."""
+    of the Toolbox folder and the pages in docs/, the how-to page's how-tos left out;
+    `readme`, each `##` section of the README; `how_tos`, each how-to of the how-to page, by
+    its link; and `copilot`, each Copilot file, by its path from copilot/. A part main hasn't
+    is empty."""
     toolbox = tree_hashes(main / TOOLBOX, main_file_hash) if (main / TOOLBOX).is_dir() else {}
+    if (main / DOCS).is_dir():
+        toolbox.update({f"{DOCS}/{path}": hashed for path, hashed in
+                        tree_hashes(main / DOCS, main_file_hash).items()})
     how_tos = {}
     if (main / HOW_TO_PAGE).is_file():
         page = main_text(main / HOW_TO_PAGE)
         how_tos = {found[1]: text_hash(found[0]) for found in HOW_TO_ENTRY.finditer(page)}
-        toolbox[Path(HOW_TO_PAGE).name] = text_hash(HOW_TO_ENTRY.sub("", page))
+        toolbox[HOW_TO_PAGE] = text_hash(HOW_TO_ENTRY.sub("", page))
     readme = {}
     if (main / README).is_file():
         readme = {heading: text_hash(text)

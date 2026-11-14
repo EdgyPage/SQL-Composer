@@ -30,11 +30,11 @@ import how_to_page
 import example_database
 import sqlglot_composer
 from offline_policy import external_references
-from conftest import FOLDER, PRODUCT, gallery_sections, page_text, toolbox_folder
+from conftest import FOLDER, PRODUCT, docs_folder, gallery_sections, page_text
 from test_example_gallery import TagCounter
 
 ROOT = Path(__file__).resolve().parent.parent
-PAGE = toolbox_folder() / "how_to.html"
+PAGE = docs_folder() / "how_to.html"
 HOW_TOS = how_to_page.how_to_paths()
 SLUGS = [how_to_page.slug_of(path) for path in HOW_TOS]
 PUBLIC = set(sqlglot_composer.__all__)
@@ -43,6 +43,8 @@ PUBLIC = set(sqlglot_composer.__all__)
 # named in prose as `warehouse.py`), the Example database's database, the Toolbox's folders,
 # and its project module, which a how-to may name in prose, such as `project.check()`.
 OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project", "warehouse", "query", "execute",
+                 # what the page gives the steps, as main holds neither (Toolbox 8.7).
+                 "conn", "example_project",
                  # warehouse.py's own, which how-to 01's query written over a cursor calls.
                  "_check_connected", "_connection"}
 
@@ -234,7 +236,7 @@ def test_each_link_goes_to_a_how_to_or_a_gallery_entry_that_exists(path: Path) -
             assert place in SLUGS, f"no how-to {place}"
         else:
             assert page_name == "examples.html", f"{target} is neither a how-to nor the gallery"
-            assert not place or place in gallery_sections(toolbox_folder()), (
+            assert not place or place in gallery_sections(docs_folder()), (
                 f"no entry {place} on the Example gallery")
 
 
@@ -244,9 +246,82 @@ def test_every_link_on_the_page_lands() -> None:
         page_name, _, place = target.partition("#")
         if page_name == "":
             assert place in ids, target
+        elif target == how_to_page.EXAMPLE_PROJECTS_PAGE:
+            assert (docs_folder() / target).is_file(), target
         else:
             assert page_name == "examples.html", target
-            assert not place or place in gallery_sections(toolbox_folder()), target
+            assert not place or place in gallery_sections(docs_folder()), target
+
+
+# --- The tables each how-to reads (Toolbox 8.7, ticket 13) -----------------------------------
+
+
+def without_tables(html_text: str) -> str:
+    """A how-to's HTML without the tables it reads, which hold result tables of their own."""
+    return re.sub(r'<div class="tables">.*?\n</div>|<div class="tables">.*?</div>', "",
+                  html_text, flags=re.DOTALL)
+
+
+def tables_shown(section: str) -> list[str]:
+    """The Example database's tables a how-to's entry shows, in order."""
+    return re.findall(r'<details class="table" data-table="([^"]+)">', section)
+
+
+def test_each_how_to_shows_its_tables_under_its_title() -> None:
+    """Under the title, before Goal: each table it reads, or a line saying it reads none."""
+    for slug, section in page_sections().items():
+        top = section.split("<h4>Goal</h4>", 1)[0]
+        assert '<div class="tables">' in top, slug
+        assert tables_shown(top) == tables_shown(section), slug
+
+
+def test_each_how_to_that_runs_on_the_example_database_shows_a_table() -> None:
+    for slug, section in page_sections().items():
+        if "Result on the Example database" in section:
+            assert tables_shown(section), slug
+
+
+def test_each_table_shown_has_its_columns_types_and_first_rows() -> None:
+    for slug, section in page_sections().items():
+        for table in tables_shown(section):
+            shown = re.search(rf'<details class="table" data-table="{re.escape(table)}">'
+                              r"(.*?)</details>", section, re.DOTALL).group(1)
+            described = example_database.query(f"DESCRIBE {table}")
+            columns = list(described["col_name"])
+            columns = columns[:columns.index("")] if "" in columns else columns
+            for column in columns:
+                kind = described[described["col_name"] == column]["data_type"].iloc[0]
+                assert f"<tr><td>{column}</td><td>{kind}</td>" in shown, (slug, table, column)
+            first = example_database.query(f"SELECT * FROM {table} LIMIT 1")
+            first_row = "".join(f"<td>{example_gallery.cell_html(value)}</td>"
+                                for value in first.iloc[0])
+            assert first_row in shown, (slug, table)
+            assert re.search(r"Its first \d+ rows of \d+", shown), (slug, table)
+
+
+def test_the_tables_shown_are_those_the_steps_hive_reads(tmp_path: Path) -> None:
+    steps = (">>> from sqlglot_composer import *\n"
+             ">>> jobs = conn.jobs  # conn is the Example database here\n"
+             ">>> run_query(statement(SELECT(jobs.job_id), FROM(jobs)), conn.query)\n"
+             "   job_id\n0       1\n1       2\n2       3\n3       4\n"
+             ">>> runs = conn.job_runs\n"
+             ">>> built = statement(SELECT(runs.run_id), FROM(runs),\n"
+             '...                   WHERE(equals(runs.dt, "2026-09-23")))\n')
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, steps)))
+    # ops.jobs, sent to query; ops.job_runs, only built: both are read.
+    assert tables_shown(shown) == ["ops.jobs", "ops.job_runs"]
+
+
+def test_a_how_to_that_reads_no_table_says_so(tmp_path: Path) -> None:
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, ">>> 1 + 1\n2")))
+    assert "It reads none of the Example database's tables." in page_text(shown)
+
+
+def test_no_how_to_tells_you_to_import_the_example_database() -> None:
+    """Main doesn't hold it (Toolbox 8.7, ticket 12): the page gives the steps `conn`."""
+    for path in HOW_TOS:
+        assert "import example_database" not in how_to_page.docstring_of(path), path.name
+    assert "import example_database" not in page()
 
 
 # --- The page --------------------------------------------------------------------------------
@@ -297,7 +372,7 @@ def test_the_readme_gives_each_group_the_words_the_page_does() -> None:
 
 
 def test_the_example_gallery_beside_the_page_points_to_it() -> None:
-    gallery = (toolbox_folder() / "examples.html").read_text(encoding="utf-8")
+    gallery = (docs_folder() / "examples.html").read_text(encoding="utf-8")
     header = gallery.split("</header>")[0]
     assert f'<a href="{PAGE.name}">how-tos</a>' in header
 
@@ -351,7 +426,8 @@ def test_a_step_that_prints_hive_shows_it_as_hive_ready_to_paste() -> None:
 
 
 def test_a_result_shows_as_a_table() -> None:
-    cells = re.findall(r"<td>(.*?)</td>", page_sections()["build_and_run_a_first_statement"])
+    cells = re.findall(r"<td>(.*?)</td>",
+                       without_tables(page_sections()["build_and_run_a_first_statement"]))
     assert cells[:6] == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
 
 
@@ -369,7 +445,7 @@ def test_the_page_has_one_short_script() -> None:
 
 
 def test_the_script_is_the_example_gallery_s_filter_then_the_page_s_own_lines() -> None:
-    gallery = (toolbox_folder() / "examples.html").read_text(encoding="utf-8")
+    gallery = (docs_folder() / "examples.html").read_text(encoding="utf-8")
     assert re.findall(r"<script>\n(.*?)</script>", gallery, re.DOTALL) == [
         example_gallery.FILTER_SCRIPT]
     assert the_script() == example_gallery.FILTER_SCRIPT + how_to_page.HOW_TO_SCRIPT
@@ -610,7 +686,7 @@ def months_in_pandas():
 def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, MONTHS, stand_ins=MONTHS_IN_PANDAS)
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
-    cells = re.findall(r"<td>(.*?)</td>", shown)
+    cells = re.findall(r"<td>(.*?)</td>", without_tables(shown))
     assert f'<p class="label">Result, {example_gallery.PANDAS_LABEL}</p>' in shown
     assert cells == ["2026-09-23", "stand", "2026-09-24", "in"]
     assert "stops" not in shown

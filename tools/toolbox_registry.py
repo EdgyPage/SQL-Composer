@@ -2,13 +2,16 @@
 
 From 6.0 the Toolbox is this one folder (ADR 0008 and ADR 0009). It holds every function a user
 calls, the import self-check, `writing.py`, which writes a Statement as Hive with sqlglot,
-`engine.py`, which checks sqlglot, and `version.txt`, the one place its version is written. It
-holds three pages too: the Example gallery, which `tools/example_gallery.py` writes; the how-to
-page, which `tools/how_to_page.py` writes; and the Workflows overview, which
-`tools/workflows_page.py` writes.
+`engine.py`, which checks sqlglot, and `version.txt`, the one place its version is written.
 
 The Example database is not in it: since Toolbox 8.7 (ticket 12) it is dev's alone, the package
 `EXAMPLE_DATABASE` beside the folder, which no Toolbox file imports.
+
+Nor are the pages (Toolbox 8.7, ticket 13): main's `docs/`, `DOCS`, holds them, written on dev
+into `DOCS_ON_DEV`. They are the how-to page, which `tools/how_to_page.py` writes; the Example
+gallery, `tools/example_gallery.py`'s; the Workflows overview, `tools/workflows_page.py`'s; and
+the Example projects page, `tools/example_projects_page.py`'s, which links each Example
+project's lineage pages, shipped beside it at `lineage_pages`' paths.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
 and `imports_outside` lists every import that breaks it.
@@ -43,11 +46,27 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workflows.py",
                 "writing.py")
-PAGES = ("examples.html", "how_to.html", "workflows.html")
 # The one file that says which Toolbox version the folder is (ADR 0013). On dev it holds the
 # version alone; the export adds when it was exported, from which commit, and each file's hash.
 VERSION_FILE = "version.txt"
-FILES = PYTHON_FILES + PAGES + (VERSION_FILE,)
+FILES = PYTHON_FILES + (VERSION_FILE,)
+
+# Main's docs/ and where dev writes it: the pages a user reads in place of code (Toolbox 8.7,
+# ticket 13). Dev's own docs/ holds its other files, which never ship.
+DOCS = "docs"
+DOCS_ON_DEV = "docs/main"
+PAGES = ("examples.html", "example_projects.html", "how_to.html", "workflows.html")
+# Dev's Example projects, which main doesn't hold: the Example projects page shows them, and
+# their lineage pages ship beside it, in docs/example_projects/.
+EXAMPLE_PROJECTS = "example_projects"
+
+
+def lineage_pages(root: Path) -> dict[str, Path]:
+    """Each Example project's lineage page under `root`, dev's checkout, by the path main's
+    docs/ holds it at, such as example_projects/starter/tables/t/lineage/x.html, the same path
+    as on dev, below docs/."""
+    return {path.relative_to(root).as_posix(): path
+            for path in sorted((root / EXAMPLE_PROJECTS).glob("*/**/lineage/*.html"))}
 
 # What every Toolbox file may import, besides the standard library and its own folder.
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
