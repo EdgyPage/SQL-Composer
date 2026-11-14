@@ -296,3 +296,6 @@ block, under "Six more held-out tasks".
 - **The proxies:** one sonnet runner per round, each turn a fresh haiku `copilot-proxy` given
   its message file and the turn files so far; a runner that continued proxies by SendMessage
   handed back before they had answered, since a resumed agent runs in the background.
+- **T05 reworded (2ea5b519), re-measured alone on v10 (memo files b6b535568432):** arm C dev
+  100 (31 from the memo); arm R still routes T05 to 08, so dev is 31 of 32 strict (97), 32 of
+  32 by the Index (100), T05 with file 08 passing on the new text. Not fixed; no file changed.
