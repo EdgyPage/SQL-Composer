@@ -19,6 +19,7 @@ import ast
 import hashlib
 import json
 import re
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
@@ -117,11 +118,12 @@ class Upgrade:
             path.write_text(text, encoding="utf-8")
             self.changed.append(f"added {relative}")
 
-    def rewrite(self, relative: str, text: str) -> None:
-        """Write a file's new text, once the file as it was is kept in the archive."""
+    def rewrite(self, relative: str, text: str, said: str = "") -> None:
+        """Write a file's new text, once the file as it was is kept in the archive; the
+        checklist says `said` of it, or that it was rewritten."""
         self._archive_original(relative)
         (self.root / relative).write_text(text, encoding="utf-8")
-        self.changed.append(f"rewrote {relative}")
+        self.changed.append(said or f"rewrote {relative}")
 
     def rewrite_notebook(self, relative: str, cells: list[tuple[str, str]],
                          said: str = "") -> None:
@@ -130,6 +132,16 @@ class Upgrade:
         self._archive_original(relative)
         write_notebook(self.root / relative, cells)
         self.changed.append(said or f"rewrote {relative}")
+
+    def rewrite_cells(self, relative: str, texts: dict[int, str], said: str) -> None:
+        """Write the new text of each cell of a notebook `texts` holds, by its number counted
+        from 1, every cell counted, once the notebook as it was is kept in the archive,
+        leaving the rest of the notebook, a cell's tags and output too, as it is; the checklist
+        says `said` of it."""
+        self._archive_original(relative)
+        for number, text in texts.items():
+            write_cell_text(self.root / relative, number, text)
+        self.changed.append(said)
 
     def mark(self, relative: str, line: int, what: str, cell: int | None = None) -> None:
         """Put `# UPGRADE <version>: <what>` above line `line` of a .py file, or of cell `cell`
@@ -1172,7 +1184,7 @@ def to_8_6(upgrade: Upgrade) -> None:
     if connection is not None:
         _fill_connect_lines(upgrade, connection, files_before)
         _mark_imports_of_conn(upgrade)
-    _mark_notebooks_not_connecting(upgrade, connection)
+    _mark_notebooks_not_connecting(upgrade)
     _rehash_records(upgrade, hashes)
 
 
@@ -1200,16 +1212,17 @@ _CHECK_YOUR_CONNECT = ("8.6's notebooks each call connect(...) at their top with
                        "connection and keep it for query and execute, as connect does in the "
                        "warehouse.py project.start() writes in an empty folder, keeping your "
                        "own code")
-_CONNECT_HERE = ("8.6's query and execute refuse until this notebook connects: import connect "
-                 "with them, and call connect(...) with your connection under this line")
-_CONNECT_AS_CONN_WAS = ", such as connect(example_database), as warehouse.py's conn was"
-_CONN_GONE = ("8.6's warehouse.py has no conn, which was the Example database: here, import it "
-              "as `from sqlglot_composer import example_database` and use it in conn's place, "
-              "or call warehouse's query and execute, which use the connection the notebook "
-              "running this gave connect(...)")
+# The marks and the checklist's line where conn was the Example database say nothing of
+# importing it, which the Toolbox no longer holds since 8.7 (drift D514): _SAID_BY_8_6 holds
+# what the 8.6 Toolbox wrote, which 8.7's step rewrites as these say.
+CONNECT_HERE = ("8.6's query and execute refuse until this notebook connects: import connect "
+                "with them, and call connect(...) with your connection under this line")
+CONN_GONE = ("8.6's warehouse.py has no conn (it was the Example database): here, call "
+             "warehouse's query and execute instead, which use the connection the notebook "
+             "importing this gave connect(...), or put your team's connection where conn was")
 _CONNECTED = ("connected each Toolbox notebook that reaches the warehouse to the Example "
-              "database, as warehouse.py's conn was: at work, write your connection in each "
-              "one's connect(...) in its place")
+              "database, as warehouse.py's conn was; 8.7's Toolbox has no Example database, "
+              "and its Upgrade marks each of these lines, listed in admin/upgrade_8.7.md")
 # A notebook's import from warehouse on one line that has no connect, such as `from warehouse
 # import query`, and one that has.
 _WAREHOUSE_IMPORT = re.compile(r"^from warehouse import (?!.*\bconnect\b)(?P<names>[\w, ]+?)"
@@ -1709,7 +1722,7 @@ def _mark_imports_of_conn(upgrade: Upgrade) -> None:
         for cell, kind, text in _texts_of(path):
             lines = _lines_reading_conn(text) if kind == "code" else []
             for line in reversed(lines):  # from the bottom, so each line keeps its number
-                upgrade.mark(relative, line, _CONN_GONE, cell=cell)
+                upgrade.mark(relative, line, CONN_GONE, cell=cell)
 
 
 def _lines_reading_conn(text: str) -> list[int]:
@@ -1730,11 +1743,10 @@ def _lines_reading_conn(text: str) -> list[int]:
     return sorted(lines)
 
 
-def _mark_notebooks_not_connecting(upgrade: Upgrade, connection: str | None) -> None:
+def _mark_notebooks_not_connecting(upgrade: Upgrade) -> None:
     """Mark the first import from warehouse of each notebook that imports from it and doesn't
     connect: a notebook of yours, or a Toolbox notebook whose import _connected_cells can't
     read where it is, as in a try or a cell Python can't read."""
-    mark_text = _CONNECT_HERE + (_CONNECT_AS_CONN_WAS if connection is not None else "")
     for path in _searched_files(upgrade.root):
         cells = read_cells_if_readable(path) if path.suffix == ".ipynb" else None
         if not cells or _has_connect(cells):
@@ -1745,10 +1757,583 @@ def _mark_notebooks_not_connecting(upgrade: Upgrade, connection: str | None) -> 
                         if _REACHES_THE_WAREHOUSE.match(line)]
             if reaching:
                 relative = path.relative_to(upgrade.root).as_posix()
-                upgrade.mark(relative, reaching[0], mark_text, cell=cell)
+                upgrade.mark(relative, reaching[0], CONNECT_HERE, cell=cell)
                 break
+
+
+def to_8_7(upgrade: Upgrade) -> None:
+    """8.6 to 8.7: the Example database left the Toolbox, so each line of yours that imports it
+    from the Toolbox, in a .py file or a notebook's code cell, is written to import it as the
+    Toolbox's development copy keeps it, a package of its own: `from sqlglot_composer import
+    example_database` becomes `import example_database`, a name taken from it comes from
+    example_database, and a use through the package, or brought by a star import, gains
+    `import example_database`. Each line rewritten is marked, as the download holds no
+    Example database, so the line fails there: the mark says to take it out and connect with
+    your team's connection. A line in code Python can't read is marked, not rewritten.
+    warehouse.py's words that named the Example database are 8.7's, and a line of it still
+    naming it is marked; each mark 8.6 left that told you to import the Example database, and
+    its lines in admin/upgrade_8.6.md, offer your own connection.
+
+    The schedule Workflow's notebook, admin/workflows/schedule/schedule.ipynb, is made,
+    connected as your other Workflow notebooks are. admin/scheduled_runs.ipynb loses its
+    NEW_RUNS cell, each other cell of yours kept, and its text is 8.7's; a run NEW_RUNS named
+    that isn't made is marked in the schedule notebook, and a cell of yours that uses NEW_RUNS
+    is marked. A prod copy's record, and an open batch's, follow each file this step changed
+    that was still as promote or convert wrote it."""
+    hashes = _recorded_files(upgrade.root)
+    _reword_warehouse_py(upgrade)
+    _reword_8_6s_marks(upgrade)
+    _add_the_schedule_workflow(upgrade)
+    new_runs = _take_new_runs_out(upgrade)
+    _rewrite_example_database_imports(upgrade)
+    _mark_warehouse_py_naming_the_example_database(upgrade)
+    _mark_new_runs_left(upgrade, new_runs)
+    _rehash_records(upgrade, hashes)
+
+
+# What 8.6's warehouse.py, as its start() wrote it, said of the Example database, by what
+# 8.7's says in its place: each piece found in a warehouse.py is rewritten, one you changed
+# too.
+_WAREHOUSE_WORDS_8_6 = {
+    ("back, execute drops. The Example projects and the how-tos connect to the Example "
+     "database:\nconnect(example_database). You pick which of query and execute sends each "
+     "Statement, by\ncalling run_query(s, query) for what gives back rows, as a SELECT does, "
+     "or run_execute(s,\nexecute) for what changes something, as a write does; a Scheduled "
+     "run's Run cell,"):
+    ("back, execute drops. You pick which of query and execute sends each Statement, by "
+     "calling\nrun_query(s, query) for what gives back rows, as a SELECT does, or "
+     "run_execute(s, execute)\nfor what changes something, as a write does; a Scheduled run's "
+     "Run cell,"),
+    ('    """Set the connection query and execute pass each Hive string to, such as\n'
+     '    connect(example_database): an object with a query(sql) and an execute(sql)."""'):
+    ('    """Set the connection query and execute pass each Hive string to, such as '
+     'connect(conn),\n    where conn is your team\'s connection: an object with a query(sql) '
+     'and an execute(sql)."""'),
+    '"connect(example_database) in the Example projects. If yours names them another "':
+    '"connect(conn), where conn is your team\'s connection. If yours names them another "',
+    ('"under its from warehouse import line with your connection, such as "\n'
+     '            "connect(example_database) in the Example projects, then run that cell '
+     'again.",'):
+    ('"under its from warehouse import line with your connection, such as connect(conn), "\n'
+     '            "where conn is your team\'s connection, then run that cell again.",'),
+}
+_WAREHOUSE_NAMES_IT = ("8.7's Toolbox has no Example database, and this line still shows "
+                       "connect(example_database): write connect(conn) here, as a new "
+                       "Project's warehouse.py does. Your real connection goes in each "
+                       "notebook's connect(...), not in this file")
+
+
+def _reword_warehouse_py(upgrade: Upgrade) -> None:
+    """Write each piece of warehouse.py that says what 8.6's did of the Example database as
+    8.7's says it, the file as it was kept in the archive first."""
+    from .project import WAREHOUSE  # project.py imports this file
+
+    path = upgrade.root / WAREHOUSE
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    reworded = _with_each_replaced(text, _WAREHOUSE_WORDS_8_6)
+    if reworded != text:
+        upgrade.rewrite(WAREHOUSE, reworded, "rewrote warehouse.py's docstring and refusals, "
+                        "which named the Example database, as 8.7's say them")
+
+
+def _mark_warehouse_py_naming_the_example_database(upgrade: Upgrade) -> None:
+    """Mark the first line of warehouse.py that still says connect(example_database), one of
+    yours _reword_warehouse_py couldn't find."""
+    from .project import WAREHOUSE  # project.py imports this file
+
+    path = upgrade.root / WAREHOUSE
+    lines = path.read_text(encoding="utf-8").split("\n") if path.is_file() else []
+    naming = [number for number, line in enumerate(lines, 1)
+              if "connect(example_database)" in line and not MARK_LINE.search(line)]
+    if naming:
+        upgrade.mark(WAREHOUSE, naming[0], _WAREHOUSE_NAMES_IT)
+
+
+# What the 8.6 Toolbox's step wrote in a mark, and in admin/upgrade_8.6.md, where conn was the
+# Example database, by what 8.7's Toolbox says in its place, which offers no Example database.
+_SAID_BY_8_6 = {
+    (CONNECT_HERE + ", such as connect(example_database), as warehouse.py's conn was"):
+    CONNECT_HERE,
+    ("8.6's warehouse.py has no conn, which was the Example database: here, import it as `from "
+     "sqlglot_composer import example_database` and use it in conn's place, or call "
+     "warehouse's query and execute, which use the connection the notebook running this gave "
+     "connect(...)"): CONN_GONE,
+    ("connected each Toolbox notebook that reaches the warehouse to the Example database, as "
+     "warehouse.py's conn was: at work, write your connection in each one's connect(...) in "
+     "its place"): _CONNECTED,
+}
+_CHECKLIST_8_6 = "admin/upgrade_8.6.md"
+
+
+def _reword_8_6s_marks(upgrade: Upgrade) -> None:
+    """Write each mark the 8.6 Toolbox's step left in a .py file or a notebook's code cell,
+    and each line of admin/upgrade_8.6.md, that said what _SAID_BY_8_6 holds, as 8.7 says it,
+    each file kept in the archive first."""
+    marks = {f"# UPGRADE 8.6: {said}": f"# UPGRADE 8.6: {now}"
+             for said, now in _SAID_BY_8_6.items()}
+    for path in _searched_files(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        reworded = {cell: (text, _with_each_replaced(text, marks))
+                    for cell, kind, text in _texts_of(path) if kind == "code"}
+        texts = {cell: new for cell, (old, new) in reworded.items() if new != old}
+        if None in texts:
+            upgrade.rewrite(relative, texts[None])
+        elif texts:
+            upgrade.rewrite_cells(relative, texts, f"reworded the 8.6 marks in {relative} that "
+                                  "offered the Example database, to offer your own connection")
+    checklist = upgrade.root / _CHECKLIST_8_6
+    if checklist.is_file():
+        text = checklist.read_text(encoding="utf-8")
+        new = _with_each_replaced(text, _SAID_BY_8_6)
+        if new != text:
+            upgrade.rewrite(_CHECKLIST_8_6, new)
+
+
+def _with_each_replaced(text: str, replacements: dict[str, str]) -> str:
+    """A text with each key of `replacements` in it written as its value, in their order."""
+    for said, now in replacements.items():
+        text = text.replace(said, now)
+    return text
+
+
+SCHEDULE_NOTEBOOK = "admin/workflows/schedule/schedule.ipynb"
+
+
+def _add_the_schedule_workflow(upgrade: Upgrade) -> None:
+    """Add what project.start() makes that the Project lacks, the schedule Workflow's notebook
+    among it, and fill in each Workflow notebook it added with the connection the Project's
+    other Workflow notebooks give, if one does."""
+    from . import workflows  # it imports this file
+
+    before = {workflow.name: workflows.notebook_path(upgrade.root, workflow).is_file()
+              for workflow in workflows.WORKFLOWS}
+    connection = None
+    for workflow in workflows.WORKFLOWS:
+        if before[workflow.name] and connection is None:
+            connection = _connection_given(workflows.notebook_path(upgrade.root, workflow))
+    upgrade.add_what_start_makes()
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(upgrade.root, workflow)
+        if connection is None or before[workflow.name] or not path.is_file():
+            continue
+        cells = read_cells(path)
+        write_notebook(path, [(kind, _filled(text, connection)) for kind, text in cells])
+        upgrade.changed.append(f"connected {path.relative_to(upgrade.root).as_posix()} with "
+                               "the connect lines your other Workflow notebooks give, so any "
+                               "mark on theirs is on its too")
+
+
+SCHEDULED_RUNS_NOTEBOOK = "admin/scheduled_runs.ipynb"
+# The cell 8.6's admin/scheduled_runs.ipynb made Scheduled runs with, which the schedule
+# Workflow takes the place of in 8.7, with the names it was given; and any line of a cell that
+# names NEW_RUNS.
+_NEW_RUNS_CELL = re.compile(r"NEW_RUNS = (?P<names>.+?)(?:  #[^\n]*)?\nif NEW_RUNS:\n"
+                            r"    print\(project\.new_scheduled_run\(NEW_RUNS\)\)\s*")
+_NAMES_NEW_RUNS = re.compile(r"\bNEW_RUNS\b")
+_NEW_RUNS_YOURS = ("8.7 makes a Scheduled run in the schedule Workflow, "
+                   f"{SCHEDULE_NOTEBOOK}, not here: name it in that notebook's NAME, run "
+                   "that notebook, and take NEW_RUNS out of this cell")
+_NEW_RUNS_UNMADE = ("8.6's NEW_RUNS, in admin/scheduled_runs.ipynb, named {names}, whose "
+                    "notebooks aren't made: name them here, as NAME = {named}, and run this "
+                    "notebook to make them")
+
+
+def _take_new_runs_out(upgrade: Upgrade) -> str | None:
+    """Take 8.6's NEW_RUNS cell out of admin/scheduled_runs.ipynb, each other cell kept and its
+    text cell written as 8.7's, kept in the archive first: the names it was given, as written,
+    or None where it had no such cell."""
+    from .project import admin_notebook_cells  # project.py imports this file
+
+    path = upgrade.root / SCHEDULED_RUNS_NOTEBOOK
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    if not cells:
+        return None
+    names = None
+    kept = []
+    for kind, text in cells:
+        found = _NEW_RUNS_CELL.fullmatch(text) if kind == "code" else None
+        if found is None:
+            kept.append((kind, text))
+        elif names is None:
+            names = found.group("names").strip()
+    if kept[0][0] == "markdown":
+        kept[0] = admin_notebook_cells("scheduled_runs")[0]
+    if kept != cells:
+        upgrade.rewrite_notebook(SCHEDULED_RUNS_NOTEBOOK, kept,
+                                 f"took NEW_RUNS out of {SCHEDULED_RUNS_NOTEBOOK}: the "
+                                 f"schedule Workflow, {SCHEDULE_NOTEBOOK}, makes a Scheduled "
+                                 "run now")
+    return names
+
+
+def _mark_new_runs_left(upgrade: Upgrade, names: str | None) -> None:
+    """Mark the first line naming NEW_RUNS in each code cell of yours still holding it in
+    admin/scheduled_runs.ipynb, and the schedule notebook's NAME for each run NEW_RUNS named
+    whose notebook isn't made."""
+    path = upgrade.root / SCHEDULED_RUNS_NOTEBOOK
+    for cell, (kind, text) in enumerate(read_cells_if_readable(path) or [], 1):
+        lines = text.split("\n") if kind == "code" else []
+        naming = [number for number, line in enumerate(lines, 1)
+                  if _NAMES_NEW_RUNS.search(line)]
+        if naming:
+            upgrade.mark(SCHEDULED_RUNS_NOTEBOOK, naming[0], _NEW_RUNS_YOURS, cell=cell)
+    unmade = _runs_not_made(upgrade.root, names)
+    if unmade and (upgrade.root / SCHEDULE_NOTEBOOK).is_file():
+        cell, line = _line_starting(upgrade.root / SCHEDULE_NOTEBOOK, "NAME =")
+        named = repr(unmade[0]) if len(unmade) == 1 else repr(unmade)
+        upgrade.mark(SCHEDULE_NOTEBOOK, line, _NEW_RUNS_UNMADE.format(
+            names=unmade, named=named), cell=cell)
+
+
+def _runs_not_made(root: Path, names: str | None) -> list[str]:
+    """Each Scheduled run NEW_RUNS named, as written, whose notebook isn't made; what it named
+    as written, whole, when it isn't a name or a list of them."""
+    if names is None:
+        return []
+    try:
+        given = ast.literal_eval(names)
+    except (ValueError, SyntaxError):
+        return [names]
+    named = [given] if isinstance(given, str) else given
+    if not isinstance(named, (list, tuple)) or not all(isinstance(each, str) for each in named):
+        return [names]
+    return [name for name in named if name
+            and not (root / "scheduled_runs" / name / f"{name}.ipynb").is_file()]
+
+
+# --- 8.7: the Example database imported as a package of its own -------------------------
+
+# The Toolbox's folder, the Example database's name, and where a Toolbox before 8.7 kept it.
+_TOOLBOX = "sqlglot_composer"
+_EXAMPLE = "example_database"
+_IN_THE_TOOLBOX = f"{_TOOLBOX}.{_EXAMPLE}"
+# The marks on a line 8.7 rewrote: an import a connect(...) line follows, as in a setup cell,
+# and any other; and on one 8.7 couldn't read. Only the Toolbox's development copy has the
+# Example database as a package of its own; a user's download has none.
+_EXAMPLE_CONNECTION_LEFT = ("8.7's Toolbox has no Example database, and your download has "
+                            "none, so this import fails there: delete it, and in the "
+                            "connect(...) below write your team's connection, such as "
+                            "connect(conn), imported as the comment above shows")
+_EXAMPLE_DATABASE_LEFT = ("8.7's Toolbox has no Example database, and your download has none, "
+                          "so this line fails there: take it out, and use your team's "
+                          "connection, in connect(...), and your own Table references in place "
+                          "of the Example database's")
+_EXAMPLE_DATABASE_UNREAD = ("8.7's Toolbox has no Example database, and 8.7 couldn't read this "
+                            "code to rewrite it: take out this line's import of "
+                            "example_database, and use your team's connection, in "
+                            "connect(...), and your own Table references in its place")
+# A line of code Python couldn't read that imports the Example database from the Toolbox.
+_UNREAD_IMPORT = re.compile(r"\bsqlglot_composer\s*\.\s*example_database\b"
+                            r"|^\s*from\s+sqlglot_composer\s+import\b.*\bexample_database\b")
+
+
+class _Edit(NamedTuple):
+    """Lines of a code text to write again: its first and last line, counted from 1, its new
+    lines, and which of them to mark, counted from 0, or None. An edit whose first line is
+    one after its last puts its new lines there, writing over none."""
+
+    first: int
+    last: int
+    lines: list[str]
+    marked: int | None
+
+
+class _ImportEnd(NamedTuple):
+    """Where an import statement ends: its last line, counted from 1, and its indent, for a
+    line put after it."""
+
+    line: int
+    indent: str
+
+
+class _ExampleUses(NamedTuple):
+    """What one code text, a .py file's or a notebook cell's, holds of the Example database as
+    a Toolbox before 8.7 held it: each edit that imports it as a package of its own; each line
+    to mark as code 8.7 couldn't rewrite; whether it binds the name example_database, once
+    rewritten; where its first star import from the Toolbox, and its first `import
+    sqlglot_composer`, end; and the first line that uses the name bare, and that uses it
+    through the package."""
+
+    edits: list[_Edit]
+    unread: list[int]
+    binds: bool
+    star: _ImportEnd | None
+    package: _ImportEnd | None
+    bare: int | None
+    through_package: int | None
+
+
+def _rewrite_example_database_imports(upgrade: Upgrade) -> None:
+    """Import the Example database as a package of its own in each .py file and notebook
+    code cell of yours that imports it from the Toolbox, each kept in the archive first, and
+    mark each line rewritten, or that 8.7 couldn't read to rewrite."""
+    for path in _searched_files(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        texts = [(cell, text) for cell, kind, text in _texts_of(path) if kind == "code"]
+        rewritten = _example_imports_rewritten(texts)
+        if not rewritten:
+            continue
+        given = dict(texts)
+        changed = {cell: text for cell, (text, _) in rewritten.items() if text != given[cell]}
+        if None in changed:
+            upgrade.rewrite(relative, changed[None])
+        elif changed:
+            upgrade.rewrite_cells(relative, changed, f"wrote {relative}'s import of the "
+                                  "Example database as `import example_database`, marked "
+                                  "for you")
+        for cell, (_, marks) in rewritten.items():
+            for line, what in sorted(marks, reverse=True):  # the last first, so each holds
+                upgrade.mark(relative, line, what, cell=cell)
+
+
+def _example_imports_rewritten(texts: list[tuple[int | None, str]]
+                               ) -> dict[int | None, tuple[str, list[tuple[int, str]]]]:
+    """Each code text of one file, by its cell, or None for a .py file's, that imports the
+    Example database from the Toolbox, as (its text rewritten, each line of it to mark and
+    what the mark says). A file using the name bare, brought by its star import, or through the
+    package, that binds it nowhere once rewritten, gains `import example_database` after its
+    import of the Toolbox."""
+    found = {cell: _example_uses(text) for cell, text in texts}
+    insert = _import_to_add_after(found)
+    rewritten = {}
+    for cell, text in texts:
+        uses = found[cell]
+        edits = list(uses.edits)
+        if insert is not None and insert[0] == cell:
+            end = insert[1]
+            edits.append(_Edit(end.line + 1, end.line, [f"{end.indent}import {_EXAMPLE}"], 0))
+        if not edits and not uses.unread:
+            continue
+        new_text, marked = _with_edits(text, edits)
+        marks = [(line, _mark_on_rewritten(new_text, line)) for line in marked]
+        moved = _line_mover(edits)
+        marks += [(moved(line), _EXAMPLE_DATABASE_UNREAD) for line in uses.unread]
+        rewritten[cell] = (new_text, marks)
+    if insert is None and not any(uses.binds for uses in found.values()):
+        for cell, uses in found.items():
+            if uses.through_package is not None and cell in rewritten:
+                new_text, marks = rewritten[cell]
+                line = _line_mover(uses.edits)(uses.through_package)
+                rewritten[cell] = (new_text, [(at, what) for at, what in marks if at != line]
+                                   + [(line, _EXAMPLE_DATABASE_UNREAD)])
+                break
+    return rewritten
+
+
+def _mark_on_rewritten(text: str, line: int) -> str:
+    """What the mark on a line 8.7 rewrote says: what to do with a connect(...) line under it,
+    as a setup cell has, or with any other line."""
+    lines = text.split("\n")
+    below = lines[line].strip() if line < len(lines) else ""
+    return _EXAMPLE_CONNECTION_LEFT if below.startswith("connect(") else _EXAMPLE_DATABASE_LEFT
+
+
+def _import_to_add_after(found: dict[int | None, _ExampleUses]
+                         ) -> tuple[int | None, _ImportEnd] | None:
+    """Where a file that uses the Example database's name without binding it, once rewritten,
+    gains `import example_database`: its cell, and the end of its first import of the Toolbox
+    that brought the name, which it goes after; None where the file needs none, or has no
+    such import."""
+    if any(uses.binds for uses in found.values()):
+        return None
+    through = any(uses.through_package is not None for uses in found.values())
+    bare = any(uses.bare is not None for uses in found.values())
+    for cell, uses in found.items():
+        if through and uses.package is not None:
+            return cell, uses.package
+        if (through or bare) and uses.star is not None:
+            return cell, uses.star
+    return None
+
+
+def _example_uses(text: str) -> _ExampleUses:
+    """What a code text holds of the Example database as a Toolbox before 8.7 held it; code
+    Python can't read, each line of it that imports the Example database from the Toolbox as
+    code 8.7 couldn't rewrite."""
+    try:
+        tree = ast.parse(_without_magics(text))
+    except SyntaxError:
+        unread = [number for number, line in enumerate(text.split("\n"), 1)
+                  if not line.lstrip().startswith("#") and _UNREAD_IMPORT.search(line)]
+        return _ExampleUses([], unread, False, None, None, None, None)
+    lines = text.split("\n")
+    nodes = list(ast.walk(tree))
+    edits: list[_Edit] = []
+    unread: list[int] = []
+    for node in nodes:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            imports_it, new = _import_rewritten(lines, node)
+            if imports_it and new is None:
+                unread.append(node.lineno)
+            elif imports_it:
+                edits.append(_Edit(node.lineno, node.end_lineno, new, 0))
+    through: dict[int, list[ast.Attribute]] = {}
+    for node in nodes:
+        if (isinstance(node, ast.Attribute) and node.attr == _EXAMPLE
+                and isinstance(node.value, ast.Name) and node.value.id == _TOOLBOX):
+            through.setdefault(node.lineno, []).append(node)
+    for line, found in sorted(through.items()):
+        if any(node.end_lineno != line for node in found):
+            unread.append(line)
+        else:
+            edits.append(_Edit(line, line, [_through_package_rewritten(lines[line - 1], found)],
+                               0))
+    bare = [node.lineno for node in nodes if isinstance(node, ast.Name)
+            and node.id == _EXAMPLE and isinstance(node.ctx, ast.Load)]
+    return _ExampleUses(edits, unread, _binds_the_name(tree),
+                        _end_of_first(nodes, lines, _is_star_import),
+                        _end_of_first(nodes, lines, _is_package_import),
+                        min(bare, default=None), min(through, default=None))
+
+
+def _import_rewritten(lines: list[str], node: ast.Import | ast.ImportFrom
+                      ) -> tuple[bool, list[str] | None]:
+    """Whether an import statement imports the Example database from the Toolbox, and the
+    lines it is written as to import it as a package of its own: None where 8.7 can't read
+    it to rewrite it."""
+    if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == _TOOLBOX:
+        named = [alias for alias in node.names if alias.name == _EXAMPLE]
+        if named:
+            return True, _from_the_toolbox_rewritten(lines, node, named[0])
+    elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module and (
+            node.module == _IN_THE_TOOLBOX or node.module.startswith(f"{_IN_THE_TOOLBOX}.")):
+        return True, _segment_with(lines, node, _IN_THE_TOOLBOX, _EXAMPLE)
+    elif isinstance(node, ast.Import):
+        for alias in node.names:
+            if alias.name == _IN_THE_TOOLBOX:
+                # Without a name of its own, it bound sqlglot_composer too, which it keeps.
+                now = _EXAMPLE if alias.asname else f"{_TOOLBOX}, {_EXAMPLE}"
+                return True, _segment_with(lines, node, _IN_THE_TOOLBOX, now)
+    return False, None
+
+
+def _binds_the_name(tree: ast.Module) -> bool:
+    """Whether a code text binds the name example_database at its top level once rewritten:
+    an import or an assignment of it, or `import sqlglot_composer.example_database`, which
+    8.7 writes `import sqlglot_composer, example_database`."""
+    if any(_EXAMPLE in _names_set_at_module_level(statement) for statement in tree.body):
+        return True
+    for node in ast.walk(tree):
+        aliases = node.names if isinstance(node, ast.Import) else []
+        if any(alias.name == _IN_THE_TOOLBOX and alias.asname is None for alias in aliases):
+            return True
+    return False
+
+
+def _is_star_import(node: ast.AST) -> bool:
+    """Whether a statement is `from sqlglot_composer import *`."""
+    return (isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == _TOOLBOX
+            and any(alias.name == "*" for alias in node.names))
+
+
+def _is_package_import(node: ast.AST) -> bool:
+    """Whether a statement imports sqlglot_composer itself, by that name."""
+    return isinstance(node, ast.Import) and any(
+        alias.name == _TOOLBOX and alias.asname is None for alias in node.names)
+
+
+def _end_of_first(nodes: list[ast.AST], lines: list[str],
+                  matches: Callable[[ast.AST], bool]) -> _ImportEnd | None:
+    """The end of the first statement of a code text that `matches`; None where it has none."""
+    found = [_ImportEnd(node.end_lineno, _indent(lines[node.lineno - 1]))
+             for node in nodes if matches(node)]
+    return min(found, default=None)
+
+
+def _indent(line: str) -> str:
+    """A line's indent."""
+    return line[:len(line) - len(line.lstrip())]
+
+
+def _chars(line: str, offset: int) -> int:
+    """The characters of a line before Python's column `offset`, which counts UTF-8 bytes."""
+    return len(line.encode("utf-8")[:offset].decode("utf-8", errors="ignore"))
+
+
+def _from_the_toolbox_rewritten(lines: list[str], node: ast.ImportFrom,
+                                alias: ast.alias) -> list[str] | None:
+    """The lines `from sqlglot_composer import ..., example_database, ...` is written as:
+    `import example_database`, as the alias names it, and, under it, the import of the other
+    names as written, without example_database; None where that can't be read."""
+    first = lines[node.lineno - 1]
+    renamed = f" as {alias.asname}" if alias.asname else ""
+    if len(node.names) == 1:
+        before = first[:_chars(first, node.col_offset)]
+        last = lines[node.end_lineno - 1]
+        after = last[_chars(last, node.end_col_offset):]
+        return [f"{before}import {_EXAMPLE}{renamed}{after}"]
+    kept = _import_without(lines[node.lineno - 1:node.end_lineno], alias)
+    return None if kept is None else [f"{_indent(first)}import {_EXAMPLE}{renamed}", *kept]
+
+
+def _import_without(statement: list[str], alias: ast.alias) -> list[str] | None:
+    """An import statement's lines with one of its names, and the comma beside it, taken out:
+    the line it stands on alone, or the name where it shares a line; None where it isn't
+    found, or what is left doesn't read as Python."""
+    name = rf"\b{alias.name}\b" + (rf"\s+as\s+{alias.asname}\b" if alias.asname else "")
+    text = "\n".join(statement)
+    keyword = re.search(r"\bimport\b", text)
+    if keyword is None:
+        return None
+    head, names = text[:keyword.end()], text[keyword.end():]
+    for pattern in (rf"\n[ \t]*{name}[ \t]*,?[ \t]*(?=\n)", rf"{name}[ \t]*,[ \t]*",
+                    rf",\s*{name}"):
+        names, count = re.subn(pattern, "", names, count=1)
+        if count:
+            break
+    else:
+        return None
+    kept = head + names
+    try:
+        ast.parse(textwrap.dedent(kept))
+    except SyntaxError:
+        return None
+    return kept.split("\n")
+
+
+def _segment_with(lines: list[str], node: ast.stmt, old: str, new: str) -> list[str] | None:
+    """An import statement's lines with its first `old` written as `new`; None where it holds
+    none as written, such as one with spaces around the dot."""
+    text = "\n".join(lines[node.lineno - 1:node.end_lineno])
+    return text.replace(old, new, 1).split("\n") if old in text else None
+
+
+def _through_package_rewritten(line: str, nodes: list[ast.Attribute]) -> str:
+    """A line with each sqlglot_composer.example_database on it written example_database."""
+    for node in sorted(nodes, key=lambda each: each.col_offset, reverse=True):
+        start, end = _chars(line, node.col_offset), _chars(line, node.end_col_offset)
+        line = f"{line[:start]}{_EXAMPLE}{line[end:]}"
+    return line
+
+
+def _with_edits(text: str, edits: list[_Edit]) -> tuple[str, list[int]]:
+    """A code text with each edit made, and the line, counted from 1, of each new line an edit
+    marks."""
+    lines = text.split("\n")
+    written: list[str] = []
+    marked = []
+    at = 1
+    for edit in sorted(edits, key=lambda each: (each.first, each.last)):
+        written += lines[at - 1:edit.first - 1]
+        if edit.marked is not None:
+            marked.append(len(written) + edit.marked + 1)
+        written += edit.lines
+        at = edit.last + 1
+    written += lines[at - 1:]
+    return "\n".join(written), marked
+
+
+def _line_mover(edits: list[_Edit]) -> Callable[[int], int]:
+    """Where a line of a code text, counted from 1, is once each edit is made: a line no edit
+    writes, moved by each edit above it."""
+    def moved(line: int) -> int:
+        return line + sum(len(edit.lines) - (edit.last - edit.first + 1) for edit in edits
+                          if edit.last < line)
+    return moved
 
 
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
-                                               "8.5": to_8_5, "8.6": to_8_6}
+                                               "8.5": to_8_5, "8.6": to_8_6, "8.7": to_8_7}

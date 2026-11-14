@@ -1815,12 +1815,21 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      imports from warehouse, and one of the Toolbox's whose import it can't connect, such as
      one inside a `try`, is marked at that import for you to connect by hand. If `conn` was
      still the Example database, as only a copy of an Example project's was, each of the
-     Toolbox's notebooks is connected to it, as `conn` was, and each line of yours that imports
+     Toolbox's notebooks is connected to it, as `conn` was (8.7's Upgrade then marks each of
+     those lines, as below), and each line of yours that imports
      `conn` from warehouse, or reads `warehouse.conn`, is marked: the new `warehouse.py` has no
      `conn`, so use `query` and `execute` in its place. If `conn` is
      your own, its lines stay in `warehouse.py`, marked for you to move into each notebook's
      `connect(...)` line: fill each in with your connection, since until a notebook connects,
      its `query` and `execute` refuse.
+   - If your Project was at 8.6, the 8.7 Upgrade carries it to 8.7: it makes the schedule
+     Workflow's notebook, `admin/workflows/schedule/schedule.ipynb`, and takes `NEW_RUNS` out
+     of `admin/scheduled_runs.ipynb`, keeping your other cells. The Example database left the
+     Toolbox in 8.7, so each line of yours that imported it from `sqlglot_composer`, as only a
+     copy of an Example project or a how-to did, is rewritten and marked: your download holds
+     no Example database, so delete the marked import, and write your team's connection in the
+     `connect(...)` under it. A copy of an Example project can't run on 8.7: read it on the
+     Example projects page instead.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
