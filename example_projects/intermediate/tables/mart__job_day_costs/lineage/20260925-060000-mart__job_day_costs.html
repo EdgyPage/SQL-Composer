@@ -106,7 +106,7 @@ FROM costs_per_job</pre></div><h3>Calculated columns</h3><p>Every column that is
 └─ ops.region_costs.dt  (string)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job: <code>between(region_costs.dt, &quot;20260922&quot;, &quot;20260924&quot;)</code>, which is <code>region_costs.dt BETWEEN &#x27;20260922&#x27; AND &#x27;20260924&#x27;</code> (reads ops.region_costs.dt)</li></ul></div><h3>Copied columns</h3><ul><li><code>job_id</code> comes from costs_per_job.job_id ← ops.region_costs.job_id</li><li><code>cost_cents</code> comes from costs_per_job.cost_cents (calculated) ← ops.region_costs.cost_cents</li><li><code>dt</code> comes from costs_per_job.dt (calculated) ← ops.region_costs.dt</li></ul><h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.</p><ul><li>derived(&#x27;costs_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.</li><li>write_job_day_costs: Key (job_id, dt), since costs_per_job&#x27;s rows are told apart by job_id, dt.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul></div>
 </aside>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.6.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.7.</footer>
 <script>
 // The drawing's script, shared by every page that draws boxes and arrows: it makes the
 // picture zoom, pan and light up a path. It is plain JavaScript that any browser runs, with

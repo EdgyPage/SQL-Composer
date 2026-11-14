@@ -98,11 +98,9 @@ def example_database() -> ModuleType:
 
 # Text the coming version's tickets changed in the Example projects before its Upgrade step is
 # written: a Project an Upgrade wrote is read with each old text as its new one until the step
-# rewrites it, then this is emptied. 8.7's ticket 12: the Example database left the Toolbox for
-# dev, so the Example projects import it from beside it; 8.7's step rewrites a Project's
-# import (ticket 14).
-AWAITING_ITS_REWRITE: dict[bytes, bytes] = {
-    b"from sqlglot_composer import example_database": b"import example_database"}
+# rewrites it, then this is emptied, as 8.7's ticket 14 emptied it once its step rewrote a
+# Project's import of the Example database.
+AWAITING_ITS_REWRITE: dict[bytes, bytes] = {}
 
 
 def awaiting_its_rewrite(text: bytes) -> bytes:
