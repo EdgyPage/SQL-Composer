@@ -125,7 +125,7 @@ the rewrite, so only what is pushed is rewritten. To keep a local branch, leave 
 
 **The tool:** `git filter-repo` 2.47.0, installed in dev's venv
 (`.venv/Scripts/git-filter-repo`), with `--invert-paths --paths-from-file`, `--replace-text`,
-`--replace-message`, `--mailmap`, and `--prune-empty never --prune-degenerate never`, so each
+`--replace-message` (and `--mailmap`, for answer (a) only), and `--prune-empty never --prune-degenerate never`, so each
 old commit has one new commit, those that held only records now empty, and every message
 stays. A second pass, `--refs main --replace-message` with the rules `hashes` writes from
 the first pass's commit map, gives main's "Generated from dev <hash>" stamps their new hashes:
@@ -135,8 +135,9 @@ commands are the procedure's steps 4 and 5.
 
 **What changes for the user.**
 
-- **Every commit hash** of dev, main and the tag changes: the mailmap alone changes almost
-  every commit, and each commit after a changed one changes too. So CI's past runs on GitHub
+- **Every commit hash** of dev, main and the tag changes from the first commit a rule
+  changes on: each commit after a changed one changes too (with answer (a), the mailmap
+  alone changes almost every commit). So CI's past runs on GitHub
   point at commits no branch holds, links to commits and compare views break, and every other
   clone (another computer) must be cloned again: a pull into an old clone merges the old
   history back.
