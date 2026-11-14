@@ -295,7 +295,8 @@ t = Table(
 )
 '''),
     Task("T05", "02", "dev",
-         "Check, with my query, that ops.job_runs's Key holds on 2026-09-24.",
+         "I'm writing ops.job_runs's Table reference with its Key, run_id. Before I save it, "
+         "check with my query that the Key holds on 2026-09-24.",
          "verdict", '''from sqlglot_composer import check_key, equals
 from references.ops__job_runs import job_runs
 from warehouse import query
