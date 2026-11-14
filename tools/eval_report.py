@@ -105,11 +105,12 @@ def read_commits(text: str) -> list[Commit]:
 
 
 def raised_version(commit: Commit) -> str | None:
-    """The version a commit raised the Toolbox to, or None if it didn't touch version.txt."""
+    """The version a commit raised the Toolbox to, or None if it didn't touch version.txt or
+    its subject names no version (a fix to the file, not a raise)."""
     if VERSION_FILE not in commit.files:
         return None
     found = re.search(r"\d+\.\d+(?:\.\d+)?", commit.subject)
-    return found.group(0) if found else "?"
+    return found.group(0) if found else None
 
 
 def events_of(commit: Commit) -> list[str]:
@@ -232,12 +233,13 @@ def cost_section(runs: list[eval_runs.Run], commits: list[Commit]) -> str:
     marks of its commit; then the totals by pipeline, model and version."""
     if not runs:
         return section("Cost per round", note("No runs in the ledger."))
-    by_commit = {one.sha: events_of(one) for one in commits}
     rows = []
     for (name, pipeline, model, sha), group in grouped(
             runs, ("round", "pipeline", "model", "commit")).items():
         place = position_of(commits, sha)
-        events = by_commit[commits[place].sha] if place is not None else []
+        events = []
+        if place is not None:
+            events = events_of(commits[place])
         rows.append([min(one.date for one in group), name, pipeline, model,
                      version_at(commits, sha), sha or "-", ", ".join(events),
                      count(len(group)), count(tokens_of(group)),
