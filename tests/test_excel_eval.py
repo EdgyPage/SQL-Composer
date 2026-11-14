@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 import code_audit
-import eval_memo
+import eval_runs
 import excel_eval
 import offline_policy
 from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask
@@ -217,22 +217,10 @@ def test_the_toolbox_code_is_scored_apart(hive: sqlite3.Connection) -> None:
 
 
 def test_a_template_reads_back_as_empty_replies() -> None:
-    header, replies = eval_memo.read_answers(
+    header, replies = eval_runs.read_answers(
         excel_eval.template(excel_eval.tasks_of("held_out")), "X")
     assert header["arm"] == "<A0 or C>"
     assert sorted(replies) == sorted(task.id for task in TASKS if task.split == "held_out")
-
-
-def test_a_proxy_message_can_hold_a_few_tasks_as_a_chat_holds_one(
-        capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-    # A proxy given every workbook at once reads them in pieces and cuts its replies short; a
-    # person sends one workbook to a fresh chat, so a round gives each proxy a few. The memo,
-    # empty here, keeps no reply (Toolbox 8.7, ticket 02).
-    assert excel_eval.main(["proxy", "C", "--split", "dev", "--tasks", "X01,X02",
-                            "--model", "haiku", "--memo", str(tmp_path)]) == 0
-    message = capsys.readouterr().out
-    assert "## X01\n" in message and "## X02\n" in message
-    assert "## X03\n" not in message
 
 
 def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:

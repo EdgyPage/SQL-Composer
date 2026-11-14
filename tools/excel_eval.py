@@ -6,17 +6,19 @@ same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files
 its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
 replies against the tasks' reference Hive.
 
-    python tools/excel_eval.py plan C --split dev --tasks X01,X02 --model haiku
-    python tools/excel_eval.py prompts --arm C --split dev --model copilot-web
-    python tools/excel_eval.py proxy C --split dev --tasks X01,X02 --model haiku
-    python tools/excel_eval.py template --arm C --split dev --model haiku > answers.md
-    python tools/excel_eval.py score answers.md --split dev --tasks X01,X02 \\
-        --record .scratch/copilot-eval/results.md
-    python tools/excel_eval.py workbooks --split held_out --into <folder>
+    .venv/Scripts/python tools/excel_eval.py plan C --split dev --tasks X01,X02 --model haiku
+    .venv/Scripts/python tools/excel_eval.py batch C --split dev --tasks X01,X02 \\
+        --model haiku --round x1
+    (the session spawns each proxy `batch` printed a line for)
+    .venv/Scripts/python tools/excel_eval.py collect x1
+    .venv/Scripts/python tools/excel_eval.py score x1
+    .venv/Scripts/python tools/excel_eval.py workbooks --split held_out --into <folder>
 
-Each reply is kept in the same memo as `tools/copilot_eval.py`'s (`tools/eval_memo.py`), a
-held-out task in arm C by the Copilot files' version too, and `plan`, `prompts`, `proxy`,
-`template` and `score` take the round's tasks from it as that tool's do.
+A round runs as `tools/copilot_eval.py`'s does, on `tools/eval_runs.py`: its rounds are under
+`.eval-local/excel/runs/`, its replies are kept in the same memo by the hash of the text they
+load (files 15, 11 and 12 in arm C), a held-out task asked once per version of it, and its
+rows go to the same `results.md`. A proxy is given five workbooks at most. `prompts`,
+`template` and `score` of an answers file are for a round run by hand in Copilot.
 
 An answers file is a copilot_eval answers file whose headings are the Excel tasks', `## X07`.
 Copilot reads an attached workbook, or the text `copilot/workbook_text.py` writes of it; a
@@ -77,7 +79,7 @@ from sqlglot import exp
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
-import eval_memo  # noqa: E402
+import eval_runs  # noqa: E402
 from copilot_eval import invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
 from formula_workbook import as_text, build  # noqa: E402
@@ -134,37 +136,48 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     return head + ask + "\n\n" + prompts
 
 
-def template(tasks: list[ExcelTask], memo_files: str = "<the files version plan prints>"
-             ) -> str:
-    """An answers file to fill in: its header, the memo's files version among it, then a
-    heading and an empty block per task."""
+def template(tasks: list[ExcelTask]) -> str:
+    """An answers file to fill in: its header, then a heading and an empty block per task."""
     head = ("date: <YYYY-MM-DD>\narm: <A0 or C>\nmodel: <the model>\n"
-            f"files: <the Copilot files' hash, or none>\nmemo_files: {memo_files}\n")
+            "files: <the Copilot files' hash, or none>\n")
     return head + "".join(f"\n## {task.id}\n\n```sql\n```\n" for task in tasks)
 
 
-# --- The memo (Toolbox 8.7, ticket 02) -----------------------------------------------------
+# --- The memo --------------------------------------------------------------------------------
 
 
-def memo_key(task_id: str, reply: str, arm: str, model: str, files: str) -> eval_memo.Key:
+def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
     """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
-    model, the text the arm loads, and, for a held-out task in arm C, the Copilot files'
-    version `files`. The reply changes no Excel task's key."""
-    task = BY_ID[task_id]
-    if task.split != "held_out" or arm != "C":
-        files = eval_memo.NO_FILES_VERSION
-    return eval_memo.hashed_key(task_id, prompt(task), arm, model, shared_text(arm) or "",
-                                files)
+    model and the text the arm loads, files 15, 11 and 12 in arm C, which is all a held-out
+    task is asked once per. The reply changes no Excel task's key."""
+    return eval_runs.hashed_key(task_id, prompt(BY_ID[task_id]), arm, model,
+                                shared_text(arm) or "")
 
 
-def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
-    """What `prompts`, `template` or `proxy` writes for the tasks a round's plan says to ask."""
-    tasks = [BY_ID[task_id] for task_id in asked]
-    if given.command == "prompts":
-        return "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
-    if given.command == "template":
-        return template(tasks, eval_memo.files_version())
-    return proxy_message(given.arm, tasks)
+# A proxy is given a few workbooks, as a person sends one workbook to a fresh chat: a proxy
+# given every workbook at once reads them in pieces and cuts its replies short.
+PER_PROXY = 5
+
+
+def proxy_groups(arm: str, asked: list[str]) -> dict[str, list[str]]:
+    """The tasks asked, cut among proxies by name, PER_PROXY to a proxy."""
+    return {f"{arm.lower()}-{number}": chunk
+            for number, chunk in enumerate(eval_runs.chunks(asked, PER_PROXY), 1)}
+
+
+def _proxy_message_of(arm: str, ids: list[str]) -> str:
+    """The proxy message for the tasks with these ids."""
+    return proxy_message(arm, [BY_ID[task_id] for task_id in ids])
+
+
+def _prompts_of(ids: list[str]) -> str:
+    """The prompts of the tasks with these ids, each under its heading."""
+    return "\n\n".join(f"## {task_id}\n\n{prompt(BY_ID[task_id])}" for task_id in ids)
+
+
+def _template_of(ids: list[str]) -> str:
+    """An answers file's template for the tasks with these ids."""
+    return template([BY_ID[task_id] for task_id in ids])
 
 
 # --- Reading a reply -----------------------------------------------------------------------
@@ -782,44 +795,48 @@ def write_workbooks(split: str, into: Path) -> list[Path]:
 def _add_task_filters(parser: argparse.ArgumentParser, split: str | None = "dev"
                       ) -> argparse.ArgumentParser:
     parser.add_argument("--split", choices=("dev", "held_out", "all"), default=split)
-    # A few tasks to a proxy, as a person sends one workbook to a fresh chat.
     parser.add_argument("--tasks", default="",
                         help="the tasks to give, such as X01,X02: all the split's")
     return parser
 
 
-def _chosen_tasks(given: argparse.Namespace) -> list[ExcelTask]:
-    """The tasks of `--split`, or of every split, cut to `--tasks` where it names some."""
+def _chosen(given: argparse.Namespace) -> list[str]:
+    """The ids of the tasks of `--split`, or of every split, cut to `--tasks` where it names
+    some."""
     chosen = set(filter(None, given.tasks.split(",")))
-    return [task for task in tasks_of(given.split or "all") if not chosen or task.id in chosen]
+    return [task.id for task in tasks_of(given.split or "all")
+            if not chosen or task.id in chosen]
+
+
+PIPELINE = eval_runs.Pipeline(
+    name="excel", letter="X", arms=sorted(ARMS), all_tasks=list(BY_ID),
+    held_out=lambda task_id: BY_ID[task_id].split == "held_out", chosen=_chosen,
+    filtered=lambda given: bool(given.split or given.tasks),
+    add_filters=_add_task_filters, memo_key=memo_key, proxy_groups=proxy_groups,
+    proxy_message=_proxy_message_of, prompts=_prompts_of, template=_template_of)
 
 
 def _score_answers(given: argparse.Namespace) -> None:
-    """Score an answers file's replies, and the replies the memo keeps for the rest of the
-    round `--split` and `--tasks` name, keep each with its score, and print the report; with
-    `--record`, add its row to the results."""
-    header, answered = eval_memo.read_answers(given.answers.read_text(encoding="utf-8"), "X")
-    if given.split or given.tasks:
-        tasks = [task.id for task in _chosen_tasks(given)]
-    else:
-        tasks = [task_id for task_id in BY_ID if task_id in answered]
-    found = eval_memo.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
-                                    given.memo)
+    """Score a round's or an answers file's replies, and the replies the memo keeps for the
+    rest of the round, keep each with its score, print the report and add its row to the
+    results."""
+    header, answered, tasks = eval_runs.answers_to_score(PIPELINE, given)
+    found = eval_runs.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
+                                    given.local / "memo")
     results = scored(found.replies)
-    eval_memo.keep_round(found, {one.task: _answer_line(one) for one in results},
+    eval_runs.keep_round(found, {one.task: _answer_line(one) for one in results},
                          header.get("date", "?"))
     print(report(header, results))
-    print(eval_memo.memo_line(found))
-    if given.record:
-        splits = "+".join(sorted({BY_ID[one.task].split for one in results}))
-        with given.record.open("a", encoding="utf-8") as record:
-            record.write(results_row(header, splits, results, len(found.taken)) + "\n")
+    print(eval_runs.memo_line(found))
+    splits = "+".join(sorted({BY_ID[one.task].split for one in results}))
+    with eval_runs.results_path(given).open("a", encoding="utf-8") as record:
+        record.write(results_row(header, splits, results, len(found.taken)) + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    eval_memo.add_round_commands(commands, sorted(ARMS), _add_task_filters)
+    eval_runs.add_round_commands(commands, PIPELINE)
     workbooks = commands.add_parser("workbooks")
     workbooks.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
     workbooks.add_argument("--into", type=Path, required=True)
@@ -830,8 +847,7 @@ def main(argv: list[str] | None = None) -> int:
         for path in write_workbooks(given.split, given.into):
             print(path)
     else:
-        tasks = [(task.id, task.split == "held_out") for task in _chosen_tasks(given)]
-        eval_memo.print_round(tasks, memo_key, given, functools.partial(asked_text, given))
+        return eval_runs.run_round_command(PIPELINE, given)
     return 0
 
 

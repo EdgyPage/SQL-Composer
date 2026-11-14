@@ -261,3 +261,26 @@ def test_the_copy_records_command_copies_from_a_root_into_a_local_folder(
     assert eval_runs.main(["copy-records", "--root", str(root),
                            "--local", str(tmp_path / "local")]) == 0
     assert "Copied 1 files" in capsys.readouterr().out
+
+
+# --- A held-out task and an agent-counted estimate (evaluation system, ticket 03) -------------
+
+
+def test_fresh_asks_every_kept_task_again_but_not_a_held_out_one(tmp_path: Path) -> None:
+    keep(eval_runs.hashed_key("T07", "text", "C", "haiku", "file 03"), tmp_path)
+    keep(eval_runs.hashed_key("T09", "text", "C", "haiku", "file 03"), tmp_path)
+
+    def key_of(task: str, reply: str) -> eval_runs.Key:
+        return eval_runs.hashed_key(task, "text", "C", "haiku", "file 03")
+    plan = eval_runs.memo_plan(["T07", "T09"], key_of, fresh=True, folder=tmp_path,
+                               held_out=frozenset({"T09"}))
+    assert [(one.task, one.reason) for one in plan] == [("T07", "--fresh"), ("T09", "")]
+
+
+def test_a_plans_estimate_is_by_agent_when_a_proxy_takes_several_tasks(tmp_path: Path) -> None:
+    eval_runs.record_run(a_run(tokens="2000"), tmp_path)
+    asking = eval_runs.RoundToPlan("copilot", "C", "haiku", ["T07", "T08", "T09"],
+                                   agents=lambda asked: 1)
+    plan = eval_runs.plan_round(asking, lambda task, reply: a_key(), fresh=False,
+                                over_budget=False, local=tmp_path)
+    assert plan.tokens == 2000 and "Spawn 1 proxies." in plan.text

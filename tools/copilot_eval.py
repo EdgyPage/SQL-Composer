@@ -5,19 +5,26 @@ measures it: the same tasks (`tools/copilot_eval_tasks.py`) are answered with an
 files, by Copilot in its web chat or by a proxy model in a Claude session, each reply is kept
 in an answers file, and this scores the replies against the tasks' reference answers.
 
-    python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
-    python tools/copilot_eval.py prompts --arm C --split dev --model copilot-web
-    python tools/copilot_eval.py proxy C --split dev --objective 03 --model haiku
-    python tools/copilot_eval.py template --arm C --split dev --model haiku > answers.md
-    python tools/copilot_eval.py score answers.md --split dev --objective 03 \\
-        --record .scratch/copilot-eval/results.md
+    .venv/Scripts/python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
+    .venv/Scripts/python tools/copilot_eval.py batch C --split dev --objective 03 \\
+        --model haiku --round r1
+    (the session spawns each proxy `batch` printed a line for)
+    .venv/Scripts/python tools/copilot_eval.py collect r1
+    .venv/Scripts/python tools/copilot_eval.py score r1
 
-Each reply is kept in the memo, `.scratch/copilot-eval/memo/` (`tools/eval_memo.py`), by its
-task's id and text, its arm, its model and the text the arm loads, and a held-out task in arm C
-or R by the Copilot files' version too. `plan` names the tasks of a round to ask and why;
-`prompts`, `proxy` and `template` write only those, and `score` scores the round's kept
-replies with the answers file's new ones, and keeps each with its score: a held-out reply by
-the files version its header's `memo_files:` names, the one it was asked on.
+`plan` names the tasks of a round to ask and why, and what it is estimated to cost; `batch`
+writes each proxy's message file under `.eval-local/copilot/runs/r1/` and prints one line per
+proxy, its agent type, model and one-line prompt; `collect` merges the proxies' answers files
+into the round's `answers.md`; `score` scores them, with the replies the memo keeps for the
+rest of the round, and keeps each with its score. `prompts` and `template` write only the
+tasks `plan` names, for a round run by hand in Copilot's web chat, and `score` takes the
+answers file in place of a round. `docs/copilot-eval.md` has the steps.
+
+Each reply is kept in the memo, `.eval-local/memo/` (`tools/eval_runs.py`), by its task's id
+and text, its arm, its model and the hash of exactly the text the task loads: the task's
+objective file in arm C, file 00 and the file the reply names in arm R. A held-out task is
+asked once per version of that text. Nothing of a round is tracked: git ignores
+`.eval-local/`.
 
 An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
 Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
@@ -65,7 +72,6 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
-import functools
 import io
 import json
 import math
@@ -84,7 +90,7 @@ from sqlglot import exp
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
-import eval_memo  # noqa: E402
+import eval_runs  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E402
 from example_gallery import example_setting, what_happened  # noqa: E402
@@ -318,20 +324,23 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
                                              for task in tasks)
 
 
-def template(tasks: list[Task], memo_files: str = "<the files version plan prints>") -> str:
-    """An answers file to fill in: its header, the memo's files version among it, then a
-    heading and an empty block per task."""
+def template(tasks: list[Task]) -> str:
+    """An answers file to fill in: its header, then a heading and an empty block per task."""
     head = ("date: <YYYY-MM-DD>\narm: <A0, A1, C or R>\nmodel: <the model>\n"
-            f"files: <the Copilot files' hash, or none>\nmemo_files: {memo_files}\n")
+            "files: <the Copilot files' hash, or none>\n")
     return head + "".join(f"\n## {task.id}\n\n```python\n```\n" for task in tasks)
 
 
-# --- The memo (Toolbox 8.7, ticket 02) -----------------------------------------------------
+# --- The memo ------------------------------------------------------------------------------
 
-# The arms that load a Copilot file, in which a held-out task is asked once per files version.
-FILE_ARMS = ("C", "R")
 # A Copilot file's name, as an arm R reply names the file it would load.
 FILE_NAME = re.compile(r"\b\d\d_\w+\.txt\b")
+
+
+def named_files(reply: str) -> list[str]:
+    """The Copilot files a reply names, each once, in order, file 00 aside."""
+    return list(dict.fromkeys(name for name in FILE_NAME.findall(reply)
+                              if not name.startswith("00_")))
 
 
 def loaded_text(arm: str, task: Task, reply: str) -> str:
@@ -340,31 +349,129 @@ def loaded_text(arm: str, task: Task, reply: str) -> str:
     if arm != "R":
         return shared_text(arm, task.objective) or ""
     text = shared_text("R", None) or ""
-    named = [name for name in FILE_NAME.findall(reply) if not name.startswith("00_")]
+    named = named_files(reply)
     if named and (COPILOT / named[0]).is_file():
         text += (COPILOT / named[0]).read_text(encoding="utf-8")
     return text
 
 
-def memo_key(task_id: str, reply: str, arm: str, model: str, files: str) -> eval_memo.Key:
+def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
     """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
-    model, the text the arm loads, and, for a held-out task in an arm that loads a Copilot
-    file, the Copilot files' version `files`."""
+    model and the text the arm loads, which is all a held-out task is asked once per."""
     task = BY_ID[task_id]
-    if task.split != "held_out" or arm not in FILE_ARMS:
-        files = eval_memo.NO_FILES_VERSION
-    return eval_memo.hashed_key(task_id, prompt(task), arm, model,
-                                loaded_text(arm, task, reply), files)
+    return eval_runs.hashed_key(task_id, prompt(task), arm, model,
+                                loaded_text(arm, task, reply))
 
 
-def asked_text(given: argparse.Namespace, asked: list[str]) -> str:
-    """What `prompts`, `template` or `proxy` writes for the tasks a round's plan says to ask."""
-    tasks = [BY_ID[task_id] for task_id in asked]
-    if given.command == "prompts":
-        return "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
-    if given.command == "template":
-        return template(tasks, eval_memo.files_version())
-    return proxy_message(given.arm, tasks)
+# --- Arm R: routing, scored by script --------------------------------------------------------
+
+# One Index row of file 00: its id, then the files its Load column names.
+INDEX_ROW = re.compile(r"^\| (P\d+) \|.*\| ([\d, ]+) \|\s*$", re.MULTILINE)
+
+
+def index_loads(start_here: str) -> dict[str, set[str]]:
+    """What file 00's Index lets a task of each objective load: the files of every row whose
+    Load column names the objective's file."""
+    allowed: dict[str, set[str]] = {}
+    for _, load in INDEX_ROW.findall(start_here):
+        files = set(re.findall(r"\d\d", load))
+        for number in files:
+            allowed.setdefault(number, set()).update(files)
+    return allowed
+
+
+@dataclass
+class Routing:
+    """An arm R reply scored: the files it named, whether it is right by file 00's rules
+    (strict) and whether it is right by its Index."""
+
+    task: str
+    named: list[str]
+    strict: bool
+    index: bool
+
+
+def routing(task: Task, reply: str) -> Routing:
+    """Score a reply that names the one file to load for a task, with no model. Strictly, by
+    the rules the reply was asked under: it names one file, and it is the task's objective's.
+    By the Index: the first file it names is one the Index's rows for that objective load."""
+    named = named_files(reply)
+    exists = [name for name in named if (COPILOT / name).is_file()]
+    strict = len(named) == 1 and exists == named and named[0].startswith(f"{task.objective}_")
+    allowed = index_loads((COPILOT / "00_start_here.txt").read_text(encoding="utf-8"))
+    index = bool(exists) and exists[0][:2] in allowed.get(task.objective, set())
+    return Routing(task.id, named, strict, index)
+
+
+def _route_line(one: Routing) -> str:
+    """One routing's line of the report."""
+    named = ", ".join(one.named) or "no file named"
+    return (f"{one.task}  route  strict {'pass' if one.strict else 'FAIL'}  "
+            f"index {'pass' if one.index else 'FAIL'}  ({named})")
+
+
+def routed(replies: dict[str, str]) -> list[Routing]:
+    """Each reply, by its task's id, scored as routing, in task order."""
+    return [routing(BY_ID[task_id], replies[task_id]) for task_id in BY_ID
+            if task_id in replies]
+
+
+def _rate_of(results: list[Routing], field_name: str) -> int:
+    """The percent of routings whose `field_name` is true."""
+    if not results:
+        return 0
+    return round(100 * sum(getattr(one, field_name) for one in results) / len(results))
+
+
+def route_report(header: dict[str, str], results: list[Routing]) -> str:
+    """The routing scores as text: a line per reply, then the two rates."""
+    lines = [_route_line(one) for one in results]
+    lines.append(f"\nR on {header.get('model', '?')}: strict {_rate_of(results, 'strict')}%, "
+                 f"by the Index {_rate_of(results, 'index')}% of {len(results)}")
+    return "\n".join(lines)
+
+
+def route_row(header: dict[str, str], split: str, results: list[Routing], from_memo: int
+              ) -> str:
+    """One row of the results for a routing round: its date, files, model, arm R, split, how
+    many replies, the strict and Index rates, and how many came from the memo."""
+    return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
+            f"{header.get('model', '?')} | R | {split} | {len(results)} | "
+            f"{_rate_of(results, 'strict')} | {_rate_of(results, 'index')} | {from_memo} |")
+
+
+# --- Rounds of proxies -----------------------------------------------------------------------
+
+# The most tasks one proxy is given outside arm C, where it is given one objective's.
+PER_PROXY = 10
+
+
+def proxy_groups(arm: str, asked: list[str]) -> dict[str, list[str]]:
+    """The tasks asked, cut among proxies by name: in arm C one proxy per objective, as a user
+    loads one file at a time, and in the other arms PER_PROXY to a proxy."""
+    groups: dict[str, list[str]] = {}
+    if arm == "C":
+        for task_id in asked:
+            groups.setdefault(f"c{BY_ID[task_id].objective}", []).append(task_id)
+        return groups
+    for number, chunk in enumerate(eval_runs.chunks(asked, PER_PROXY), 1):
+        groups[f"{arm.lower()}-{number}"] = chunk
+    return groups
+
+
+def _proxy_message_of(arm: str, ids: list[str]) -> str:
+    """The proxy message for the tasks with these ids."""
+    return proxy_message(arm, [BY_ID[task_id] for task_id in ids])
+
+
+def _prompts_of(ids: list[str]) -> str:
+    """The prompts of the tasks with these ids, each under its heading."""
+    return "\n\n".join(f"## {task_id}\n\n{prompt(BY_ID[task_id])}" for task_id in ids)
+
+
+def _template_of(ids: list[str]) -> str:
+    """An answers file's template for the tasks with these ids."""
+    return template([BY_ID[task_id] for task_id in ids])
 
 
 # --- Reading an answers file ---------------------------------------------------------------
@@ -1083,8 +1190,8 @@ def report(header: dict[str, str], results: list[Score]) -> str:
 
 def results_row(header: dict[str, str], split: str, results: list[Score],
                 from_memo: int = 0) -> str:
-    """One row of .scratch/copilot-eval/results.md for a scored answers file, its last cell
-    how many of its replies came from the memo."""
+    """One row of the Copilot results (`results.md` in the local folder) for a scored answers
+    file, its last cell how many of its replies came from the memo."""
     total = summary(results)
     objectives = " ".join(f"{name}:{rate}" for name, rate in total.objectives.items())
     return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
@@ -1101,42 +1208,52 @@ def _add_task_filters(parser: argparse.ArgumentParser, split: str | None = "dev"
     return parser
 
 
+def _chosen(given: argparse.Namespace) -> list[str]:
+    """The ids of the tasks of `--split` (every split without one) and `--objective`."""
+    return [task.id for task in tasks_of(given.split or "all", given.objective)]
+
+
+PIPELINE = eval_runs.Pipeline(
+    name="copilot", letter="T", arms=sorted(ARMS), all_tasks=list(BY_ID),
+    held_out=lambda task_id: BY_ID[task_id].split == "held_out", chosen=_chosen,
+    filtered=lambda given: bool(given.split or given.objective),
+    add_filters=_add_task_filters, memo_key=memo_key, proxy_groups=proxy_groups,
+    proxy_message=_proxy_message_of, prompts=_prompts_of, template=_template_of)
+
+
 def _score_answers(given: argparse.Namespace) -> None:
-    """Score an answers file's replies, and the replies the memo keeps for the rest of the
-    round `--split` and `--objective` name, keep each with its score, and print the report;
-    with `--record`, add its row to the results."""
-    header, answered = eval_memo.read_answers(given.answers.read_text(encoding="utf-8"), "T")
-    if given.split or given.objective:
-        tasks = [task.id for task in tasks_of(given.split or "all", given.objective)]
+    """Score a round's or an answers file's replies, and the replies the memo keeps for the
+    rest of the round, keep each with its score, print the report and add its row to the
+    results. In arm R the replies are routing, scored by file 00's rules and its Index."""
+    header, answered, tasks = eval_runs.answers_to_score(PIPELINE, given)
+    memo = given.local / "memo"
+    found = eval_runs.round_replies(header, answered, tasks, memo_key, sorted(ARMS), memo)
+    splits = "+".join(sorted({BY_ID[task].split for task in found.replies}))
+    if header["arm"] == "R":
+        routes = routed(found.replies)
+        lines = {one.task: _route_line(one) for one in routes}
+        print(route_report(header, routes))
+        row = route_row(header, splits, routes, len(found.taken))
     else:
-        tasks = [task_id for task_id in BY_ID if task_id in answered]
-    found = eval_memo.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
-                                    given.memo)
-    results = scored(found.replies)
-    eval_memo.keep_round(found, {one.task: _answer_line(one) for one in results},
-                         header.get("date", "?"))
-    print(report(header, results))
-    print(eval_memo.memo_line(found))
-    if given.record:
-        splits = {BY_ID[one.task].split for one in results}
-        row = results_row(header, "+".join(sorted(splits)), results, len(found.taken))
-        with given.record.open("a", encoding="utf-8") as record:
-            record.write(row + "\n")
+        results = scored(found.replies)
+        lines = {one.task: _answer_line(one) for one in results}
+        print(report(header, results))
+        row = results_row(header, splits, results, len(found.taken))
+    eval_runs.keep_round(found, lines, header.get("date", "?"))
+    print(eval_runs.memo_line(found))
+    with eval_runs.results_path(given).open("a", encoding="utf-8") as record:
+        record.write(row + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    eval_memo.add_round_commands(commands, sorted(ARMS), _add_task_filters)
+    eval_runs.add_round_commands(commands, PIPELINE)
     given = parser.parse_args(argv)
     if given.command == "score":
         _score_answers(given)
-    else:
-        tasks = [(task.id, task.split == "held_out")
-                 for task in tasks_of(given.split, given.objective)]
-        eval_memo.print_round(tasks, memo_key, given,
-                              functools.partial(asked_text, given))
-    return 0
+        return 0
+    return eval_runs.run_round_command(PIPELINE, given)
 
 
 if __name__ == "__main__":
