@@ -56,6 +56,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
 import eval_runs  # noqa: E402
+import eval_sources  # noqa: E402
 from copilot_eval import EXAMPLE_TABLES  # noqa: E402
 from metric_eval_tasks import (  # noqa: E402
     BY_ID,
@@ -129,7 +130,7 @@ def request_in(message: str) -> str:
     request = message[found.start():]
     if message[:found.start()].rstrip().endswith("```text"):
         request = request.split("```", 1)[0]
-    return request.strip() + "\n"
+    return eval_sources.without_source_lines(request).strip() + "\n"
 
 
 # --- What a request holds ------------------------------------------------------------------
@@ -292,7 +293,10 @@ def copilot_message(task: MetricTask) -> str:
     definitions and the user's vague goal."""
     loaded = ("The user pasted this as their first message:\n\n"
               + _quoted(FILE_19.read_text(encoding="utf-8")) + "\n\n")
-    return _copilot_start(loaded, task) + "\n\nReply as Copilot, following the file."
+    return (_copilot_start(loaded, task) + "\n\nReply as Copilot, following the file. End "
+            "each reply with a line `Used: ` and the ids of the file's rules you followed, "
+            "such as `Used: A1, D2, Q7`, or `Used: none`; then, after it, your one closing "
+            "word.")
 
 
 def request_form() -> str:
@@ -533,17 +537,31 @@ def record_row(record: Path, row: str) -> None:
     record.write_text(text.rstrip("\n") + "\n" + row + "\n", encoding="utf-8")
 
 
+def source_row_of(given: argparse.Namespace, task: str, passed: bool, folder: Path
+                  ) -> eval_sources.SourceRow:
+    """A task's row of sources: what Copilot cited in any of its turns, which its instructions
+    ask for at the end of each, against file 19, whose ids it may cite."""
+    said = "\n".join(path.read_text(encoding="utf-8") for speaker, path in _turns(folder)
+                     if speaker == "Copilot")
+    run = eval_sources.RunOf(datetime.date.today().isoformat(), given.round, "metric", task,
+                             given.arm, given.model, eval_runs.files_version())
+    return eval_sources.source_row(run, passed, said,
+                                   {"19": FILE_19.read_text(encoding="utf-8")})
+
+
 def score_round(given: argparse.Namespace) -> str:
     """Score a round's requests, each task's request.md or, with no folder, the reply kept
     for it in the memo; keep each new request in the memo; record the round's row. Gives the
     report, a line per task."""
     key_of = _key_of(given)
-    lines, results, from_memo = [], [], 0
+    lines, results, from_memo, new_sources = [], [], 0, []
     for task in _round_tasks(given.split, given.only):
-        path = task_folder(given.round, task, given.local) / "request.md"
+        folder = task_folder(given.round, task, given.local)
+        path = folder / "request.md"
         if path.exists():
             reply = path.read_text(encoding="utf-8")
             result = score_request(BY_ID[task], reply)
+            new_sources.append(source_row_of(given, task, result.passed, folder))
             eval_runs.write_kept(
                 eval_runs.Kept(key_of(task, reply), datetime.date.today().isoformat(),
                                score_line(result), reply), given.local / "memo")
@@ -556,6 +574,8 @@ def score_round(given: argparse.Namespace) -> str:
             from_memo += 1
         results.append(result)
         lines.append(score_line(result))
+    if new_sources and given.arm == "C":
+        eval_sources.keep_sources(new_sources, given.local)
     if results:
         record_row(eval_runs.make_local_path("metric", "results.md", local=given.local),
                    results_row(given, results, from_memo))

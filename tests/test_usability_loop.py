@@ -23,6 +23,7 @@ import notebook_runner
 import openpyxl
 import pytest
 import eval_runs
+import eval_sources
 import usability_loop
 from conftest import forget_the_projects_modules, toolbox_module
 from openpyxl.worksheet.table import Table
@@ -796,8 +797,9 @@ def test_each_phases_agent_is_one_line_of_type_model_and_prompt(
     for number, line in enumerate(lines, 1):
         agent, model, prompt = line.split(" | ")
         assert (agent, model) == ("zero-context-user", "haiku")
-        assert prompt == (f"Read {tmp_path / 'run' / '_loop' / f'phase_{number}.md'} and "
-                          "follow it.")
+        assert prompt.startswith(
+            f"Read {tmp_path / 'run' / '_loop' / f'phase_{number}.md'} and follow it. ")
+        assert "`Read: `" in prompt
 
 
 def test_a_routed_question_prints_the_proxy_to_spawn(
@@ -1002,3 +1004,39 @@ def test_a_runs_actions_are_counted_cells_edited_and_files_of_its_own(
     assert "actions: 3, cells edited (convert 1), 2 files of its own" in (
         usability_loop.report_text(result, run))
     forget_the_projects_modules()
+
+
+# --- Sources: a run's Read lines (evaluation system, ticket 06) -------------------------------
+
+
+def test_a_recorded_run_keeps_its_result_with_what_its_agents_said_they_read(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(usability_loop, "RUNS", tmp_path)
+    run = usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-1", main=main_tree,
+                                 python=Path(sys.executable))
+    _finish(run)
+    usability_loop.record_usage(run.name, "phase-1", tokens="1", seconds="1", result="done",
+                                round_id="r1", commit="abc",
+                                final="DONE: made it.\nRead: .github/README.md Update, "
+                                      "copilot/13_workflows.txt Steps")
+    usability_loop.record_usage(run.name, "route-1", tokens="1", seconds="1", result="ok",
+                                round_id="r1", commit="abc", final="not kept")
+    assert [path.name for path in (run / "_loop").glob("final-*.txt")] == ["final-1.txt"]
+    result = usability_loop.score(chosen, run)
+    usability_loop.record(result, run, chosen)
+    [kept] = eval_sources.read_sources(local)
+    assert (kept.pipeline, kept.round, kept.task) == ("usability", "2026-11-10-T1", run.name)
+    assert kept.result == ("pass" if result.passed else "fail") and kept.status == "cited"
+    assert kept.cited == ".github/README.md Update;copilot/13_workflows.txt Steps"
+    assert kept.loaded == _inputs(run)["inputs_hash"][:12]
+
+
+def test_a_run_whose_agents_gave_no_read_line_is_kept_as_no_source(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
+    run = usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-1", main=main_tree,
+                                 python=Path(sys.executable))
+    _finish(run)
+    usability_loop.record(usability_loop.score(chosen, run), run, chosen)
+    [kept] = eval_sources.read_sources(local)
+    assert kept.status == "no source" and kept.cited == ""

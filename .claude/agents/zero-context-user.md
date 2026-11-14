@@ -17,4 +17,7 @@ is enough for someone who has never seen it. Your prompt names one message file.
    says: end your turn with one line starting `QUESTION: `. The answer comes as your next
    message; carry on from there.
 4. End your last turn with one line starting `DONE: ` and what you did, or `STUCK: ` and the
-   step you couldn't get past, quoting the instruction or the error that stopped you.
+   step you couldn't get past, quoting the instruction or the error that stopped you. After
+   it, a last line starting `Read: ` and each file and section you read to do the job, as
+   `<file> <section>`, separated by commas: `Read: .github/README.md Update,
+   copilot/13_workflows.txt Steps`. Name only what you opened.

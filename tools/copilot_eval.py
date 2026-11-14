@@ -91,6 +91,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
 import eval_runs  # noqa: E402
+import eval_sources  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E402
 from example_gallery import example_setting, what_happened  # noqa: E402
@@ -320,6 +321,10 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
         ask = ("Each task below is a separate request the user sends next. Answer each as you "
                "would in that chat: reply with its `## T..` heading, then your answer, with "
                "the code in a ```python block.")
+        if arm == "C":
+            ask += (" End each answer with a line `Used: ` and the ids of the file's "
+                    "patterns, rules and worked patterns you followed, such as `Used: P3, "
+                    "R7, W1`, or `Used: none`.")
     return head + ask + "\n\n" + "\n\n".join(f"## {task.id}\n\n{prompt(task)}"
                                              for task in tasks)
 
@@ -361,6 +366,15 @@ def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
     task = BY_ID[task_id]
     return eval_runs.hashed_key(task_id, prompt(task), arm, model,
                                 loaded_text(arm, task, reply))
+
+
+def files_loaded(arm: str, task_id: str) -> dict[str, str]:
+    """The Copilot file whose ids a reply to the task may cite, by its number: the objective's
+    in arm C, and none in the arms that load no file of ids."""
+    if arm != "C":
+        return {}
+    objective = BY_ID[task_id].objective
+    return {objective: shared_text("C", objective) or ""}
 
 
 # --- Arm R: routing, scored by script --------------------------------------------------------
@@ -1246,6 +1260,9 @@ def _score_answers(given: argparse.Namespace) -> None:
         lines = {one.task: _answer_line(one) for one in results}
         print(report(header, results))
         row = results_row(header, splits, results, len(found.taken))
+        eval_sources.keep_round("copilot", header, found, {one.task: one.passed
+                                                           for one in results},
+                                files_loaded, given.local)
     eval_runs.keep_round(found, lines, header.get("date", "?"))
     print(eval_runs.memo_line(found))
     with eval_runs.results_path(given).open("a", encoding="utf-8") as record:

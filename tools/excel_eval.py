@@ -80,6 +80,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
 import eval_runs  # noqa: E402
+import eval_sources  # noqa: E402
 from copilot_eval import invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
 from formula_workbook import as_text, build  # noqa: E402
@@ -120,6 +121,18 @@ def shared_text(arm: str) -> str | None:
     return "\n\n".join(texts)
 
 
+def files_loaded(arm: str, task_id: str) -> dict[str, str]:
+    """The Copilot files whose ids a reply may cite, by their numbers: 15, 11 and 12 in arm C,
+    and none in the arm that loads no file."""
+    if arm == "A0":
+        return {}
+    texts = {}
+    for number in EXCEL_FILES:
+        [path] = sorted(COPILOT.glob(f"{number}_*.txt"))
+        texts[number] = path.read_text(encoding="utf-8")
+    return texts
+
+
 def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     """The message a proxy model is given for one arm: what the person shared, then each task's
     prompt, as if each came in a chat of its own."""
@@ -132,6 +145,10 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     ask = ("Each task below is a separate request the user sends next. Answer each as you "
            "would in that chat: reply with its `## X..` heading, then your answer, with SQL in "
            "```sql blocks and any Python in ```python blocks.")
+    if shared is not None:
+        ask += (" End each answer with a line `Used: ` and the ids of the files' patterns, "
+                "rules and worked patterns you followed, each with its file's number, such as "
+                "`Used: 11:F4, 15:W1`, or `Used: none`.")
     prompts = "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
     return head + ask + "\n\n" + prompts
 
@@ -833,6 +850,8 @@ def _score_answers(given: argparse.Namespace) -> None:
     results = scored(found.replies)
     eval_runs.keep_round(found, {one.task: _answer_line(one) for one in results},
                          header.get("date", "?"))
+    eval_sources.keep_round("excel", header, found, {one.task: one.passed for one in results},
+                            files_loaded, given.local)
     print(report(header, results))
     print(eval_runs.memo_line(found))
     splits = "+".join(sorted({BY_ID[one.task].split for one in results}))

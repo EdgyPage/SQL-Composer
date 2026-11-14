@@ -107,6 +107,7 @@ EXAMPLE_DATABASE = ROOT / "example_database"
 sys.path[:0] = [str(ROOT)]
 
 import eval_runs  # noqa: E402
+import eval_sources  # noqa: E402
 import export_clean  # noqa: E402
 import openpyxl  # noqa: E402
 from formula_workbook import row_label  # noqa: E402
@@ -1034,11 +1035,19 @@ def spawn_line(agent: str, model: str, prompt: str) -> str:
     return f"{agent} | {model} | {prompt}"
 
 
+# What each phase's prompt adds, outside the message the inputs hash is made from, so that
+# asking for the sources changes no scenario's memo (evaluation system, ticket 06).
+READ_LINE_ASK = ("End your last turn with a line `Read: ` and each file and section you "
+                 "read, as `<file> <section>`, separated by commas, such as `Read: "
+                 ".github/README.md Update, copilot/13_workflows.txt Steps`.")
+
+
 def phase_spawn_lines(chosen: Scenario, run: Path) -> list[str]:
     """The agent of each phase of a run, in order: each starts fresh, after the one before it
     is done."""
     return [spawn_line(USER_AGENT, MODEL,
-                       f"Read {run / '_loop' / f'phase_{number}.md'} and follow it.")
+                       f"Read {run / '_loop' / f'phase_{number}.md'} and follow it. "
+                       + READ_LINE_ASK)
             for number in range(1, len(chosen.phases) + 1)]
 
 
@@ -1050,18 +1059,23 @@ def proxy_spawn_line(message: Path, reply: Path) -> str:
 
 # What an agent's usage is recorded for: a phase's agent, or the proxy of a question's route or
 # answer, by its number.
+RUN_NAME = re.compile(r"(.+)-[1-9]\d*")
 USAGE_OF = re.compile(r"(phase|route|answer)-([1-9]\d*)")
 
 
 def record_usage(run_name: str, what: str, *, tokens: str, seconds: str, result: str,
-                 round_id: str, commit: str) -> Path:
+                 round_id: str, commit: str, final: str | None = None) -> Path:
     """Add an agent's reported usage to the ledger: `what` is `phase-<n>`, `route-<n>` or
-    `answer-<n>`, the agent of that phase or the proxy of that question's route or answer."""
+    `answer-<n>`, the agent of that phase or the proxy of that question's route or answer. A
+    phase's `final` message is kept in the run's `_loop/`, for its `Read:` line."""
     found = USAGE_OF.fullmatch(what)
     if found is None:
         raise SystemExit(f"{what!r} isn't an agent of the loop: say phase-1 for a phase's "
                          "agent, or route-1 or answer-1 for a question's proxy.")
     is_phase = found[1] == "phase"
+    if final is not None and is_phase:
+        (RUNS / run_name / "_loop" / f"final-{found[2]}.txt").write_text(final,
+                                                                        encoding="utf-8")
     run = eval_runs.Run(date=datetime.date.today().isoformat(), commit=commit, round=round_id,
                         pipeline="usability", task=f"{run_name}/{what}",
                         arm=PHASE_ARM if is_phase else QUESTION_ARM, model=MODEL,
@@ -1349,6 +1363,24 @@ def report_text(result: RunScore, run: Path) -> str:
     return "\n".join(lines)
 
 
+def keep_run_sources(result: RunScore, run: Path) -> None:
+    """Keep the run's result with the files and sections its agents said they read: each phase's
+    final message, kept by `usage --final`, ends with a `Read:` line; none is no source."""
+    inputs = run / "_loop" / "inputs.json"
+    inputs_hash = "-"
+    if inputs.is_file():
+        inputs_hash = json.loads(inputs.read_text(encoding="utf-8"))["inputs_hash"]
+    said = "\n".join(path.read_text(encoding="utf-8")
+                     for path in sorted((run / "_loop").glob("final-*.txt")))
+    named = RUN_NAME.fullmatch(run.name)
+    round_id = named[1] if named else run.name
+    row = eval_sources.read_row(
+        eval_sources.RunOf(datetime.date.today().isoformat(), round_id, "usability", run.name,
+                           MEMO_ARM, MODEL, inputs_hash[:SHORT_HASH]),
+        result.passed, said, inputs_hash)
+    eval_sources.keep_sources([row], LOCAL)
+
+
 def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str:
     """Keep a scored run, all under the local folder: its folder, but for main/ and any copy of
     the Toolbox's folder, in `usability/runs/`, a row in `usability/results.md` naming its
@@ -1369,6 +1401,7 @@ def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str
         keep_run(chosen, inputs_hash, run.name, result.passed, report_text(result, run))
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
+    keep_run_sources(result, run)
     results_path = eval_runs.make_local_path("usability", "results.md", local=LOCAL)
     if not results_path.is_file():
         results_path.write_text(
@@ -1404,7 +1437,8 @@ def _usage(given: argparse.Namespace) -> int:
     """Add an agent's reported usage to the ledger."""
     commit = given.commit or dev_commit()
     path = record_usage(given.run, given.what, tokens=given.tokens, seconds=given.seconds,
-                        result=given.result, round_id=given.round, commit=commit)
+                        result=given.result, round_id=given.round, commit=commit,
+                        final=given.final)
     print(f"Recorded {given.run}/{given.what} in {path.name}.")
     return 0
 
@@ -1482,6 +1516,8 @@ def _record_parsers(commands: argparse._SubParsersAction) -> None:
     usage.add_argument("--round", default=datetime.date.today().isoformat(),
                        help="the round's id (default: today's date)")
     usage.add_argument("--commit", default="", help="default: dev's last commit")
+    usage.add_argument("--final", help="a phase agent's last message, whose `Read:` line "
+                       "says what it read")
     commands.add_parser("migrate", help="keep each run results.md records in the memo")
 
 
