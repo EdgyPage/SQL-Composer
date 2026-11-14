@@ -533,13 +533,25 @@ _Avoid_: prompt pack, system prompt, cheat sheet
 
 **Metric request**:
 Text a user writes, with Copilot's questions (Copilot file 19), that says exactly what each
-new column of a metric should hold, in a section per column, each column asked for on its own:
-its name and one plain sentence, its formula in plain maths, each quantity in it (by column
-name where the user knows one), one row per what, the days counted, what is left out, the edge
-cases, a worked example, on sample rows when the user gives some, and the questions still open.
-It is not SQL: it is given to a chatbot that knows the databases, which defines the columns
-from it.
+new column of a metric should hold, built on the user's Column definitions, in a section per
+column, each column asked for on its own: its name and one plain sentence, its formula in plain
+maths, each quantity in it by its table and column, one row per what, the days counted, what is
+left out, the edge cases, how to check it in words, and the questions still open, each Gap
+among them with its fix. It is not SQL and works out no numbers: it is given to a chatbot that
+knows the databases, which defines the columns from it.
 _Avoid_: spec, prompt, requirements doc
+
+**Column definitions**:
+The list of a user's tables' columns and what each holds, pasted from their data dictionary,
+which a Metric request is built on. Often messy: some vague, some blank, a unit unstated.
+_Avoid_: schema, data dictionary (the definitions are what the user pastes from it)
+
+**Gap**:
+What a Metric request's metric needs that no Column definition gives, such as a time of day no
+table keeps, or a column whose definition is too vague to decide. The request names it under
+"Missing data:" with a "Fix:", what to ask or add, and never puts another quantity in its place
+unasked.
+_Avoid_: missing field, unknown
 
 **Quantity**:
 A number a Metric request's formula uses, such as "failed runs", said so exactly that a chatbot
@@ -547,13 +559,14 @@ can't read it two ways: which rows count, by which column's values, and what is 
 _Avoid_: measure, field, variable
 
 **Grain**:
-What one row of a new column's result is, as a Metric request says it: "one row per job", "one
-row per team per day".
+What one row of a new column's result is, and which rows there are, as a Metric request says
+it: "one row per job with a finished run", "one row per team per day".
 _Avoid_: level, granularity, key (a Key is a table's)
 
 **Sample rows**:
-Rows a user pastes into a Copilot chat, from a table or a spreadsheet, for Copilot to work a
-Metric request's formula on, row by row.
+Rows a user pastes into a Copilot chat, from a table or a spreadsheet, which show Copilot the
+columns and values there are; a Metric request names some of them in how to check it, and
+works out nothing on them.
 _Avoid_: sample data, test data, dataset
 
 **Formula workbook**:

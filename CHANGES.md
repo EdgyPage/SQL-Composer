@@ -118,12 +118,15 @@ request.
   such as `FALSE`, is kept, with a finding of a new kind, `kept`: your Hive may refuse it, so
   if it does and ascending will do, take the second argument out.
 - **Copilot file 19, `copilot/19_metric_request.txt`,** takes a vague ask for a metric to a
-  Metric request: text for your chatbot that knows your databases' columns, not SQL. It asks
-  one question at a time, each with a recommended answer, asks "one column or two?" of a
-  column that could be two numbers, works the formula on your sample rows, pushes back once and lets your answer stand. The
-  request names each quantity, the rows, the days counted, what is left out, the edge cases, a
-  worked example and the questions still open, and ends with a line on what to do with it.
-  `00_start_here.txt` names it.
+  Metric request: text for your chatbot that knows your databases, not SQL and no sums. Paste
+  your column definitions with the ask. It asks one question at a time, each with a
+  recommended answer, asks "one column or two?" of a column that could be two numbers, pushes
+  back once and lets your answer stand. The request names each quantity by its table and
+  column, the rows, the days counted, what is left out, the edge cases, how to check it and the
+  questions still open. Where your tables can't give the metric, or a column's definition is
+  too vague, it says what data is missing and what to ask or add, and invents nothing. The file
+  is written to be looked up: numbered rules with short ids, a "when you say this, it does
+  that" list, patterns to copy and a Self-check. `00_start_here.txt` names it.
 - **Copilot files keep to 9,000 characters**, one message to Copilot, not 8,000, and each uses
   the room for what Copilot got wrong or the files left out. File 07 names `hivevar`, and
   `count_distinct` and `fill_null` again; file 18 lists the schedule Workflow's step. File 06

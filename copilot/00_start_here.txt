@@ -70,11 +70,12 @@ write that Python, so you can ask it in plain words.
 3. **Ask.** Name each table to read: paste its Table reference, or say its import line and
    columns, such as: `from references.ops__job_runs import job_runs` gives ops.job_runs:
    run_id bigint, job_id bigint, status string, dt string; partitioned by dt; Key run_id.
-   For file 19, say the metric in your words; for a workbook, attach it. Then step 4.
+   For file 19, paste your column definitions and say the metric; for a workbook, attach
+   it. Then step 4.
 4. **Run.** Run what Copilot gives in your notebook. If the Toolbox refuses it, start a new
    chat with file 09, paste the code and the whole message, and ask for the fix. A
    workbook's Hive: save each query as a .hql file and run the convert Workflow (file 13).
-   File 19's Metric request: paste it into your chatbot.
+   File 19: answer each question, then paste the Metric request into your chatbot.
 
 ## Which file
 
@@ -114,9 +115,9 @@ write that Python, so you can ask it in plain words.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
-- `19_metric_request.txt`: a new metric, defined a question at a time: one column or two,
-  each quantity, the days, what is left out, worked on your sample rows; it ends with a
-  Metric request, text for your chatbot that knows your databases, not code.
+- `19_metric_request.txt`: a new metric, defined a question at a time from your column
+  definitions: one column or two, each quantity, the rows, the days, what is left out, and
+  any data missing; it ends with a Metric request, text for your chatbot, not code or sums.
 
 ## Fitting Copilot
 
@@ -127,5 +128,6 @@ write that Python, so you can ask it in plain words.
 
 - [ ] **C1** The chat is new, and its first message is the file the Index names (for a
   workbook, files 15, 11 and 12).
-- [ ] **C2** Your question names each table to read; for file 19, the metric in your words.
+- [ ] **C2** Your question names each table to read; for file 19, your column definitions
+  and the metric.
 - [ ] **C3** For a refusal, the new chat holds file 09, your code and the whole message.
