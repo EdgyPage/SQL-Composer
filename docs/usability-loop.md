@@ -61,7 +61,13 @@ below), not dev's commit, so a commit that changes none of them, such as one to 
       step 12 loads several. Add `--attach <path>` for each file the agent said it would
       attach, such as `my_work/report.xlsx`.
    4. Start a second, fresh `copilot-proxy` on that message and reply file.
-   5. Send the reply's text back to the user agent, continuing it with its context.
+   5. Send the reply's text back to the user agent, continuing it with its context. An agent
+      whose turn ends by handing back its report reads a message after it as the end of its
+      run and only repeats its report (three of the 8.7 round's ten Excel converters did),
+      so say in the same message that its run is not over: "Copilot answered your QUESTION:
+      <the reply, or the file in the run's folder it was copied to>. Your run is not over:
+      carry on with the job, as your phase file says, and end with one DONE:, STUCK: or
+      QUESTION: line only when it is done, you are stuck, or you need Copilot again."
 
    After five questions, stop the run: it is stuck.
 4. **Keep each agent's last message.** Save it as `<run>/_loop/phase_<n>_reply.md`.

@@ -20,6 +20,7 @@ warehouse: it checks no type, and a CREATE AS a query gives its columns no types
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,20 @@ from sqlglot_composer import Table, describe
 
 # Hive's default, which refuses a write whose every Partition column comes from its rows.
 DYNAMIC_MODE = "hive.exec.dynamic.partition.mode"
+
+
+def _parsed_quietly(hive: str) -> list[exp.Expression | None]:
+    """Each statement of `hive`, as sqlglot reads it, with sqlglot's warnings held back: it
+    warns that it reads SET hivevar:NAME=value as a Command, which a team's warehouse never
+    prints, and every W9 run of Toolbox 8.7's round read that warning as a failure (ticket
+    15)."""
+    sqlglot_log = logging.getLogger("sqlglot")
+    level = sqlglot_log.level
+    sqlglot_log.setLevel(logging.ERROR)
+    try:
+        return sqlglot.parse(hive, read="hive")
+    finally:
+        sqlglot_log.setLevel(level)
 
 
 @dataclass
@@ -120,7 +135,7 @@ class Warehouse:
         self.executed.append(hive)
         # A Key, as Hive declares it: sqlglot can't read it, and the stand-in checks no Key.
         hive = re.sub(r",\s*PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE", "", hive)
-        for tree in sqlglot.parse(hive, read="hive"):
+        for tree in _parsed_quietly(hive):
             if tree is None:
                 continue
             if isinstance(tree, exp.Command) and tree.name.upper() == "SET":

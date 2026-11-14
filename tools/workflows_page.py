@@ -105,8 +105,8 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
     "every": (
         "Run a notebook's cells one at a time, never Run All: a step after a decision would "
         "write before you make it.",
-        "Fill in `connect(...)` in each notebook's first cell: until you do, `query` and "
-        "`execute` refuse.",
+        "Fill in `connect(...)` in each notebook's setup cell, its first code cell: until you "
+        "do, `query` and `execute` refuse.",
         "\"Run up to your Decisions\" runs to the end when nothing waits on you, writing and "
         "comparing each table: to see what it would send first, add `dry_run=True` to its "
         "`project.run_workflow(...)` call.",
@@ -132,7 +132,7 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "step 2 waits on you.",
         "Step 2 waits on you even with no Decision open: its cell's `preview()` says what "
         "stops a table's logic, if anything does. Mend it, save the Table notebook, and run "
-        "the cell again.",
+        "\"Run up to your Decisions\" again: it goes on from step 2.",
         "A Table notebook's TODO lines are yours: fill each in, or delete it.",
     ),
     "convert": (
@@ -163,7 +163,9 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "Give each value the scheduler passes in a type hint and a default: one left empty "
         "whose hint has no `| None` is refused.",
         "A value the scheduler passes in reaches only the Statements the run hands it to: "
-        "the how-to shows the ways.",
+        "work out its days in `statements()` and pass them plain, such as "
+        "`write_days(str(monday), str(sunday))`, or give a write the build adds its value "
+        "with `run_values=` in the Build cell.",
     ),
     "change_a_saved_table": (
         "An Admin statement is a change to a Saved table itself, such as dropping some of "
@@ -198,7 +200,8 @@ EXCEL_ABOUT = ("Turns a Formula workbook into Hive through Copilot, then into Sa
 # How a Workflow notebook's four cells run, as the README's "The Workflows" says it, for the
 # panel's first part.
 FOUR_CELLS = (
-    "**Name what it works on**: fill in the names cell, the first, and save the notebook.",
+    "**Name what it works on**: fill in the names cell, the code cell under the setup cell, "
+    "and save the notebook.",
     "**Run up to your Decisions**: run the cell under it; it runs every step up to the first "
     "only you can do, and prints the `DECISIONS` to paste.",
     "**Make the decisions**: paste it over the decisions cell, fill it in, and save.",

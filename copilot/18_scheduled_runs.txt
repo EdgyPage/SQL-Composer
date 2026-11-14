@@ -58,7 +58,9 @@ building a Statement of its own, file 17 for a Run value's function in building_
   with the parameters or Run values. A date parameter passed where the signature says `str`
   is written `str(RUN_DATE)`.
 - A day worked out at each run is a function of the cell, taking nothing and reading the
-  parameters, passed as `run_value(week_first_day)`. For the latest Partition:
+  parameters, passed as `run_value(week_first_day)`. A logic function that works on a day's
+  text, as a `write_days` may (`.replace`), refuses a Run value: give it the plain day,
+  `str(...)`, worked out in `statements()`. For the latest Partition:
   `latest_partition(job_events.dt, query)`, `query` from warehouse, which the setup cell
   imports.
 - Name each SELECT by what its rows are: its rows come back as `results["week_totals"]`. A

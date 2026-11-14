@@ -142,7 +142,7 @@ EXCEL_FLOW = ("""flowchart TD
                 "Hive, a query for each final Table", ""),
                ("Fill in each name it writes in angle brackets, save each query as a .hql "
                 "file named for its final Table, and convert them as one batch in the convert "
-                "Workflow, DEV filled in: each becomes a Saved table named for its file, or, "
+                "Workflow, with DEV filled in, in admin/databases.py: each becomes a Saved table named for its file, or, "
                 "when the batch is one file, for the batch",
                 'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
                ("Answer each table's Decisions, then create, seed and write each in dev, as "

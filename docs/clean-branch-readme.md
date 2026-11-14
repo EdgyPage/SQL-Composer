@@ -353,7 +353,9 @@ DECISIONS = {
    its Key, and `does_not_add_up=`, the columns the Toolbox refuses to add up, proposed from
    names such as `avg_*` and `*_ratio`. Keep each, taking off its `# proposed` comment, or
    change it. Below it, you may add **Aliases**, your own names for its columns and
-   conditions. Done when you have read each; then step 5.
+   conditions. Once you have changed a Table reference by hand, run
+   `project.refresh_reference_sheet()`, so the Reference sheet holds what it now says;
+   `project.check()` names each one changed since. Done when you have read each; then step 5.
 5. **Import the Database.** Goal: every table of the Database from one import. Action: run
    `from references import ops`; each column is at a dot after its table, as below. Done when
    `ops.job_runs.status` shows `job_runs.status`; then step 6.
@@ -814,7 +816,9 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      leave it unanswered: `"key": "proposed"` only takes off the mark, and a `"key"` of your
      own replaces it. This differs from the references Workflow, whose Key, proposed from the
      table's rows, stays open until you accept it. A table with no Key proposed, such as one
-     that reads itself, waits on its `"key"`: give its columns, or `None`.
+     that reads itself, waits on its `"key"`: give its columns, or `None`. Its Key is the
+     columns that make each row its own: for a script that keeps repeats out with
+     `NOT IN (SELECT run_id FROM ...)`, the column the `NOT IN` reads, `{"key": ["run_id"]}`.
    - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
      or answer `"location"` for that table.
    - If a table reads itself, its seed copies every Partition of its original unless you
@@ -830,8 +834,11 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    original being the table the script writes, so its first write doesn't start from
    nothing, each Partition or those its `"seed"` answer names), writes each, and compares each
    with the table it copies, `project.compare_batch`. A partitioned table is compared on the
-   latest Partition both tables hold. If you want another Partition compared too, once your
-   dev table holds it, then list it in `PARTITIONS` in the names cell, such as
+   latest Partition both tables hold; `compare.md` says how many other Partitions both hold
+   were not compared. To see which they are, run `query("SHOW PARTITIONS mart.team_fails")`
+   and the same for your dev table, in a cell under the setup cell. If you want another
+   Partition compared too, once your dev table holds it, then list it in `PARTITIONS` in the
+   names cell, such as
    `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch too:
    its `conversion/compare.md` keeps each Partition's result. Done when every result of each
    table has passed; then step 6.
@@ -1439,6 +1446,15 @@ To make one:
    - If a value is worked out each time the run is built, such as the latest Partition a
      table holds, write a function for it in the cell, import `run_value` from
      `sqlglot_composer`, and pass `run_value(function)`, a Run value of the run's own.
+   - If a value comes from a parameter alone, such as the Monday of `WEEK`'s week, work it
+     out in `statements()` itself and pass the plain value: the parameters are read before
+     `statements()` is called. A `run_value(...)` is a stand-in until the Hive is written, so
+     a logic function that works on the value's text, such as one that calls `.replace` on
+     a day, refuses it: give that function `str(...)` of the plain value.
+   - If a table should be written for days of your own, such as a week, name its write in
+     `statements()`, from the function its Table notebook's logic gives for it, such as
+     `project.load("mart.team_days").write_days(first_day, last_day)`. A write named there
+     takes the place of the one the build would add for that table (step 6).
    - A parameter reaches only what `statements()` passes it to. Each value goes in one of
      three ways: as an argument to a logic function you call, as above; through a Run value
      of the run's own, `run_value(function)`, whose function reads the parameters; or, for a
@@ -1701,8 +1717,9 @@ flowchart TD
 2. Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as Hive, a query
    for each final Table.
 3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
-   final Table, and convert them as one batch in the convert Workflow, DEV filled in: each
-   becomes a Saved table named for its file, or, when the batch is one file, for the batch.
+   final Table, and convert them as one batch in the convert Workflow, with DEV filled in, in
+   admin/databases.py: each becomes a Saved table named for its file, or, when the batch is one
+   file, for the batch.
 
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 
