@@ -13,8 +13,8 @@ write that Python, so you can ask it in plain words.
 | ID | You would type | Load |
 |---|---|---|
 | P1 | "start a Project", "import everything", "using my Database module" | 01 |
-| P2 | "a Table reference for", "its Key is", "check the Key holds" | 02 or 08 |
-| P3 | "count", "total", "average", "filter", "from day A to day B" | 03 or 01 |
+| P2 | "a Table reference for", "its Key is" | 02; "check the Key holds", "with my query" | 08 |
+| P3 | "count", "total", "average", "filter", "from day A to day B" | 03; "and run it" | 01 |
 | P4 | "with its name from", "every job, 0 for none", "no match in" | 04 |
 | P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
 | P6 | "write into my Saved table", "add to it", "the logic cell" | 06 |
@@ -45,8 +45,8 @@ write that Python, so you can ask it in plain words.
 - **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
   its own), then the workbook: a chat holds one file at a time, but for this one task.
 - **R7** Two tasks: a new chat for each, with each task's file.
-- **R8** Where Load names two files, either one answers it: a Key check is in 02 and 08, and
-  a read you also want run with your query is in 03 and 01.
+- **R8** One file each: a request that ends "and run it with my query" is 01, whatever it
+  reads; checking a Key holds on the warehouse is 08; writing a Key into a reference is 02.
 
 ## Terms
 
