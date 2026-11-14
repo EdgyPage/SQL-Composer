@@ -440,6 +440,9 @@ MESSAGE_FILE = "message.md"
 ANSWERS_FILE = "answers.md"
 # The agent type a proxy is spawned as.
 PROXY_AGENT = "copilot-proxy"
+# The results file both the Copilot and the Excel evaluations add a row to, under the local
+# folder.
+RESULTS = ("copilot", "results.md")
 
 
 def files_version(folder: Path = ROOT / "copilot") -> str:
@@ -467,7 +470,7 @@ class Batch:
     proxies: dict[str, list[str]]
 
 
-def _shown(path: Path) -> str:
+def path_for_proxy(path: Path) -> str:
     """A path as the proxy is told it: from the repo's root where it lies under it."""
     resolved = path.resolve()
     if resolved.is_relative_to(ROOT):
@@ -490,8 +493,8 @@ def write_batch(batch: Batch, messages: dict[str, str], local: Path = LOCAL) -> 
                                   local=local)
         message.write_text(messages[proxy], encoding="utf-8")
         answers = message.with_name(ANSWERS_FILE)
-        lines.append(f"{PROXY_AGENT} | {batch.model} | Read {_shown(message)} and write "
-                     f"your reply to {_shown(answers)}, as your instructions say.")
+        lines.append(f"{PROXY_AGENT} | {batch.model} | Read {path_for_proxy(message)} and "
+                     f"write your reply to {path_for_proxy(answers)}, as told.")
     return lines
 
 
@@ -528,8 +531,10 @@ def collect_batch(pipeline: str, name: str, letter: str, local: Path = LOCAL,
     round. A proxy's reply is taken only for a task it was given."""
     batch = read_batch(pipeline, name, local)
     folder = local / pipeline / "runs" / name
+    if files is None:
+        files = files_version()
     header = [f"date: {batch.date}", f"arm: {batch.arm}", f"model: {batch.model}",
-              f"files: {files or files_version()}", f"round: {batch.name}",
+              f"files: {files}", f"round: {batch.name}",
               f"round_tasks: {','.join(batch.tasks)}"]
     body, no_file, no_reply = [], [], []
     for proxy, tasks in batch.proxies.items():
@@ -670,10 +675,12 @@ def add_round_commands(commands: argparse._SubParsersAction[argparse.ArgumentPar
 def plan_for(pipe: Pipeline, given: argparse.Namespace) -> RoundPlan:
     """The plan of the round a `plan`, `prompts`, `template` or `batch` command names."""
     tasks = pipe.chosen(given)
-    asking = RoundToPlan(
-        pipe.name, given.arm, given.model, tasks,
-        frozenset(task for task in tasks if pipe.held_out(task)),
-        agents=lambda asked: len(pipe.proxy_groups(given.arm, asked)))
+
+    def proxies_for(asked: list[str]) -> int:
+        return len(pipe.proxy_groups(given.arm, asked))
+    asking = RoundToPlan(pipe.name, given.arm, given.model, tasks,
+                         frozenset(task for task in tasks if pipe.held_out(task)),
+                         agents=proxies_for)
     key_of = functools.partial(pipe.memo_key, arm=given.arm, model=given.model)
     return plan_round(asking, key_of, given.fresh, given.over_budget, given.local)
 
@@ -742,7 +749,9 @@ def answers_to_score(pipe: Pipeline, given: argparse.Namespace
 
 def results_path(given: argparse.Namespace) -> Path:
     """Where `score` adds its row: `--record`, or the Copilot results in the local folder."""
-    return given.record or make_local_path("copilot", "results.md", local=given.local)
+    if given.record:
+        return given.record
+    return make_local_path(*RESULTS, local=given.local)
 
 
 # --- The commands ----------------------------------------------------------------------------

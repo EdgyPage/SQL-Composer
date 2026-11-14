@@ -808,10 +808,17 @@ def _chosen(given: argparse.Namespace) -> list[str]:
             if not chosen or task.id in chosen]
 
 
+def _is_held_out(task_id: str) -> bool:
+    return BY_ID[task_id].split == "held_out"
+
+
+def _filtered(given: argparse.Namespace) -> bool:
+    return bool(given.split or given.tasks)
+
+
 PIPELINE = eval_runs.Pipeline(
     name="excel", letter="X", arms=sorted(ARMS), all_tasks=list(BY_ID),
-    held_out=lambda task_id: BY_ID[task_id].split == "held_out", chosen=_chosen,
-    filtered=lambda given: bool(given.split or given.tasks),
+    held_out=_is_held_out, chosen=_chosen, filtered=_filtered,
     add_filters=_add_task_filters, memo_key=memo_key, proxy_groups=proxy_groups,
     proxy_message=_proxy_message_of, prompts=_prompts_of, template=_template_of)
 

@@ -1213,10 +1213,17 @@ def _chosen(given: argparse.Namespace) -> list[str]:
     return [task.id for task in tasks_of(given.split or "all", given.objective)]
 
 
+def _is_held_out(task_id: str) -> bool:
+    return BY_ID[task_id].split == "held_out"
+
+
+def _filtered(given: argparse.Namespace) -> bool:
+    return bool(given.split or given.objective)
+
+
 PIPELINE = eval_runs.Pipeline(
     name="copilot", letter="T", arms=sorted(ARMS), all_tasks=list(BY_ID),
-    held_out=lambda task_id: BY_ID[task_id].split == "held_out", chosen=_chosen,
-    filtered=lambda given: bool(given.split or given.objective),
+    held_out=_is_held_out, chosen=_chosen, filtered=_filtered,
     add_filters=_add_task_filters, memo_key=memo_key, proxy_groups=proxy_groups,
     proxy_message=_proxy_message_of, prompts=_prompts_of, template=_template_of)
 
