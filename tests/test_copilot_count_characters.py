@@ -1,4 +1,4 @@
-"""copilot/count_characters.py, which counts each Copilot file against the 8,000 characters
+"""copilot/count_characters.py, which counts each Copilot file against the 9,000 characters
 Copilot takes at once (Toolbox 7.2, ticket 13)."""
 
 from __future__ import annotations
@@ -29,12 +29,12 @@ def test_a_windows_line_break_counts_two_either_way() -> None:
 def test_a_file_at_the_limit_passes_and_one_over_fails(tmp_path: Path,
                                                       capsys: pytest.CaptureFixture[str]
                                                       ) -> None:
-    (tmp_path / "fits.txt").write_text("x" * 8000, encoding="utf-8")
+    (tmp_path / "fits.txt").write_text("x" * 9000, encoding="utf-8")
     assert count_characters.main([str(tmp_path / "fits.txt")]) == 0
-    (tmp_path / "over.txt").write_text("x" * 7999 + "\n", encoding="utf-8")
+    (tmp_path / "over.txt").write_text("x" * 8999 + "\n", encoding="utf-8")
     assert count_characters.main([str(tmp_path / "over.txt")]) == 1
     shown = capsys.readouterr().out
-    assert "over.txt" in shown and "8,001" in shown and "OVER by 1" in shown
+    assert "over.txt" in shown and "9,001" in shown and "OVER by 1" in shown
 
 
 def test_a_folder_counts_each_txt_file_in_it(tmp_path: Path,

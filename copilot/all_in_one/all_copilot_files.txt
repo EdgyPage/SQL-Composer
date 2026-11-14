@@ -1,5 +1,5 @@
 Every Copilot file in one document, for reading or searching them together. It is
-many times the 8,000 characters Copilot takes at once, so it is not for Copilot: there,
+many times the 9,000 characters each Copilot file keeps to, so it is not for Copilot: there,
 paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
@@ -110,8 +110,8 @@ you can ask it in plain words.
 
 ## Fitting Copilot
 
-- Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
-  file fits.
+- Each file is at most 9,000 characters, spaces and line breaks included, so it goes to
+  Copilot in one message.
 - Edit a copy if you like, then count it from the download's top folder:
   `python copilot/count_characters.py my_copy.txt` says how many characters it holds and
   whether it fits.
@@ -1179,7 +1179,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - if_else(condition, then, otherwise)
 - is_in(column, values)
 - count_rows(where=None, over=None)
+- count_distinct(column, where=None)
 - sum_of(column, where=None, adds_up=False, over=None)
+- fill_null(column, value)
 - hive_function(name, *args)
 - unchecked_column(text, **columns)
 - hive_settings(*names, sets=None)

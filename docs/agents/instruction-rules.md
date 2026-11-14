@@ -43,6 +43,6 @@ The code reviewer and the beginner reader read docs against it.
 
 ## For Copilot files alone
 
-- Each file is at most 8,000 characters, as `copilot/count_characters.py` counts, and stands
+- Each file is at most 9,000 characters, as `copilot/count_characters.py` counts, and stands
   alone, since a person loads only the files the task needs.
 - A file a person loads beside others says which others, and once, what each is for.

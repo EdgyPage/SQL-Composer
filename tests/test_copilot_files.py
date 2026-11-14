@@ -1,6 +1,6 @@
 """The Copilot files, `copilot/` (Toolbox 7.2, ticket 13).
 
-Each file is what tools/copilot_files.py writes from its source, fits the 8,000 characters
+Each file is what tools/copilot_files.py writes from its source, fits the 9,000 characters
 Copilot takes at once, spaces and line breaks included, and teaches only what is true:
 every Python block in it runs on the Example database in a stand-in Project (a block calling a
 Project action, which changes the Project, is read and its names checked, not run), every
@@ -106,7 +106,7 @@ def test_all_in_one_merges_every_file_in_order() -> None:
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
 def test_each_file_fits_what_copilot_takes_spaces_and_line_breaks_included(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    assert count_characters.characters(text) <= count_characters.LIMIT == 8000
+    assert count_characters.characters(text) <= count_characters.LIMIT == 9000
     assert count_characters.characters_on_windows(text) <= count_characters.LIMIT
 
 

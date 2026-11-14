@@ -1675,10 +1675,10 @@ chatbot that knows your databases to define the columns from.
 
 About the files:
 
-- Each file fits the 8,000 characters Copilot takes at once, spaces and line breaks included;
+- Each file is at most 9,000 characters, spaces and line breaks included, one message to Copilot;
   `copilot/count_characters.py` counts a copy you edit.
 - `copilot/all_in_one/all_copilot_files.txt` holds every file in one document, for reading or
-  searching them together, not for Copilot: it is many times the 8,000 characters, so in
+  searching them together, not for Copilot: it is many times the 9,000 characters, so in
   Copilot paste or attach the separate files.
 
 The path from a workbook to prod:

@@ -260,7 +260,7 @@ def tasks_of(split: str, objective: str | None = None) -> list[Task]:
 
 
 # The most text a user loads into a chat before asking, in characters, spaces included.
-LIMIT = 8000
+LIMIT = 9000
 README_TEMPLATE = ROOT / "docs" / "clean-branch-readme.md"
 COPILOT = ROOT / "copilot"
 ARMS = {

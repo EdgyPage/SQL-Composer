@@ -10,8 +10,8 @@ A user loads one Copilot file into Microsoft Copilot's web chat before asking it
 code: one file for each objective, such as building a Statement or converting Hive, and
 `00_start_here.txt`, which says which to load. For an Excel workbook they load three:
 `15_excel_workbook_steps.txt` with `11_excel_formula_workbooks.txt` and
-`12_excel_power_query.txt`, which write Hive, no Toolbox code. Copilot
-takes at most 8,000 characters at once, so each file must fit, as `copilot/count_characters.py`
+`12_excel_power_query.txt`, which write Hive, no Toolbox code. Each
+file keeps to 9,000 characters, so it goes to Copilot in one message, as `copilot/count_characters.py`
 counts them, spaces and line breaks included; this refuses to write one that doesn't.
 
 A source is the file's text, with four kinds of placeholder, each on a line of its own:

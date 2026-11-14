@@ -104,8 +104,8 @@ you can ask it in plain words.
 
 ## Fitting Copilot
 
-- Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
-  file fits.
+- Each file is at most 9,000 characters, spaces and line breaks included, so it goes to
+  Copilot in one message.
 - Edit a copy if you like, then count it from the download's top folder:
   `python copilot/count_characters.py my_copy.txt` says how many characters it holds and
   whether it fits.

@@ -14,7 +14,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 ## Names for this objective, with their arguments
 
-{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, is_in, count_rows, sum_of, hive_function, unchecked_column, hive_settings, hivevar}
+{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, is_in, count_rows, count_distinct, sum_of, fill_null, hive_function, unchecked_column, hive_settings, hivevar}
 
 ## In the Project
 
