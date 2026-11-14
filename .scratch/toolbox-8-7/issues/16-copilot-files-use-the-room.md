@@ -172,6 +172,82 @@ ticket 16 block, which names the files version of each round:
   "Then step 5" in the rewrite, and part 5 still asks "one total or per day" which no question
   asks now; 00's step 5 Done still reads as code.
 
+### The held-out misses fixed
+
+The user asked to change files 17 and 19 for the general fault each held-out miss showed, and
+to run fresh rounds. Neither file holds a held-out task's answer or wording: file 17's examples
+keep their team_log batch, file 19's its shops.
+
+- **File 17** gives convert's other cells when asked, through the compare: a rule naming the
+  names cell's inputs, filled in as file 13's example fills them, and step 1's `project.convert` call before the
+  decisions cell; its last example runs on from the seed to `project.run_tables` and
+  `project.compare_batch`, steps 4 to 7, a cell each. The same rule gives only the cells asked,
+  never a step the user has run (dev round 1 gave T47 and T48 convert again). To keep 8,800, it
+  lost the hand-written latest-Partition example (`project.new_run_value` writes that file),
+  the Self-check line on seed limits, the failed function's `<NAME failed>` sentence and
+  shorter phrasings; the objective now says it gives convert's other cells if asked. 8,799
+  characters with Windows line breaks.
+- **File 19**: Grain means what one row is and which rows there are; a Decision rule writes the
+  grain with every condition on which rows exist, even one the user gave as an edge case; part
+  4 asks for them; the Self-check checks that no row Left out or Edge cases drops is in the
+  grain; the finished example's part 4 reads "shop (shop_id) with at least one delivered order
+  in the days counted". The beginner reader's two slips: step 4 ends "Then step 5", and part 5
+  asks which days, no longer "one total or per day". 8,718 characters.
+
+The rounds, on haiku, arm C, with the memo, recorded in `.scratch/copilot-eval/results.md`
+under "the held-out misses fixed" (files versions 465728516fa8, then fc5448507717, the files as
+committed). M05 and T49 shaped these fixes, so their held-out scores now lean toward the files;
+the other held-out tasks don't.
+
+| evaluation | before | now |
+|---|---|---|
+| file 17, dev (T47, T48) | 100 | 0, then 100 |
+| files 01 to 17, held out, once | 94 (T49 fails) | 94 (T49 fails, on a new point) |
+| Metric request, dev | 100 | 100 (4 of 4) |
+| Metric request, held out, once | 50 (M05 fails) | 50 (M06 fails) |
+
+- **T49** now gives every cell through the compare, step 1 included; it fails on a rename it
+  invented, `RENAME = {"mart.daily_fails": "mart_dev.daily_fails_mart"}`, though file 17 says
+  `RENAME = {}`.
+- **M05** passes: part 4 keeps "with at least one finished run". **M06**, which passed before,
+  fails with its grain right: Copilot's first formula invented "noisy alerts", recommended
+  "closed with no action", and the stand-in user, whose key doesn't settle it, took it; the
+  column doesn't exist. Reported, not tuned on.
+- The suite passes (the regeneration chain, then the whole suite, exit 0). Its first run in the
+  new worktree failed one test, CLAUDE.md naming `.pytest_cache/memo/`, a git-ignored folder the
+  suite itself makes during the run; with it there, the second run passed. The stray
+  `turn-08-copilot.md` a proxy wrote under a misspelt `SQL-Competer` folder, outside the repo,
+  was removed.
+
+**The code review** (5645a7ff as the fixed point, `review-standards` and `review-spec` on
+Sonnet), each finding answered; no file changed after it, so the held-out scores belong to the
+files it read:
+
+- **Standards: the objective's "It gives convert's other cells if asked" is vague and no longer
+  names file 13.** Answered: "It" is the file, the subject of the sentence before ("Load this
+  file when ..."). File 13 is no longer named: file 17 now gives convert's cells itself, so a
+  user of its objective needs no second file, and file 00 still routes the convert Workflow to
+  13. A rewording now would follow the held-out round.
+- **Standards: the new rule holds a prohibition, a branch and a list of defaults in one bullet;
+  "as the last example" is vague.** Answered: the prohibition has its positive target, giving
+  only the cells asked; splitting it costs room the file hasn't (8,799); the last example is the
+  one cell block of steps 4 to 7.
+- **Standards: step 3 says "any other step's cell asked for", Output says "each later step
+  through step 7's compare".** Answered: Output's item 3 is what to name in words, step 4's "Name
+  the rest", not cells to give.
+- **Standards and Spec: the Self-check line on seed limits, the `<NAME failed>` sentence and the
+  latest-Partition example went, unasked.** Answered: cut for the 8,800, recorded above; the
+  seed rule still says a column that isn't a partition column is refused, and the Toolbox
+  refuses it.
+- **Standards: "Ask the grain" should say per-day lives in the grain.** Answered: Terms' Grain
+  gives "one row per team per day"; the new rule follows "Ask the grain".
+- **Standards: Duplicated Code (steps 4 to 7 named in the rule, Output and the example) and
+  Mysterious Name ("the answers' step", "step 3's").** Answered: each Copilot file names a step
+  where it's used, as the instruction rules ask; Terms defines the answers' step as step 3.
+- **Spec: the dropped first example left "as the first example" pointing at `last_good_day`.**
+  Answered: that is the example meant, a Statement of its own for a day no Partition names.
+- **Spec: no held-out answer or wording copied; both misses addressed.**
+
 ## Code review
 
 Run with this ticket as the spec and 9407eacc as the fixed point, the merge of ticket 14 set

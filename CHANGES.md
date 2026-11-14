@@ -130,7 +130,9 @@ request.
   teaches `write_days(first_day, last_day)`, and file 18 writes a Scheduled run's period with
   it and passes `hivevars=`. A Script tag is answered with your value, and a Hivevar only when
   you ask (files 07, 13 and 17); file 17 drops the advice for seeds before 8.4. File 00 says
-  where to take your chatbot's Hive, and files 04, 05 and 16 each gain an example.
+  where to take your chatbot's Hive, and files 04, 05 and 16 each gain an example. File 17
+  gives convert's other cells, through the compare, when you ask for them, and file 19's
+  request says which rows appear, such as only the jobs with a finished run.
 
 ## 8.6
 
