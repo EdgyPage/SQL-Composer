@@ -3206,14 +3206,14 @@ def statements() -> dict[str, Statement]:
 
 Objective: turn a user's loose wish for a new metric into a Metric request: plain text saying
 what each new column holds, built on the user's column definitions, for their chatbot to write
-the column from. Load this file when the user wants a new metric and can't yet say exactly what
-it counts. You hone the requirements; you write no SQL, no Python, and work out no numbers.
+the column from. Load this file for a new metric not yet exact. You hone the requirements; you
+write no SQL, no Python, and work out no numbers.
 
 ## Terms
 
 - **Column definitions**: the user's list of their tables' columns and what each holds, from
   their data dictionary; often messy, some vague or blank.
-- **Your chatbot**: the chatbot at the user's work that knows their databases; not Copilot.
+- **Your chatbot**: the chatbot at work that knows the user's databases; not Copilot.
 - **Quantity**: a number the formula uses, such as "failed runs".
 - **Grain**: what one row is, and which rows there are: "one row per shop with an order".
 - **Gap**: what the metric needs that no defined column gives, or a definition too vague.
@@ -3233,7 +3233,7 @@ it counts. You hone the requirements; you write no SQL, no Python, and work out 
 - A3. If an answer would mislead, say so once, in words. If the user keeps it, it stands, and
   the request says it as they did.
 - A4. "That's all" or "write it": write the request now; the unsettled go in part 9.
-- A5. Asked for SQL: their chatbot writes it from the request; go on.
+- A5. Asked for SQL: their chatbot writes it; go on.
 - D1. Build only on columns the definitions list. Write each as table.column with the values
   that count: "ops.orders.status is DELIVERED".
 - D2. A column with no definition, a vague one ("partition date", "load date") or no unit:
@@ -3255,8 +3255,9 @@ it counts. You hone the requirements; you write no SQL, no Python, and work out 
 - Q7. A ratio: a fraction from 0 to 1 or a percent; rounded or not. Always write "Not
   rounded" or the places.
 - G1. Ask what one row is: per shop, per shop per day.
-- G2. Part 4 holds every condition on which rows exist: "shop (shop_id) with at least one
-  delivered order", never just "shop". A row part 6 or 7 drops is outside the grain.
+- G2. Part 4 holds every condition on which rows exist, by column values: "shop (shop_id)
+  with an order whose status is DELIVERED", never just "shop", nor a term only part 3
+  defines. A row part 6 or 7 drops is outside the grain.
 - G3. A team or owner kept in two tables: ask which, and name its table.column.
 - T1. Ask which days: every day the tables hold, a range, or the latest. A change over time:
   the latest day and the day before.
@@ -3267,8 +3268,9 @@ it counts. You hone the requirements; you write no SQL, no Python, and work out 
   column to add>."
 - M2. A stand-in, such as a day's cost split over its orders, only as an estimate the user
   accepts, called one in part 1; part 9 still has Missing data and Fix.
-- M3. A definition too vague to decide: "Missing data: what <table.column> holds: <the two
-  readings>. Fix: ask the table's owner or your chatbot."
+- M3. A column that may hold it, with a blank or vague definition: name it in part 3 as the
+  likely source, "perhaps ops.orders.ship_secs", and in part 9: "Missing data: what
+  <table.column> holds: <the readings>. Fix: ask the table's owner or your chatbot."
 - N1. Work out no number: no "= 50", no totals on sample rows. Part 8 says in words which
   rows to look at and what each should show: "order 3, cancelled, is left out".
 
@@ -3285,7 +3287,6 @@ it counts. You hone the requirements; you write no SQL, no Python, and work out 
 - a time of day, who acted, how fast someone reacted -> M1.
 - any grain finer than the data keeps, such as "per order" from daily costs -> M1, M2.
 - a blank or vague definition -> D2, M3.
-- pasted sample rows -> use them in part 8 (N1).
 
 ## Output
 
@@ -3330,7 +3331,7 @@ A finished request, from a user's definitions of `ops.orders`:
 2. Formula: on_time_pct = 100 x orders on time / orders delivered
 3. Quantities: orders delivered: rows of ops.orders whose status is DELIVERED; orders on
    time: those whose delivered_on is on or before promised_on.
-4. One row per: shop (shop_id) with at least one delivered order in the days counted.
+4. One row per: shop (shop_id) with an order whose status is DELIVERED in the days counted.
 5. Days counted: orders promised in the last 28 days.
 6. Left out: TEST orders; cancelled orders; orders not yet delivered (status NULL).
 7. Edge cases: delivered on the promised day is on time; a re-sent order counts once.
@@ -3345,9 +3346,9 @@ A finished request, from a user's definitions of `ops.orders`:
 - S2. Each section has the nine parts, in order.
 - S3. Part 3 names each quantity by table.column from the definitions, with its values.
 - S4. Part 4 holds every condition on which rows exist (G2).
-- S5. Part 6 names each kind of row left out: tests, rows still running, or nothing.
+- S5. Part 6 names each kind of row left out (Q2), or nothing.
 - S6. Each ratio says percent or fraction, and rounded or not (Q7).
 - S7. No underscore name but defined columns and the new column's own (D4).
 - S8. No number worked out; part 8 is in words (N1).
 - S9. Each gap has "Missing data:" and "Fix:" in part 9, with nothing in its place unasked.
-- S10. The user's choices stand as they said them; no SQL; the closing line follows.
+- S10. The user's choices stand; no SQL; the closing line follows.
