@@ -1,77 +1,78 @@
 # Copilot files for sqlglot Composer 8.7: start here
 
-**Read this file to choose the one Copilot file your task needs, then follow the steps below
-in order.**
+**Find the words you would type in the Index, load the file it names into a new chat, then
+follow the steps below in order.**
 
-sqlglot Composer 8.7 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
-SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
-wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
-you can ask it in plain words.
+sqlglot Composer 8.7 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
+Clause functions, such as SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses
+one that would give a wrong number or read too much. These files teach Microsoft Copilot to
+write that Python, so you can ask it in plain words.
+
+## Index: when you would type X, load Y
+
+| ID | You would type | Load |
+|---|---|---|
+| P1 | "start a Project", "what do I import", "run it with my query" | 01 |
+| P2 | "a Table reference for", "its Key is", "check the Key holds" | 02 |
+| P3 | "count", "total", "average", "filter", "from day A to day B" | 03 |
+| P4 | "with its name from", "every job, 0 for none", "no match in" | 04 |
+| P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
+| P6 | "write into my Saved table", "add to it", "the logic cell" | 06 |
+| P7 | "show me this Hive as Toolbox code", "piece by piece" | 07 |
+| P8 | "the same rows as my team's Hive", "compare", "lineage" | 08 |
+| P9 | a Toolbox message: GuardRefused, LoadRefused, a TypeError | 09 |
+| P10 | "a label for", "else", "in capitals", "drop a day", "repair" | 10 |
+| P11 | "convert these scripts into my Dev Database", "batch", "staging" | 13 |
+| P12 | "a new Saved table", "from my query", "add Table references" | 14 |
+| P13 | "promote to prod" | 16 |
+| P14 | "worked out each run", "the latest day it holds", "seed only" | 17 |
+| P15 | "a notebook my scheduler runs", "papermill", "parameters" | 18 |
+| P16 | "a new metric", "what should this column count?" | 19 |
+| P17 | an Excel workbook attached, "its formulas", "Power Query" | 15, 11, 12 |
+
+## Rules: when two lines seem to fit
+
+- **R1** The Toolbox refused your code: 09, whatever the code does.
+- **R2** Someone else's Hive: as Toolbox code to read, 07; made into Saved tables in your
+  Project, end to end, 13; carried from dev to prod once compared, 16.
+- **R3** A Script tag's day worked out at each run, such as the latest Partition a table
+  holds, one answer for every table, or a seed of only some Partitions: 17, even in the
+  middle of a convert. A tag's value given once, for this run: 13.
+- **R4** A Script tag left as a Hivevar, `${hivevar:NAME}` for your scheduler: 17; a
+  Scheduled run's own value of it: 18.
+- **R5** Your chatbot's Hive (file 19's end): as Toolbox code, 07; as a Saved table, saved
+  as a .hql file, 14.
+- **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
+  its own), then the workbook: a chat holds one file at a time, but for this one task.
+- **R7** Two tasks: a new chat for each, with each task's file.
 
 ## Terms
 
 - **Copilot file**: one of the files in this folder; each teaches Copilot one objective.
-- **Statement**: one query, built in Python with `statement(...)`, that becomes one string of
-  Hive.
+- **Statement**: one query, built in Python with `statement(...)`, that becomes Hive.
 - **Project**: your folder at work holding the Toolbox and your own code.
 - **Table reference**: the file in your Project's references/ folder that describes one
   table: its columns and their types, its partitions and its Key.
 - **Saved table**: a table in the warehouse that your own Statements write.
-- **Refusal**: the Toolbox's message when it won't write a Statement's Hive.
 - **Workflow**: the steps to one end goal, such as converting Hive, each a cell of the
   Workflow's notebook in admin/workflows/.
-- **Run value**: the value a function of yours works out each time a table is written, such
-  as the latest day a table holds.
-- **Your chatbot**: the chatbot at your work that knows your databases and their column
-  descriptions; not Copilot. File 19's Metric request is text for it.
+- **Run value**: the value a function of yours works out each time a table is written.
+- **Your chatbot**: the chatbot at your work that knows your databases; not Copilot.
 
 ## Steps
 
-1. **Choose the file.** Goal: the file that teaches Copilot your task. Action: find your
-   task under Which file. Done when you have one file, or for an Excel workbook three, as
-   the Decision rules say. Then step 2.
-2. **Open a chat.** Goal: a chat holding nothing from another task. Action: open a new chat
-   in Copilot. Done when the chat is empty. Then step 3.
-3. **Load the file.** Goal: Copilot reads the file first. Action: paste the file as your
-   first message, and send it. If a paste is cut short, attach the file instead. Done when
-   Copilot has the file. Then step 4.
-4. **Ask.** Goal: Copilot knows your tables. Action: say which tables to read: paste each
-   one's Table reference, its file in your Project's references/ folder, or say its import
-   line and columns, such as: `from references.ops__job_runs import job_runs` gives
-   ops.job_runs: run_id bigint, job_id bigint, status string, dt string; partitioned by dt;
-   Key run_id. For file 19, say the metric in your own words: no table is needed. For an
-   Excel workbook, attach it. Done when Copilot answers with code, with Hive for a workbook,
-   or with a question for file 19. Then step 5.
-5. **Run it.** Goal: the code works in your notebook. Action: run what Copilot gives. Done
-   when it runs. If the Toolbox refuses it, step 6. For a workbook's Hive, save each query
-   as a .hql file and run the convert Workflow (file 13). For file 19, answer each question;
-   then paste the Metric request it ends with into your chatbot.
-6. **Fix a refusal.** Goal: code the Toolbox takes. Action: start a new chat with file 09,
-   paste the code and the whole message, and ask for the fix. Done when Copilot answers
-   with the fixed code. Then step 5.
-
-## Decision rules
-
-- If the Toolbox refused your code, load file 09.
-- If your task is to convert an Excel workbook, attach files 15, 11 and 12 (or paste
-  each as a message of its own), then attach the workbook and ask Copilot to convert
-  it: a chat holds one file at a time, but for this one task.
-- If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
-  their Hive made into Saved tables in your Project, end to end, load file 13. To carry
-  tables from dev to prod once compared, load file 16.
-- If you want a Script tag's day worked out at each run, such as the latest Partition a
-  table holds, one answer for every table of a Workflow notebook, or a seed that copies only
-  some Partitions, load file 17.
-- If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
-  paste what `project.describe_logic([...])` prints for the tables it uses.
-- If you want a new metric defined for your chatbot, not code, load file 19. Your chatbot
-  gives back Hive: for it as Toolbox code, load file 07; for it as a Saved table, save it as a
-  .hql file and load file 14 (a new table from a query).
-- If you want a Script tag left as a Hivevar, `${hivevar:NAME}` in the Hive for your
-  scheduler to fill in each run, load file 17; for a Scheduled run's own value of it, file
-  18. A value worked out when the Hive is built is a Run value: file 17 too.
-- Otherwise, load the one file whose line under Which file names your task.
-- If you want something else after a task, start a new chat with that task's file.
+1. **Choose.** Find your words in the Index, and the Rules where two lines fit. Done when
+   you have one file, or three for a workbook. Then step 2.
+2. **Load.** Open a new chat in Copilot; paste the file as your first message and send it,
+   or attach it if a paste is cut short. Then step 3.
+3. **Ask.** Name each table to read: paste its Table reference, or say its import line and
+   columns, such as: `from references.ops__job_runs import job_runs` gives ops.job_runs:
+   run_id bigint, job_id bigint, status string, dt string; partitioned by dt; Key run_id.
+   For file 19, say the metric in your words; for a workbook, attach it. Then step 4.
+4. **Run.** Run what Copilot gives in your notebook. If the Toolbox refuses it, start a new
+   chat with file 09, paste the code and the whole message, and ask for the fix. A
+   workbook's Hive: save each query as a .hql file and run the convert Workflow (file 13).
+   File 19's Metric request: paste it into your chatbot.
 
 ## Which file
 
@@ -117,16 +118,12 @@ you can ask it in plain words.
 
 ## Fitting Copilot
 
-- Each file is at most 9,000 characters, spaces and line breaks included, so it goes to
-  Copilot in one message.
-- Edit a copy if you like, then count it from the download's top folder:
-  `python copilot/count_characters.py my_copy.txt` says how many characters it holds and
-  whether it fits.
+- Each file is at most 9,000 characters, so it goes to Copilot in one message. Count an
+  edited copy from the download's top folder: `python copilot/count_characters.py my_copy.txt`.
 
 ## Self-check
 
-- The chat is new, and its first message is the file your task's line names (for an Excel
+- [ ] **C1** The chat is new, and its first message is the file the Index names (for a
   workbook, files 15, 11 and 12).
-- Your question names each table to read, by its Table reference or its import line and
-  columns; for file 19, it says the metric in your words, and for a workbook, it is attached.
-- For a refusal, the new chat holds file 09, your code and the whole message.
+- [ ] **C2** Your question names each table to read; for file 19, the metric in your words.
+- [ ] **C3** For a refusal, the new chat holds file 09, your code and the whole message.

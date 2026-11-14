@@ -1,10 +1,27 @@
 # Copilot file 08: checking and comparing ({version})
 
-**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+**Find the request in Patterns, copy the worked pattern it names, change only the tables,
+columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: check that a Statement gives what it should, and that the Project is in order.
 Load this file when the user asks whether their Statement matches the Hive it replaces,
 whether a table's Key holds, what is left to do in the Project, or where a column comes from.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "the same rows as my team's Hive" | `compare_with_original(...)` on one day | W1 |
+| P2 | "the same query", "without running" | `compare_hive(s, HIVE)` | W1 |
+| P3 | "compare every day" | `reads_all_partitions=True` for `partition=` | R3 |
+| P4 | "does the Key hold" | `check_key(t, query=query, where=...)` | W2 |
+| P5 | "does my Table reference match?" | `check_table_reference(t, query=query)` | R5 |
+| P6 | "what is left to do?" | `project.check()` | R6 |
+| P7 | "compare the batch on another day" | `project.compare_batch(...)` | R7 |
+| P8 | "where does this column come from?" | `export_lineage(write())` | R8 |
+| P9 | "the whole Project's lineage" | `project.export_project_lineage()` | R8 |
+| P10 | "Hive's plan", "show me the Hive" | `explain(s)`; `print(to_hive(s))` | R9 |
+| P11 | "the Hive in a file" | the `export_hive()` cell, or `export_hive(s)` | R10 |
 
 ## Terms
 
@@ -14,8 +31,32 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - **Partition**: the rows sharing one value of each partition column. **Key**: the columns
   whose values tell each row apart.
 - **Table reference**: the user's file describing one table: its columns, Partitions and Key.
-- **Decision**: what only the user decides, answered in a Workflow's decisions cell.
 - **Lineage**: which table columns feed each output column.
+
+## Rules
+
+- **R1** `compare_hive(s, original)` compares the Statement's Hive with `original`, the Hive
+  as a string, by its text, and sends nothing. Spacing, case, comments and short table names
+  don't count; a different condition does, even one giving the same rows.
+- **R2** `compare_with_original(s, original, query=query, partition={"dt": day})` reads both
+  through the user's query on one Partition and counts the rows in one and not the other.
+  The original's columns must be the Statement's, same names, same order. No day given: ask.
+- **R3** Every Partition, asked for: `reads_all_partitions=True` in place of `partition=`.
+- **R4** `check_key(t, query=query, where=...)` says whether the Key tells each row apart
+  on the Partitions `where=` names, one day or a range.
+- **R5** `check_table_reference(t, query=query)` lists what differs from the table now.
+- **R6** `project.check()` lists what is left: a Decision to answer, a Workflow's next step;
+  it notes each `# CONVERSION:` mark, which blocks nothing.
+- **R7** A converted batch again, on another Partition, once finished too:
+  `project.compare_batch("ops_reports", query=query, partitions=[{"dt": "2026-09-23"}])`.
+- **R8** `export_lineage(write())` writes the Lineage page beside the notebook, as HTML, a
+  box's Hive shown in a side panel when clicked, and as Markdown.
+  `project.export_project_lineage()` draws every Saved table, in admin/lineage/.
+- **R9** `run_query(explain(s), query)` gives Hive's plan without running;
+  `print(to_hive(s))` or `show_hive(s)` shows the Hive.
+- **R10** A Table notebook's Hive: save it, then run its `export_hive()` cell, after the
+  lineage cell; it writes <db>__<table>.hql beside it, to read, never to edit. One
+  Statement's: `export_hive(weekly)` writes weekly.hql, one call per variable.
 
 {always}
 
@@ -23,55 +64,9 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 
 {names: compare_hive, compare_with_original, check_key, check_table_reference, project.check, project.compare_batch, project.export_project_lineage, export_lineage, export_hive, explain, to_hive, show_hive, run_query, equals, between}
 
-## Steps
+## Worked patterns
 
-1. **Pick the check** for what the user asks, by the Decision rules. Then step 2.
-2. **Write the code**: the check, its Verdict assigned to a name, such as `v`, and printed.
-   Done when each check the user asked for is called. Then step 3.
-3. **Say what the Verdict means** when it holds and when it doesn't. Then step 4.
-4. **Check** by the Self-check; fix what it finds wrong, then reply.
-
-## Decision rules
-
-- If asked whether the Statement matches the Hive it replaces by its text:
-  `compare_hive(s, original)`, `original` the Hive as a string. It sends nothing. Spacing,
-  case, comments, short table names and the like don't count; a different condition does,
-  even one giving the same rows.
-- If asked whether it gives the same rows: `compare_with_original(s, original, query=query,
-  partition={"dt": day})` reads both through the user's query, on one Partition, and counts
-  the rows in one and not the other. The original's columns must be the Statement's, same
-  names, same order. If no day is given, ask which day.
-- If asked for every Partition compared: `reads_all_partitions=True` for `partition=`.
-- If asked whether a Key holds: `check_key(t, query=query, where=equals(t.dt, day))` says
-  whether the Key tells each row apart there.
-- If asked whether a Table reference matches the table as it is now:
-  `check_table_reference(t, query=query)`.
-- If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
-  a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
-- If asked to compare a converted batch again, on another Partition, once finished too:
-  `project.compare_batch("ops_reports", query=query, partitions=[{"dt": "2026-09-23"}])`.
-- If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
-  the notebook, as HTML, where clicking a box shows its Hive in a side panel, and as
-  Markdown. For every Saved table of the Project, drawn whole:
-  `project.export_project_lineage()`, written in admin/lineage/.
-- If asked for Hive's plan, without running: `run_query(explain(s), query)`.
-- If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
-- If asked for a Table notebook's Hive in a file: save the notebook, then run its
-  `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
-  notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
-  seed(), its Session settings, then write(), from the notebook as last saved, to read,
-  never to edit.
-- If asked for one Statement's Hive in a file: `export_hive(weekly)` writes weekly.hql,
-  named for its variable: one call per variable, never a loop.
-
-## Output
-
-One Python code block the user can paste into a notebook cell, then a few plain sentences
-on what the Verdict means when it holds and when it doesn't.
-
-## Examples
-
-The team's Hive, compared with the Statement by its rows on one day, then by its text:
+### W1: the team's Hive compared with the Statement, by rows on one day, then by text
 
 ```python
 from sqlglot_composer import (FROM, SELECT, WHERE, compare_hive, compare_with_original,
@@ -91,7 +86,7 @@ print(v)
 print(compare_hive(s, HIVE))
 ```
 
-A Key of a table partitioned by two columns, on one day:
+### W2: a Key of a table partitioned by two columns, on one day
 
 ```python
 from sqlglot_composer import check_key, equals
@@ -102,11 +97,22 @@ v = check_key(region_costs, query=query, where=equals(region_costs.dt, "20260921
 print(v)
 ```
 
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Copy.** Copy the worked pattern or rule it names, with the user's tables, Hive and
+   days; assign each Verdict to `v` and print it. Then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+One ```python block the user can paste into a notebook cell, then a few plain sentences
+on what the Verdict means when it holds and when it doesn't.
+
 ## Self-check
 
-- Each check reads through the user's `query`, never `execute`.
-- Each partitioned table is bounded with `partition=` or `where=`, or the user asked for
-  every Partition.
-- The original Hive is in a string as the user gave it; no Statement is compared with its
-  own `to_hive(s)`, which proves nothing.
-- Each Verdict is assigned to a name and printed, and the answer says what it means.
+- [ ] **C1** Each check reads through the user's `query`, never `execute`.
+- [ ] **C2** Each partitioned table is bounded with `partition=` or `where=`, or the user
+  asked for every Partition.
+- [ ] **C3** The original Hive is a string as the user gave it, never `to_hive(s)`.
+- [ ] **C4** Each Verdict is assigned to a name and printed; the answer says what it means.

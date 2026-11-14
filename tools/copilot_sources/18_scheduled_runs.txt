@@ -1,12 +1,29 @@
 # Copilot file 18: Scheduled runs ({version})
 
-**Follow the steps below in order, as written, adding none; reply as Output says.**
+**Find the request in Patterns, copy the cells it names, filled in with the user's names,
+then tick the Self-check. Call only the logic functions the paste lists.**
 
 Objective: fill in a Scheduled run's notebook, which project.new_scheduled_run made from its
 Template: its parameters cell, its connect(...) line, its # scheduled cell and its Build cell.
 Load this file when the user wants a notebook an outside scheduler, such as papermill, runs
-top to bottom, and pastes what `project.describe_logic([...])` printed. File 03 is for
-building a Statement of its own, file 17 for a Run value's function in building_blocks/.
+top to bottom, and pastes what `project.describe_logic([...])` printed. File 03 builds a
+Statement of its own; file 17 writes a Run value's function in building_blocks/.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "the week of WEEK, or the latest day" | a parameter, `None` worked out | W1 |
+| P2 | "the day the scheduler passes" | `RUN_DATE: datetime.date = ...`, a default | R2 |
+| P3 | a value as given | `str(WEEK)` in the call | R3 |
+| P4 | a day worked out at each run | a function of the cell, `run_value(f)` | R4 |
+| P5 | "the latest day ops.t holds" | `latest_partition(t.dt, query)` | W1 |
+| P6 | "write the table for the run's period" | its `write_days(first, last)` in statements() | R6 |
+| P7 | "another job writes that table" | `leave_out=["mart.t"]` | R5 |
+| P8 | a Hivevar's value for this run | `hivevars={"NAME": RUN_DATE}` | R7 |
+| P9 | a Run value inside a write the build adds | `run_values={"period_end": RUN_DATE}` | R8 |
+| P10 | a Statement of my own | `statement(...)` in the cell | W2 |
+| P11 | "it failed at mart.x" | START_FROM, passed in | R9 |
 
 ## Terms
 
@@ -14,80 +31,48 @@ building a Statement of its own, file 17 for a Run value's function in building_
   prints the Hive and sends nothing; the Run cell sends it.
 - **Parameter**: a value the scheduler passes in, a name in the `# parameters` cell, read by
   its type hint before anything is built.
-- **Logic function**: a function of a Table notebook's `# logic` cell, which gives a
-  Statement; `project.load("mart.team_days")` gives them. describe_logic prints each one's
-  signature and the first sentence of its docstring, headed by the table's name.
+- **Logic function**: a function of a Table notebook's `# logic` cell giving a Statement;
+  `project.load("mart.team_days")` gives them; describe_logic prints each one's signature
+  and docstring's first sentence, under its table's name.
 - **Run value**: what a function gives each time the run is built, through
   `run_value(function)`, such as the latest Partition a table holds.
+
+## Rules
+
+- **R1** Each parameter is a name, a hint and a default: `RUN_DATE: datetime.date | None =
+  None`. The hints: `datetime.date` (from "2026-11-01"), `int`, `float`, `bool` ("true" or
+  "false"), `str`, each alone, in `list[...]` (split at commas) or with `| None`. Never one
+  without a hint, nor another hint. Keep `START_FROM: str = ""`.
+- **R2** `| None = None` only if the cell works a value out when it is None; else a real
+  default, `WEEK: datetime.date = datetime.date(2026, 9, 23)`: the notebook also runs as it
+  is, in Jupyter.
+- **R3** A logic function's arguments are given in the call, `team_days.week_totals(first,
+  last)`; a date parameter where the signature says `str` is `str(RUN_DATE)`.
+- **R4** A day worked out at each run is a function of the cell, taking nothing and reading
+  the parameters, passed as `run_value(week_first_day)`. A logic function working on a day's
+  text, as a `write_days` may, refuses a Run value: give it `str(...)`, worked out in
+  `statements()`.
+- **R5** `statements()` returns a dict of each Statement by name: a SELECT by what its rows
+  are, read back as `results["week_totals"]`; a write by its table's short name. The build
+  adds the write of each Project table they read, all the way up, on its own days: never
+  list those. Another run or job writes a table: `leave_out=["mart.job_day_facts"]`.
+- **R6** A table written for the run's period, not its own days: the logic function the paste
+  lists for it that takes days, such as `team_days.write_days(first, last)`, in
+  `statements()` by its short name, in place of the write the build adds.
+- **R7** A Script tag answered `hivevar("PERIOD_END", ...)`, its value given for this run:
+  `hivevars={"PERIOD_END": RUN_DATE}` in the Build cell; left out, its default is sent.
+- **R8** A parameter reaches only what `statements()` passes it to; a write the build adds is
+  its table's `write()`, which takes nothing. Its Run value given the user's value:
+  `run_values={"period_end": RUN_DATE}`, by the function's name; else `{}`.
+- **R9** A failed run printed `START_FROM = "mart.team_days"`: the scheduler passes it, and
+  the build starts there; never write it into the cell.
+- **R10** The setup cell stays as the Template writes it, but its `connect(...)` line: the
+  user's connection, its `#` deleted. A Statement of the user's own is composed in the cell
+  (file 03); a Guard it trips only warns there: add no opt-out.
 
 ## Names for this objective, with their arguments
 
 {names: project.load, project.build_run, project.describe_logic, run_value, latest_partition, statement}
-
-## Steps
-
-1. **Read the paste**: each logic function the user asks for, by its table and signature.
-   Call only those listed, with the arguments their signatures name. Done when each is
-   matched. Then step 2.
-2. **Write the parameters cell** by the Decision rules. Done when each has a hint. Then step 3.
-3. **Write the # scheduled cell**: `statements()`, a dict of each Statement by its name,
-   and any Run value's function. Done when each asked for is in it. Then step 4.
-4. **Write the Build cell**, with `run_values=`, `leave_out=` and any `hivevars=` as the
-   Decision rules say.
-   Then step 5.
-5. **Check** by the Self-check; fix what it finds, then reply.
-
-## Decision rules
-
-- Each parameter is a name, its hint and its default: `RUN_DATE: datetime.date | None =
-  None`. The hints read: `datetime.date` (from "2026-11-01"), `int`, `float`, `bool` (from
-  "true" or "false"), `str`, each alone, in `list[...]` (items split at commas) or with
-  `| None`. Never a parameter with no hint, nor another hint. Keep `START_FROM: str = ""`.
-- A parameter the run can't do without gets `| None = None` only if the cell works one out
-  when it is None, as a Run value; else give a real default, such as
-  `WEEK: datetime.date = datetime.date(2026, 9, 23)`. Never leave one with no default: the
-  notebook must also run as it is, in Jupyter.
-- If a value is the parameter as given, pass it in the call, `str(WEEK)`; if it is worked
-  out when the run is built, from a parameter or the warehouse, a Run value.
-- A logic function's arguments are given in the call, `team_days.week_totals(first, last)`,
-  with the parameters or Run values. A date parameter passed where the signature says `str`
-  is written `str(RUN_DATE)`.
-- A day worked out at each run is a function of the cell, taking nothing and reading the
-  parameters, passed as `run_value(week_first_day)`. A logic function that works on a day's
-  text, as a `write_days` may (`.replace`), refuses a Run value: give it the plain day,
-  `str(...)`, worked out in `statements()`. For the latest Partition:
-  `latest_partition(job_events.dt, query)`, `query` from warehouse, which the setup cell
-  imports.
-- Name each SELECT by what its rows are: its rows come back as `results["week_totals"]`. A
-  write is named by its table's short name.
-- The build adds the write of each Project table the Statements read, all the way up, on that
-  table's own days, so never list those writes yourself. If the user says another run or job
-  writes a table, give it in `leave_out=["mart.job_day_facts"]`.
-- If the user wants a table written for the period the run is given, not its own days: put
-  the logic function the paste lists for it that takes days, such as
-  `team_days.write_days(first, last)`, in `statements()`, named by the table's short name.
-  It takes the place of the write the build would add for that table.
-- If a Script tag of a table the run writes was answered `hivevar("PERIOD_END", ...)` and
-  the user gives its value for this run: `hivevars={"PERIOD_END": RUN_DATE}` in the Build
-  cell; left out, its default is sent.
-- A parameter reaches only what `statements()` passes it to. A write the build adds is its
-  table's `write()`, which takes no arguments. To give a Run value inside it the user's value,
-  write `run_values={"period_end": RUN_DATE}`, keyed by that Run value's function's name.
-  Leave it `{}` unless the user names such a value.
-- A Statement of the user's own is composed in the cell with `statement(...)`, as file 03
-  says; a Guard it trips only warns there, so add no opt-out for it.
-- A run that failed printed `START_FROM = "mart.team_days"`: the scheduler passes that
-  value, and the build starts from that table's first write, or from that SELECT; never
-  write it into the cell.
-- The setup cell stays as the Template writes it, but its `connect(...)` line: the user's
-  connection, its `#` deleted.
-
-## Output
-
-1. The `# parameters` cell in a ```python block; then the `# scheduled` cell and, under its
-   `# Build` line, the Build cell, in one block; then the `connect(...)` line.
-2. In words: which writes the build will add, and the papermill line, such as
-   `papermill weekly.ipynb out.ipynb -p RUN_DATE 2026-11-01`.
 
 ## Background, not a step of yours: how the notebook was made
 
@@ -96,7 +81,7 @@ such as `NAME = "weekly"`:
 
 {workflow: schedule}
 
-## Examples
+## Worked patterns
 
 The paste:
 
@@ -106,7 +91,7 @@ def week_totals(first_day: str, last_day: str) -> Statement:
     """Each team's events, runs, minutes and cost per week, from the days this table saved."""
 ```
 
-Asked: each team's week, the week of WEEK, or of the latest day ops.job_events holds:
+### W1: each team's week, of WEEK or of the latest day ops.job_events holds
 
 ```python
 # parameters
@@ -144,10 +129,9 @@ def statements() -> dict[str, Statement]:
 built = project.build_run(statements, run_values={}, leave_out=[])
 ```
 
-The setup cell's line: `connect(my_api.connect())`. The build adds the writes of the tables
-mart.team_days reads, then its own, before week_totals.
+The setup cell's line: `connect(my_api.connect())`.
 
-A Statement of its own, the failed runs of RUN_DATE:
+### W2: a Statement of its own, the failed runs of RUN_DATE
 
 ```python
 import datetime
@@ -165,9 +149,24 @@ def statements() -> dict[str, Statement]:
         WHERE(equals(job_runs.dt, str(RUN_DATE)), equals(job_runs.status, "FAILED")))}
 ```
 
+## Steps
+
+1. **Read the paste**: each logic function asked for, by its table and signature. Then
+   step 2.
+2. **Find.** Match each part of the request to a Patterns row. Then step 3.
+3. **Copy.** Write the parameters cell, the # scheduled cell and the Build cell. Then step 4.
+4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. The `# parameters` cell in a ```python block; then the `# scheduled` cell and, under its
+   `# Build` line, the Build cell, in one block; then the `connect(...)` line.
+2. In words: which writes the build will add, and the papermill line, such as
+   `papermill weekly.ipynb out.ipynb -p RUN_DATE 2026-11-01`.
+
 ## Self-check
 
-- Each parameter has a hint the build reads, and `START_FROM` is kept.
-- Each logic function called is in the paste, with its arguments.
-- No write the build adds is listed in `statements()`.
-- `project.build_run` is given `statements`, with no brackets.
+- [ ] **C1** Each parameter has a hint the build reads and a default; `START_FROM` is kept.
+- [ ] **C2** Each logic function called is in the paste, with its arguments.
+- [ ] **C3** No write the build adds is listed in `statements()`.
+- [ ] **C4** `project.build_run` is given `statements`, no brackets.

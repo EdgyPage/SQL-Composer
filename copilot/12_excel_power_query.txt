@@ -1,12 +1,25 @@
 # Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.7)
 
-**Use this file as reference while you follow file 15's steps: it says what each Power Query
-step, whole-column total and Total Row of an attached workbook becomes in Hive.**
+**Use this file as reference while you follow file 15's steps: find each Power Query step,
+whole-column total and Total Row in Patterns, then write the Hive its rule gives.**
 
 Objective: write each Power Query, each whole-column total and each Total Row of an Excel
 workbook as the Hive that gives the same rows.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
 file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
+
+## Patterns: when the workbook has X, look up Y
+
+| ID | The workbook has | Rules |
+|---|---|---|
+| P1 | `Excel.CurrentWorkbook()`, another query's name | Q1 |
+| P2 | Table.SelectRows, `<>`, null, Text.Contains, List.Contains | Q2 to Q4 |
+| P3 | Select, Remove, Rename, Reorder, AddColumn, ReplaceValue | Q5, Q6 |
+| P4 | Text., Number., Date. functions | Q7 |
+| P5 | Table.Group, NestedJoin, Combine, Distinct, Unpivot | G1 to G5 |
+| P6 | SUM(t[v]) in a formula column; a Total Row | T1 to T4 |
+| P7 | Table.Sort, FirstN, AddIndexColumn | S1 to S3 |
+| P8 | Sql.Database, Table.Pivot; Web.Contents, FillDown | M1, M2; X1 |
 
 ## Terms
 
@@ -15,32 +28,32 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
   SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
   Total Row, never a row of data.
-- A query step no section here lists is refused: NULL for each column it makes, or the query
+- A query step no rule here lists is refused: NULL for each column it makes, or the query
   left out, named with why.
 
-## Reading a table and its rows
+## Rules: reading a table and its rows
 
-- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t, as `<database>.t`. Another
-  query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS (...)`, written
-  after each CTE q reads, each read by the next: a query, then the Table it loads, then a
-  formula column reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
-- Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's `<>`
-  keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
+- **Q1** `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t, as `<database>.t`.
+  Another query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS
+  (...)`, after each CTE q reads: a query, then the Table it loads, then a formula column
+  reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
+- **Q2** Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's
+  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
   `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
-- Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`, `'%x'`,
-  case kept, as M keeps it. `not`: NOT.
-- List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k is in
-  another table: `LEFT SEMI JOIN u ON u.k = t.k`; with `not`, the LeftAnti join below.
-- Table.SelectColumns, RemoveColumns, RenameColumns, ReorderColumns: the SELECT list, in the
-  last step's order; Table.DuplicateColumn(t, "c", "d"): `c, c AS d`. TransformColumnTypes,
-  Table.Buffer and Table.PromoteHeaders: nothing. Excel's own step names, such as "Changed
-  Type" or "Filtered Rows", are only names: read the function each step calls.
-- Table.AddColumn: an expression AS its name, `if c then a else b` as IF(c, a, b).
+- **Q3** Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`,
+  `'%x'`, case kept, as M keeps it. `not`: NOT.
+- **Q4** List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k
+  is in another table: `LEFT SEMI JOIN u ON u.k = t.k`; with `not`, G2's LeftAnti.
+- **Q5** Table.SelectColumns, RemoveColumns, RenameColumns, ReorderColumns: the SELECT list,
+  in the last step's order; Table.DuplicateColumn(t, "c", "d"): `c, c AS d`.
+  TransformColumnTypes, Table.Buffer, Table.PromoteHeaders: nothing. Excel's step names,
+  such as "Changed Type", are only names: read the function each step calls.
+- **Q6** Table.AddColumn: an expression AS its name, `if c then a else b` as IF(c, a, b).
   Table.TransformColumns(t, {{"c", Text.Upper}}): UPPER(c) AS c. Table.ReplaceValue(t, null,
   0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c; with "x", "y" and
   Replacer.ReplaceText: REPLACE(c, 'x', 'y') AS c; with Replacer.ReplaceValue and a value:
   `IF(c = 'x', 'y', c) AS c`, the whole cell matched.
-- M's functions as their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
+- **Q7** As their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
   Text.Start(x, n): SUBSTR(x, 1, n); Text.End(x, n): SUBSTR(x, -n); Text.Middle(x, s, n):
   SUBSTR(x, s + 1, n), as M counts from 0; Text.Replace: REPLACE; Text.Proper: INITCAP;
   Text.Combine({a, b}, ","): CONCAT_WS(',', a, b); Number.Round: BROUND, as M rounds a half
@@ -49,61 +62,59 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   Date.AddYears(d, n): ADD_MONTHS(d, 12 * n); Date.EndOfMonth: LAST_DAY;
   Date.StartOfMonth: `CAST(TRUNC(d, 'MM') AS STRING)`.
 
-## Grouping, joining, stacking
+## Rules: grouping, joining, stacking
 
-- Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum, List.Max, List.Min and
-  List.Average as SUM, MAX, MIN and AVG, List.StandardDeviation as STDDEV_SAMP.
-  List.Count(List.Distinct([c])): COUNT(DISTINCT c), which leaves out NULL where M counts it
-  as a value: name it where c has a blank in the sample.
-- NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
-  RightOuter: LEFT JOIN, the two tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT
+- **G1** Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum, List.Max, List.Min,
+  List.Average as SUM, MAX, MIN, AVG, List.StandardDeviation as STDDEV_SAMP.
+  List.Count(List.Distinct([c])): COUNT(DISTINCT c), which leaves out NULL where M counts it:
+  name it where c has a blank in the sample.
+- **G2** NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
+  RightOuter: LEFT JOIN, the tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT
   JOIN u ON t.k = u.k WHERE u.k IS NULL`, t's columns only; RightAnti: the same, swapped.
   ExpandTableColumn's fourth argument, new names: AS.
-- A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
-  `INTERSECT`, LeftAnti is `EXCEPT`.
-- Table.AddColumn(t, "u", each u), then expanded: `CROSS JOIN u`.
-- Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone: SELECT
-  DISTINCT.
-- Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT per
-  column unpivoted, stacked with UNION ALL, `'a' AS measure, a AS amount`, each with `WHERE
-  a IS NOT NULL`, as M drops a null there.
+- **G3** A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
+  `INTERSECT`, LeftAnti is `EXCEPT`. Table.AddColumn(t, "u", each u), expanded: `CROSS JOIN
+  u`.
+- **G4** Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone:
+  SELECT DISTINCT.
+- **G5** Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT
+  per column, stacked with UNION ALL, `'a' AS measure, a AS amount`, each `WHERE a IS NOT
+  NULL`, as M drops a null there.
 
-## A whole column, and the Total Row
+## Rules: a whole column, and the Total Row
 
-- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()` and so on,
-  COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]):
-  `SUM(a * b) OVER ()`.
-- A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each cell
-  that holds a total, in the Table's order, and no column for a cell that is empty or a label
-  such as "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM,
-  101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
-- If the user says no one needs a Total Row's total kept as a table, write no block for it,
-  and name it in the map as left out.
-- Write the Table's own final query without its Total Row, so it holds only its rows: a Saved
-  table holds no Subtotal row.
+- **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
+  and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
+  t[b]): `SUM(a * b) OVER ()`.
+- **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
+  cell holding a total, in the Table's order, none for an empty cell or a label such as
+  "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM, 101 AVG,
+  102 or 103 COUNT, 104 MAX, 105 MIN.
+- **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
+- **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
 
-## Sorting
+## Rules: sorting
 
-- Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone: LIMIT.
-- Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY ...)
-  AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
-- A Table.Sort with no FirstN or index after it: write no ORDER BY, as a Hive table holds no
-  order, and name the order as dropped.
+- **S1** Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone:
+  LIMIT.
+- **S2** Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY
+  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
+- **S3** A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
+  order; name the order as dropped.
 
-## Marks: convert, and name
+## Rules: marks, refused
 
-- M reading Sql.Database or a source outside the workbook: read the table it names, and name
-  it, for the user to check.
-- Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
-  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; name
-  the pivot's columns as now fixed.
+- **M1** Sql.Database or a source outside the workbook: read the table it names; name it.
+- **M2** Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value
+  in the sample, THEN 1 to count, THEN v to add up v, NULL where none; name the pivot's
+  columns as now fixed.
+- **X1** Refused, and named: Web.Contents or any web source (that query left out);
+  Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp; Table.Distinct with
+  a column list; List.Median.
 
-## Refused, and named
+## Worked patterns
 
-Web.Contents or any web source (leave that query out); Table.AddIndexColumn with no Sort
-before it; Table.FillDown and FillUp; Table.Distinct with a column list; List.Median.
-
-## Examples
+### W1: a query filtering, grouping, keeping groups over one
 
 Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
 
@@ -126,9 +137,10 @@ GROUP BY job_id
 HAVING COUNT(*) > 1
 ```
 
+### W2: a summary's Total Row, reading its final as a CTE
+
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
-summing runs. As a summary, its typed job_ids, 1 and 2, are typed in (file 15). Its Total
-Row's block reads by_job's final query as a CTE:
+summing runs; its typed job_ids, 1 and 2, are written in (file 15):
 
 ```sql
 WITH by_job AS (
@@ -142,9 +154,9 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ## Self-check
 
-- Each query's steps are read in order, each in its final's query or named as refused.
-- Each ORDER BY has a LIMIT after it; each Table.Sort with no FirstN or index after it is
-  named in the map as a dropped order.
-- A query named in another query's M is a CTE, never read as `<database>.<query>`.
-- A query and the Table it loads, even of one name, each have their own role.
-- Each Total Row is its own final, and its Table's final holds only the Table's rows.
+- [ ] **C1** Each query's steps are read in order, each in its final or refused.
+- [ ] **C2** Each ORDER BY has a LIMIT; each Table.Sort with no FirstN or index after it is
+  named as a dropped order.
+- [ ] **C3** A query named in another query's M is a CTE, never `<database>.<query>`.
+- [ ] **C4** A query and the Table it loads, even of one name, each have their own role.
+- [ ] **C5** Each Total Row is its own final; its Table's final holds only the Table's rows.

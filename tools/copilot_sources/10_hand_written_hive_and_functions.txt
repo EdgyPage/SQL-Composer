@@ -1,86 +1,72 @@
 # Copilot file 10: labels, Hive functions, hand-written Hive and upkeep ({version})
 
-**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+**Find the request in Patterns, copy the worked pattern it names, change only the tables,
+columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Toolbox function writes, or dropping, repairing or counting a table.
 
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "X is "A", Y is "B", any other "C"" | `mapped(t.c, {...}, otherwise="C")` | W1 |
+| P2 | "A when ..., else B" | `if_else(condition, "A", "B")` | R1 |
+| P3 | "A when ..., else B when ..., else C" | `first_match([...], otherwise="C")` | W2 |
+| P4 | "in capitals", "using Hive's f" | `hive_function("upper", t.c)` | W1 |
+| P5 | Hive no function writes | `unchecked_column("{m} DIV 60", m=t.minutes)` | R6 |
+| P6 | a test no Condition writes | `unchecked_condition(...)` | R6 |
+| P7 | a whole statement by hand | `unchecked_hive("...")` | R6 |
+| P8 | "drop this day", "drop the table" | `admin.drop_partitions`, `admin.drop_table` | R8 |
+| P9 | "repair", "count its rows again" | `repair_partitions`, `compute_statistics` | R8 |
+| P10 | "add the new columns" | `admin.add_columns(t, query=query)` | R8 |
+
 ## Terms
 
 - **Label**: a column whose value a lookup or a Condition, a test on rows, picks.
 - **Hand-written Hive**: Hive text kept as written, `unchecked_...`: no Guard, which refuses
   a wrong result, looks inside it. **Lineage**: which columns feed each output column.
-- **Saved table**: a table of the user's; its Table reference lists its columns and
-  Partitions, each the rows sharing one value of a partition column.
+- **Saved table**: a table of the user's; a **Partition**, the rows sharing one value of a
+  partition column.
+
+## Rules
+
+- **R1** Two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
+- **R2** A lookup of one column: `mapped(t.region, {"LON": "London"}, otherwise="elsewhere")`:
+  each key a value the column holds, each value its label. Without `otherwise=`, a value not
+  in the dict gives NULL. None is no key: fill_null the column first.
+- **R3** A chain, the first condition that holds winning: `first_match([(cond, label),
+  ...], otherwise=...)`, conditions in the user's order; never a nested if_else.
+- **R4** A long list or lookup is a constant at the top: `CITY_BY_REGION = {...}`.
+- **R5** A Hive function with no Toolbox name: `hive_function("upper", t.job_name)`,
+  `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
+- **R6** By hand, the smallest piece, each column it reads a `{name}` placeholder passed by
+  that name, so Lineage sees it; a value is written as Hive writes it, `'FAILED'` or `60`:
+  `unchecked_column("{m} DIV 60", m=t.minutes)`; `unchecked_condition("{s} RLIKE '^FAIL'",
+  s=t.status)`; `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`,
+  read as a table; `unchecked_hive("...")`, sent with run_query or run_execute.
+- **R7** `${hivevar:x}` is Hive as written, never a placeholder. A Script tag left as a
+  Hivevar is answered `hivevar(...)` (files 07 and 17); a day worked out when the Hive is
+  built is a Run value, written in by `hive_date(day)` (file 17).
+- **R8** Upkeep, each sent with `run_execute(..., execute)`, after `from sqlglot_composer
+  import admin`: `repair_partitions(t)` finds Partitions written outside Hive;
+  `compute_statistics(t, partition={"dt": day})` counts rows again;
+  `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop, only
+  when asked; `admin.add_columns(t, query=query)` adds the columns its reference gained.
+  Show each first with `show_hive(change)`; file 14's change_a_saved_table Workflow takes
+  one through as a whole job.
 
 {always}
 
 ## Names for this objective, with their arguments
 
-{names: if_else, mapped, first_match, fill_null, hive_function, unchecked_column, unchecked_condition, unchecked_derived, unchecked_hive, repair_partitions, compute_statistics, admin.drop_table, admin.drop_partitions, admin.add_columns, run_query, run_execute, show_hive}
+{names: if_else, mapped, first_match, fill_null, hive_function, unchecked_column, unchecked_condition, unchecked_derived, unchecked_hive, repair_partitions, compute_statistics, admin.drop_table, admin.drop_partitions, admin.add_columns, run_execute, show_hive}
 
-## Steps
+## Worked patterns
 
-1. **Pick the call** for each piece the user asks for, by the Decision rules. Then step 2.
-2. **Write the code**, each label with AS. Done when each piece has its call. Then step 3.
-3. **Name each hand-written piece**: the Toolbox can't look inside it. Then step 4.
-4. **Check** by the Self-check; fix what it finds wrong, then reply.
-
-## Decision rules
-
-- If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
-- If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-  otherwise="elsewhere")`: each key a value the column holds, each value its label. Without
-  `otherwise=`, a value not in the dict gives NULL. None
-  among the dict's keys isn't allowed: fill_null the column first.
-- If a label is a chain, the first condition that holds winning, never a nested if_else:
-  `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
-  otherwise="someone")`.
-- If a list or lookup is long: a constant at the top, `CITY_BY_REGION = {...}`.
-- If a Hive function has no Toolbox name: `hive_function("upper", t.job_name)`,
-  `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
-- If neither writes it: the smallest Hive by hand, below.
-- If asked for upkeep: the Statements below; a drop only when asked for.
-
-## Hive by hand
-
-Each column the text reads is a `{name}` placeholder, the column passed by that name, so
-Lineage sees it:
-
-- one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
-- one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
-- a Derived table, read as a table:
-  `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
-- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute;
-- `${hivevar:x}` is Hive as written, never a `{name}` placeholder. A Script tag the user
-  wants left as a Hivevar is answered `hivevar(...)` (files 07 and 17), which also sends
-  its SET line; a day worked out when the Hive is built is a Run value, written in by
-  `hive_date(day)`: file 17.
-- A `{name}` placeholder stands for a column; a value is written in the text as Hive writes
-  it, such as `'FAILED'` in quotes or `60` bare.
-
-## Upkeep of a Saved table
-
-Each is sent with `run_execute(..., execute)`, after `from sqlglot_composer import admin`.
-
-- `repair_partitions(t)` finds Partitions written outside Hive.
-- `compute_statistics(t, partition={"dt": day})` counts its rows again.
-- `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
-- `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
-- Before a drop or a change is sent, show its Hive with `show_hive(change)` for the user to
-  read. The change_a_saved_table Workflow (file 14) takes them through a change as a whole
-  job: its Statement, its Hive and a check, then the send.
-
-## Output
-
-One Python code block the user can paste into a notebook cell, then a few plain sentences,
-naming each hand-written piece.
-
-## Examples
-
-Each job with the city of its region, and its name in capitals:
+### W1: each job with the city of its region, and its name in capitals
 
 ```python
 from sqlglot_composer import AS, FROM, SELECT, hive_function, mapped, statement
@@ -96,7 +82,7 @@ s = statement(
 )
 ```
 
-A chain of conditions, the first that holds giving the label:
+### W2: a chain of conditions, the first that holds giving the label
 
 ```python
 from sqlglot_composer import AS, FROM, SELECT, WHERE, equals, first_match, is_in, statement
@@ -112,9 +98,21 @@ s = statement(
 )
 ```
 
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Copy.** Copy the worked pattern or rule it names, with the user's tables, columns,
+   values and labels. Done when every name is imported; then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+One ```python block the user can paste into a notebook cell, then a few plain sentences,
+naming each hand-written piece.
+
 ## Self-check
 
-- Each label has AS; a long list or lookup is a constant; no if_else is nested.
-- Hand-written Hive is the smallest piece that needs it, each column it reads a `{name}`
-  placeholder; the answer names it.
-- Upkeep goes to run_execute; a drop is there only if the user asked for it.
+- [ ] **C1** Each label has AS; a long lookup is a constant; no if_else is nested.
+- [ ] **C2** A `mapped` dict's keys are values the column holds.
+- [ ] **C3** Hand-written Hive is the smallest piece, each column a `{name}` placeholder.
+- [ ] **C4** Upkeep goes to run_execute; a drop only if the user asked.
