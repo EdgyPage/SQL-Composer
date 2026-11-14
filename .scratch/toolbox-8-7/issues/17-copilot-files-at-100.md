@@ -299,3 +299,7 @@ block, under "Six more held-out tasks".
 - **T05 reworded (2ea5b519), re-measured alone on v10 (memo files b6b535568432):** arm C dev
   100 (31 from the memo); arm R still routes T05 to 08, so dev is 31 of 32 strict (97), 32 of
   32 by the Index (100), T05 with file 08 passing on the new text. Not fixed; no file changed.
+- **File 00's P2 and R8 send writing a Table reference or its Key, checked or not, to 02
+  (ff3c13d9), arm R re-measured on v11 (memo files 0dc59bcd4b09):** dev 31 of 32 strict (97),
+  32 of 32 by the Index (100); held out 17 of 17 (100) both ways. T05 still routes to 08 (P8
+  "check the Key holds"), counted by the Index on v10's passing T05 with file 08. No file changed.
