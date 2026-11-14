@@ -1,4 +1,4 @@
-"""The cost report: one local HTML page from the ledger and the attribution records
+"""The cost report, one local HTML page: the ledger, kept rounds and attribution records
 (evaluation system, ticket 09).
 
     .venv/Scripts/python tools/eval_report.py [--local DIR] [--commits FILE] [--baseline FILE]
@@ -413,8 +413,8 @@ def page_text(runs: list[eval_runs.Run], sources: list[eval_sources.SourceRow],
     """The whole report page."""
     body = "\n".join([
         "<header><h1>The evaluation cost report</h1>",
-        note("Built from the ledger, the kept sources and the commits file. It lives only on "
-             "this computer.") + "</header>",
+        note("Built from the ledger, the kept sources, the rounds each score kept and the "
+             "commits file. It lives only on this computer.") + "</header>",
         "<main>",
         cost_section(runs, commits),
         eventful_section(runs, commits),
