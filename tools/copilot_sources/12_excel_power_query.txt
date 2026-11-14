@@ -100,14 +100,15 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **S2** Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY
   ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
 - **S3** A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
-  order; name the order as dropped.
+  order; mark "order dropped".
 
 ## Rules: marks, refused
 
-- **M1** Sql.Database or a source outside the workbook: read the table it names; name it.
+- **M1** Sql.Database or a source outside the workbook: read the table it names; mark
+  "Sql.Database".
 - **M2** Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value
-  in the sample, THEN 1 to count, THEN v to add up v, NULL where none; name the pivot's
-  columns as now fixed.
+  in the sample, THEN 1 to count, THEN v to add up v, NULL where none; mark "pivot": its
+  columns are now fixed.
 - **X1** Refused, and named: Web.Contents or any web source (that query left out);
   Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp; Table.Distinct with
   a column list; List.Median.
@@ -154,9 +155,9 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ## Self-check
 
-- [ ] **C1** Each query's steps are read in order, each in its final or refused.
-- [ ] **C2** Each ORDER BY has a LIMIT; each Table.Sort with no FirstN or index after it is
-  named as a dropped order.
+- [ ] **C1** Each query's steps are read in order, in a final or refused.
+- [ ] **C2** Each ORDER BY has a LIMIT. The map's Marks name each M1, M2 and S3 the workbook
+  has: "Sql.Database", "pivot", "order dropped".
 - [ ] **C3** A query named in another query's M is a CTE, never `<database>.<query>`.
-- [ ] **C4** A query and the Table it loads, even of one name, each have their own role.
-- [ ] **C5** Each Total Row is its own final; its Table's final holds only the Table's rows.
+- [ ] **C4** A query and the Table it loads, even of one name, each have a role.
+- [ ] **C5** Each Total Row is its own final; its Table's final holds only its rows.
