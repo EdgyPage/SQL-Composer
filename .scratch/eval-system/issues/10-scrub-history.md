@@ -1,7 +1,7 @@
 # Scrub the git history
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02
 Size: M
 
@@ -32,9 +32,18 @@ past commits on GitHub still hold them.
 
 ## Answer
 
-Waits for the user's run, after ticket 11: the real scrub runs once, on the final history, by
-the procedure below. Planned and rehearsed 2026-11-14 on mirror clones in a session
-scratchpad; nothing was pushed, and no checkout or ref of the repo was rewritten.
+Every part of the Done-when an agent does is done; the force-push is the user's step, as the
+Done-when says, by the procedure and commands below. Planned and rehearsed 2026-11-14 on mirror
+clones in a session scratchpad; nothing was pushed, and no checkout or ref of the repo was
+rewritten.
+
+**Rehearsed again on the final history** (dev at 0eb5e057, after ticket 11), steps 1 to 7 on a
+fresh `--no-local` mirror, with a verified backup bundle of every ref and the recommended
+answer (a), the emails rewritten: the refs left to rewrite were dev, main and the tag; the
+check found "No local path or personal detail in any commit"; main's stamp names the rewritten
+dev hash; `compare` found 0 files differing in main or dev but for the scrubbed text; dev keeps
+all 1,427 commits, and its tree hash is unchanged, so the rewritten tip is the very tree the
+whole suite passed on at 0eb5e057 (8,888 passed), which stands for step 8.
 
 ### The plan
 
