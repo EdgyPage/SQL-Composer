@@ -259,10 +259,11 @@ def copy_records(root: Path = ROOT, local: Path = LOCAL) -> int:
     copied = 0
     for old, new in OLD_RECORDS.items():
         source = root / old
-        pairs = [(path, local / new / path.relative_to(source))
-                 for path in sorted(source.rglob("*")) if path.is_file()]
         if source.is_file():
             pairs = [(source, local / new)]
+        else:
+            pairs = [(path, local / new / path.relative_to(source))
+                     for path in sorted(source.rglob("*")) if path.is_file()]
         for path, target in pairs:
             if not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)

@@ -57,7 +57,7 @@ file already there and deletes nothing.
 folder name as a whole word, read at run time from the folder after `Users` or `home` in the
 repo's own path (not `Path.home` or `getpass`, which the code audit refuses, so no AUDITED entry
 was needed), and not held in the repo; an AppData `Local|Roaming|LocalLow`, `Temp/claude` or
-`/scratchpad/` path; an email whose domain isn't example.com, .org, .net, anthropic.com or
+scratchpad-folder path; an email whose domain isn't example.com, .org, .net, anthropic.com or
 users.noreply.github.com. A file that isn't UTF-8 isn't read. `NAMES_THE_PATTERNS` lists the
 files that name the patterns to check for them: the module and its two tests, and
 `tests/repo/test_code_audit.py`.
@@ -80,3 +80,17 @@ scrub is ticket 10.
 **Decided:** the hook reads the staged files from disk, not the index, because the repo's one
 git helper (`drift_list.git`) returns text, and a new subprocess site needs an ALLOWED entry. A
 commit made with the user's own hand isn't hooked; the test catches it.
+
+## Code review
+
+Run with this ticket as spec, fixed point d81ede36 (review-standards and review-spec, sonnet).
+
+- Fixed: `copy_records` reads as an if/else.
+- Answered: the hook reads from disk, not the index (above); the folder-name check is off when
+  the repo isn't under `Users` or `home` (CI), the other checks still run, and CI holds no
+  personal name anyway; `anthropic.com` and the noreply domain are allowed because commit
+  trailers and Claude Code use them; the work-folder rule is AppData, `Temp/claude` and
+  scratchpad folders, which is where agents write, not every Temp; `copy-records` is the move
+  the ticket asked for, as a command.
+- Left, as judgement calls: the findings' truncation is written in the tool and in the hook
+  (different formats); `names` threaded through for tests; `REFUSAL` and `refusal` names.
