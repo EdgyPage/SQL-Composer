@@ -113,6 +113,25 @@ passing replies that do, so the ids most tied to failures come first, lists the 
 cited nothing (a pattern the file lacks, or a missing line), and lists the flagged ids. The
 `summary_text(rows, round_name, pipeline)` function behind it is what the cost report shows.
 
+## The model ladder and the caps
+
+A task costs as little as it can. `plan` with no `--model` proposes each task's model from the
+ladder, haiku, then sonnet, then opus (`eval_runs.LADDER`): the cheapest model with no reply kept
+under the task's key now. A task haiku failed is proposed on sonnet; one a model passed is taken
+from the memo; one every model failed isn't asked again. The plan says which per task, names
+the cheapest model that passed it on older text, and lists each rung's tasks: run each rung as a
+round of its own, `batch ... --model <rung> --only <its tasks>`. A `--model` given overrides the
+ladder for every task. The usability loop has one rung, haiku, as a larger model passing shows
+nothing of the docs.
+
+`eval_runs.CAPS` is the one table of each pipeline's cap on a proxy's reply (characters) and a
+conversation's turns. Each batch writes the cap into its messages (the Metric request's into
+each agent's first message). A scorer flags a reply over the cap, `OVER CAP`, in its score line
+and the report, and leaves its score as it was; a Metric request conversation past its turn cap
+is ended with no request, and the usability loop fails a run that asks more questions than its
+cap. A plan never asks a task again whose key is unchanged, and says `from the memo` for each;
+`--fresh` is the one way to ask a dev task again.
+
 ## By hand, in Copilot's web chat
 
 1. Write the prompts and an answers file's template, which hold only the tasks `plan` says to ask:

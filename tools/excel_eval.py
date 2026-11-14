@@ -149,6 +149,7 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
         ask += (" End each answer with a line `Used: ` and the ids of the files' patterns, "
                 "rules and worked patterns you followed, each with its file's number, such as "
                 "`Used: 11:F4, 15:W1`, or `Used: none`.")
+    ask += " " + eval_runs.cap_text("excel")
     prompts = "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
     return head + ask + "\n\n" + prompts
 
@@ -848,8 +849,9 @@ def _score_answers(given: argparse.Namespace) -> None:
     found = eval_runs.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
                                     given.local / "memo")
     results = scored(found.replies)
-    eval_runs.keep_round(found, {one.task: _answer_line(one) for one in results},
-                         header.get("date", "?"))
+    lines = eval_runs.hold_reply_caps("excel", found,
+                                      {one.task: _answer_line(one) for one in results})
+    eval_runs.keep_round(found, lines, header.get("date", "?"))
     eval_sources.keep_round("excel", header, found, {one.task: one.passed for one in results},
                             files_loaded, given.local)
     print(report(header, results))

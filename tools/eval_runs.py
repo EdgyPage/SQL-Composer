@@ -32,6 +32,11 @@ this module writes is under `.eval-local/`, which git ignores.
   `batch`, `collect` and `score`. `batch` writes a round's folder under
   `.eval-local/<pipeline>/runs/<round>/`, a message file per proxy, and prints one line per
   proxy, `copilot-proxy | <model> | <prompt>`; `collect` merges the proxies' answers files.
+- **The ladder and the caps** (ticket 07): `LADDER`, `ladder_step` and `ladder_plan` ask each
+  task of the cheapest model that hasn't failed it, and `plan` without a `--model` proposes
+  each task's rung; `CAPS` is the one table of each pipeline's cap on a proxy's reply and on a
+  conversation's turns, which a batch writes into each message (`cap_text`) and a scorer holds
+  (`replies_over_cap`, `flag_over_cap`).
 - **Budgets**, `BUDGET`: `{pipeline: math.inf}` until the ledger has the data to set one, so a
   budget is one edit. A round over it is refused unless `--over-budget` is given.
 """
@@ -47,7 +52,7 @@ import math
 import re
 import shutil
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from datetime import date
 from pathlib import Path
 
@@ -366,7 +371,8 @@ def check_budget(pipeline: str, estimate: float | None, over_budget: bool,
 @dataclass
 class RoundToPlan:
     """A round to plan: its pipeline, arm and model, and each task it covers by id. `held_out`
-    names the tasks `--fresh` doesn't ask again. `agents` says how many agents (proxies) the
+    names the tasks `--fresh` doesn't ask again; `key_for_model` gives a task's key on a model,
+    which a round on the ladder needs. `agents` says how many agents (proxies) the
     tasks asked take, where a proxy takes several; the estimate is by agent, as the ledger has
     a row per agent. By default each task is an agent."""
 
@@ -376,16 +382,18 @@ class RoundToPlan:
     tasks: list[str]
     held_out: frozenset[str] = frozenset()
     agents: Callable[[list[str]], int] | None = None
+    key_for_model: Callable[[str], Callable[[str, str], Key]] | None = None
 
 
 @dataclass
 class RoundPlan:
     """A planned round: the tasks to ask, the estimate in tokens (None with no past rows), and
-    the plan as text."""
+    the plan as text; on the ladder, also the tasks asked of each model."""
 
     asked: list[str]
     tokens: float | None
     text: str
+    by_model: dict[str, list[str]] = field(default_factory=dict)
 
 
 def plan_round(asking: RoundToPlan, key_of: Callable[[str, str], Key], fresh: bool,
@@ -393,7 +401,9 @@ def plan_round(asking: RoundToPlan, key_of: Callable[[str, str], Key], fresh: bo
                budget: dict[str, float] = BUDGET) -> RoundPlan:
     """Plan a round: each task asked and why, or taken from the memo, the estimate from the
     ledger, and the budget check, which refuses a round over its pipeline's budget unless
-    `over_budget`."""
+    `over_budget`. With the model `LADDER_MODEL`, each task's rung is proposed instead."""
+    if asking.model == LADDER_MODEL:
+        return ladder_plan(asking, fresh, over_budget, local, budget)
     planned = memo_plan(asking.tasks, key_of, fresh, local / "memo", asking.held_out)
     asked = [one.task for one in planned if one.kept is None]
     agents = len(asked) if asking.agents is None else asking.agents(asked)
@@ -426,6 +436,199 @@ def _estimate_line(tokens: float | None, limit: float) -> str:
         return f"No estimate: the ledger has no past row of this pipeline, arm and model; "\
                f"{budget_text}."
     return f"Round estimated {tokens:.0f} tokens from past ledger rows ({budget_text})."
+
+
+# --- The model ladder and the caps (evaluation system, ticket 07) ----------------------------
+#
+# A task with a deterministic answer and input costs as little as it can: it is asked of the
+# cheapest model that has not failed it, and never again while the text it loads is unchanged.
+# Each pipeline also has a cap on a proxy's reply and on a conversation's turns, written into
+# each message by its batch and held by its scorer. Both live here, in one place each.
+
+# The models a task climbs, cheapest first: a task is asked of the first rung that holds no
+# reply under the task's key now, and climbs a rung when the one below failed it.
+LADDER = ("haiku", "sonnet", "opus")
+# What `plan`'s --model says to have it propose each task's rung; any other model overrides
+# the ladder for every task of the round.
+LADDER_MODEL = "ladder"
+# The pipelines whose ladder has fewer rungs: the usability loop measures whether the docs
+# are enough for the small model its agents run on, so a larger one passing shows nothing.
+RUNGS = {"usability": ("haiku",)}
+
+
+@dataclass(frozen=True)
+class Caps:
+    """What a pipeline holds a proxy to: the most characters in one reply, and the most turns
+    of the proxy's in one conversation (a Copilot or Excel task is one turn; the usability
+    loop's is a run's questions to Copilot; a Metric request's is Copilot's turns)."""
+
+    reply: int
+    turns: int
+
+
+# The one table of caps. A reply over its cap is flagged in its score line, whose score is
+# unchanged (a long answer isn't a wrong one) and counted in the report; a conversation past
+# its turn cap is ended, or in the usability loop failed, as each pipeline's scorer says.
+CAPS = {
+    "usability": Caps(reply=8000, turns=5),
+    "copilot": Caps(reply=6000, turns=1),
+    "excel": Caps(reply=12000, turns=1),
+    "metric": Caps(reply=6000, turns=12),
+}
+
+
+def rungs_of(pipeline: str) -> tuple[str, ...]:
+    """The models a pipeline's tasks climb, cheapest first."""
+    return RUNGS.get(pipeline, LADDER)
+
+
+def score_passed(score: str) -> bool:
+    """Whether a kept score line is a pass: `pass` alone (the usability loop), `T07  pass ...`
+    (an answer or a request), or `T07  route  strict pass ...` (a routing, which passes when
+    it names the objective's file)."""
+    words = score.split()
+    if words[:1] == ["pass"] or words[1:2] == ["pass"]:
+        return True
+    return words[1:2] == ["route"] and words[2:4] == ["strict", "pass"]
+
+
+def cheapest_passed(task: str, arm: str, folder: Path = MEMO) -> str | None:
+    """The cheapest model of the ladder that has passed a task in an arm, by any reply kept
+    for it, whatever text it was asked on; None when none has. A plan says it beside a task it
+    asks, since a pass on older text is a hint of where to start, not an answer."""
+    for model in LADDER:
+        if any(score_passed(kept.score) for kept in read_kept(task, arm, model, folder)):
+            return model
+    return None
+
+
+@dataclass
+class Step:
+    """What the ladder does with a task: the rung it is asked on, or the reply kept for it (a
+    pass, or a failure on every rung), and why it is asked."""
+
+    task: str
+    model: str
+    kept: Kept | None
+    reason: str
+
+
+def ladder_step(task: str, pipeline: str,
+                key_for_model: Callable[[str], Callable[[str, str], Key]], fresh: bool,
+                held_out: bool, folder: Path = MEMO) -> Step:
+    """Walk a task up the ladder by the replies kept under its key now: the first rung with
+    none is where it is asked (the cheapest rung with `fresh`, for a task that isn't held
+    out); the first rung whose reply passed gives that reply, which isn't asked again; a task
+    every rung failed isn't asked again either, and keeps the top rung's reply."""
+    rungs = rungs_of(pipeline)
+    if fresh and not held_out:
+        return Step(task, rungs[0], None, "--fresh")
+    failed, kept = "", None
+    for model in rungs:
+        key_of = key_for_model(model)
+        kept = kept_reply(task, key_of, folder)
+        if kept is None and not failed:
+            return Step(task, model, None, _why_asked(task, key_of, folder))
+        if kept is None:
+            return Step(task, model, None, f"{failed} failed it")
+        if score_passed(kept.score):
+            return Step(task, model, kept, "")
+        failed = model
+    return Step(task, failed, kept, "")
+
+
+def ladder_plan(asking: RoundToPlan, fresh: bool, over_budget: bool, local: Path,
+                budget: dict[str, float]) -> RoundPlan:
+    """The plan of a round whose model is the ladder: each task's rung and why, or the reply
+    kept for it; each rung's tasks, to run as a round of its own with `--model <rung> --only
+    <its tasks>`; and the estimate, the sum of each rung's, checked against the budget."""
+    if asking.key_for_model is None:
+        raise ValueError("A round on the ladder needs the key of a task on each model.")
+    steps = [ladder_step(task, asking.pipeline, asking.key_for_model, fresh,
+                         task in asking.held_out, local / "memo") for task in asking.tasks]
+    asked = [one for one in steps if one.kept is None]
+    by_model = {}
+    for model in rungs_of(asking.pipeline):
+        tasks = [one.task for one in asked if one.model == model]
+        if tasks:
+            by_model[model] = tasks
+    rows = read_ledger(local)
+    estimates = []
+    for model, tasks in by_model.items():
+        agents = len(tasks) if asking.agents is None else asking.agents(tasks)
+        estimates.append(estimated_tokens(rows, asking.pipeline, asking.arm, model, agents))
+    tokens = None if not estimates or None in estimates else sum(estimates)
+    check_budget(asking.pipeline, tokens, over_budget, budget)
+    lines = []
+    for one in steps:
+        if one.kept is None:
+            before = cheapest_passed(one.task, asking.arm, local / "memo")
+            hint = f" (it passed before on {before})" if before else ""
+            lines.append(f"{one.task}: ask on {one.model}: {one.reason}{hint}")
+        else:
+            verdict = "passed" if score_passed(one.kept.score) else "failed on every rung"
+            lines.append(f"{one.task}: from the memo, {one.kept.key.file_name()} "
+                         f"({one.model} {verdict}), not asked again")
+    lines.append(f"Ask {len(asked)} of {len(steps)}; {len(steps) - len(asked)} from the memo.")
+    for model, tasks in by_model.items():
+        lines.append(f"Rung {model}: {','.join(tasks)}")
+    if by_model:
+        lines.append("Run each rung as a round of its own: --model <rung> --only <its tasks>.")
+    lines.append(_estimate_line(tokens, budget[asking.pipeline]))
+    return RoundPlan([one.task for one in asked], tokens, "\n".join(lines), by_model)
+
+
+def reply_cap_text(pipeline: str) -> str:
+    """The sentence a message gives a proxy about the length of its reply."""
+    return f"Keep each reply under {CAPS[pipeline].reply} characters."
+
+
+def cap_text(pipeline: str) -> str:
+    """The sentences a pipeline's messages give its proxy about the caps."""
+    text = reply_cap_text(pipeline)
+    if CAPS[pipeline].turns > 1:
+        text += f" The conversation ends after {CAPS[pipeline].turns} turns of yours."
+    return text
+
+
+def replies_over_cap(pipeline: str, replies: dict[str, str]) -> dict[str, int]:
+    """Each reply longer than the pipeline's cap, by its task, with its length."""
+    return {task: len(reply.strip()) for task, reply in replies.items()
+            if len(reply.strip()) > CAPS[pipeline].reply}
+
+
+def flag_over_cap(pipeline: str, lines: dict[str, str], over: dict[str, int]
+                  ) -> dict[str, str]:
+    """Each task's score line, with the ones whose reply is over the cap flagged."""
+    flagged = {}
+    for task, line in lines.items():
+        if task in over:
+            line += f"  OVER CAP: {over[task]} characters, cap {CAPS[pipeline].reply}"
+        flagged[task] = line
+    return flagged
+
+
+def hold_reply_caps(pipeline: str, found: RoundReplies, lines: dict[str, str]
+                    ) -> dict[str, str]:
+    """A round's score lines with each new reply over the pipeline's cap flagged, and a line
+    naming them printed. Replies taken from the memo were asked before, so aren't held."""
+    new = {}
+    for task, reply in found.replies.items():
+        if task not in found.taken:
+            new[task] = reply
+    over = replies_over_cap(pipeline, new)
+    if over:
+        print(cap_summary(pipeline, over))
+    return flag_over_cap(pipeline, lines, over)
+
+
+def cap_summary(pipeline: str, over: dict[str, int]) -> str:
+    """A line naming the replies over the cap, or "" when none is."""
+    if not over:
+        return ""
+    named = ", ".join(f"{task} ({length})" for task, length in over.items())
+    return (f"{len(over)} replies over the {pipeline} reply cap of {CAPS[pipeline].reply} "
+            f"characters: {named}.")
 
 
 # --- A round by script -----------------------------------------------------------------------
@@ -655,8 +858,15 @@ def add_round_commands(commands: argparse._SubParsersAction[argparse.ArgumentPar
     for name in ("plan", "prompts", "template", "batch"):
         command = pipe.add_filters(commands.add_parser(name), "dev")
         command.add_argument("arm", choices=pipe.arms)
-        command.add_argument("--model", required=True,
-                             help="the model asked, such as haiku, or copilot-web by hand")
+        if name == "plan":
+            command.add_argument("--model", default=LADDER_MODEL,
+                                 help="the model asked, such as haiku, or copilot-web by "
+                                 "hand; by default each task's rung of the ladder")
+        else:
+            command.add_argument("--model", required=True,
+                                 help="the model asked, such as haiku, or copilot-web by hand")
+        command.add_argument("--only", help="only these tasks of the round, comma-separated, "
+                             "as a rung of the ladder names them")
         command.add_argument("--fresh", action="store_true",
                              help="ask every dev task again, kept or not")
         command.add_argument("--over-budget", action="store_true",
@@ -673,16 +883,33 @@ def add_round_commands(commands: argparse._SubParsersAction[argparse.ArgumentPar
         command.add_argument("--local", type=Path, default=LOCAL, help=argparse.SUPPRESS)
 
 
+def round_tasks(pipe: Pipeline, given: argparse.Namespace) -> list[str]:
+    """The tasks of the round a command names: the filters' tasks, cut to `--only`."""
+    only = [task for task in (given.only or "").split(",") if task]
+    return [task for task in pipe.chosen(given) if not only or task in only]
+
+
+def check_not_the_ladder(model: str) -> None:
+    """Refuse a command that writes or prints a round's messages on the ladder, which has no
+    one model: each rung is a round of its own."""
+    if model == LADDER_MODEL:
+        raise SystemExit("The ladder has no one model to write a message for: `plan` shows "
+                         "each rung's tasks; run each rung with --model <rung> --only <its "
+                         "tasks>, a round of its own.")
+
+
 def plan_for(pipe: Pipeline, given: argparse.Namespace) -> RoundPlan:
     """The plan of the round a `plan`, `prompts`, `template` or `batch` command names."""
-    tasks = pipe.chosen(given)
+    tasks = round_tasks(pipe, given)
 
     def proxies_for(asked: list[str]) -> int:
         return len(pipe.proxy_groups(given.arm, asked))
+    def key_for_model(model: str) -> Callable[[str, str], Key]:
+        return functools.partial(pipe.memo_key, arm=given.arm, model=model)
     asking = RoundToPlan(pipe.name, given.arm, given.model, tasks,
                          frozenset(task for task in tasks if pipe.held_out(task)),
-                         agents=proxies_for)
-    key_of = functools.partial(pipe.memo_key, arm=given.arm, model=given.model)
+                         agents=proxies_for, key_for_model=key_for_model)
+    key_of = key_for_model(given.model)
     return plan_round(asking, key_of, given.fresh, given.over_budget, given.local)
 
 
@@ -695,6 +922,8 @@ def run_round_command(pipe: Pipeline, given: argparse.Namespace) -> int:
     """Run `plan`, `prompts`, `template`, `batch` or `collect`, and return the exit code."""
     if given.command == "collect":
         return _collect(pipe, given)
+    if given.command != "plan":
+        check_not_the_ladder(given.model)
     plan = plan_for(pipe, given)
     if given.command == "plan":
         print(plan.text)
@@ -715,7 +944,7 @@ def _batch(pipe: Pipeline, given: argparse.Namespace, plan: RoundPlan) -> None:
     groups = pipe.proxy_groups(given.arm, plan.asked) if plan.asked else {}
     messages = {proxy: pipe.proxy_message(given.arm, tasks) for proxy, tasks in groups.items()}
     batch = Batch(pipe.name, given.round, given.arm, given.model, date.today().isoformat(),
-                  pipe.chosen(given), groups)
+                  round_tasks(pipe, given), groups)
     lines = write_batch(batch, messages, given.local)
     print("\n".join(lines) if lines else NOTHING_TO_ASK)
 
