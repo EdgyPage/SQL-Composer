@@ -886,8 +886,8 @@ a decision would write before you make it.**
 
 The convert, promote, new_table and references notebooks read top to bottom, in four cells:
 
-1. **Name what it works on.** Action: fill in the names cell, the first, and save the
-   notebook. Done when it is saved; then step 2.
+1. **Name what it works on.** Action: fill in the names cell, the code cell under the setup
+   cell, and save the notebook. Done when it is saved; then step 2.
 2. **Run up to your Decisions.** Action: run the cell under it, "Run up to your Decisions",
    `project.run_workflow(...)`: it runs every step, the calls to the warehouse too, up to the
    first only you can do, and prints the `DECISIONS` to paste, each answer not given yet
