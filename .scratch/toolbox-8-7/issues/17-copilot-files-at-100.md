@@ -132,4 +132,7 @@ come before their definitions.
 and `EXCEPT` again): arm C dev 100 (T07, T08, T13, T14 asked, 28 from the memo), held out 100
 (T09, T15); arm R not asked, file 00 unchanged; no file changed.
 
+**v6** (9b95a964c448, 5be7d7c8: file 03's R8 names `contains` and `starts_with`, P13 in order):
+arm C dev 100 (T07, T08 asked, 30 from the memo), held out 100 (T09); no file changed.
+
 Status stays open: the Metric request half's part is on its own branch.
