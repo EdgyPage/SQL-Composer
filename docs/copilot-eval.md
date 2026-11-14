@@ -154,9 +154,9 @@ twelve dev and eleven held out, each a vague goal, the answer key the user keeps
 and a requirements key. Seven ask for what the data can't give, or gives only in part: a
 column no table has, a grain the tables don't hold, a column with no definition, a date too
 vague to decide. Held-out tasks M18 to M23 were written after file 19 was tuned, before any
-was run. Two proxies a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
-the round's model, or a `copilot-proxy` told its part is in its message file, are both given
-the same messy column definitions (`COLUMN_DEFINITIONS`), part of the memo key:
+was run. Two agents a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
+the round's model, are both given the same messy column definitions (`COLUMN_DEFINITIONS`),
+part of the memo key:
 
 - **the stand-in user**, who pasted the definitions, says the vague goal and answers from the
   key;
@@ -174,21 +174,44 @@ give, no worked-out number ("= 50") and no SQL. An invented column or number alw
 Arm A0, the baseline, is Copilot given file 19's request form, the definitions and the vague
 goal, with no file and no one to ask.
 
-1. **Plan, then write the messages.** `metric_eval.py plan C --split dev --model haiku` says
-   which tasks to ask, as the memo keeps them; `messages C ... --into <run>` writes a folder
-   per task: user.md and copilot.md in C, copilot.md alone in A0.
-2. **Grill.** Spawn a proxy for each part. Copilot reads copilot.md and writes
-   turn-01-copilot.md; the user reads user.md and that turn, and writes turn-01-user.md; and
-   so on, each continued with the other's newest turn, until Copilot's turn holds the Metric
-   request, or after 12 of Copilot's turns. In A0, Copilot's first turn is the request.
-3. **The request.** `metric_eval.py request <run>/M01` writes the folder's transcript.md and
-   request.md.
-4. **Score.** `metric_eval.py answers <run> --arm C --model haiku --files <hash> --memo-files
-   <version> --into <run>/answers.md` gathers the folders, `--memo-files` the version `plan`
-   printed; then `score <run>/answers.md --split dev --record .scratch/copilot-eval/results.md`.
-   Score a round before editing file 19: a dev reply is kept under the text it is scored on.
-   Ask only what can come out different: new tasks, or each split once after file 19 changes;
-   the rest is in the memo and the record.
+Run every command from the repo's root with `.venv/Scripts/python`. A round's folders, results
+table, replies and ledger rows are all under `.eval-local/`, which git ignores: no record of a
+round is committed. A conversation is two agents, one for each part, each spawned once with its
+first message and continued with SendMessage for the turns after; the script writes every
+message and reads every reply, so you only spawn and send what it prints.
+
+1. **Plan the round.** `tools/metric_eval.py plan C --split dev --model haiku` says which tasks
+   to ask and which come from the memo, with the estimate from the ledger. Ask only what can
+   come out different: new tasks, or each split once after file 19 or the definitions change.
+   Use `--fresh` to ask a task the memo holds, and `--over-budget` to run a round the budget
+   refuses.
+2. **Start it.** `tools/metric_eval.py start C --round <name> --split dev --model haiku` plans
+   again, writes a folder per asked task in `.eval-local/metric/<name>/` (user.md and
+   copilot.md in C, copilot.md alone in A0), and prints, per task, one line: `M01: spawn
+   metric-proxy model haiku, prompt: Read <folder>/copilot.md, then write your reply to
+   <folder>/turn-01-copilot.md.`
+3. **Spawn what it prints.** Spawn the agent named (type `metric-proxy`, the model, the prompt
+   as printed) for every task at once, and keep each task's agent id: it is that task's Copilot
+   agent. Each writes its reply to the file named and ends with one word.
+4. **Take the next turn.** For a task whose agent has finished, run `tools/metric_eval.py next
+   <folder>`. It prints one line: spawn the user's agent (first time only: type
+   `metric-proxy`, the prompt as printed, and keep its id as that task's user agent), or
+   SendMessage to the Copilot or user agent you kept, with the line's text as the message. Do
+   that, wait for the reply, and run `next` again. Take the tasks' turns together, a round of
+   `next` lines at a time.
+5. **The end.** `next` prints `ended: request in turn N` (Copilot's turn holds the Metric
+   request) or `ended: turn cap, 12 turns`, and writes the folder's transcript.md and
+   request.md. In A0 the one agent's first turn ends it. Never write a turn file yourself, and
+   never send an agent more than the line says: its replies come from what it was named alone.
+6. **Record each agent's usage.** When a conversation has ended, take each of its two agents'
+   reported total tokens and seconds, and run `tools/metric_eval.py usage <folder> --role
+   copilot --tokens <tokens> --seconds <seconds> --commit <sha>`, and the same with `--role
+   user`. That puts one ledger row per agent per conversation in `.eval-local/ledger.csv`;
+   `tools/eval_runs.py ledger` prints the ledger.
+7. **Score.** `tools/metric_eval.py score <name> C --split dev --model haiku` scores each
+   task's request.md, a task with no folder from the memo, keeps each new request in the memo,
+   and adds a row to `.eval-local/metric/results.md`. Score a round before editing file 19: a
+   reply is kept under the text it is scored on.
 
 In Copilot's web chat the same steps run by hand: paste file 19 first, then the column
 definitions and the vague goal, and answer as the user would.
