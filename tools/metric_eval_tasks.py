@@ -440,7 +440,7 @@ job_id | cost_cents | region | dt       | budget_cents
             quantities(r"run_alerts|alert", r"\bstatus\b"),
             Required("alerts divided by runs", "Formula", (r"alert", r"/|divided|per|over")),
             Required("no invented kind of alert", "Formula",
-                     (r"action|acknowledg|closed|ignored|noisy alert",), absent=True,
+                     (r"\baction|acknowledg|\bclosed\b|ignored|noisy alert",), absent=True,
                      essential=True),
             Required("a run with no alerts counts", "", (r"\b0\b|zero|no alerts?",)),
             TEST_OUT, NULL_OUT,

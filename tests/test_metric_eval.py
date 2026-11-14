@@ -122,6 +122,8 @@ def test_an_invented_kind_of_alert_fails_m06() -> None:
     noisy = task.example.replace("alerts raised by finished runs /",
                                  "alerts closed with no action /")
     assert "no invented kind of alert" in metric_eval.score_request(task, noisy).essential_unmet
+    fraction = task.example.replace("/ finished runs", "/ finished runs, a fraction")
+    assert metric_eval.score_request(task, fraction).passed
 
 
 def test_a_muddled_task_with_the_wrong_number_of_columns_fails() -> None:
