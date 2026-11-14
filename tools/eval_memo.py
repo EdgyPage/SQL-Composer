@@ -13,7 +13,7 @@ evaluation that asks a model a task in an arm. A reply is kept under a key of:
   held-out task is asked once per files version, and its reply is never scored against
   another.
 
-Each key is one plain file in `.scratch/copilot-eval/memo/`: its key's parts, the date it was
+Each key is one plain file in `.eval-local/memo/`: its key's parts, the date it was
 asked, its score line, then the reply as it came, so a round's replies stay readable and can be
 scored again. A round's plan names each task to ask and why: no reply kept, its text changed,
 the text its arm loads changed, held out and the Copilot files changed, or `--fresh`. The rest
@@ -36,23 +36,24 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-MEMO = ROOT / ".scratch" / "copilot-eval" / "memo"
+from eval_runs import (  # noqa: F401
+    MEMO,
+    NO_FILES_VERSION,
+    ROOT,
+    Key,
+    Kept,
+    hashed_key,
+    kept_reply,
+    read_kept,
+    write_kept,
+)
+
 COPILOT = ROOT / "copilot"
-# A key's files version where its task is asked once per text, not once per files version.
-NO_FILES_VERSION = "-"
 # What `prompts`, `proxy` and `template` print when the memo keeps every reply of a round.
 NOTHING_TO_ASK = ("Nothing to ask: the memo keeps a reply to every task of this round, as "
                   "plan shows. Score the round to score them again.")
-# What parts a kept reply's file from its header.
-REPLY_HEADING = "\n\n## Reply\n\n"
 # The answers file's header line naming the Copilot files' version its replies were asked on.
 FILES_HEADER = "memo_files"
-
-
-def text_hash(text: str) -> str:
-    """A text's SHA-256, in hex."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def files_version(folder: Path = COPILOT) -> str:
@@ -66,87 +67,7 @@ def files_version(folder: Path = COPILOT) -> str:
     return digest.hexdigest()[:12]
 
 
-@dataclass(frozen=True)
-class Key:
-    """What a reply was asked on: its texts by their hashes."""
-
-    task: str
-    task_text_hash: str
-    arm: str
-    model: str
-    loaded_text_hash: str
-    files_version: str
-
-    def file_name(self) -> str:
-        """The name of the memo's file for this key: the task, the arm and the model, readable,
-        then a hash of the whole key."""
-        whole = "\n".join([self.task, self.task_text_hash, self.arm, self.model,
-                           self.loaded_text_hash, self.files_version])
-        return f"{_file_name_start(self.task, self.arm, self.model)}{text_hash(whole)[:12]}.md"
-
-
-def _file_name_start(task: str, arm: str, model: str) -> str:
-    """The start of every memo file's name for a task in an arm on a model."""
-    return f"{task}-{arm}-{re.sub(r'[^0-9A-Za-z_.]', '_', model)}-"
-
-
-def hashed_key(task: str, task_text: str, arm: str, model: str, loaded_text: str,
-               files: str = NO_FILES_VERSION) -> Key:
-    """The key a task's reply is kept under: its texts hashed, `files` as it is given."""
-    return Key(task, text_hash(task_text), arm, model, text_hash(loaded_text), files)
-
-
-@dataclass
-class Kept:
-    """A reply kept in the memo: its key, the date it was asked, its score line, and the reply
-    as it came."""
-
-    key: Key
-    asked: str
-    score: str
-    reply: str
-
-
-def write_kept(kept: Kept, folder: Path = MEMO) -> Path:
-    """Write a kept reply to its key's file in `folder`, in place of one kept before."""
-    folder.mkdir(parents=True, exist_ok=True)
-    key = kept.key
-    score_line = kept.score.replace("\n", " ")
-    header = [f"task: {key.task}", f"task text hash: {key.task_text_hash}", f"arm: {key.arm}",
-              f"model: {key.model}", f"loaded text hash: {key.loaded_text_hash}",
-              f"files version: {key.files_version}", f"asked: {kept.asked}",
-              f"score: {score_line}"]
-    path = folder / key.file_name()
-    path.write_text("\n".join(header) + REPLY_HEADING + kept.reply, encoding="utf-8")
-    return path
-
-
-def read_kept(task: str, arm: str, model: str, folder: Path = MEMO) -> list[Kept]:
-    """Each reply kept for a task in an arm on a model, whatever text it was asked on."""
-    found = []
-    for path in sorted(folder.glob(f"{_file_name_start(task, arm, model)}*.md")):
-        head, reply = path.read_text(encoding="utf-8").split(REPLY_HEADING, 1)
-        fields = dict(line.split(": ", 1) for line in head.splitlines())
-        key = Key(fields["task"], fields["task text hash"], fields["arm"], fields["model"],
-                  fields["loaded text hash"], fields["files version"])
-        if key.model == model:
-            found.append(Kept(key, fields["asked"], fields["score"], reply))
-    return found
-
-
 # --- A round's plan --------------------------------------------------------------------------
-
-
-def kept_reply(task: str, key_of: Callable[[str, str], Key], folder: Path = MEMO
-               ) -> Kept | None:
-    """The reply kept for a task under the key it has now, or None. `key_of` gives a task's
-    key for a reply: in arm R, the text loaded is file 00 and the file the reply names, and
-    every other arm's key leaves the reply out."""
-    wanted = key_of(task, "")
-    for kept in read_kept(task, wanted.arm, wanted.model, folder):
-        if kept.key == key_of(task, kept.reply):
-            return kept
-    return None
 
 
 @dataclass
