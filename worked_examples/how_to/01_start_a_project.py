@@ -256,8 +256,7 @@ line, with a comment above it saying what to write:
     # connect(your_connection)
 
 At work, write your team's connection in that line, and delete its `#`. Your connection can be
-anything with the two calls: a module, as `example_database` is, or the object your team's
-library connects you with. Here `my_api` and its connect call are made-up names for yours:
+anything with the two calls: a module, or the object your team's library connects you with. Here `my_api` and its connect call are made-up names for yours:
 
     import my_api  # your team's library
 
@@ -284,14 +283,13 @@ RuntimeError:
 ...
 
 This page connects to the Example database, nine made-up tables the how-tos run on, so every
-how-to shows what it gives before you touch a real table. It doesn't ship with the Toolbox, so
-in your own notebook leave out the two lines below and connect to your own warehouse, as
-above. `example_database.query` runs Hive on its
-nine tables, and `example_database.execute` prints the first line of the Hive and changes
-nothing, since the Example database can't be written to:
+how-to shows what it gives before you touch a real table. It doesn't ship with the Toolbox:
+here `conn` is its connection, given to the page before its steps run, and in your own
+notebook `conn` is your team's, as above. Its query runs Hive on its nine tables, each shown
+under a how-to's title with its columns and first rows, and its execute prints the first line
+of the Hive and changes nothing, since the Example database can't be written to:
 
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 
 That is all, when your connection's `query` gives back a pandas DataFrame whose columns are
 named as the SELECT names them, and its `execute` runs Hive that changes something. Whatever
@@ -338,7 +336,7 @@ gives back an error rather than raising one, raise it yourself, such as
 `raise RuntimeError(answer.error)`: the Toolbox knows a step failed only when your connection
 raises.
 
-Done when `connect(example_database)` runs without an error, and at work each notebook's
+Done when `connect(conn)` runs without an error, and at work each notebook's
 `connect(...)` line holds your connection. Then step 9.
 
 ### 9. Try your query
@@ -474,7 +472,7 @@ adopt one made by hand.
   [Add your tables' references](#add_your_tables_references).
 - Build a Statement on one of them, read its Hive and run it:
   [Build and run a first statement](#build_and_run_a_first_statement).
-- See a Project filled in: the Starter Example project, in the folder
-  example_projects/starter, is much like the Project the Getting started how-tos build; its
-  README says how the two differ.
+- See a Project filled in: the Starter Example project, on the download's Example projects
+  page, is much like the Project the Getting started how-tos build; the page says how the two
+  differ.
 """  # noqa: E501 - the saved_table Template's first cell, quoted as the Template writes it

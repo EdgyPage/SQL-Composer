@@ -447,8 +447,8 @@ def path_reads(readme: list[str], how_tos: list[str],
                copilot: list[str]) -> dict[str, list[str]]:
     """What a scenario's path reads of main, as reads.json holds it: the README's top, where
     every agent starts, and each other section named, by its heading; each how-to, by its
-    link on how_to.html; and Copilot file 00, which every question opens with, and each other
-    Copilot file named. Its inputs hash is made from these, so a change to anything else
+    link on docs/how_to.html; and Copilot file 00, which every question opens with, and each
+    other Copilot file named. Its inputs hash is made from these, so a change to anything else
     the docs hold runs it no more (Toolbox 8.7, ticket 01)."""
     return {"readme": ["sqlglot Composer", *readme], "how_tos": how_tos,
             "copilot": ["00_start_here.txt", *copilot]}

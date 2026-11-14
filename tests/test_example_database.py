@@ -235,7 +235,8 @@ def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive: st
     for part in ("What happened:", "Why it matters:", "Usual fix:", "Opt-out:"):
         assert part in message
     assert "spelt wrong" in message
-    assert "example_database.jobs" in message
+    # Named as a Project names it, since the message shows on main's pages (ticket 13).
+    assert "all_columns(ops.jobs)" in message
 
 
 @pytest.mark.parametrize("hive", ["DESCRIBE mart.jobs", "SHOW PARTITIONS mart.job_runs"])

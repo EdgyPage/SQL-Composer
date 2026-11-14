@@ -17,9 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = (ROOT / "docs" / "clean-branch-readme.md").read_text(encoding="utf-8")
 HOW_TOS = ROOT / "worked_examples" / "how_to"
-# A link to a how-to on the how-to page, as [title](../sqlglot_composer/how_to.html#slug): the
+# A link to a how-to on the how-to page, as [title](../docs/how_to.html#slug): the
 # README is .github/README.md on main, so it goes up one folder.
-HOW_TO_LINK = re.compile(r"\]\(\.\./sqlglot_composer/how_to\.html#(\w+)\)")
+HOW_TO_LINK = re.compile(r"\]\(\.\./docs/how_to\.html#(\w+)\)")
 
 
 def headings() -> list[str]:
@@ -60,7 +60,7 @@ def test_readme_step_n_is_getting_started_how_to_n() -> None:
         title for title, _ in how_tos]
     for number, (title, slug) in enumerate(how_tos, start=1):
         assert slug in HOW_TO_LINK.findall(steps[number][1]), (
-            f"README step {number}, {title}, links its how-to: (../sqlglot_composer/"
+            f"README step {number}, {title}, links its how-to: (../docs/"
             f"how_to.html#{slug})")
 
 

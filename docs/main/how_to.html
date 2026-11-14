@@ -29,6 +29,7 @@ h5{font-size:15px;margin:16px 0 4px;color:#333}
 .badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
 pre.file{white-space:pre-wrap}
 details summary{cursor:pointer;color:#555;margin:4px 0}
+.tables{background:#fafafa;border:1px solid #eee;border-radius:4px;padding:2px 10px;margin:6px 0 10px} .tables .label{margin-top:4px}
 .code{position:relative} .code pre{padding-right:64px}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 </style></head><body>
@@ -40,14 +41,23 @@ are one notebook: paste them in order, starting with the import. Each step shows
 then what it gives: its Hive (ready to paste into another program), its result on the Example
 database, or a file it writes. The Example database is nine made-up tables the Toolbox's makers
 keep, which the download doesn't hold: in your own notebook, your tables and your warehouse
-take their place. Every Hive, result, refusal and Warning here comes from running the steps.</p>
+take their place, and <code>connect(conn)</code> gives your team's connection, where here it
+gave the Example database's. An Intermediate how-to starts with
+<code>example_project("intermediate")</code>, a line of this page alone, not a Toolbox name: it
+copies the Intermediate Example project, which the Example projects page shows, into the folder
+the page runs in, and in your own Project you leave it out. Under each how-to's title, each
+table it reads opens to show its columns, their types and its first rows. Every Hive, result,
+refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
-2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
-run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
-your real today, so in your own notebook it finds no rows on the Example database: write
-<code>between</code> with the dates instead.</p>
-<p>The <a href="examples.html">Example gallery</a>, beside this page in the
-<code>sqlglot_composer</code> folder, holds every Worked example, and the how-tos link to it.</p>
+2026-09-24 (<code>ops.job_events</code>, <code>ops.job_owners</code> and
+<code>ops.region_costs</code>, which the Intermediate how-tos read most, hold 14 days), and the
+steps here were run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it
+counts back from your real today, so in your own notebook it finds no rows on the Example
+database: write <code>between</code> with the dates instead.</p>
+<p>The <a href="examples.html">Example gallery</a>, beside this page in the download's
+<code>docs</code> folder, holds every Worked example, and the how-tos link to it. The
+<a href="example_projects.html">Example projects</a> page, beside it, shows the Starter and
+Intermediate Example projects the how-tos name, each file and notebook with what it gives.</p>
 <p>A Statement is built along a chain of types, each made by a call on the one before. A step
 says the type of each value it makes in a comment, such as <code># -&gt; Statement</code>.</p>
 <table class="chain">
@@ -111,6 +121,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <h2 id="getting-started">Getting started</h2>
 <section class="entry" id="start_a_project">
 <h3>1. Start a Project <span class="badge getting-started">Getting started</span></h3>
+<div class="tables"><p class="note">It reads none of the Example database's tables.</p></div>
 <h4>Goal</h4>
 <p>Get a Project ready. A Project is your folder at work that holds the Toolbox and your own scripts in one fixed layout: warehouse.py, where your own two functions, <code>query</code> and <code>execute</code>, run Hive SQL on your warehouse, and, as you add them, your tables&#x27; Table references (a file describing one table), the Building blocks your notebooks share (pieces of code reused across notebooks) and a notebook per Saved table (a table your own Statements write). You install what the Toolbox needs, copy it into the folder, let <code>project.start()</code> lay the folder out, learn which call makes each file of a Project and what you fill in, and set your connection.</p>
 <h4>When you&#x27;d use it</h4>
@@ -274,7 +285,7 @@ def _refuse(what: str, why: str, fix: str, error: type[Exception]) -&gt; NoRetur
 <h5>8. Connect each notebook</h5>
 <p>Goal: <code>query</code> and <code>execute</code> that reach your warehouse. Each notebook runs on its own, in a Python of its own, so each gives warehouse.py its connection at its top: a connection one notebook gave isn&#x27;t another&#x27;s. Each notebook the Project actions write that reaches the warehouse holds the line for it in its first code cells, under its <code>from warehouse import</code> line, with a comment above it saying what to write:</p>
 <pre class="python"># connect(your_connection)</pre>
-<p>At work, write your team&#x27;s connection in that line, and delete its <code>#</code>. Your connection can be anything with the two calls: a module, as <code>example_database</code> is, or the object your team&#x27;s library connects you with. Here <code>my_api</code> and its connect call are made-up names for yours:</p>
+<p>At work, write your team&#x27;s connection in that line, and delete its <code>#</code>. Your connection can be anything with the two calls: a module, or the object your team&#x27;s library connects you with. Here <code>my_api</code> and its connect call are made-up names for yours:</p>
 <pre class="python">import my_api  # your team&#x27;s library
 
 connect(my_api.connect())  # its query gives back a DataFrame; its execute runs a change</pre>
@@ -290,9 +301,8 @@ query(&quot;SELECT 1 AS one&quot;)</pre>
   Why it matters: Each notebook runs on its own, in a Python of its own, so each connects at its top: a connection given in another notebook, or before this one&#x27;s kernel restarted, isn&#x27;t this one&#x27;s.
   Usual fix:      In this notebook&#x27;s setup cell, at its top, fill in the line connect(...) under its from warehouse import line with your connection, such as connect(conn), where conn is your team&#x27;s connection, then run that cell again.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>This page connects to the Example database, nine made-up tables the how-tos run on, so every how-to shows what it gives before you touch a real table. It doesn&#x27;t ship with the Toolbox, so in your own notebook leave out the two lines below and connect to your own warehouse, as above. <code>example_database.query</code> runs Hive on its nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to:</p>
-<pre class="python">import example_database
-connect(example_database)</pre>
+<p>This page connects to the Example database, nine made-up tables the how-tos run on, so every how-to shows what it gives before you touch a real table. It doesn&#x27;t ship with the Toolbox: here <code>conn</code> is its connection, given to the page before its steps run, and in your own notebook <code>conn</code> is your team&#x27;s, as above. Its query runs Hive on its nine tables, each shown under a how-to&#x27;s title with its columns and first rows, and its execute prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to:</p>
+<pre class="python">connect(conn)</pre>
 <p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame whose columns are named as the SELECT names them, and its <code>execute</code> runs Hive that changes something. Whatever your connection&#x27;s <code>execute</code> gives back, <code>execute</code> drops it. In this page, <code>query</code> and <code>execute</code> are always the two functions in warehouse.py, which pass each Hive string to the connection <code>connect</code> was given.</p>
 <p>If your connection gives rows some other way, as each row a dict or a tuple, change <code>query</code> in warehouse.py to turn them into a DataFrame. <code>_connection</code> there is the connection <code>connect</code> was given. A dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, gives its column names from its keys:</p>
 <pre class="python">def query(hive: str) -&gt; pd.DataFrame:
@@ -312,7 +322,7 @@ def execute(hive: str) -&gt; None:
 <p><code>connect</code> refuses a connection with a <code>cursor</code> and no <code>query</code>, since it checks for the two calls: change the names it checks for, <code>(&quot;query&quot;, &quot;execute&quot;)</code>, to <code>(&quot;cursor&quot;,)</code>.</p>
 <p><code>hive: str</code>, <code>-&gt; pd.DataFrame</code> and <code>-&gt; None</code> are type hints: they say a Hive string goes in, and that a DataFrame comes out of <code>query</code> and nothing out of <code>execute</code>. Python doesn&#x27;t check them.</p>
 <p>Both functions use the one connection. Most connections keep one session, so a Session setting, a Hive SET line that holds for the rest of the session, sent through <code>execute</code> holds for what is sent after it, through either function; if yours opens a new session for each call, keep one open yourself. And let each raise when the warehouse reports a failure. If your connection gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your connection raises.</p>
-<p>Done when <code>connect(example_database)</code> runs without an error, and at work each notebook&#x27;s <code>connect(...)</code> line holds your connection. Then step 9.</p>
+<p>Done when <code>connect(conn)</code> runs without an error, and at work each notebook&#x27;s <code>connect(...)</code> line holds your connection. Then step 9.</p>
 <h5>9. Try your query</h5>
 <p>Goal: proof that <code>query</code> gives back rows. Every notebook of the Project imports the two from warehouse.py, once it has connected, as step 8 did.</p>
 <p>Try it on Hive that reads no table. A working query gives back a pandas DataFrame, one column for each name after SELECT:</p>
@@ -381,11 +391,63 @@ query_without_column_names(&quot;SELECT 1 AS one, 2 AS two, 3 AS three&quot;)</p
 <h5>Making a file by hand</h5>
 <p>A Table reference or Table folder you make in your file explorer isn&#x27;t in the registry, so nothing logs it, and <code>project.check()</code> reports it. Make each with its Project action, as the file map in step 6 says; <a href="#keep_the_project_in_order">Keep the Project in order</a> shows how to adopt one made by hand.</p>
 <h4>Next</h4>
-<ul><li>Write the Table references of the tables you read, many at once: <a href="#add_your_tables_references">Add your tables&#x27; references</a>.</li><li>Build a Statement on one of them, read its Hive and run it: <a href="#build_and_run_a_first_statement">Build and run a first statement</a>.</li><li>See a Project filled in: the Starter Example project, in the folder example_projects/starter, is much like the Project the Getting started how-tos build; its README says how the two differ.</li></ul>
+<ul><li>Write the Table references of the tables you read, many at once: <a href="#add_your_tables_references">Add your tables&#x27; references</a>.</li><li>Build a Statement on one of them, read its Hive and run it: <a href="#build_and_run_a_first_statement">Build and run a first statement</a>.</li><li>See a Project filled in: the Starter Example project, on the download&#x27;s Example projects page, is much like the Project the Getting started how-tos build; the page says how the two differ.</li></ul>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.check</code></p>
 </section>
 <section class="entry" id="add_your_tables_references">
 <h3>2. Add your tables&#x27; references <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Get every column of the tables you read, each name and its Hive type, into your Project without typing them. <code>project.add_references</code> asks each table itself and writes its Table reference, a small .py file describing the table, into the Project&#x27;s <code>references/</code> folder, with its Key proposed and checked. You accept or change what it proposed, add Aliases, your own names for its columns and conditions, and check the file against the table. Then <code>from references import ops</code> gives each table of the Database <code>ops</code>, the group of tables whose names start with <code>ops.</code>, by its name, and each column at a dot after it.</p>
 <h4>When you&#x27;d use it</h4>
@@ -426,10 +488,9 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)</pre>
-<p>Every step here passes that <code>query</code>; <code>execute</code> waits for a step that changes a table. Here it runs on the Example database, the made-up tables that ship inside the Toolbox, as <code>connect(example_database)</code> gives it; at work it is your own, and you name your own tables.</p>
-<p>Done when <code>connect(example_database)</code> runs without an error. Then step 2.</p>
+connect(conn)</pre>
+<p>Every step here passes that <code>query</code>; <code>execute</code> waits for a step that changes a table. Here it runs on the Example database, made-up tables the Toolbox&#x27;s makers keep, which the download doesn&#x27;t hold: <code>conn</code> is its connection on this page, and each table it reads is shown under the title. At work <code>conn</code> is your team&#x27;s connection, and you name your own tables.</p>
+<p>Done when <code>connect(conn)</code> runs without an error. Then step 2.</p>
 <h5>2. See what a table says about itself</h5>
 <p>Goal: know where a Table reference&#x27;s facts come from. A table in the warehouse can describe itself. The Hive command DESCRIBE lists its columns and their types, and SHOW PARTITIONS lists the Partitions it holds. Neither reads a single row, so both are quick on the biggest table. Here is what DESCRIBE says of <code>ops.run_alerts</code>, sent straight through your query:</p>
 <pre class="python">described = query(&quot;DESCRIBE ops.run_alerts&quot;)  # -&gt; DataFrame
@@ -969,6 +1030,58 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 </section>
 <section class="entry" id="build_and_run_a_first_statement">
 <h3>3. Build and run a first statement <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Build a Statement from your Table references, read the Hive the Toolbox writes for it, run it through your query, and get the rows back as a pandas DataFrame. A Statement is one query, made of the Toolbox&#x27;s Clause functions; a Table reference is the file that describes one table, its columns, its Partitions and its Key; Hive is the SQL your warehouse runs. On the way you meet the chain of types every Statement is built along, from a Table to a DataFrame, and the Conditions <code>WHERE</code> takes to keep only the rows you want.</p>
 <h4>When you&#x27;d use it</h4>
@@ -1010,8 +1123,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -1451,6 +1563,87 @@ run_query(not_test, query)</pre>
 </section>
 <section class="entry" id="count_join_and_stay_safe">
 <h3>4. Count, join and stay safe <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_budgets"><summary><code>ops.region_budgets</code>: 3 columns, partitioned by region, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>budget_cents</td><td>bigint</td><td>the most a day of the job should cost there</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>budget_cents</th><th>region</th></tr>
+<tr><td>1</td><td>150</td><td>eu</td></tr>
+<tr><td>2</td><td>200</td><td>eu</td></tr>
+<tr><td>3</td><td>350</td><td>us</td></tr>
+<tr><td>4</td><td>50</td><td>eu</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.team_notes"><summary><code>ops.team_notes</code>: 3 columns, not partitioned, 5 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>note</td><td>string</td><td></td></tr>
+<tr><td>written_on</td><td>string</td><td>the day the note was written, as yyyy-MM-dd</td></tr>
+</table></div><p class="label">Its first 5 rows of 5</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>note</th><th>written_on</th></tr>
+<tr><td>data</td><td>ask ana before changing nightly_load</td><td>2026-09-18</td></tr>
+<tr><td>data</td><td>nightly_load runs long at the end of a month</td><td>2026-09-15</td></tr>
+<tr><td>finance</td><td>invoice_sync&#x27;s bill comes in a day late</td><td>2026-09-21</td></tr>
+<tr><td>finance</td><td>report_build came over from data today</td><td>2026-09-18</td></tr>
+<tr><td>web</td><td>cache_warm is paused until October</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Answer &quot;how many, and how much, per something&quot;, such as runs per job or minutes per team, and put two tables&#x27; columns side by side without counting any row twice. <code>GROUP_BY</code> makes one row per group, <code>count_rows</code> and <code>sum_of</code> work out its numbers, <code>HAVING</code> keeps some groups, and <code>ORDER_BY</code> with <code>LIMIT</code> keeps the top N. <code>JOIN</code> and <code>LEFT_JOIN</code> bring in another table. A Statement is one query, built from the Toolbox&#x27;s Clause functions. On the way you meet the three ways the Toolbox stops a Statement, or warns about it, as you build it: a Guard, a Warning and a Load limit, and when each one&#x27;s opt-out is right.</p>
 <h4>When you&#x27;d use it</h4>
@@ -1491,8 +1684,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -1747,7 +1939,7 @@ run_alerts = Table(
 high = equals(run_alerts.severity, &quot;high&quot;)</pre>
 <p>Done when references/ holds the three files, filled in as above. Then step 2.</p>
 <h5>2. Add the two tables this how-to also reads</h5>
-<p>Goal: Table references for the two tables the safety steps read. Two more of the Example database&#x27;s tables, the made-up tables that ship inside the Toolbox, show how the Toolbox keeps a Statement safe: ops.region_budgets, each job&#x27;s budget for a day, in the region it is billed in, partitioned by that region; and ops.team_notes, the notes each team wrote about its jobs, not partitioned at all. Add their Table references, before any notebook imports references:</p>
+<p>Goal: Table references for the two tables the safety steps read. Two more of the Example database&#x27;s tables, made-up tables the Toolbox&#x27;s makers keep, shown under this how-to&#x27;s title, show how the Toolbox keeps a Statement safe: ops.region_budgets, each job&#x27;s budget for a day, in the region it is billed in, partitioned by that region; and ops.team_notes, the notes each team wrote about its jobs, not partitioned at all. Add their Table references, before any notebook imports references:</p>
 <pre class="python">project.add_references([&quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__region_budgets.py and references/ops__team_notes.py: fill in their TODO lines.
 ops.region_budgets: its Key proposed, (job_id), checked with check_key:
@@ -2390,6 +2582,58 @@ statement() got an unexpected keyword argument &#x27;many_matches&#x27;</pre>
 </section>
 <section class="entry" id="share_building_blocks">
 <h3>5. Share Building blocks <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Write a piece several Statements need once, and use it in each of them. A Statement is one query, built from the Toolbox&#x27;s Clause functions. The piece is a Derived table: a Statement given a name with <code>derived</code>, which another Statement reads like a table, and which the Hive writes at its top as <code>WITH name AS (...)</code>. Wrapped in a function, kept in a file of its own in building_blocks/, it is a Building block, which any notebook of the Project imports. <code>project.new_block</code> makes the file, from the Project&#x27;s building_block Template, the shape a new block&#x27;s file is made from.</p>
 <h4>When you&#x27;d use it</h4>
@@ -2430,8 +2674,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -2921,11 +3164,63 @@ runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x
 </section>
 <section class="entry" id="save_a_table">
 <h3>6. Save a table <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Keep a Statement&#x27;s rows in a Saved table: a real table in the warehouse that your Project writes, and that other Statements then read like any other table. A Statement is one query; a Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. <code>project.new_table</code> makes the table&#x27;s Table folder, the folder that holds everything about one Saved table, with a Table notebook in it, the notebook whose cells create and write the table, made from the saved_table Template, the empty shape of such a notebook. It also makes the table&#x27;s Table reference, the file that describes the table&#x27;s columns. You fill in both, try the notebook&#x27;s steps, and from then on <code>project.run_tables</code> writes the table with the Project&#x27;s other Saved tables.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If a result is slow to work out, save it in a Saved table: working it out once is cheaper than working it out again every time someone asks.</li><li>If many notebooks and dashboards read a result, save it in a Saved table, so each reads the rows already worked out.</li><li>If you need each Partition&#x27;s rows kept as they were when they were written, save them in a Saved table. A Partition is a slice of a table: the rows that share one value of each column the table is partitioned by, such as one day.</li><li>If you only need the rows once, run the Statement with <code>run_query</code> instead, as <a href="#build_and_run_a_first_statement">Build and run a first statement</a> shows.</li></ul>
-<p>The Example database, the small made-up tables this page runs on, can be read but not written to. So on this page each write shows its Hive, ready to paste, and a write that is sent goes to warehouse.py&#x27;s execute, which here calls <code>example_database.execute</code>: it prints the write&#x27;s first line and changes nothing. At work, the same calls send it to your warehouse, through your own execute.</p>
+<p>The Example database, the small made-up tables this page runs on, can be read but not written to. So on this page each write shows its Hive, ready to paste, and a write that is sent goes to warehouse.py&#x27;s execute, which here calls the Example database&#x27;s execute: it prints the write&#x27;s first line and changes nothing. At work, the same calls send it to your warehouse, through your own execute.</p>
 <h4>Steps</h4>
 <h5>1. Set up the Project the last how-to left</h5>
 <p>Goal: a Project with the Table references the Saved table reads.</p>
@@ -2963,8 +3258,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -3386,7 +3680,7 @@ export_hive()
 # %%
 # 6. The Reference sheet: this table&#x27;s rows, from references/mart__alerts_per_severity.py
 project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
-<p>Its text cell starts with a list of what each <code>&lt;...&gt;</code> is for. Type over each one in the code cells. Then, in the text cell, put one line saying what a row is in place of the TODO line. Once every step the text cell lists is done, you may cut it down to that line and what the table is, as here. Here is the whole notebook, filled in, as it is in the Starter Example project, a Project made for the Example database to read and copy from:</p>
+<p>Its text cell starts with a list of what each <code>&lt;...&gt;</code> is for. Type over each one in the code cells. Then, in the text cell, put one line saying what a row is in place of the TODO line. Once every step the text cell lists is done, you may cut it down to that line and what the table is, as here. Here is the whole notebook, filled in, as it is in the Starter Example project, a Project made for the Example database, shown on the download&#x27;s Example projects page:</p>
 <p class="label">The file <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb</code>, after you fill it in</p>
 <pre class="python"># %% [markdown]
 # # mart.alerts_per_severity
@@ -3852,6 +4146,42 @@ int(rows[&quot;alerts&quot;].sum())</pre>
 </section>
 <section class="entry" id="follow_lineage">
 <h3>7. Follow lineage <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>See where each column of a Statement&#x27;s result comes from: the table columns that feed it, the conditions that decide which rows count towards it, and the Hive that ran. A Statement is one query; its Lineage is the record of which table columns feed each of its output columns. <code>export_lineage</code> writes this Lineage as two files, an HTML page to explore in your browser, where a click on a box opens what it holds, and a Markdown file, its text alone, to read anywhere. You export one Statement&#x27;s, then a Saved table&#x27;s from its Table notebook, into its Table folder&#x27;s lineage/, then a table that reads another Saved table, drawn together with it, all the way back to the tables they start from; <code>project.run_tables</code> writes them in that same order. A Saved table is a real table in the warehouse that your Statements write; its Table folder holds everything about it, and its Table notebook is the notebook in that folder whose cells create and write it. Last, you declare a change made in pandas with <code>python_step</code>, so the Lineage goes on through it.</p>
 <h4>When you&#x27;d use it</h4>
@@ -3895,8 +4225,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -5481,6 +5810,58 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 </section>
 <section class="entry" id="keep_the_project_in_order">
 <h3>8. Keep the Project in order <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Keep your Project&#x27;s files and its tables in step as they change. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and a Project action is a one-time change to its files, such as <code>project.new_table</code>. The registry is the Project&#x27;s list of every Table folder, Table reference, Building block and Conversion folder a Project action made: <code>project.check()</code> says what it gets wrong, and <code>project.register</code> adopts a file made by hand. A Table reference is the file that describes one table; a Table folder holds everything about one Saved table, a table your Statements write; a Building block is a piece of your own code reused across notebooks. The Reference sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares each Table reference with its table in the warehouse. The <code>project.remove_*</code> actions archive what you no longer need, deleting nothing. And the Levels, the three tiers of your own files, say which of your files may import which.</p>
 <h4>When you&#x27;d use it</h4>
@@ -5526,8 +5907,7 @@ admin/workflows/schedule/schedule.ipynb
 admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -6562,18 +6942,52 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 </section>
 <section class="entry" id="convert_someone_elses_hive">
 <h3>9. Convert someone else&#x27;s Hive <span class="badge getting-started">Getting started</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Turn scripts of Hive someone else wrote, with their temporary tables, their FROMs with several INSERTs, their incremental INSERTs and their Script tags, into your own code. Hive is the SQL your warehouse runs. You end with a Saved table, a real table your own Statements write, in your Dev Database for each table the scripts write; your Dev Database is the database where you may create and write tables of your own. Each Saved table&#x27;s notebook builds the same query from the Toolbox&#x27;s functions, is compared with the table it copies, its original, and is then promoted to your Prod Database, the database others read your finished tables from. That is a Conversion, and the convert Workflow, an ordered list of steps in a notebook of its own, takes you through it, step by step. What no Toolbox function writes yet stays Hive, at the smallest size it can, so you get the rest converted rather than none of it.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you inherit Hive that works but that you can&#x27;t maintain, such as a nightly job another team wrote or a folder of scripts that has grown for years, convert it as the steps below do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev, before promoting it.</li><li>If one script writes a table another reads, convert both in one batch, as step 3 does.</li><li>If a Script tag stands for a day that changes each run, such as the latest day a table holds, answer it with a Run value, the value a function of yours gives at each write, as step 8 does.</li><li>If a table that reads itself has years of rows you don&#x27;t need, limit its seed, the one copy of the original&#x27;s rows, by Partition, as step 6 does.</li><li>If several tables share an answer, such as accepting each one&#x27;s proposed Key, give it once under &quot;all_tables&quot;, as step 6 does.</li><li>If the scripts are simple and read none of each other&#x27;s tables, convert each as a batch of its own, as One batch per script, below, says.</li><li>If your Database settings aren&#x27;t filled in yet, do <a href="#set_your_database_settings">Set your Database settings</a> first: each table is placed under DEV&#x27;s &quot;location_root&quot;, so its folder is no Decision.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li><li>If you have not yet written a Saved table of your own, read <a href="#save_a_table">Save a table</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Project the story leaves</h5>
-<p>Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. Work in your own Project. This page uses a copy of the Starter Example project, the one the how-tos before this one build, whose Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;starter&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. Work in your own Project. This page uses a copy of the Starter Example project, which the download&#x27;s Example projects page shows file by file, made in the folder the page runs in by <code>example_project(&quot;starter&quot;)</code>, a line you leave out in your own Project. It is much like the one the how-tos before this one build, and its Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
+<pre class="python">from pathlib import Path
+example_project(&quot;starter&quot;)</pre>
 <p class="label">It writes 53 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -6628,10 +7042,9 @@ tables/mart__team_day/lineage/20260925-060000-mart__team_day.md
 tables/mart__team_day/mart__team_day.hql
 tables/mart__team_day/mart__team_day.ipynb
 warehouse.py</pre>
-<pre class="python">import example_database
-from sqlglot_composer import project, run_execute, hive_settings, show_hive
+<pre class="python">from sqlglot_composer import project, run_execute, hive_settings, show_hive
 from warehouse import connect, query, execute
-connect(example_database)
+connect(conn)
 databases = Path(&quot;admin/databases.py&quot;)
 _ = databases.write_text(databases.read_text(encoding=&quot;utf-8&quot;).replace(
     &#x27;&quot;&lt;DEV_LOCATION_ROOT&gt;&quot;&#x27;, &#x27;&quot;/data/dev&quot;&#x27;), encoding=&quot;utf-8&quot;)</pre>
@@ -6649,7 +7062,7 @@ in both, each its own value, and database_settings(&quot;mart_dev&quot;) gives D
 
 DEV = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot;/data/dev&quot;}
 PROD = {&quot;database&quot;: &quot;&lt;PROD_DATABASE&gt;&quot;, &quot;location_root&quot;: &quot;&lt;PROD_LOCATION_ROOT&gt;&quot;}</pre>
-<p>Done when <code>connect(example_database)</code> runs without an error. Then step 2.</p>
+<p>Done when <code>connect(conn)</code> runs without an error. Then step 2.</p>
 <h5>2. Save the scripts</h5>
 <p>Goal: the scripts where the convert Workflow reads them. Save each script as it is, a .hql file beside the convert Workflow&#x27;s notebook, in admin/workflows/convert/. Each is read where it is, never copied; a script kept somewhere else is named in FILES by its path, such as &quot;C:/work/daily.hql&quot;. Here the ops team&#x27;s two: the nightly one keeps the day&#x27;s failed runs in a temporary table, then counts the day&#x27;s alerts two ways from one FROM; the weekly one adds each failed job to a history the job reads itself. The nightly one holds a Script tag, <code>&lt;PARM=&quot;RUN_DAY&quot;/&gt;</code>: the scheduler that runs the script puts the day in its place before Hive reads it. Its author tagged only that one day; the others are typed in, and the converted code keeps them as they are:</p>
 <p class="label">The file <code>admin/workflows/convert/daily.hql</code>, after you save it</p>
@@ -7625,18 +8038,33 @@ except ValueError as refused:
 <h2 id="intermediate">Intermediate</h2>
 <section class="entry" id="describe_a_table_by_hand">
 <h3>10. Describe a table by hand <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Write a Table reference yourself, one argument at a time, for a table <code>project.add_references</code> can&#x27;t ask about, and keep it in the Project&#x27;s references/ folder. A Table reference is the file that describes one table: its columns and their types, its Partitions and its Key. Here the table is mart.job_day, a table that doesn&#x27;t exist yet, with one row per job per day. Along the way you see what each argument of <code>Table</code> is for: the columns and their types, <code>partitioned_by=</code>, <code>key=</code>, <code>does_not_add_up=</code> and <code>location=</code>, and how to describe a table partitioned by two columns, whose days are written another way.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If a table doesn&#x27;t exist yet, such as one your own Python will write, or one another team is about to make, write its Table reference by hand: there is nothing to DESCRIBE, so you write what it will hold.</li><li>If you fill in the Table reference <code>project.new_table</code> writes for a Saved table, write it by hand in the same way, as <a href="#save_a_table">Save a table</a> shows.</li><li>If you know a table better than the warehouse does, fill in what DESCRIBE never holds, its Key and the columns that don&#x27;t add up, even in a Table reference <code>project.add_references</code> writes, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li>If you have not yet done the Getting started how-tos, do <a href="#start_a_project">Start a Project</a> and <a href="#add_your_tables_references">Add your tables&#x27; references</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
-<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read and copy from. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -7730,8 +8158,7 @@ warehouse.py</pre>
 from sqlglot_composer import project
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)</pre>
+connect(conn)</pre>
 <p>Done when the four imports run without an error. Then step 3.</p>
 <h5>3. Decide what one row is</h5>
 <p>Goal: the sentence that decides the columns and the Key. Before you write anything, say in one sentence what one row of the table is. For mart.job_day it is &quot;one job on one day&quot;: how many times the job ran that day, how many of those runs failed, their minutes in all, and the average minutes of a run. Each of those becomes a column, and the sentence decides the Key, the columns whose values name exactly one row.</p>
@@ -8113,18 +8540,34 @@ run_query(wrong_day, query)  # -&gt; DataFrame</pre>
 </section>
 <section class="entry" id="latest_row_of_each_group">
 <h3>11. The latest row of each group, and the top N <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Keep one whole row of each group, such as each job&#x27;s last run, or the top N rows of each group, such as each job&#x27;s three longest runs. <code>row_number</code> numbers the rows of each group in the order you choose, inside a Derived table: a Statement given a name so another Statement can read from it, never stored. A Statement is one query, made of the Toolbox&#x27;s Clause functions. The Statement that reads the Derived table keeps number 1, or numbers 1 to N.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you want the latest row of each group, such as each job&#x27;s last run, each customer&#x27;s last order or each product&#x27;s newest price, keep number 1, as steps 5 to 7 do.</li><li>If you want the top N of each group, such as each job&#x27;s three longest runs or each team&#x27;s busiest days, keep numbers 1 to N, as steps 8 and 9 do.</li><li>If you are about to take <code>max_of</code> of several columns to get &quot;the newest row&quot;, number the rows instead: each <code>max_of</code> picks its own row, so the columns can come from different rows. Step 4 shows it happen.</li><li>If you have not yet done the Getting started how-tos, do <a href="#build_and_run_a_first_statement">Build and run a first statement</a>, <a href="#count_join_and_stay_safe">Count, join and stay safe</a> and <a href="#share_building_blocks">Share Building blocks</a>, which starts with Derived tables, first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
-<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read and copy from. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -8218,8 +8661,7 @@ warehouse.py</pre>
 from references import ops
 from references.ops__job_events import ends_a_run
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_events = ops.job_events  # -&gt; Table
 ends_a_run  # -&gt; Condition</pre>
 <p class="label">Python shows</p><pre class="output">job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)</pre>
@@ -8475,6 +8917,136 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 </section>
 <section class="entry" id="generate_statements_and_references">
 <h3>12. Generate Statements and Table references in a loop <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.run_alerts"><summary><code>ops.run_alerts</code>: 4 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>alert_id</th><th>run_id</th><th>severity</th><th>dt</th></tr>
+<tr><td>1</td><td>97</td><td>high</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>97</td><td>low</td><td>2026-09-23</td></tr>
+<tr><td>3</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>101</td><td>low</td><td>2026-09-24</td></tr>
+<tr><td>5</td><td>101</td><td>high</td><td>2026-09-24</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.scheduler_runs"><summary><code>ops.scheduler_runs</code>: 3 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td>2026-09-23</td></tr>
+<tr><td>100</td><td>3</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_budgets"><summary><code>ops.region_budgets</code>: 3 columns, partitioned by region, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>budget_cents</td><td>bigint</td><td>the most a day of the job should cost there</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>budget_cents</th><th>region</th></tr>
+<tr><td>1</td><td>150</td><td>eu</td></tr>
+<tr><td>2</td><td>200</td><td>eu</td></tr>
+<tr><td>3</td><td>350</td><td>us</td></tr>
+<tr><td>4</td><td>50</td><td>eu</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.team_notes"><summary><code>ops.team_notes</code>: 3 columns, not partitioned, 5 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>note</td><td>string</td><td></td></tr>
+<tr><td>written_on</td><td>string</td><td>the day the note was written, as yyyy-MM-dd</td></tr>
+</table></div><p class="label">Its first 5 rows of 5</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>note</th><th>written_on</th></tr>
+<tr><td>data</td><td>ask ana before changing nightly_load</td><td>2026-09-18</td></tr>
+<tr><td>data</td><td>nightly_load runs long at the end of a month</td><td>2026-09-15</td></tr>
+<tr><td>finance</td><td>invoice_sync&#x27;s bill comes in a day late</td><td>2026-09-21</td></tr>
+<tr><td>finance</td><td>report_build came over from data today</td><td>2026-09-18</td></tr>
+<tr><td>web</td><td>cache_warm is paused until October</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Build many Statements from one function and a loop, in place of copying the same lines and changing a word in each: one Statement per team, one per table of a Database, and one per entry of a dict of settings. A Statement is one query, made of the Toolbox&#x27;s Clause functions. Then, for tables you only check, generate their Table references from settings too, run a Statement for each, and export one Lineage for the lot. A Table reference describes one table: its columns and their types, its Partitions and its Key; Lineage is the record of which table columns feed each column a Statement gives.</p>
 <h4>When you&#x27;d use it</h4>
@@ -8482,12 +9054,8 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 <p>A Statement is a Python value, built by Python functions, so a loop builds Statements as it builds anything else.</p>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
-<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read and copy from. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -8581,8 +9149,7 @@ warehouse.py</pre>
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)</pre>
+connect(conn)</pre>
 <p>Done when the four imports run without an error. Then step 3.</p>
 <h5>3. Check whether one Statement does it</h5>
 <p>Goal: write a loop only where you need one. <code>ops.team_notes</code> holds the notes each team wrote about its jobs. It isn&#x27;t partitioned, so a Statement may read all of it. How many notes has each team written? One Statement, grouped by team, answers for every team at once, in one query:</p>
@@ -9077,6 +9644,72 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 </section>
 <section class="entry" id="rewrite_some_partitions">
 <h3>13. Rewrite some partitions <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_budgets"><summary><code>ops.region_budgets</code>: 3 columns, partitioned by region, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>budget_cents</td><td>bigint</td><td>the most a day of the job should cost there</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>budget_cents</th><th>region</th></tr>
+<tr><td>1</td><td>150</td><td>eu</td></tr>
+<tr><td>2</td><td>200</td><td>eu</td></tr>
+<tr><td>3</td><td>350</td><td>us</td></tr>
+<tr><td>4</td><td>50</td><td>eu</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Rewrite some of a Saved table&#x27;s Partitions, and leave the rest as they are. A Saved table is a real table in the warehouse that your own Statements write; a Partition is a slice of a table, the rows that share one value of each column it is partitioned by. You write a range of days of a table partitioned by its day, in one write that fills each Partition from its rows, or in a loop of writes that each name their Partition with <code>partition={...}</code>; the last few days again on every run, for rows that come in late; a table partitioned by region, written a region at a time; and a table whose source writes its days another way. Then you write several Saved tables in order with <code>project.run_tables</code>.</p>
 <h4>When you&#x27;d use it</h4>
@@ -9084,12 +9717,8 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 <p>The Example database can&#x27;t be written to, so on this page each write shows its Hive, and is sent through the Project&#x27;s execute, which here prints the first line of what it would send and changes nothing. The rows a write would save are checked with a plain SELECT first, which the Example database does run.</p>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
-<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read and copy from. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -9182,8 +9811,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)</pre>
+connect(conn)</pre>
 <p>Done when the three imports run without an error. Then step 3.</p>
 <h5>3. Load a Table notebook&#x27;s logic</h5>
 <p>Goal: the table&#x27;s functions, in your notebook. mart.job_day_facts holds each job&#x27;s events, runs and minutes per day, beside the team that owned the job that day. It is partitioned by its day, dt. Its Table notebook, the notebook whose cells create and write the table, tables/mart__job_day_facts/mart__job_day_facts.ipynb, defines its steps as functions in its logic cell, and <code>project.load</code> gives them, from any notebook of the Project:</p>
@@ -9478,6 +10106,42 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 </section>
 <section class="entry" id="look_things_up_as_of_a_day">
 <h3>14. Look things up as of a day <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Find what was true on each day from a daily snapshot, a table that keeps a full copy of itself every day: here, the team each job belonged to on the day it ran. You join on the day as well as the job, count each team&#x27;s runs as they were owned at the time, keep that join in a Building block, a piece of your own code reused across notebooks, and pick each job&#x27;s newest row with <code>row_number</code>.</p>
 <h4>When you&#x27;d use it</h4>
@@ -9485,12 +10149,8 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in, with the snapshot table&#x27;s Table reference, the file that describes the table, already written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -9583,8 +10243,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_events = ops.job_events  # -&gt; Table
 job_owners = ops.job_owners  # -&gt; Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -9817,6 +10476,42 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 </section>
 <section class="entry" id="rollups_and_subtotals">
 <h3>15. Rollups and subtotals <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Turn days of rows into one row per week, or per month, with <code>week_start</code> and <code>month_start</code>; count the different jobs that ran each week without adding up each day&#x27;s count; and count runs for each team and job with, in the same result, each team&#x27;s subtotal and the grand total, with <code>GROUP_BY(rollup(...))</code>, labelling the subtotal rows with <code>is_total</code>. A Subtotal row is a row the grouping adds, totalling the rows of several groups, such as one per team over all its jobs, or the grand total, one over every row.</p>
 <h4>When you&#x27;d use it</h4>
@@ -9824,12 +10519,8 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in, its Table references and Building blocks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -9924,8 +10615,7 @@ from sqlglot_composer import project
 from references import ops
 from references.ops__job_events import ends_a_run
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_events = ops.job_events  # -&gt; Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
 <h5>3. Count each job&#x27;s runs per week</h5>
@@ -10291,6 +10981,58 @@ statement(
 </section>
 <section class="entry" id="check_data_quality">
 <h3>16. Check data quality with Statements <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Check a table&#x27;s data before you trust a number built on it, with Statements you keep and run again: Keys that repeat, NULLs in each column, the rows in each Partition, and two tables that should agree. A Statement is one query, built with the Toolbox; a Partition is a slice of a table, the rows that share one value of each column it is partitioned by. Then run every check at once and gather what they find in one pandas DataFrame, and see where the Project keeps such checks: a Table notebook, the notebook that creates and writes one Saved table, made from the quality_checks Template, the empty shape of such a notebook.</p>
 <h4>When you&#x27;d use it</h4>
@@ -10298,12 +11040,8 @@ statement(
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in, its Table references and Table notebooks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -10398,8 +11136,7 @@ from sqlglot_composer import project
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_owners = ops.job_owners  # -&gt; Table
 job_events = ops.job_events  # -&gt; Table
 region_costs = ops.region_costs  # -&gt; Table</pre>
@@ -10623,6 +11360,42 @@ len(per_day)</pre>
 </section>
 <section class="entry" id="call_other_hive_functions">
 <h3>17. Call other Hive functions <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with <code>hive_function</code>. Hive is the SQL your warehouse runs. Then see three things worth knowing about the Hive the Toolbox writes: what a division by 0 gives, how a Python float is written, and a function written by another name.</p>
 <h4>When you&#x27;d use it</h4>
@@ -10630,12 +11403,8 @@ len(per_day)</pre>
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -10728,8 +11497,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_owners = ops.job_owners  # -&gt; Table
 job_events = ops.job_events  # -&gt; Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -10931,6 +11699,42 @@ WHERE
 </section>
 <section class="entry" id="look_across_rows">
 <h3>18. Look across rows, then finish in pandas <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Work out on the warehouse what looks across the rows around each row: each row&#x27;s value from the row before it (lag), a rank within each group (rank), a rolling sum, and a group&#x27;s total beside each row, each over a <code>window</code>. A Window is the rows a calculation looks across for each row: the rows of that row&#x27;s group, in an order, and sometimes only those near it. Keep only some of those rows through a Derived table, a Statement given a name so another Statement can read from it, and write a Partition of a Saved table, a real table your own Statements write, that looks back on earlier Partitions. Then finish in pandas: put the results of several Statements side by side with a merge.</p>
 <h4>When you&#x27;d use it</h4>
@@ -10938,12 +11742,8 @@ WHERE
 <h4>Steps</h4>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, and runs its steps there:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -11038,8 +11838,7 @@ from sqlglot_composer import project
 import pandas as pd
 from references import ops
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 job_events = ops.job_events  # -&gt; Table
 region_costs = ops.region_costs  # -&gt; Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -11536,19 +12335,52 @@ Duplicates in right:
 </section>
 <section class="entry" id="review_and_test_a_change">
 <h3>19. Review and test a change <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Before you change a Building block that several Statements read, see what the change does to each of them, and check that they give the numbers you meant. A Building block is a piece of your own code that several notebooks reuse, such as a filter or a Derived table; a Statement is one query, built from the Toolbox&#x27;s Clause functions. Export the Statements&#x27; Lineage, the record of which table columns feed each output column, before the change and after it, and compare the two Markdown files line by line. Then work the same answer out a second way, in pandas, from the rows themselves, and compare the two with plain <code>assert</code>s.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you are about to change a Building block or a Table reference that other Statements rely on, follow these steps before and after the change.</li><li>If you review someone else&#x27;s change, compare the Lineage before and after it: the lines that differ are what the change does, Statement by Statement, whatever the code looked like.</li><li>If other people will read a Statement&#x27;s numbers, test it against a second answer first. The Toolbox&#x27;s Guards and Warnings catch mistakes of a known shape, such as a join that repeats rows; only a test catches a Statement that counts the wrong thing.</li><li>If you haven&#x27;t yet, read <a href="#share_building_blocks">Share Building blocks</a>, <a href="#save_a_table">Save a table</a> and <a href="#follow_lineage">Follow lineage</a> first: this how-to needs all three.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project to work in, with the Building block and the notebooks that read it. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read and copy from.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in, with the Building block and the notebooks that read it. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">from pathlib import Path
+example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -11643,8 +12475,7 @@ import pandas as pd
 from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 from references import ops
 job_events, job_owners = ops.job_events, ops.job_owners  # -&gt; Table, Table</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -12419,19 +13250,34 @@ result.to_dict(&quot;records&quot;) == most_first.to_dict(&quot;records&quot;)</
 </section>
 <section class="entry" id="choose_how_a_saved_table_is_stored">
 <h3>20. Choose how a Saved table is stored <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Say in a Saved table&#x27;s Table reference how the warehouse keeps it: the folder of its own its files go in, whether dropping it deletes them, their format, its Partitions, and Buckets. A Saved table is a real table in the warehouse that your own Statements write; its Table reference is the file that describes it, its columns and their types, its Partitions and its Key. <code>create_table</code> writes all of it, and <code>check_table_reference</code> compares it with the table. Along the way, see why the Toolbox has no indexes, and what makes reads fast instead.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you fill in a Saved table&#x27;s Table reference, give it at least its folder: every Saved table needs one.</li><li>If you check a Table reference you already have, compare it with the table, as Check it worked does.</li><li>If a table grows big, read a region at a time or joined on the same column every run, keep it so that reads touch fewer files, with Partitions and Buckets.</li><li>If you haven&#x27;t made a Saved table yet, read <a href="#save_a_table">Save a table</a> first, which makes one with <code>project.new_table</code>.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read and copy from.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -12524,8 +13370,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
 admin/templates/saved_table.py.
@@ -13190,19 +14035,66 @@ Problems:
 </section>
 <section class="entry" id="keys">
 <h3>21. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.team_notes"><summary><code>ops.team_notes</code>: 3 columns, not partitioned, 5 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>note</td><td>string</td><td></td></tr>
+<tr><td>written_on</td><td>string</td><td>the day the note was written, as yyyy-MM-dd</td></tr>
+</table></div><p class="label">Its first 5 rows of 5</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>note</th><th>written_on</th></tr>
+<tr><td>data</td><td>ask ana before changing nightly_load</td><td>2026-09-18</td></tr>
+<tr><td>data</td><td>nightly_load runs long at the end of a month</td><td>2026-09-15</td></tr>
+<tr><td>finance</td><td>invoice_sync&#x27;s bill comes in a day late</td><td>2026-09-21</td></tr>
+<tr><td>finance</td><td>report_build came over from data today</td><td>2026-09-18</td></tr>
+<tr><td>web</td><td>cache_warm is paused until October</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Give a table a Key, the columns whose values name exactly one row of it, and let the Toolbox check it: a write into a Saved table, a real table your own Statements write, whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, <code>check_key</code> counts the rows themselves, and Lineage, the record of which table columns feed each output column, shows each step&#x27;s Key. A table with no Key, such as ops.team_notes, is written unchecked, and a join onto it warns.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you fill in a Table reference, the file that describes one table, write its Key in it.</li><li>If you make a Saved table, give it a Key and let each write be checked against it. Hive never checks a Key: a table declared with one takes two rows with the same Key without a word. Then every join on that Key repeats rows, and every sum over the join comes out too big, far from the write that caused it. The Toolbox checks the Key while the write is built, where the mistake is.</li><li>If a table already holds rows, count them against its Key with <code>check_key</code>, as Check it worked does.</li><li>If you haven&#x27;t yet, read <a href="#add_your_tables_references">Add your tables&#x27; references</a>, <a href="#count_join_and_stay_safe">Count, join and stay safe</a> and <a href="#save_a_table">Save a table</a> first: this how-to needs all three.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read and copy from.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -13295,8 +14187,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 from references import ops
 job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_notes</pre>
 <p>Done when the imports run without an error. Then step 3.</p>
@@ -13905,19 +14796,84 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 </section>
 <section class="entry" id="semi_anti_and_full_joins">
 <h3>22. Semi-, anti- and full joins <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_runs"><summary><code>ops.job_runs</code>: 6 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>status</td><td>string</td><td>SUCCESS / FAILED / TEST, NULL while running</td></tr>
+<tr><td>duration_mins</td><td>int</td><td></td></tr>
+<tr><td>avg_retry_secs</td><td>double</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.scheduler_runs"><summary><code>ops.scheduler_runs</code>: 3 columns, partitioned by dt, 9 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 9</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td>2026-09-23</td></tr>
+<tr><td>100</td><td>3</td><td>2026-09-23</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Keep the rows that have a match in another table, each once, with <code>SEMI_JOIN</code>; keep the rows that have none with <code>ANTI_JOIN</code>; and compare two records of the same things, row for row, with <code>FULL_JOIN</code>. On the way, ask Hive for a map join, a join that copies a small table to every worker, with <code>broadcast=True</code>, and see why <code>RIGHT_JOIN</code> is refused.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you want the rows that have a match in another table, such as the jobs that had an event on a day or the runs that raised an alert, use <code>SEMI_JOIN</code>. A plain <code>JOIN</code> gives a row for each match, so a job with two events comes out twice; <code>SEMI_JOIN</code> keeps it once, and adds none of the other table&#x27;s columns.</li><li>If you want the rows with no match, such as the jobs with no event on a day or the rows a copy is missing, use <code>ANTI_JOIN</code>.</li><li>If you have two records that should agree, such as the runs <code>ops.job_runs</code> holds and the runs the scheduler says it started, compare them with <code>FULL_JOIN</code>. Each run comes out once, whichever side has it.</li><li>If you haven&#x27;t yet, read <a href="#build_and_run_a_first_statement">Build and run a first statement</a> and <a href="#count_join_and_stay_safe">Count, join and stay safe</a> first, which shows <code>JOIN</code>, <code>LEFT_JOIN</code> and the repeated-rows Warning.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read and copy from.</p>
-<p>Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
+<p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -14010,8 +14966,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.job_runs&quot;, &quot;ops.scheduler_runs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO lines.
 ops.job_runs: its Key proposed, (run_id), checked with check_key:
@@ -14562,18 +15517,50 @@ with_one + without</pre>
 </section>
 <section class="entry" id="move_a_saved_table_to_its_own_folder">
 <h3>23. Move a Saved table to its own folder <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Move a Saved table that shares its folder with other tables into a folder of its own, with the admin module: copy it whole into a new table at its own folder, check the copy, then drop the old table and give the new one its name. A Saved table is a real table in your warehouse that your own Statements, the queries you build with the Toolbox, write. Along the way, meet the admin module: the changes to your own Saved tables that the Toolbox writes and checks for you.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If <code>check_table_reference</code> says a Saved table isn&#x27;t at its own folder, move it, as the steps below do.</li><li>If a table was made by hand in a folder it shares with other tables, move it before writing it again: two tables in one folder read each other&#x27;s files, and an INSERT OVERWRITE of a Partition in one can delete the other&#x27;s files for that Partition.</li><li>If <code>create_table</code> made a table before 5.0, a managed table, whose files the warehouse keeps where it chooses, move it to the folder of its own its <code>location=</code> names.</li><li>If you have not saved a table or checked a Table reference yet, do <a href="#save_a_table">Save a table</a> and <a href="#keep_the_project_in_order">Keep the Project in order</a> first; <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> explains the folder of its own.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -14666,8 +15653,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import admin, project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 from references import mart
 job_day_facts = mart.job_day_facts  # -&gt; Table</pre>
 <p>Done when <code>job_day_facts</code> is set. Then step 3.</p>
@@ -14873,18 +15859,48 @@ admin.move_to_own_folder(ops.job_events, query=query_at_work)</pre>
 </section>
 <section class="entry" id="reconcile_two_tables">
 <h3>24. Reconcile two tables <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Find every row where two tables that should agree don&#x27;t. <code>EXCEPT</code> gives the rows of one Statement, one query, that another Statement doesn&#x27;t return, so running it both ways round lists what only the first table has, then what only the second has. When both come back empty, the tables agree.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If a Saved table, a real table your own Statements write, should hold the rows of the table it was copied from, reconcile the two.</li><li>If you changed a table&#x27;s Statement, reconcile the table before and after the change.</li><li>If your team&#x27;s table and another team&#x27;s record the same thing, reconcile the two.</li><li>If you have not built a Statement yet, do <a href="#build_and_run_a_first_statement">Build and run a first statement</a> first; if you have not read a Derived table yet, do <a href="#share_building_blocks">Share Building blocks</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy here, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -14977,8 +15993,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py: fill in its TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -15291,18 +16306,50 @@ rows_of(teams_today)</pre>
 </section>
 <section class="entry" id="keep_reads_and_joins_fast">
 <h3>25. Keep reads and joins fast <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Keep Statements, the queries you build with the Toolbox, fast on big tables: read only the Partitions you need, keep a Saved table&#x27;s files few and large, give Hive the Statistics it plans joins from, let it copy a small table to every worker, and see with <code>explain</code> what Hive will do before you run a Statement. A Partition is a slice of a table, the rows that share one value of each column it is partitioned by; a Saved table is a real table your own Statements write; Statistics are what the warehouse has counted about a table&#x27;s Partitions. Along the way, let the warehouse find a Saved table&#x27;s Partitions again with <code>repair_partitions</code>. Each of these is safe to send again.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If a Statement or a run of your tables gets slow, follow the steps below.</li><li>If a Saved table grows to millions of rows a Partition, follow the steps below.</li><li>If you want an index: Hive has none to add. <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> says why, under &quot;Why there are no indexes&quot;, and shows how to give a big table Partitions and Buckets; this how-to is what to do once the table exists.</li><li>If you have not joined tables or saved a table yet, do <a href="#count_join_and_stay_safe">Count, join and stay safe</a> and <a href="#save_a_table">Save a table</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -15394,8 +16441,7 @@ warehouse.py</pre>
 <p>Goal: the tables the steps read, by short names. mart.job_day_facts, each job&#x27;s events, runs and minutes per day beside its team, is one of the Project&#x27;s Saved tables, partitioned by dt:</p>
 <pre class="python">from sqlglot_composer import *
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 from references import mart, ops
 job_day_facts = mart.job_day_facts  # -&gt; Table
 job_events, job_owners = ops.job_events, ops.job_owners  # -&gt; Table, Table</pre>
@@ -15533,18 +16579,34 @@ print(to_hive(repair))</pre>
 </section>
 <section class="entry" id="declare_a_change_made_in_python">
 <h3>26. Declare a change made in Python <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Change some rows in pandas, in a function of your own, save them to a table with your own call, and declare the change to the Toolbox with <code>python_step</code>. A Python step is such a change, made outside any Statement, the query the Toolbox builds, and declared with the columns it read and the table it wrote. Declared, it lets the Lineage of your tables, the record of which columns feed each result, show where the change lives, rather than stopping at the gap, and <code>project.run_tables</code> write the tables that read it after it.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If a step is easier in pandas than in a Statement, make it a Python step. Here it is how many minutes longer each run took than its job&#x27;s usual run, the median, which pandas works out in one line.</li><li>If you need the Toolbox to move the rows, use a Statement instead: for a Python step you pull the rows with a Statement, change them with your function, and save them with your work&#x27;s own call. <code>python_step</code> only tells the Toolbox which columns the change read, which table it wrote, and which function made it, so whoever reads the Lineage can open that function and see what it does.</li><li>If you have not saved a table, made a Building block or exported Lineage yet, do <a href="#save_a_table">Save a table</a>, <a href="#share_building_blocks">Share Building blocks</a> and <a href="#follow_lineage">Follow lineage</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, to make the change in. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, to make the change in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -15637,8 +16699,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 from references import ops
 from references.ops__job_events import ends_a_run  # -&gt; Condition
 job_events = ops.job_events  # -&gt; Table</pre>
@@ -16691,18 +17752,49 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 </section>
 <section class="entry" id="hand_written_hive_with_your_table_references">
 <h3>27. Hand-written Hive with your Table references <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.jobs"><summary><code>ops.jobs</code>: 4 columns, not partitioned, 4 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_name</td><td>string</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 4 rows of 4</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>team</th><th>region</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>data</td><td>LON</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>finance</td><td>PAR</td></tr>
+<tr><td>3</td><td>report_build</td><td>finance</td><td>NYC</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>web</td><td>LON</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Send Hive you write by hand, for what no Clause function writes, with your Table references&#x27; names dropped into it by an f-string: <code>unchecked_hive(f&quot;SELECT {ops.jobs.job_id} FROM {ops.jobs}&quot;)</code>. A Table reference is the file that describes one table, its columns, its Partitions and its Key; a Clause function, such as <code>SELECT</code> or <code>WHERE</code>, writes one part of a Statement, a query the Toolbox checks. Hive written by hand is an Unchecked statement: each name in it is spelt as its Table reference spells it, <code>run_query</code> sends the text as you wrote it, and Lineage, the record of which columns feed each result, shows it as one step over the tables it reads.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you have Hive already, such as a colleague&#x27;s query, and need it run today, send it as an Unchecked statement, then rewrite it in Clause functions when you have time.</li><li>If you need a command the Toolbox doesn&#x27;t write, such as SHOW PARTITIONS, write it by hand.</li><li>If you need a shape of query the Toolbox doesn&#x27;t write, such as a subquery inside WHERE, write it by hand.</li><li>If the Clause functions write what you need, use them: no Guard, Warning or Load limit looks inside hand-written Hive.</li><li>If you have no Project or Table references yet, do <a href="#start_a_project">Start a Project</a>, <a href="#add_your_tables_references">Add your tables&#x27; references</a> and <a href="#build_and_run_a_first_statement">Build and run a first statement</a> first; <a href="#follow_lineage">Follow lineage</a> shows the Lineage it is drawn in.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, to write the Hive in. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python&#x27;s path holds already, as Jupyter&#x27;s does for a notebook&#x27;s own folder:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, to write the Hive in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -16795,8 +17887,7 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
 from warehouse import connect, query, execute
-import example_database
-connect(example_database)
+connect(conn)
 project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py: fill in its TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -17385,18 +18476,17 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 </section>
 <section class="entry" id="upgrade_your_project_to_a_new_toolbox_version">
 <h3>28. Upgrade your Project to a new Toolbox version <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables"><p class="note">It reads none of the Example database's tables.</p></div>
 <h4>Goal</h4>
 <p>Carry your Project&#x27;s files, its Table references, Building blocks, Table notebooks and the rest, to a newer Toolbox you copied in, so you never redo by hand what a Project action made once. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Project action is a one-time change to its files, such as starting it or adding a Table reference. An Upgrade is the Project action that carries the files from one Toolbox version to the next: it makes each change that needs no judgement itself, and marks each one it leaves for you at its line.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you copied in a newer <code>sqlglot_composer</code> download, upgrade the Project: after deleting the old folder, copying in the new one and restarting the kernel, as the README&#x27;s Update says.</li><li>If the Project was made by Toolbox 7.1 or later, <code>project.upgrade()</code> carries it: from 7.1 on, every Toolbox version ships the step that carries a Project to it from the version before.</li><li>If you skipped versions, copy in the newest and upgrade once: <code>project.upgrade()</code> runs each version&#x27;s step in turn, from the Project&#x27;s version to the Toolbox&#x27;s. If Toolbox 8.3 or a later version last wrote your Project, it upgrades straight to the newest, as each new Toolbox is tested to do on its Example projects. A Project that 7.1 to 8.2 last wrote upgrades the same way, though no test runs its whole chain of steps.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first, and read <a href="#keep_the_project_in_order">Keep the Project in order</a> for <code>project.check()</code>.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from a Project an older Toolbox wrote</h5>
-<p>Goal: a Project to upgrade. Work in your own Project. This page makes one: a copy of the Intermediate Example project, with the files and the folder 8.0&#x27;s Upgrade adds taken out, and 7.2 recorded as the version that last wrote it, so it looks to <code>project.upgrade()</code> like a Project 7.2 left:</p>
+<p>Goal: a Project to upgrade. Work in your own Project. This page makes one: a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file, made by <code>example_project(&quot;intermediate&quot;)</code>, a line you leave out in your own Project, with the files and the folder 8.0&#x27;s Upgrade adds taken out, and 7.2 recorded as the version that last wrote it, so it looks to <code>project.upgrade()</code> like a Project 7.2 left:</p>
 <pre class="python">import shutil
 from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -17644,6 +18734,7 @@ PROD = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot
 </section>
 <section class="entry" id="follow_a_workflow">
 <h3>29. Follow a Workflow <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables"><p class="note">It reads none of the Example database's tables.</p></div>
 <h4>Goal</h4>
 <p>Do a whole job from its Workflow notebook, step by step, with nothing typed twice. A Workflow is an ordered list of steps that takes a Project, your folder of scripts at work, from what you bring to one end goal, such as converting scripts or promoting tables. Each Workflow has a notebook in admin/workflows/, a folder for each, and each Workflow below is drawn and listed from the steps its notebook runs. A Decision is one thing about one table that only you decide, such as its location or its Key, the columns whose values name exactly one row.</p>
 <h4>When you&#x27;d use it</h4>
@@ -18246,18 +19337,16 @@ project.run_workflow(&quot;schedule&quot;)</pre>
 </section>
 <section class="entry" id="set_your_database_settings">
 <h3>30. Set your Database settings <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables"><p class="note">It reads none of the Example database's tables.</p></div>
 <h4>Goal</h4>
 <p>Fill in your Database settings, what differs between your Dev Database and your Prod Database, once, in admin/databases.py: each one&#x27;s name and the folder its tables&#x27; files go under. Your Dev Database is where you create and write tables of your own first; your Prod Database is where others read your finished tables. With both filled in, each new Saved table, a table your own Statements write, is placed in a folder of its own under its Database&#x27;s folder, so its folder is never a Decision, a thing only you decide, in a Workflow. A setting of your own, such as the account a connection runs as, reaches your code the same way.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If you have just started a Project, fill them in as the steps below do, before the first Workflow: the convert, new_table and promote Workflows read them.</li><li>If a Workflow asks for a table&#x27;s &quot;location&quot;, your Database&#x27;s &quot;location_root&quot; is not filled in yet: fill it in, as step 3 does, and each table after is placed for you.</li><li>If your code needs a value that differs between dev and prod, such as the account it runs as, add it to both, as step 3 does, and read it with <code>database_settings</code>, as step 4 does.</li><li>If your Project was made before 8.5, its Upgrade turns DEV and PROD into these settings and marks each &quot;location_root&quot; to fill in: <a href="#upgrade_your_project_to_a_new_toolbox_version">Upgrade your Project to a new Toolbox version</a>.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">from pathlib import Path
+example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -18588,18 +19677,66 @@ except ValueError as refused:
 </section>
 <section class="entry" id="schedule_a_run">
 <h3>31. Schedule a run <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.region_costs"><summary><code>ops.region_costs</code>: 4 columns, partitioned by region, dt, 28 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 28</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th><th>region</th><th>dt</th></tr>
+<tr><td>1</td><td>110</td><td>eu</td><td>20260912</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260911</td></tr>
+<tr><td>1</td><td>120</td><td>eu</td><td>20260914</td></tr>
+<tr><td>1</td><td>130</td><td>eu</td><td>20260913</td></tr>
+<tr><td>2</td><td>180</td><td>eu</td><td>20260911</td></tr>
+</table></div>
+</details>
+</div>
 <h4>Goal</h4>
 <p>Make a Scheduled run: a notebook in your Project that an outside scheduler, such as papermill or your team&#x27;s, runs top to bottom, writing the tables it needs in order and reading back what you asked for. You name the Statements it is for, from your Table notebooks&#x27; logic; its Build cell adds the writes of each table they read, all the way up, and prints their Hive, sending nothing; its Run cell sends them. Each value the scheduler passes in is a Parameter, read by its type hint before anything is built.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>If one job of your scheduler should write a few tables and read back one result, not run the whole Project, make a Scheduled run for it, as the steps below do.</li><li>If you want the run&#x27;s Hive to read before it is ever sent, build it, as step 5 does: nothing is sent until the Run cell.</li><li>If a run failed partway, run it again with the <code>START_FROM</code> it printed, as step 7 says.</li><li>If you want the run&#x27;s lineage, or its Hive in a file to commit, export them by hand, as step 8 does: a Scheduled run writes neither when it runs.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
-<p>Goal: a Project with Saved tables for a run to write. Work in a copy of the Intermediate Example project, at its top: copy <code>example_projects/intermediate/</code> from the download to a folder of your own, copy the <code>sqlglot_composer</code> folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, then connects, as each notebook does at its top, to the Example database, which stands in for your warehouse:</p>
-<pre class="python">import shutil
-from pathlib import Path
-import sqlglot_composer
-download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
-_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p>Goal: a Project with Saved tables for a run to write. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
+<pre class="python">example_project(&quot;intermediate&quot;)</pre>
 <p class="label">It writes 85 files</p>
 <pre class="file">README.md
 admin/admin_log.md
@@ -18686,10 +19823,9 @@ tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
 tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
-<pre class="python">import example_database
-from sqlglot_composer import project, statement
+<pre class="python">from sqlglot_composer import project, statement
 from warehouse import connect, execute, query
-connect(example_database)</pre>
+connect(conn)</pre>
 <p>Done when the folder you work in holds the Project&#x27;s scheduled_runs/ folder. Then step 2.</p>
 <h5>2. See what a table&#x27;s logic offers</h5>
 <p>Goal: the functions a run can call. A Saved table&#x27;s Table notebook has a logic cell, the cell that starts <code># logic</code>, whose functions each give a Statement. <code>project.describe_logic</code> lists them, each with what it takes and the first sentence of what it does, and runs nothing:</p>
@@ -18888,8 +20024,8 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import Statement, project, statement
 from warehouse import connect, execute, query
 
-import example_database
-connect(example_database)
+from team_connection import conn  # your team&#x27;s connection
+connect(conn)
 
 # %%
 # scheduled
@@ -18911,7 +20047,7 @@ built = project.build_run(statements, run_values={}, leave_out=[])
 # %%
 # Run: each one sent, in the build&#x27;s order
 results = built.run(query, execute)</pre>
-<p>At work, the setup cell&#x27;s connection is yours, in place of the Example database. Done when no code cell holds a <code>&lt;...&gt;</code>. Then step 5.</p>
+<p>The setup cell&#x27;s last two lines give your team&#x27;s connection, <code>conn</code>, here from a file team_connection.py on Python&#x27;s path, as <a href="#start_a_project">Start a Project</a> shows; on the rest of this page <code>conn</code> is the Example database&#x27;s. Done when no code cell holds a <code>&lt;...&gt;</code>. Then step 5.</p>
 <h5>5. Build it</h5>
 <p>Goal: the run&#x27;s Hive, in order, to read before anything is sent. Run the cells down to the Build cell. Jupyter runs a notebook in its own folder, so the lines below move there first, as opening the notebook would, then run its cells, the setup cell&#x27;s connection already made above. A scheduler passes <code>READ_DAY</code> as text, which papermill puts in a cell after the parameters cell, as the line <code>READ_DAY = &quot;2026-09-23&quot;</code> here stands in for:</p>
 <pre class="python">import datetime

@@ -13,8 +13,9 @@ and there only by appending. You never fix what you find, and never raise the To
 - `.scratch/drift.md`, for open items and the next item number.
 
 The Toolbox is one folder, `sqlglot_composer/` (ADR 0009): every function a user calls, the
-import self-check, `writing.py` and `engine.py`, and its two pages, `examples.html` and
-`how_to.html`. `CHANGES.md` is at the repo's top. Spark Composer, a second Edition, was dropped
+import self-check, `writing.py` and `engine.py`. Its pages, `examples.html`, `how_to.html`,
+`workflows.html` and `example_projects.html`, are main's `docs/`, written on dev into
+`docs/main/` (Toolbox 8.7, ticket 13). `CHANGES.md` is at the repo's top. Spark Composer, a second Edition, was dropped
 in 6.0 (ADR 0008).
 
 ## The six kinds

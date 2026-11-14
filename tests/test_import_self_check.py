@@ -100,35 +100,12 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path: Path) -> N
     ) + "\n")
 
 
-@pytest.mark.parametrize(("pages", "lost"), [
-    (["examples.html"], "and a missing examples.html leaves you without the Example gallery"),
-    (["how_to.html"], "and a missing how_to.html leaves you without the how-tos"),
-    (["workflows.html"], "and a missing workflows.html leaves you without the Workflows "
-     "overview"),
-    (["examples.html", "how_to.html"], "a missing examples.html leaves you without the Example "
-     "gallery, and a missing how_to.html leaves you without the how-tos"),
-])
-def test_a_missing_page_stops_the_import_and_says_what_it_holds(
-        tmp_path: Path, pages: list[str], lost: str) -> None:
-    assert sorted(pages) == [page for page in toolbox_registry.PAGES if page in pages]
-
-    def missing(copy: Path) -> None:
-        exported(copy)
-        for page in pages:
-            (copy / page).unlink()
-
-    assert import_copy(tmp_path, missing).endswith(import_stop(
-        what=f"{', '.join(pages)} {'is' if len(pages) == 1 else 'are'} missing from the "
-        f"{FOLDER} folder.",
-        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a "
-        f"part of it fail later, far from the cause, {lost}.",
-        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
-        f"{VERSION} download.",
-    ) + "\n")
-
-
-def test_every_page_is_one_the_missing_file_stop_says_what_it_holds() -> None:
-    assert set(toolbox_registry.PAGES) == set(checks._PAGES)
+def test_the_folder_holds_no_page() -> None:
+    """The pages are main's docs/, not the Toolbox's (Toolbox 8.7, ticket 13): the folder holds
+    its Python and version.txt alone."""
+    assert sorted(path.name for path in TOOLBOX.iterdir() if path.name != "__pycache__") == (
+        sorted(toolbox_registry.FILES))
+    assert not set(toolbox_registry.PAGES) & set(toolbox_registry.FILES)
 
 
 def test_a_folder_missing_what_checks_it_stops_the_import(tmp_path: Path) -> None:
@@ -186,7 +163,7 @@ def edited(*names: str) -> Callable[[Path], None]:
     return change
 
 
-@pytest.mark.parametrize("odd", ["writing.py", "tables.py", "examples.html"])
+@pytest.mark.parametrize("odd", ["writing.py", "tables.py", "clauses.py"])
 def test_a_file_that_differs_from_the_download_only_warns(tmp_path: Path, odd: str) -> None:
     printed = import_copy(tmp_path, edited(odd))
     assert "Traceback" not in printed

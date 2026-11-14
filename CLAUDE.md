@@ -1,8 +1,10 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
-branch**: the Toolbox (its Templates inside it), a copy of the Example projects and of the
-Copilot files (`copilot/`), its README,
+branch**: the Toolbox (its Templates inside it), the pages in `docs/` (the how-tos, the Example
+gallery, the Workflows overview and the Example projects page, which dev writes into
+`docs/main/`, and beside them the Example projects' lineage pages; main holds no Example
+project and no Example database), a copy of the Copilot files (`copilot/`), its README,
 `CHANGES.md`, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev
 holds it, generated from this branch by `.venv/Scripts/python tools/export_clean.py` and never
 edited or committed to by hand. Each export commits to `main` locally, replacing whatever it

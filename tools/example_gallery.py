@@ -1,4 +1,5 @@
-"""Write the Example gallery, `sqlglot_composer/examples.html`, from the Worked examples.
+"""Write the Example gallery, `docs/main/examples.html` (main's `docs/examples.html`), from the
+Worked examples.
 
 Run it on `dev` after changing a docstring's example, a Statement script in
 `worked_examples/statements/`, or anything that changes the Hive the Toolbox writes:
@@ -62,7 +63,7 @@ from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
-GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
+GALLERY = ROOT / toolbox_registry.DOCS_ON_DEV / "examples.html"
 
 # Today on the page, as in the doctests: last_n_days(job_runs.dt, 2) reads both of the
 # Example database's days.
@@ -458,12 +459,26 @@ def script_parts(module: ModuleType) -> tuple[str, str, list[str]]:
 
 def script_top(module: ModuleType) -> str:
     """The top of a script: its imports and settings, between its docstring and first
-    function."""
+    function, as a Table notebook's logic cell in a Project holds them (`in_a_project`)."""
     source = Path(module.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     start = tree.body[0].end_lineno
     end = next(node.lineno for node in tree.body if isinstance(node, ast.FunctionDef))
-    return "\n".join(source.splitlines()[start:end - 1]).strip("\n")
+    return in_a_project("\n".join(source.splitlines()[start:end - 1]).strip("\n"))
+
+
+# A script's line taking a table from the Example database, such as
+# `jobs = example_database.jobs`.
+FROM_THE_EXAMPLE_DATABASE = re.compile(r"^(\w+) = example_database\.\1$", re.MULTILINE)
+
+
+def in_a_project(top: str) -> str:
+    """A script's top as a Project's logic cell holds it: each table from its Table reference
+    in references/, such as `from references.ops__jobs import jobs`, where the script, run on
+    dev, takes it from the Example database, which main doesn't hold (Toolbox 8.7, ticket
+    13)."""
+    top = top.replace("import example_database\n", "")
+    return FROM_THE_EXAMPLE_DATABASE.sub(r"from references.ops__\1 import \1", top)
 
 
 # The lower Levels a Statement script may import, and how the page names each one.
@@ -605,7 +620,7 @@ def script_entry(module: ModuleType) -> tuple[str, str, list[str], str]:
     title, why, notes = script_parts(module)
     entry_id = module.__name__.split(".")[-1]
     top = script_top(module)
-    lower = [(kind, path.name, path.parent.name, path.read_text(encoding="utf-8"))
+    lower = [(kind, path.name, path.parent.name, in_a_project(path.read_text(encoding="utf-8")))
              for kind, path in lower_levels_of(module)]
     others = other_statements(module)
     with example_setting():
@@ -746,7 +761,8 @@ Statement it builds, the Hive and any result: from the Example database, made-up
 Toolbox's makers keep, which the download doesn't hold{or_pandas}. Press Ctrl+F to search the
 page.</p>
 <p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
-this one in the <code>{folder}</code> folder: the first, Start a Project, starts one.</p>
+this one in the download's <code>docs</code> folder: the first, Start a Project, starts one,
+and each shows the Example database's tables it reads, their columns and first rows.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
@@ -763,9 +779,9 @@ it imports in <code>references/</code> and the Building block in <code>building_
 and its
 <code>from references ...</code> or <code>from building_blocks ...</code> line then imports it
 from there. To try one in a plain notebook, paste the top of its script, with the whole file
-that line imports pasted in place of the line, then the functions. The ops tables it reads are
-the Example database's, <code>example_database</code>, which the download doesn't hold: name
-your own in their place.</p>
+that line imports pasted in place of the line, then the functions. The ops tables it reads,
+such as <code>from references.ops__jobs import jobs</code>, are the Example database's, which
+the download doesn't hold: name your own in their place.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>

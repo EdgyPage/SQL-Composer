@@ -25,21 +25,16 @@ its type hint before anything is built.
 
 ### 1. Start from the Intermediate Example project
 
-Goal: a Project with Saved tables for a run to write. Work in a copy of the Intermediate
-Example project, at its top: copy `example_projects/intermediate/` from the download to a
-folder of your own, copy the `sqlglot_composer` folder into it, as a Project holds it, and open
-a notebook there. This page makes the same copy in its first step, then connects, as each
-notebook does at its top, to the Example database, which stands in for your warehouse:
+Goal: a Project with Saved tables for a run to write. Work in your own Project, at its top. This
+page works in a copy of the Intermediate Example project, which the download's Example projects
+page shows file by file: `example_project("intermediate")` makes that copy in the folder the
+page runs in. It is a line of this page alone, not a Toolbox name, as `conn` is this page's
+connection: in your own Project leave it out.
 
->>> import shutil
->>> from pathlib import Path
->>> import sqlglot_composer
->>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
->>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
->>> import example_database
+>>> example_project("intermediate")
 >>> from sqlglot_composer import project, statement
 >>> from warehouse import connect, execute, query
->>> connect(example_database)
+>>> connect(conn)
 
 Done when the folder you work in holds the Project's scheduled_runs/ folder. Then step 2.
 
@@ -147,8 +142,8 @@ The file `scheduled_runs/team_day/team_day.ipynb`, after you fill it in:
     from sqlglot_composer import Statement, project, statement
     from warehouse import connect, execute, query
 
-    import example_database
-    connect(example_database)
+    from team_connection import conn  # your team's connection
+    connect(conn)
 
     # %%
     # scheduled
@@ -171,16 +166,18 @@ The file `scheduled_runs/team_day/team_day.ipynb`, after you fill it in:
     # Run: each one sent, in the build's order
     results = built.run(query, execute)
 
-At work, the setup cell's connection is yours, in place of the Example database. Done when no
-code cell holds a `<...>`. Then step 5.
+The setup cell's last two lines give your team's connection, `conn`, here from a file
+team_connection.py on Python's path, as [Start a Project](#start_a_project) shows; on the rest
+of this page `conn` is the Example database's. Done when no code cell holds a `<...>`. Then
+step 5.
 
 ### 5. Build it
 
-Goal: the run's Hive, in order, to read before anything is sent. Run the cells down to the
-Build cell. Jupyter runs a notebook in its own folder, so the lines below move there first, as
-opening the notebook would, then run its cells, the setup cell's connection already made
-above. A scheduler passes `READ_DAY` as text, which papermill puts in a cell after the parameters
-cell, as the line `READ_DAY = "2026-09-23"` here stands in for:
+Goal: the run's Hive, in order, to read before anything is sent. Run the cells down to the Build
+cell. Jupyter runs a notebook in its own folder, so the lines below move there first, as opening
+the notebook would, then run its cells, the setup cell's connection already made above. A
+scheduler passes `READ_DAY` as text, which papermill puts in a cell after the parameters cell,
+as the line `READ_DAY = "2026-09-23"` here stands in for:
 
 >>> import datetime
 >>> import os

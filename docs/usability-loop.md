@@ -1,7 +1,11 @@
 # The usability loop: can someone with no context follow the Workflows?
 
 Toolbox 8.2's measure of the docs (`.scratch/toolbox-8-2/map.md`, "The loop"). A fresh small
-model plays a person who has never seen sqlglot Composer, given only what main ships. For a
+model plays a person who has never seen sqlglot Composer, given only what main ships: its
+README, its pages in `main/docs/` (the how-tos, the Example gallery, the Workflows overview and
+the Example projects, since Toolbox 8.7's ticket 13 took them out of the Toolbox's folder and
+main's `example_projects/` away), the Toolbox and the Copilot files, as each phase's message
+says. For a
 Workflow scenario that's a technical user. For an Excel scenario it's a non-technical user who
 fills in the Formula workbook, then a fresh converter who turns it into tables. Each run is
 scored against its scenario's answer key. A run that passes shows the docs were enough; each
@@ -78,11 +82,13 @@ below), not dev's commit, so a commit that changes none of them, such as one to 
 given, each with the export's stamp (when it ran, and from which commit) left out:
 
 - `main`, main's tree by part:
-  - `toolbox`: one hash of the Toolbox folder, whole, but for the how-tos on its how-to page,
-    since its code changes what every run does;
+  - `toolbox`: one hash of the Toolbox folder and the pages in main's `docs/` (since Toolbox
+    8.7's ticket 13 moved them out of the folder), whole, but for the how-tos on the how-to
+    page, `docs/how_to.html`, since its code changes what every run does;
   - `readme`: the README, one hash per `##` section, by its heading, the part above the first
     by the README's title, `sqlglot Composer`;
-  - `how_tos`: each how-to of `how_to.html`, by its link, such as `convert_someone_elses_hive`;
+  - `how_tos`: each how-to of `docs/how_to.html`, by its link, such as
+    `convert_someone_elses_hive`;
   - `copilot`: each Copilot file, by its path from `copilot/`;
   - `named`: each other file of main the phases' messages name, such as
     `copilot/formula_workbook.xlsx`, on its own; the README every message names is hashed by
@@ -102,9 +108,9 @@ of main its `reads.json` lists, the files the phases name, the rest of `inputs.j
 (`project`, `warehouse`, `scenario_files`, `phases`, `loop_files`) and the list itself; dev's
 commit is left out of it. So:
 
-- a change to the Toolbox folder runs every scenario again, but for a change to a how-to on its
-  how-to page, `how_to.html`, which runs again only the scenarios that list that how-to (a
-  change to the page around the how-tos runs them all);
+- a change to the Toolbox folder or to a page in main's `docs/` runs every scenario again, but
+  for a change to a how-to on the how-to page, `docs/how_to.html`, which runs again only the
+  scenarios that list that how-to (a change to the page around the how-tos runs them all);
 - a change to a README section, how-to or Copilot file runs again only the scenarios that list
   it; one no scenario lists runs none;
 - a change to anything else of the scenario's, such as its answer key or its list, runs it

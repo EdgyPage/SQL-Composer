@@ -40,8 +40,7 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.

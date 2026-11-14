@@ -1,4 +1,4 @@
-"""Write the Workflows overview, `sqlglot_composer/workflows.html`: every Workflow and the Excel
+"""Write the Workflows overview, `docs/main/workflows.html`: every Workflow and the Excel
 path in one drawing, an arrow for each hand-off, and, for the one you click, its steps and its
 common tripping points (Toolbox 8.7, ticket 07).
 
@@ -43,7 +43,7 @@ from sqlglot_composer import html_page, workflows  # noqa: E402
 from sqlglot_composer.workflows import Workflow  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-PAGE_PATH = ROOT / toolbox_registry.FOLDER / "workflows.html"
+PAGE_PATH = ROOT / toolbox_registry.DOCS_ON_DEV / "workflows.html"
 HOW_TOS = ROOT / "worked_examples" / "how_to"
 
 class Box(NamedTuple):

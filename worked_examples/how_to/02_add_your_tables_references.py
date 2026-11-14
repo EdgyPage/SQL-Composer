@@ -41,14 +41,14 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 
 Every step here passes that `query`; `execute` waits for a step that changes a table. Here it
-runs on the Example database, the made-up tables that ship inside the Toolbox, as
-`connect(example_database)` gives it; at work it is your own, and you name your own tables.
+runs on the Example database, made-up tables the Toolbox's makers keep, which the download
+doesn't hold: `conn` is its connection on this page, and each table it reads is shown under
+the title. At work `conn` is your team's connection, and you name your own tables.
 
-Done when `connect(example_database)` runs without an error. Then step 2.
+Done when `connect(conn)` runs without an error. Then step 2.
 
 ### 2. See what a table says about itself
 

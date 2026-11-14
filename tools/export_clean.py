@@ -10,14 +10,18 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
   `version.txt` when it was exported, from which dev commit, and each file's git hash, for the
   import self-check (ADR 0013); no other file of the folder changes, so an export changes only
   the files whose content changed;
-- it copies the Example projects, `example_projects/`, at the same paths, with line 1
-  stamped with the version alone, for example
-  `# sqlglot Composer 7.2 - copy it, then edit your copy`; the Templates ship inside the
-  Toolbox, in `sqlglot_composer/project_templates.py`;
-- it copies the Copilot files, `copilot/`, the same way: each .txt as dev holds it, unstamped,
-  as Copilot counts every character; `count_characters.py` and `workbook_text.py` stamped; and
-  the empty Formula workbook, `formula_workbook.xlsx`, and the examples of it,
-  `examples/*.xlsx`, byte for byte, as main can't rebuild them;
+- it copies the pages, which dev writes into `docs/main/`, into main's `docs/`, as dev holds
+  them: the how-tos, the Example gallery, the Workflows overview and the Example projects page
+  (Toolbox 8.7, ticket 13); and beside them, in `docs/example_projects/`, each Example
+  project's lineage pages, which the Example projects page links. Main holds no Example
+  project, nor the Example database: a user reads them on the pages. The Templates ship inside
+  the Toolbox, in `sqlglot_composer/project_templates.py`;
+- it copies the Copilot files, `copilot/`, at the same paths: each .txt as dev holds it,
+  unstamped, as Copilot counts every character; `count_characters.py` and `workbook_text.py`
+  with line 1 stamped with the version alone, for example
+  `# sqlglot Composer 7.2 - copy it, then edit your copy`; and the empty Formula workbook,
+  `formula_workbook.xlsx`, and the examples of it, `examples/*.xlsx`, byte for byte, as main
+  can't rebuild them;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
@@ -30,16 +34,13 @@ It then checks what it built:
 - each Toolbox file imports only what work has (the standard library, pandas, numpy, and sqlglot
   where `tools/toolbox_registry.py` allows it);
 - the exported folder imports in a fresh Python, in the Clean tree and copied on its own;
-- each Example project's `run_tables` dry run runs, in a fresh Python started in its
-  `admin/` folder, finding the Toolbox at main's top, and leaves no file behind; a dry run
-  prints every table's write and sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
-  is imported or run: the Toolbox, the Example projects and the Templates, the Copilot files,
-  and the README, pages included and Markdown and plain text read as pages, so that none of it
-  can reach the network;
+  is imported or run: the Toolbox and the Templates, the pages, the Copilot files, and the
+  README, Markdown and plain text read as pages, so that none of it can reach the network;
+- no file imports the Example database, which main doesn't hold;
 - the folder's `version.txt` names the Toolbox and its version;
-- the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the Example projects
-  and the Templates, the Copilot files, `.github/README.md`, `CHANGES.md`, `LICENSE` and
+- the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the pages and the
+  lineage pages they link, the Copilot files, `.github/README.md`, `CHANGES.md`, `LICENSE` and
   `requirements.txt`.
 
 Only then does it commit the tree to `main`, as one new commit on top of the old `main`. It
@@ -86,15 +87,21 @@ REQUIREMENTS = "requirements.txt"
 ROOT_FILES = (CHANGES, LICENSE, REQUIREMENTS)
 VERSION_MARKER = "<!-- VERSION -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
-# The folders main holds a copy of, for the user to copy and edit, at the paths dev has them.
-EXAMPLE_PROJECTS = "example_projects"
+# The folder main holds a copy of, for the user to copy and edit, at the paths dev has it.
 COPILOT = "copilot"
-COPIED = (EXAMPLE_PROJECTS, COPILOT)
-# The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
-# its registry and its Reference sheet, and admin/project_version.txt, read from its first line;
-# a Conversion's .hql files, kept exactly as the Hive was given; and a batch's written.json,
-# its record of what it wrote, which its Workflow reads.
-UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx", ".json")
+COPIED = (COPILOT,)
+# The pages: dev writes them into DOCS_ON_DEV, and main holds them in DOCS, beside the lineage
+# pages of dev's Example projects, which main holds no other file of (Toolbox 8.7, ticket 13).
+DOCS = toolbox_registry.DOCS
+DOCS_ON_DEV = toolbox_registry.DOCS_ON_DEV
+EXAMPLE_PROJECTS = toolbox_registry.EXAMPLE_PROJECTS
+# A line that imports the Example database, which main doesn't hold.
+EXAMPLE_DATABASE_IMPORT = re.compile(
+    rf"\bimport {toolbox_registry.EXAMPLE_DATABASE}\b"
+    rf"|\bfrom {toolbox_registry.EXAMPLE_DATABASE}(\.\w+)* import\b")
+# The copies with no stamp: a Copilot file, counted character by character, and the Formula
+# workbook and its examples, which aren't text.
+UNSTAMPED = (".txt", ".xlsx")
 # The copies that aren't text: the empty Formula workbook and its examples, which main can't
 # rebuild, since openpyxl, which builds them, is dev's alone.
 BINARY = (".xlsx",)
@@ -273,32 +280,74 @@ def check_imports_alone(into: Path) -> None:
                             f"exported:\n{last_error(done.stderr)}")
 
 
-# Where an Example project's admin notebooks on main find the Toolbox: the Clean tree's top
-# folder, three up.
-TOOLBOX_FROM_ADMIN = os.path.join(os.pardir, os.pardir, os.pardir)
-# What each Example project's dry run runs, as admin/run_tables.ipynb's first cells do.
-DRY_RUN = 'from sqlglot_composer import project; project.run_tables()'
+def docs_files(source: Path) -> dict[str, Path]:
+    """Each file main's docs/ holds, by its path there, such as how_to.html, and the file on
+    dev it is a copy of: each page dev wrote into DOCS_ON_DEV, and each Example project's
+    lineage page, which the Example projects page links, at its path from dev's top."""
+    pages = sorted(path.name for path in (source / DOCS_ON_DEV).iterdir())
+    unlisted = [name for name in pages if name not in toolbox_registry.PAGES]
+    if unlisted:
+        raise ExportRefused(
+            f"{DOCS_ON_DEV}/ holds {', '.join(unlisted)}, but tools/toolbox_registry.py's "
+            "PAGES doesn't list it. Add it to PAGES there, or move it out of the folder on "
+            "dev.")
+    missing = [name for name in toolbox_registry.PAGES if name not in pages]
+    if missing:
+        raise ExportRefused(f"main's docs/ ships {', '.join(missing)}, but this commit's "
+                            f"{DOCS_ON_DEV}/ doesn't have it. Write it with its tool, and "
+                            "commit it on dev.")
+    return {**{name: source / DOCS_ON_DEV / name for name in pages},
+            **toolbox_registry.lineage_pages(source)}
 
 
-def check_dry_runs(into: Path) -> None:
-    """Run each Example project's run_tables with no execute, as its admin/run_tables.ipynb
-    does, in a fresh Python started in its admin/ folder, and refuse one that stops or prints
-    no Hive. The dry run prints each table's write and sends nothing."""
-    for admin in sorted((into / EXAMPLE_PROJECTS).glob("*/admin")):
-        before = files_in(into)
-        done = fresh_python(admin, DRY_RUN, path=TOOLBOX_FROM_ADMIN)
-        where = f"{admin.parent.relative_to(into).as_posix()}'s run_tables"
-        # It runs inside the Clean tree, so anything it writes would ship unstamped.
-        left = [path for path in files_in(into) if path not in before]
-        if left:
-            raise ExportRefused(f"{where}'s dry run left files in the Clean tree: {left}. A "
-                                "dry run only prints: take out what writes them.")
-        if done.returncode != 0:
-            raise ExportRefused(f"{where} doesn't run its dry run on main, so nothing was "
-                                f"exported:\n{last_error(done.stderr)}")
-        if "-- 1 of " not in done.stdout:
-            raise ExportRefused(f"{where}'s dry run printed no table's write, which it "
-                                f"heads with `-- 1 of `. It printed:\n{done.stdout[:500]}")
+def build_docs(source: Path, into: Path) -> None:
+    """Write main's docs/ into `into`: each page as dev holds it, unstamped, and each lineage
+    page it links beside it; then read them as main would."""
+    for shipped, original in docs_files(source).items():
+        target = into / DOCS / shipped
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(original.read_text(encoding="utf-8"), encoding="utf-8",
+                          newline="\n")
+    check_offline(into, [DOCS])
+
+
+def example_database_imports(path: str, text: str) -> list[int]:
+    """The lines of a file of main's that import the Example database, or show a line that
+    does for a user to run: in Python, each import statement naming it, as a string that only
+    names it, such as an older Upgrade step's text, imports nothing; in a page or other text,
+    each such line it shows."""
+    if path.endswith(".py"):
+        return [node.lineno for node in ast.walk(ast.parse(text))
+                if toolbox_registry.EXAMPLE_DATABASE in imported_by(node)]
+    return [number for number, line in enumerate(text.splitlines(), 1)
+            if EXAMPLE_DATABASE_IMPORT.search(line)]
+
+
+def imported_by(node: ast.AST) -> list[str]:
+    """The top modules an import statement imports by name, such as ["pandas"] for `import
+    pandas as pd`; none for any other statement, or an import from its own folder."""
+    if isinstance(node, ast.Import):
+        return [alias.name.split(".")[0] for alias in node.names]
+    if isinstance(node, ast.ImportFrom) and node.level == 0:
+        return [(node.module or "").split(".")[0]]
+    return []
+
+
+def check_no_example_database(into: Path) -> None:
+    """Refuse a Clean tree with a line that imports the Example database: main doesn't hold
+    it, so a user reads its tables on the pages. CHANGES.md, what each version did, may name
+    the imports it once wrote."""
+    found = []
+    for path in files_in(into):
+        if path.endswith(BINARY) or path == CHANGES:
+            continue
+        found += [f"{path}:{number}" for number in example_database_imports(
+            path, (into / path).read_text(encoding="utf-8"))]
+    if found:
+        raise ExportRefused(
+            f"The Clean tree imports the Example database, which main doesn't hold, at "
+            f"{', '.join(found)}. Show its tables on a page, and connect with connect(conn), "
+            "as the how-tos do.")
 
 
 def open_drift_items(drift_text: str) -> list[str]:
@@ -318,9 +367,9 @@ def open_drift_items(drift_text: str) -> list[str]:
 def check_offline(into: Path, paths: list[str]) -> None:
     """Refuse the Clean tree if a file under `paths`, in `into`, holds anything that could reach
     the network, as `tools/offline_policy.py` reads it under main's path: in the Toolbox, only
-    the reviewed sites in its ALLOWED; in a copy the user takes, the Example projects and the
-    Copilot files, nothing. Markdown and plain text are read as pages, for what a preview of
-    one would load, and a Copilot file for a link Copilot might follow."""
+    the reviewed sites in its ALLOWED; in the pages and the Copilot files, nothing. Markdown
+    and plain text are read as pages, for what a preview of one would load, and a Copilot file
+    for a link Copilot might follow."""
     found = offline_policy.scan(into, paths)
     for path in files_in(into):
         if path.endswith((".md", ".txt")) and any(path == part or path.startswith(f"{part}/")
@@ -330,7 +379,7 @@ def check_offline(into: Path, paths: list[str]) -> None:
     if found:
         raise ExportRefused(
             "The Clean tree holds something that could reach the network, but the Toolbox, "
-            "its Example projects, its Templates and its Copilot files reach nothing but the "
+            "its Templates, its pages and its Copilot files reach nothing but the "
             "user's query and execute. "
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
             "stamp where the file has one:\n"
@@ -347,13 +396,16 @@ def files_in(folder: Path) -> list[str]:
 
 
 def outside_allowlist(paths: list[str]) -> list[str]:
-    """The paths `main` may not hold: it holds the Toolbox's flat folder, the Example projects
-    and the Templates, the Copilot files, the README, the change notes, the license and
-    requirements.txt."""
+    """The paths `main` may not hold: it holds the Toolbox's flat folder, the Templates inside
+    it, the pages in docs/ and the Example projects' lineage pages beside them, the Copilot
+    files, the README, the change notes, the license and requirements.txt."""
     def allowed(path: str) -> bool:
         parts = path.split("/")
         return (path == README or path in ROOT_FILES
                 or (len(parts) == 2 and parts[0] == toolbox_registry.FOLDER)
+                or (len(parts) == 2 and parts[0] == DOCS and parts[1] in toolbox_registry.PAGES)
+                or (len(parts) > 4 and parts[:2] == [DOCS, EXAMPLE_PROJECTS]
+                    and parts[-2] == "lineage" and path.endswith(".html"))
                 or (len(parts) > 1 and parts[0] in COPIED))
 
     return [path for path in paths if not allowed(path)]
@@ -379,7 +431,7 @@ def how_tos_text(source: Path) -> str:
     and the files' numbers give each group's first and last: the how-tos are numbered 1, 2, 3
     and on, each group's in a row. tools/how_to_page.py reads them the same way and checks
     their numbers, but importing it loads the Toolbox into this Python, so the two lines are
-    read here again.
+    read here again. The page is main's docs/how_to.html.
     """
     groups: dict[str, list[tuple[int, str, str]]] = {}
     for path in sorted((source / HOW_TOS).glob("[0-9][0-9]_*.py")):
@@ -399,7 +451,7 @@ def how_tos_text(source: Path) -> str:
     if numbers != list(range(1, len(numbers) + 1)):
         raise ExportRefused(f"The how-tos in {HOW_TOS}/ must be numbered 1, 2, 3 and on, each "
                             "group's in a row, as tools/how_to_page.py checks.")
-    page = f"../{toolbox_registry.FOLDER}/how_to.html"
+    page = f"../{DOCS}/how_to.html"
     sections = []
     for group, how_tos in groups.items():
         links = "\n".join(f"{number}. [{title}]({page}#{slug})"
@@ -450,10 +502,9 @@ def copied_files(folder: Path) -> list[str]:
 
 
 def build_copies(source: Path, into: Path, stamp: str) -> None:
-    """Write the Example projects and the Copilot files into `into`, at dev's paths, stamped. A
-    notebook or a CSV file has no comment to hold a stamp, and a Copilot file is counted
-    character by character, so each is copied as it is, and the empty Formula workbook,
-    which isn't text, byte for byte."""
+    """Write the Copilot files into `into`, at dev's paths, its Python stamped. A Copilot file
+    is counted character by character, so each is copied as it is, and the empty Formula
+    workbook and its examples, which aren't text, byte for byte."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"
@@ -528,11 +579,13 @@ def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str
     if into.exists() and any(into.iterdir()):
         raise ExportRefused(f"{into} isn't empty. Build the Clean tree into an empty folder.")
     check_folder(source)
-    missing = [path for path in (*COPIED, HOW_TOS) if not (source / path).is_dir()]
+    missing = [path for path in (*COPIED, DOCS_ON_DEV, EXAMPLE_PROJECTS, HOW_TOS)
+               if not (source / path).is_dir()]
     if missing:
         raise ExportRefused(
-            f"The export ships {' and '.join(COPIED)}, and the README lists the how-tos, but "
-            f"this commit doesn't have {', '.join(missing)}. Commit it on dev.")
+            f"The export ships {' and '.join(COPIED)}, the pages in {DOCS_ON_DEV} and the "
+            f"lineage pages of {EXAMPLE_PROJECTS}, and the README lists the how-tos, but this "
+            f"commit doesn't have {', '.join(missing)}. Commit it on dev.")
     check_root_files(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     folder, product = toolbox_registry.FOLDER, toolbox_registry.PRODUCT
@@ -545,7 +598,7 @@ def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str
     check_imports_alone(into)
     build_copies(source, into, copy_stamp_text(product, version))
     check_offline(into, list(COPIED))
-    check_dry_runs(into)
+    build_docs(source, into)
     (into / README).parent.mkdir()
     (into / README).write_text(
         readme_text(template, described["groups"], version_text(version, when),
@@ -553,6 +606,7 @@ def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str
         encoding="utf-8", newline="\n")
     check_offline(into, [README])
     copy_root_files(source, into)
+    check_no_example_database(into)
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
@@ -603,15 +657,18 @@ def store_tree(repo: Path, into: Path, index: Path) -> str:
 
 
 def committed_files(repo: Path, commit: str, into: Path) -> Path:
-    """Write what `commit` holds of the Toolbox's folder, the Example projects, the Templates,
-    the how-tos, the README template, the change notes, the license and requirements.txt into
-    `into`.
+    """Write what `commit` holds of the Toolbox's folder, the Copilot files, the pages, the
+    Example projects, whose lineage pages ship, the how-tos, the README template, the change
+    notes, the license and requirements.txt into `into`.
 
     The build reads these rather than the checkout, so a file git ignores (a stray log, say)
     can never reach `main`. A folder the commit lacks is left out, for the build to refuse.
     """
     held = git(repo, "ls-tree", "--name-only", commit).splitlines()
-    paths = [folder for folder in [toolbox_registry.FOLDER, *COPIED] if folder in held]
+    paths = [folder for folder in [toolbox_registry.FOLDER, *COPIED, EXAMPLE_PROJECTS]
+             if folder in held]
+    if git(repo, "ls-tree", "--name-only", commit, f"{DOCS_ON_DEV}/"):
+        paths.append(DOCS_ON_DEV)
     paths.append(README_TEMPLATE)
     paths += [name for name in ROOT_FILES if name in held]
     if HOW_TOS.split("/")[0] in held:

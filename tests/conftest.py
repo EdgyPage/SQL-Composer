@@ -76,6 +76,11 @@ def toolbox_folder() -> Path:
     return ROOT / FOLDER
 
 
+def docs_folder() -> Path:
+    """Where dev writes main's docs/: the pages a user reads (Toolbox 8.7, ticket 13)."""
+    return ROOT / registry.DOCS_ON_DEV
+
+
 def toolbox_module(name: str = "") -> ModuleType:
     """The Toolbox's folder, imported, or one of its files by name, such as "conditions"."""
     if not name:
@@ -320,7 +325,7 @@ def page_text(html_text: str) -> str:
 
 
 def gallery_sections(folder: Path) -> dict[str, str]:
-    """Each entry on the Example gallery in a Toolbox folder, by its id: its HTML."""
+    """Each entry on the Example gallery in a docs folder, by its id: its HTML."""
     page = (folder / "examples.html").read_text(encoding="utf-8")
     return dict(re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>', page,
                            re.DOTALL))
@@ -331,7 +336,7 @@ def gallery_entries() -> dict[str, tuple[str, str]]:
     return {
         entry_id: (page_text(re.search(r"<h3>(.*?)</h3>", body, re.DOTALL).group(1)),
                    page_text(body))
-        for entry_id, body in gallery_sections(toolbox_folder()).items()
+        for entry_id, body in gallery_sections(docs_folder()).items()
     }
 
 

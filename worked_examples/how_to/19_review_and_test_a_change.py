@@ -30,20 +30,16 @@ pandas, from the rows themselves, and compare the two with plain `assert`s.
 ### 1. Start from the Intermediate Example project
 
 Goal: a Project to work in, with the Building block and the notebooks that read it. An
-Example project is a Project made for the Example database's tables, filled in, to read and
-copy from.
+Example project is a Project made for the Example database's tables, filled in, to read.
 
-Work in a copy of the Intermediate Example project, at its top: copy
-`example_projects/intermediate/` from the download to a folder of your own, copy the
-`sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
-makes the same copy in its first step, from the download the Toolbox came in, into the folder
-it runs in, which Python's path holds already, as Jupyter's does for a notebook's own folder:
+Work in your own Project, at its top. This page works in a copy of the Intermediate Example
+project, which the download's Example projects page shows file by file:
+`example_project("intermediate")` makes that copy in the folder the page runs in. It is a line
+of this page alone, not a Toolbox name, as `conn` is this page's connection: in your own Project
+leave it out.
 
->>> import shutil
 >>> from pathlib import Path
->>> import sqlglot_composer
->>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
->>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
+>>> example_project("intermediate")
 
 Done when the folder you work in holds the Project's admin/, references/, building_blocks/
 and tables/. Then step 2.
@@ -59,8 +55,7 @@ warehouse.py, and the tables of the Database ops, a named group of tables:
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 >>> from references import ops
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table
 

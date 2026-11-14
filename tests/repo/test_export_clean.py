@@ -2,9 +2,10 @@
 
 `tools/export_clean.py` builds the Clean tree in a folder. These tests build it into a
 temporary folder and check what `main` would hold: the allowlist, the Toolbox's files as dev
-holds them, its `version.txt` with each file's hash, the copy of the Example projects and
-the Templates, and the README with its lists of how-tos and Templates and its cheat sheet; and
-that a Clean tree failing one of the export's own checks is refused.
+holds them, its `version.txt` with each file's hash, the pages in `docs/` and the Example
+projects' lineage pages beside them, the Copilot files, and the README with its lists of
+how-tos and Templates and its cheat sheet; and that a Clean tree failing one of the export's
+own checks is refused.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import ast
 import datetime
 import doctest
+import html
 import re
 import shutil
 import subprocess
@@ -141,14 +143,22 @@ def test_the_cheat_sheet_names_no_example_database(clean: Path) -> None:
     assert "example_database" not in readme(clean).split("## Cheat sheet", 1)[-1]
 
 
-# The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
+# The folder main holds a copy of, to copy and edit, at the paths dev has it. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
-COPIED = ["example_projects", "copilot"]
-# The copies with no comment syntax for a stamp, a Conversion's .hql files, kept as the Hive
-# was given, and a batch's written.json, which main holds as dev does.
-UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx", ".json")
+COPIED = ["copilot"]
+# The copies with no stamp: a Copilot file, counted character by character, and the
+# workbooks.
+UNSTAMPED = (".txt", ".xlsx")
 # The copies that aren't text, the empty Formula workbook: main holds dev's bytes.
 BINARY = (".xlsx",)
+# The pages main's docs/ holds, which dev writes into docs/main/ (Toolbox 8.7, ticket 13).
+PAGES = ["example_projects.html", "examples.html", "how_to.html", "workflows.html"]
+
+
+def lineage_pages() -> list[str]:
+    """Each Example project's lineage page, as main's docs/ holds it, beside the pages."""
+    return sorted(f"docs/{path.relative_to(ROOT).as_posix()}"
+                  for path in (ROOT / "example_projects").glob("*/**/lineage/*.html"))
 
 
 def copied_files(folder: str) -> list[str]:
@@ -161,12 +171,14 @@ def copied_files(folder: str) -> list[str]:
 
 def exported_files() -> list[str]:
     """Every file `main` holds, sorted: the README, the change notes, the license,
-    requirements.txt, the Toolbox's files, and the Example projects."""
+    requirements.txt, the Toolbox's files, the pages and the lineage pages they link, and the
+    Copilot files."""
     toolbox = [f"{folder}/{path.name}" for folder in FOLDERS
                for path in (ROOT / folder).iterdir() if path.name != "__pycache__"]
     copies = [f"{folder}/{relative}" for folder in COPIED for relative in copied_files(folder)]
+    pages = [f"docs/{page}" for page in PAGES]
     return sorted([".github/README.md", "CHANGES.md", "LICENSE", "requirements.txt", *toolbox,
-                   *copies])
+                   *copies, *pages, *lineage_pages()])
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
@@ -185,13 +197,72 @@ def test_anything_outside_the_allowlist_is_named() -> None:
     ]
 
 
-def test_the_example_projects_may_hold_anything_below_them() -> None:
-    paths = ["example_projects/starter/run_pipeline.py", "example_projects/starter/a/b.py",
-             "example_projects", "templates/starter/notebook_start.py",
-             "worked_examples/how_to/01_start_a_project.py"]
+def test_docs_holds_the_pages_and_the_lineage_pages_alone() -> None:
+    paths = ["docs/how_to.html", "docs/notes.md", "docs/main/how_to.html",
+             "docs/example_projects/starter/tables/t/lineage/x.html",
+             "docs/example_projects/starter/tables/t/lineage/x.md",
+             "docs/example_projects/starter/tables/t/t.ipynb",
+             "example_projects/starter/README.md", "copilot/examples/a.xlsx"]
     assert export_clean.outside_allowlist(paths) == [
-        "example_projects", "templates/starter/notebook_start.py",
-        "worked_examples/how_to/01_start_a_project.py"]
+        "docs/notes.md", "docs/main/how_to.html",
+        "docs/example_projects/starter/tables/t/lineage/x.md",
+        "docs/example_projects/starter/tables/t/t.ipynb", "example_projects/starter/README.md"]
+
+
+def test_main_holds_no_example_project_and_no_example_database(clean: Path) -> None:
+    """Dev keeps both for its tests; main shows them as pages (Toolbox 8.7, tickets 12 and
+    13)."""
+    held = export_clean.files_in(clean)
+    assert not [path for path in held if path.startswith(("example_projects/",
+                                                          "example_database/"))]
+    for path in held:
+        # The change notes say what each version did, an import it once wrote among it.
+        if path.endswith(BINARY) or path == "CHANGES.md":
+            continue
+        if path.endswith(".py"):
+            assert not export_clean.example_database_imports(
+                path, (clean / path).read_text(encoding="utf-8")), path
+            continue
+        text = (clean / path).read_text(encoding="utf-8")
+        assert not re.search(r"\bimport example_database\b|\bfrom example_database\b", text), (
+            path)
+
+
+def test_main_docs_holds_each_page_as_dev_wrote_it(clean: Path) -> None:
+    for page in PAGES:
+        assert ((clean / "docs" / page).read_text(encoding="utf-8")
+                == (ROOT / "docs" / "main" / page).read_text(encoding="utf-8")), page
+
+
+def page_links(page: Path) -> list[str]:
+    """Each link a page holds, to another file or a place on one, a page's href or a README's
+    Markdown target: none to a place on the page itself."""
+    text = page.read_text(encoding="utf-8")
+    found = re.findall(r'href="([^"#][^"]*)"', text) + re.findall(r"\]\(([^)#\s][^)\s]*)\)",
+                                                                     text)
+    return [html.unescape(target) for target in found if "://" not in target]
+
+
+def test_every_page_in_docs_is_reachable_from_the_readme(clean: Path) -> None:
+    """Following links from the README, page to page, reaches every page main's docs/ holds,
+    and each link lands on a file main holds, at a place that page has."""
+    readme_path = clean / ".github" / "README.md"
+    reached, waiting = set(), [readme_path]
+    while waiting:
+        page = waiting.pop()
+        for target in page_links(page):
+            file, _, place = target.partition("#")
+            landed = (page.parent / file).resolve()
+            assert landed.is_file(), f"{page.relative_to(clean)} links {target}"
+            if place:
+                assert f'id="{html.escape(place)}"' in landed.read_text(encoding="utf-8"), (
+                    f"{page.relative_to(clean)} links {target}")
+            if landed.suffix == ".html" and landed not in reached:
+                reached.add(landed)
+                waiting.append(landed)
+    shipped = {(clean / path).resolve() for path in export_clean.files_in(clean)
+               if path.startswith("docs/")}
+    assert shipped - reached == set()
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:
@@ -302,12 +373,11 @@ def test_the_export_refuses_while_a_drift_item_is_open(repo: Path) -> None:
 
 
 def dev_copy(folder: Path) -> Path:
-    """A copy of what the build reads from `dev`, the Toolbox's folder and every folder main
-    holds a copy of, to spoil on purpose."""
-    for name in [*FOLDERS, *COPIED]:
+    """A copy of what the build reads from `dev`, the Toolbox's folder, every folder main
+    holds a copy of, the pages and the Example projects, to spoil on purpose."""
+    for name in [*FOLDERS, *COPIED, "docs/main", "example_projects"]:
         shutil.copytree(ROOT / name, folder / name,
                         ignore=shutil.ignore_patterns("__pycache__"))
-    (folder / "docs").mkdir()
     shutil.copy(ROOT / export_clean.README_TEMPLATE, folder / export_clean.README_TEMPLATE)
     for name in export_clean.ROOT_FILES:
         shutil.copy(ROOT / name, folder / name)
@@ -378,15 +448,20 @@ def section_of(text: str, heading: str) -> str:
 
 def test_every_path_the_readme_names_is_on_main(clean: Path) -> None:
     """Each path the README names in backticks or as a link: from main's top folder, or, for
-    a name inside a folder it has just named, such as `run_pipeline.py`, somewhere on main."""
+    a name inside a folder it has just named, such as `run_pipeline.py`, somewhere on main,
+    or, for a file of an Example project, such as `building_blocks/runs_per_job.py`, on the
+    Example projects page, which shows each by its path (Toolbox 8.7, ticket 13)."""
     held = export_clean.files_in(clean)
-    folders = {f"{folder}/" for path in held for folder in
+    shown = re.findall(r'<h3 id="\w+/([^"]+)">',
+                       (clean / "docs" / "example_projects.html").read_text(encoding="utf-8"))
+    on_main = [*held, *shown]
+    folders = {f"{folder}/" for path in on_main for folder in
                ("/".join(path.split("/")[:end]) for end in range(1, path.count("/") + 1))}
     # The README is .github/README.md: a path going up one folder starts at main's top.
     missing = [path for path in (named.split("#")[0].removeprefix("../")
                                  for named in named_paths(readme(clean)))
                if not (clean / path).exists()
-               and not any(f"/{one}".endswith(f"/{path}") for one in [*held, *folders])]
+               and not any(f"/{one}".endswith(f"/{path}") for one in [*on_main, *folders])]
     assert not missing
 
 
@@ -401,7 +476,7 @@ def how_to_groups() -> dict[str, list[tuple[int, str]]]:
 
 def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) -> None:
     section = section_of(readme(clean), "The how-tos")
-    numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./sqlglot_composer/how_to\.html#(\w+)\)$",
+    numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./docs/how_to\.html#(\w+)\)$",
                           section, re.MULTILINE)
     groups = how_to_groups()
     assert [(int(number), slug) for number, _, slug in numbered] == [
@@ -454,7 +529,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "CHANGES.md", "LICENSE", "copilot", "example_projects", "requirements.txt",
+        ".github", "CHANGES.md", "LICENSE", "copilot", "docs", "requirements.txt",
         "sqlglot_composer"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
@@ -463,7 +538,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(
 # --- The Toolbox's folder and the copies ------------------------------------------------------
 
 
-def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
+def test_the_copies_are_stamped_to_copy(clean: Path) -> None:
     """With the version alone, so an export changes them only when the version changes."""
     stamp = f"sqlglot Composer {VERSION} - copy it, then edit your copy"
     for folder in COPIED:
@@ -485,12 +560,6 @@ def test_below_the_stamp_each_copy_is_devs_own(clean: Path) -> None:
             if not relative.endswith(UNSTAMPED):
                 exported = exported.split("\n", 1)[1]
             assert exported == (ROOT / folder / relative).read_text(encoding="utf-8"), relative
-
-
-def test_each_example_projects_readme_says_to_copy_the_toolbox_in(clean: Path) -> None:
-    for project in (clean / "example_projects").iterdir():
-        readme_text = (project / "README.md").read_text(encoding="utf-8")
-        assert "Copy the `sqlglot_composer` folder into this folder first" in readme_text
 
 
 def _range_of(folder: str) -> dict[str, str]:
@@ -543,11 +612,32 @@ def test_a_commit_without_the_toolbox_is_refused(tmp_path: Path,
         export_clean.export(repo, WHEN)
 
 
-def test_a_commit_without_the_example_projects_is_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize("folder", ["example_projects", "docs/main"])
+def test_a_commit_without_the_pages_or_the_example_projects_is_refused(
+        tmp_path: Path, folder: str) -> None:
     source = dev_copy(tmp_path / "dev")
-    shutil.rmtree(source / "example_projects")
+    shutil.rmtree(source / folder)
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "this commit doesn't have example_projects. Commit it on dev.")):
+            f"this commit doesn't have {folder}. Commit it on dev.")):
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
+
+
+def test_a_page_the_registry_doesnt_list_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    (source / "docs" / "main" / "notes.html").write_text("<p>x</p>\n", encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "docs/main/ holds notes.html, but tools/toolbox_registry.py's PAGES doesn't list "
+            "it.")):
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
+
+
+def test_a_page_that_imports_the_example_database_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "docs" / "main" / "how_to.html", "<!doctype html>",
+          "<!doctype html>\n<pre>import example_database</pre>")
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "The Clean tree imports the Example database, which main doesn't hold, at "
+            "docs/how_to.html:2.")):
         export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
@@ -586,56 +676,40 @@ def test_a_folder_that_imports_only_beside_something_else_is_refused(tmp_path: P
         "ModuleNotFoundError: No module named 'beside'")
 
 
-def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> None:
-    source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "intermediate" / "references" / "mart__team_days.py",
-          'key=["team", "dt"],', 'key=["team", "day"],')
-    with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
-    assert str(refused.value).startswith(
-        "example_projects/intermediate's run_tables doesn't run its dry run "
-        "on main, so nothing was exported:\nValueError: ")
-
-
-def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
-    source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job.py",
-          "\nfrom sqlglot_composer import", 'import pathlib\n'
-          'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
-    with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "example_projects/starter's run_tables's dry run left files "
-            "in the Clean tree: ['example_projects/starter/admin/left_behind.txt']")):
-        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
-
-
 NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network, but the "
-                   "Toolbox, its Example projects, its Templates and its Copilot files reach "
+                   "Toolbox, its Templates, its pages and its Copilot files reach "
                    "nothing but the user's query and execute. tools/offline_policy.py found, "
                    "as main would "
                    "hold it, line 1 being the export's stamp where the file has one:\n")
 
 
-def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
+def test_a_copilot_script_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "warehouse.py",
-          '"""warehouse - ', 'import requests\n"""warehouse - ')
+    spoil(source / "copilot" / "count_characters.py",
+          '"""Count the characters', 'import requests\n"""Count the characters')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
-        NETWORK_REFUSAL
-        + "  example_projects/starter/warehouse.py:2 network: import requests\n")
+        NETWORK_REFUSAL + "  copilot/count_characters.py:2 network: import requests\n")
 
 
-def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("on_dev", "on_main"), [
+    ("docs/main/how_to.html", "docs/how_to.html"),
+    ("example_projects/starter/tables/mart__team_day/lineage/"
+     "20260925-060000-mart__team_day.html",
+     "docs/example_projects/starter/tables/mart__team_day/lineage/"
+     "20260925-060000-mart__team_day.html"),
+])
+def test_a_page_that_loads_a_script_from_the_internet_is_refused(
+        tmp_path: Path, on_dev: str, on_main: str) -> None:
     source = dev_copy(tmp_path / "dev")
-    page = "tables/mart__team_day/lineage/20260925-060000-mart__team_day.html"
-    spoil(source / "example_projects" / "starter" / page,
+    spoil(source / on_dev,
           "<!doctype html>", '<!doctype html><script src="https://example.com/x.js"></script>')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
-    assert str(refused.value).startswith(
-        NETWORK_REFUSAL + f"  example_projects/starter/{page}:2 page reference: ")
+    # Line 1: a page ships unstamped.
+    assert str(refused.value).startswith(NETWORK_REFUSAL + f"  {on_main}:1 page reference: ")
     assert '<script src="https://example.com/x.js">' in str(refused.value)
 
 
@@ -648,21 +722,6 @@ def test_a_readme_that_embeds_a_picture_from_the_internet_is_refused(tmp_path: P
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
         + '  .github/README.md:3 page reference: <img src="https://example.com/x.png">\n')
-
-
-def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
-        tmp_path: Path) -> None:
-    source = dev_copy(tmp_path / "dev")
-    # Run, it would leave a file behind, which the dry run's own check refuses: read first, the
-    # socket stops it before anything runs.
-    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job.py",
-          "\nfrom sqlglot_composer import", 'import pathlib\nimport socket\n'
-          'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
-    with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
-    assert str(refused.value).startswith(NETWORK_REFUSAL)
-    assert "example_projects/starter/building_blocks/runs_per_job.py:" in str(refused.value)
-    assert not list((tmp_path / "clean").rglob("left_behind.txt"))
 
 
 def test_the_allowlist_takes_only_the_exported_folders() -> None:

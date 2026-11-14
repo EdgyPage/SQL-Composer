@@ -44,7 +44,6 @@ KNOWN_DEAD: set[tuple[str, str]] = set()
 # so does one listed here that no file reaches any more.
 PRIVATE_SEAMS = {
     # Tests and tools reach these on purpose.
-    ("checks", "_PAGES"): "the self-check's pages, which its test names",
     ("engine", "_LOWEST"): "sqlglot's range, which the version test holds the pin inside",
     ("engine", "_BELOW"): "sqlglot's range, which the version test holds the pin inside, and "
                           "dev's Example database's executor names in its fix",

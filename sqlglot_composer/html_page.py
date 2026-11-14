@@ -7,8 +7,9 @@ keeps.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: export_lineage
 and project.export_run_lineage build their page with lineage.py, and
-project.export_project_lineage with project_lineage.py, each from here. The Workflows overview,
-workflows.html, beside this file, is built from here too, by a tool on dev (ticket 07).
+project.export_project_lineage with project_lineage.py, each from here. The Workflows overview
+and the Example projects page, in the download's docs folder, are built from here too, by tools
+on dev (tickets 07 and 13).
 
 A page is `page(title, body, css, script)`: the head, the tokens, the base CSS and each kind's
 CSS come from here; `css` and `script` are the page's own pieces after them, its own and those

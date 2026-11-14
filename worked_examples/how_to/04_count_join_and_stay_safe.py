@@ -38,8 +38,7 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
@@ -152,8 +151,8 @@ Done when references/ holds the three files, filled in as above. Then step 2.
 ### 2. Add the two tables this how-to also reads
 
 Goal: Table references for the two tables the safety steps read. Two more of the Example
-database's tables, the made-up tables that ship inside the Toolbox, show how the Toolbox keeps
-a Statement safe:
+database's tables, made-up tables the Toolbox's makers keep, shown under this how-to's title,
+show how the Toolbox keeps a Statement safe:
 ops.region_budgets, each job's budget for a day, in the region it is billed in, partitioned by
 that region; and ops.team_notes, the notes each team wrote about its jobs, not partitioned at
 all. Add their Table references, before any notebook imports references:
@@ -279,10 +278,10 @@ Done when the result is one row: 9 runs, 180 minutes. Then step 5.
 
 ### 5. Make one row per job
 
-Goal: the numbers of each job. `GROUP_BY(job_runs.job_id)` makes one group per job. `SELECT` then holds the columns you group
-by, and calculations over each group, such as `min_of` and `max_of`. `count_rows` takes
-`where=`, a Condition, to count only the rows where it holds while the group keeps every row:
-here the Alias `failed`:
+Goal: the numbers of each job. `GROUP_BY(job_runs.job_id)` makes one group per job. `SELECT`
+then holds the columns you group by, and calculations over each group, such as `min_of` and
+`max_of`. `count_rows` takes `where=`, a Condition, to count only the rows where it holds while
+the group keeps every row: here the Alias `failed`:
 
 >>> per_job = statement(  # -> Statement
 ...     SELECT(
@@ -402,10 +401,11 @@ Done when the teams' runs add up to 9 and their minutes to 180. Then step 9.
 ### 9. Read the repeated-rows Warning
 
 Goal: see a join that repeats rows, and the Warning that says so. A Warning lets a Statement
-through, but says why a number may come out wrong. Now the runs' alerts. `run_alerts.run_id` isn't the Key of ops.run_alerts: a run with two
-alerts matches two rows, so the run comes out twice, and its minutes are added twice. The
-Toolbox builds the Statement, since sometimes one row per match is what you want, but warns at
-the JOIN. `run_alerts` is partitioned too, so it gets its own filter on `run_alerts.dt`:
+through, but says why a number may come out wrong. Now the runs' alerts. `run_alerts.run_id`
+isn't the Key of ops.run_alerts: a run with two alerts matches two rows, so the run comes out
+twice, and its minutes are added twice. The Toolbox builds the Statement, since sometimes one
+row per match is what you want, but warns at the JOIN. `run_alerts` is partitioned too, so it
+gets its own filter on `run_alerts.dt`:
 
 >>> careless_total = statement(  # -> Statement
 ...     SELECT(AS(sum_of(minutes), "minutes"), AS(count_rows(), "alerts")),

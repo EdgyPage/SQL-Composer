@@ -391,7 +391,7 @@ def _refuse_hive_it_cant_run(reason: str,
         "warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but "
         "the Example database's small executor doesn't.",
         fix=f"Check the names: the tables are {listed}, and all_columns(...) of one, such as "
-        "all_columns(example_database.jobs), lists its columns, as the table alone on a "
+        "all_columns(ops.jobs), lists its columns, as the table alone on a "
         "cell's last line does. If they're right, see the Hive with "
         "to_hive(...), and run it at work with your own query.",
         opt_out=None,

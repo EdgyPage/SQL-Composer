@@ -54,8 +54,7 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/, scheduled_runs/ and warehouse.py.
 Next: at the top of each notebook, fill in connect(...) with your connection.
 >>> from warehouse import connect, query, execute
->>> import example_database
->>> connect(example_database)
+>>> connect(conn)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
@@ -244,13 +243,13 @@ Done when it says it wrote 20 rows, 5 tables. Then step 7.
 
 ### 7. Read the Reference sheet
 
-Goal: find a column, and the tables that have it. The sheet has a row per column of each
-table: the table and the column, its Hive type, "yes" under
-partition and in_key for each partition column and each column of the Key, the columns whose
-values name one row, its Aliases, the names you give a column or a condition in a Table
-reference (a condition shown as "failed (a condition)"), its description, and exported_at,
-when the sheet was written. Read it in a spreadsheet, or in pandas. Python's `csv` module keeps an empty cell
-as empty text, `""`, so `sheet.aliases != ""` picks the filled ones:
+Goal: find a column, and the tables that have it. The sheet has a row per column of each table:
+the table and the column, its Hive type, "yes" under partition and in_key for each partition
+column and each column of the Key, the columns whose values name one row, its Aliases, the names
+you give a column or a condition in a Table reference (a condition shown as "failed (a
+condition)"), its description, and exported_at, when the sheet was written. Read it in a
+spreadsheet, or in pandas. Python's `csv` module keeps an empty cell as empty text, `""`, so
+`sheet.aliases != ""` picks the filled ones:
 
 >>> with open("references/reference_sheet.csv", encoding="utf-8", newline="") as file:
 ...     sheet = pd.DataFrame(csv.DictReader(file))  # -> DataFrame
