@@ -127,7 +127,8 @@ def check_run(run: Run) -> None:
 def check_maintainer_run(run: Run) -> None:
     """Refuse a maintainer row whose role or task isn't one of the agents' or whose result
     doesn't start with "clean" or "opened"."""
-    if run.pipeline != "maintainer" or run.role != "maintainer" or run.task not in MAINTAINER_AGENTS:
+    if (run.pipeline != "maintainer" or run.role != "maintainer"
+            or run.task not in MAINTAINER_AGENTS):
         raise SystemExit(f"A maintainer run has the pipeline and role maintainer and, as its "
                          f"task, one of {', '.join(MAINTAINER_AGENTS)}, not "
                          f"{run.pipeline!r}, {run.role!r} and {run.task!r}.")

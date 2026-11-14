@@ -8,6 +8,16 @@ map's Notes, "The loop"). `docs/usability-loop.md` says how a round is run.
     python tools/usability_loop.py answer 2026-11-01-W1-1 1 07_convert_hive.txt \
         --attach my_work/book.xlsx
     python tools/usability_loop.py score W1 2026-11-01-W1-1 --record "<a note>"
+    python tools/usability_loop.py usage 2026-11-01-W1-1 phase-1 --tokens 51000 --seconds 90 \
+        --result done
+    python tools/usability_loop.py migrate
+
+The loop is a script over `tools/eval_runs.py` (evaluation system, ticket 05): `prepare` prints
+one line for each phase's agent to spawn, and `route` and `answer` one for each Copilot proxy,
+each `<agent type> | <model> | <prompt>`; the session spawns them, and `usage` records each
+agent's reported tokens and seconds in the ledger. Every record is kept under `.eval-local/`,
+which is not committed: the memo, the ledger, each scored run (`usability/runs/`, its phase
+replies and its questions the transcript) and `usability/results.md`.
 
 A scenario is a folder in `tools/usability_scenarios/`: `scenario.json` (its id, split, title,
 the Hive its team's warehouse ran already, the files the user is given, any Project they
@@ -39,8 +49,8 @@ too (the doc says how to make it). It holds what the user has:
   run was given.
 
 Scored with `--record`, a run's folder, but for `main/` and any copy of the Toolbox's
-folder, is copied into `.scratch/usability-loop/runs/`, and a row added to
-`.scratch/usability-loop/results.md`, naming its inputs.
+folder, is copied into `.eval-local/usability/runs/`, a row added to
+`.eval-local/usability/results.md`, naming its inputs, and the run kept in the memo.
 
 The inputs, recorded and memoized (Toolbox 8.6, ticket 11). `inputs.json` holds the
 scenario, dev's commit, and a hash of each thing an agent is given, each file's export stamp
@@ -60,9 +70,15 @@ scenario it starts from, then copied into each run; building a new commit's tree
 other commits' caches. Each is built into a folder of its own and renamed into place, and a
 prepare holds the cache's lock, `cache/prepare.lock`, while it builds, drops or copies, so
 prepares may run at once: one waits for another's lock, then refuses, naming it.
-`plan` says of each scenario whether it is memoized: as many runs as a round gives it (three
-for a dev scenario, one held out) passed with its inputs, and none failed. `prepare` refuses a
-memoized scenario, naming its runs, unless given `--fresh`.
+
+The memo is `eval_runs`' (`.eval-local/memo/`). A run is kept under the key of its slot, the
+run's number in its round: the scenario and the number, `W1-2`; the arm `run`; the model
+`haiku`; the hash of the scenario's text; and, as the text it loads, its `inputs_hash`. `plan`
+says of each scenario whether it is memoized: as many slots as a round gives it (three for a
+dev scenario, one held out) hold a run that passed with its inputs, and none holds one that
+failed. It estimates the round's tokens from the ledger's past phase agents, and refuses a
+round over the usability budget unless given `--over-budget`. `prepare` refuses a memoized
+scenario, or a slot holding a run that passed, naming its runs, unless given `--fresh`.
 """
 
 from __future__ import annotations
@@ -90,6 +106,7 @@ TOOLS = ROOT / "tools"
 EXAMPLE_DATABASE = ROOT / "example_database"
 sys.path[:0] = [str(ROOT)]
 
+import eval_runs  # noqa: E402
 import export_clean  # noqa: E402
 import openpyxl  # noqa: E402
 from formula_workbook import row_label  # noqa: E402
@@ -99,8 +116,17 @@ from sqlglot_composer import notebooks, workflows  # noqa: E402
 from sqlglot_composer.shared import counted, in_words  # noqa: E402
 
 SCENARIOS = TOOLS / "usability_scenarios"
-KEPT = ROOT / ".scratch" / "usability-loop"
-RESULTS = KEPT / "results.md"
+# Where the records are kept: the evaluation system's local folder. A test gives another.
+LOCAL = eval_runs.LOCAL
+# The agents the loop has the session spawn, and the model each runs on.
+USER_AGENT = "zero-context-user"
+PROXY_AGENT = "copilot-proxy"
+MODEL = "haiku"
+# The arm a kept run has in the memo, and the arms of a phase agent's and of a routed
+# question's ledger rows.
+MEMO_ARM = "run"
+PHASE_ARM = "phase"
+QUESTION_ARM = "question"
 # Where runs are made, and the Python their agents run: outside the repo, so nothing of dev's
 # is near them.
 OUTSIDE = Path(tempfile.gettempdir()) / "usability-loop"
@@ -248,8 +274,8 @@ def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
     `cache`, built into it once per commit, or copied from `main`), the scenario's files, the
     team's connection to a warehouse that has run the scenario's Hive, any Project the user
     starts from, and the notebook runner; then each phase's message, and what the run was
-    given, `_loop/inputs.json`. A memoized scenario is refused unless `fresh`. With no
-    `cache`, each is made afresh, in a temporary folder."""
+    given, `_loop/inputs.json`. A memoized scenario, or a run whose slot passed, is refused
+    unless `fresh`. With no `cache`, each is made afresh, in a temporary folder."""
     if run.exists() and any(run.iterdir()):
         raise ValueError(f"{run} isn't empty: prepare each run in a folder of its own")
     if not python.is_file():
@@ -260,10 +286,8 @@ def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
         with hold_the_cache(cache_folder):
             given = the_inputs(chosen, cache_folder, main)
             inputs_hash = given.inputs["inputs_hash"]
-            recorded = read_recorded_runs(RESULTS)
-            if not fresh and is_memoized(chosen, inputs_hash, recorded):
-                raise ValueError(f"{plan_text(chosen, inputs_hash, recorded)}. They show the "
-                                 "docs were enough: prepare it with --fresh to run it again.")
+            if not fresh:
+                refuse_a_kept_run(chosen, run.name, inputs_hash)
             make_the_run(chosen, run, given.main_tree, given.set_up, python)
     (run / "_loop" / "inputs.json").write_text(json.dumps(given.inputs, indent=1) + "\n",
                                                encoding="utf-8")
@@ -755,6 +779,21 @@ class RecordedRun:
 ROW_INPUTS = re.compile(rf"\binputs ([0-9a-f]{{{SHORT_HASH}}})\b")
 
 
+def results_file() -> Path:
+    """The results.md that holds a row for each scored run."""
+    return LOCAL / "usability" / "results.md"
+
+
+def kept_runs_folder() -> Path:
+    """The folder each scored run is kept in, by its name."""
+    return LOCAL / "usability" / "runs"
+
+
+def memo_folder() -> Path:
+    """The eval_runs memo's folder, where each run is kept under the key of its slot."""
+    return LOCAL / "memo"
+
+
 def read_recorded_runs(results: Path) -> list[RecordedRun]:
     """Each run results.md records, in its order; none when there is no results.md."""
     if not results.is_file():
@@ -770,40 +809,138 @@ def read_recorded_runs(results: Path) -> list[RecordedRun]:
     return recorded
 
 
-def runs_with_inputs(chosen: Scenario, inputs_hash: str,
-                     recorded: list[RecordedRun]) -> list[RecordedRun]:
-    """Each recorded run of the scenario given the inputs `inputs_hash`."""
-    return [each for each in recorded
-            if each.scenario == chosen.id and each.inputs == inputs_hash[:SHORT_HASH]]
+# --- The memo, through eval_runs --------------------------------------------------------------
 
 
-def is_memoized(chosen: Scenario, inputs_hash: str, recorded: list[RecordedRun]) -> bool:
+def slots_of(chosen: Scenario) -> list[str]:
+    """The slots a round gives a scenario, one per run: the scenario and a number, W1-2."""
+    return [f"{chosen.id}-{number}" for number in range(1, ROUND_RUNS[chosen.split] + 1)]
+
+
+def slot_of(chosen: Scenario, run_name: str) -> str | None:
+    """The slot a run fills, by the number its name ends in, such as 2026-11-01-W1-2 for W1-2;
+    None for a name that ends in none."""
+    found = re.fullmatch(rf"(?:.*-)?{re.escape(chosen.id)}-(\d+)", run_name)
+    return f"{chosen.id}-{found[1]}" if found else None
+
+
+def require_slot(chosen: Scenario, run_name: str) -> str:
+    """The slot a run fills, as `slot_of` says it; a name that ends in none is refused."""
+    slot = slot_of(chosen, run_name)
+    if slot is None:
+        raise ValueError(f"The run {run_name!r} doesn't end in {chosen.id}- and its number, "
+                         f"such as 2026-11-01-{chosen.id}-1: name each run so, so it fills a "
+                         "slot of its round.")
+    return slot
+
+
+def task_text(chosen: Scenario) -> str:
+    """What a scenario's runs are asked: its id, split and title, and each phase's job."""
+    return "\n".join([chosen.id, chosen.split, chosen.title,
+                      *(f"{phase.role}: {phase.job}" for phase in chosen.phases)])
+
+
+def key_of_slot(chosen: Scenario, inputs_hash: str) -> Callable[[str, str], eval_runs.Key]:
+    """The memo key of a slot of the scenario given the inputs `inputs_hash`: what the
+    scenario's agents read is the text it loads."""
+    def key_of(slot: str, reply: str) -> eval_runs.Key:
+        return eval_runs.hashed_key(slot, task_text(chosen), MEMO_ARM, MODEL, inputs_hash)
+    return key_of
+
+
+def keep_run(chosen: Scenario, inputs_hash: str, run_name: str, passed: bool,
+             report: str) -> Path:
+    """Keep a scored run in the memo, under the key of its slot and its inputs, in place of
+    the run kept there before: its score is `pass` or `fail`, its reply the run's name, then
+    `report`."""
+    key = key_of_slot(chosen, inputs_hash)(require_slot(chosen, run_name), "")
+    kept = eval_runs.Kept(key, datetime.date.today().isoformat(), "pass" if passed else "fail",
+                          f"run: {run_name}\n{report}")
+    return eval_runs.write_kept(kept, memo_folder())
+
+
+def kept_run_name(kept: eval_runs.Kept) -> str:
+    """The name of the run a kept reply is."""
+    return kept.reply.splitlines()[0].removeprefix("run: ")
+
+
+@dataclass
+class SlotPlan:
+    """What a round does with one slot of a scenario: whether it asks it, and why, or the run
+    kept in it. A kept run that failed is asked again."""
+
+    slot: str
+    asked: bool
+    why: str
+    kept: eval_runs.Kept | None
+
+
+def slot_plan(chosen: Scenario, inputs_hash: str, fresh: bool = False) -> list[SlotPlan]:
+    """Each slot of the scenario's round: asked when no run is kept in it with these inputs,
+    when the one kept failed, or with `fresh`; else its kept run, which passed."""
+    plans = []
+    for one in eval_runs.memo_plan(slots_of(chosen), key_of_slot(chosen, inputs_hash), fresh,
+                                   memo_folder()):
+        if one.kept is not None and one.kept.score != "pass":
+            plans.append(SlotPlan(one.task, True,
+                                  f"{kept_run_name(one.kept)} failed with these inputs",
+                                  one.kept))
+        else:
+            plans.append(SlotPlan(one.task, one.kept is None, one.reason, one.kept))
+    return plans
+
+
+def is_memoized(chosen: Scenario, inputs_hash: str) -> bool:
     """Whether as many runs as a round gives the scenario passed with these inputs, and none
     failed: so running it again would show nothing new."""
-    same = runs_with_inputs(chosen, inputs_hash, recorded)
-    passed = [each for each in same if each.passed]
-    return len(passed) == len(same) and len(passed) >= ROUND_RUNS[chosen.split]
+    return not any(one.asked for one in slot_plan(chosen, inputs_hash))
 
 
-def plan_text(chosen: Scenario, inputs_hash: str, recorded: list[RecordedRun]) -> str:
+def plan_text(chosen: Scenario, inputs_hash: str, fresh: bool = False) -> str:
     """One line saying whether the scenario is memoized, or why to run it, naming the runs
-    recorded with these inputs."""
-    same = runs_with_inputs(chosen, inputs_hash, recorded)
+    kept with these inputs."""
     short = inputs_hash[:SHORT_HASH]
-    passed = [each.run for each in same if each.passed]
-    failed = [each.run for each in same if not each.passed]
+    if fresh:
+        return f"{chosen.id}: run it: --fresh asks every run again, inputs {short}"
+    plans = slot_plan(chosen, inputs_hash)
+    kept = [one.kept for one in plans if one.kept is not None]
+    passed = [kept_run_name(each) for each in kept if each.score == "pass"]
+    failed = [kept_run_name(each) for each in kept if each.score != "pass"]
     if failed:
         return f"{chosen.id}: run it: {in_words(failed)} failed with these inputs, {short}"
     if not passed:
         return f"{chosen.id}: run it: no run recorded with these inputs, {short}"
     runs = f"with these inputs, {short}: {in_words(passed)}"
-    wanted = ROUND_RUNS[chosen.split]
-    if is_memoized(chosen, inputs_hash, recorded):
+    if is_memoized(chosen, inputs_hash):
         return f"{chosen.id}: memoized: {counted(len(passed), 'run')} passed {runs}"
-    return f"{chosen.id}: run it: {len(passed)} of {counted(wanted, 'run')} passed {runs}"
+    return (f"{chosen.id}: run it: {len(passed)} of {counted(len(plans), 'run')} passed "
+            f"{runs}")
 
 
-def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) -> str:
+def refuse_a_kept_run(chosen: Scenario, run_name: str, inputs_hash: str) -> None:
+    """Refuse a scenario that is memoized, or a run whose slot holds a run that passed with
+    these inputs, naming the runs: they show the docs were enough."""
+    if is_memoized(chosen, inputs_hash):
+        raise ValueError(f"{plan_text(chosen, inputs_hash)}. They show the docs were enough: "
+                         "prepare it with --fresh to run it again.")
+    slot = slot_of(chosen, run_name)
+    for one in slot_plan(chosen, inputs_hash):
+        if one.slot == slot and one.kept is not None and not one.asked:
+            raise ValueError(f"{slot} passed with these inputs, {inputs_hash[:SHORT_HASH]}, "
+                             f"in {kept_run_name(one.kept)}: it shows the docs were enough: "
+                             "prepare it with --fresh to run it again.")
+
+
+@dataclass
+class ScenarioPlan:
+    """A scenario's line of the plan, and its slots."""
+
+    text: str
+    slots: list[SlotPlan]
+
+
+def plan_scenario(chosen: Scenario, cache: Path | None = None, main: Path | None = None,
+                  fresh: bool = False) -> ScenarioPlan:
     """Whether the scenario is memoized, as `plan_text` says it, its inputs worked out as
     `prepare` works them out, with main's tree and its set-up from `cache`; and, when no run
     was recorded with them, what changed since its last run, as `changes_text` says it."""
@@ -811,20 +948,51 @@ def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) 
         cache_folder = cache or Path(temporary)
         with hold_the_cache(cache_folder):
             inputs = the_inputs(chosen, cache_folder, main).inputs
-    recorded = read_recorded_runs(RESULTS)
-    plan_line = plan_text(chosen, inputs["inputs_hash"], recorded)
-    if runs_with_inputs(chosen, inputs["inputs_hash"], recorded):
-        return plan_line
-    return plan_line + changes_text(chosen, inputs, recorded)
+    inputs_hash = str(inputs["inputs_hash"])
+    plan_line = plan_text(chosen, inputs_hash, fresh)
+    held = slot_plan(chosen, inputs_hash)
+    slots = slot_plan(chosen, inputs_hash, fresh=True) if fresh else held
+    if any(one.kept is not None for one in held):
+        return ScenarioPlan(plan_line, slots)
+    return ScenarioPlan(plan_line + changes_text(chosen, inputs), slots)
 
 
-def changes_text(chosen: Scenario, inputs: dict[str, object],
-                 recorded: list[RecordedRun]) -> str:
+def plan(chosen: Scenario, cache: Path | None = None, main: Path | None = None) -> str:
+    """The scenario's line of the plan, as `plan_scenario` makes it."""
+    return plan_scenario(chosen, cache, main).text
+
+
+def estimate_line(slots: list[list[SlotPlan]], scenarios: list[Scenario],
+                  over_budget: bool, budget: dict[str, float] = eval_runs.BUDGET) -> str:
+    """The round's last line: the tokens its phase agents are estimated to use, the mean of the
+    ledger's past phase agents for each (routed questions are extra), and the usability
+    budget; refused when over it unless `over_budget`."""
+    agents = 0
+    for each, chosen in zip(slots, scenarios):
+        agents += sum(one.asked for one in each) * len(chosen.phases)
+    tokens = eval_runs.estimated_tokens(eval_runs.read_ledger(LOCAL), "usability", PHASE_ARM,
+                                        MODEL, agents)
+    eval_runs.check_budget("usability", tokens, over_budget, budget)
+    limit = budget["usability"]
+    if limit == math.inf:
+        budget_text = "budget: no limit"
+    elif tokens is not None and tokens > limit:
+        budget_text = f"over budget: {limit:.0f} tokens"
+    else:
+        budget_text = f"budget: {limit:.0f} tokens"
+    if tokens is None:
+        return (f"No estimate for {counted(agents, 'phase agent')}: the ledger has no past "
+                f"usability phase agent; {budget_text}.")
+    return (f"Round estimated {tokens:.0f} tokens for {counted(agents, 'phase agent')} from "
+            f"past ledger rows, routed questions extra ({budget_text}).")
+
+
+def changes_text(chosen: Scenario, inputs: dict[str, object]) -> str:
     """What changed in the scenario's inputs since its last recorded run, from the inputs.json
     kept with it, such as `; changed since its last run, W1-3: the Toolbox folder`; or "" when
     none of its runs is kept with its inputs."""
-    for each in reversed(recorded):
-        kept_inputs = KEPT / "runs" / each.run / "_loop" / "inputs.json"
+    for each in reversed(read_recorded_runs(results_file())):
+        kept_inputs = kept_runs_folder() / each.run / "_loop" / "inputs.json"
         if each.scenario != chosen.id or not kept_inputs.is_file():
             continue
         inputs_then = json.loads(kept_inputs.read_text(encoding="utf-8"))
@@ -837,6 +1005,69 @@ def changes_text(chosen: Scenario, inputs: dict[str, object],
         changed += [f"{part}, no longer there" for part in parts_then if part not in parts_now]
         return f"; changed since its last run, {each.run}: {in_words(changed)}"
     return ""
+
+
+def migrate_results() -> int:
+    """Keep in the memo each run `results.md` records, from the inputs hash in the inputs.json
+    kept with it, so a scenario scored before the memo isn't run again. A run whose folder or
+    scenario is gone, or whose name ends in no number, is passed over. Returns how many runs
+    were kept."""
+    runs_kept = 0
+    for each in read_recorded_runs(results_file()):
+        inputs = kept_runs_folder() / each.run / "_loop" / "inputs.json"
+        if not inputs.is_file() or not (SCENARIOS / each.scenario).is_dir():
+            continue
+        chosen = read_scenario(each.scenario, SCENARIOS)
+        if slot_of(chosen, each.run) is None:
+            continue
+        inputs_hash = json.loads(inputs.read_text(encoding="utf-8"))["inputs_hash"]
+        keep_run(chosen, inputs_hash, each.run, each.passed, "from results.md")
+        runs_kept += 1
+    return runs_kept
+
+
+# --- The agents to spawn, and their usage in the ledger ---------------------------------------
+
+
+def spawn_line(agent: str, model: str, prompt: str) -> str:
+    """One agent for the session to spawn, as one line: its type, its model and its prompt."""
+    return f"{agent} | {model} | {prompt}"
+
+
+def phase_spawn_lines(chosen: Scenario, run: Path) -> list[str]:
+    """The agent of each phase of a run, in order: each starts fresh, after the one before it
+    is done."""
+    return [spawn_line(USER_AGENT, MODEL,
+                       f"Read {run / '_loop' / f'phase_{number}.md'} and follow it.")
+            for number in range(1, len(chosen.phases) + 1)]
+
+
+def proxy_spawn_line(message: Path, reply: Path) -> str:
+    """The Copilot proxy to spawn for a message, and the file it answers in."""
+    return spawn_line(PROXY_AGENT, MODEL,
+                      f"Message file: {message} Answers file: {reply} No header lines.")
+
+
+# What an agent's usage is recorded for: a phase's agent, or the proxy of a question's route or
+# answer, by its number.
+USAGE_OF = re.compile(r"(phase|route|answer)-([1-9]\d*)")
+
+
+def record_usage(run_name: str, what: str, *, tokens: str, seconds: str, result: str,
+                 round_id: str, commit: str) -> Path:
+    """Add an agent's reported usage to the ledger: `what` is `phase-<n>`, `route-<n>` or
+    `answer-<n>`, the agent of that phase or the proxy of that question's route or answer."""
+    found = USAGE_OF.fullmatch(what)
+    if found is None:
+        raise SystemExit(f"{what!r} isn't an agent of the loop: say phase-1 for a phase's "
+                         "agent, or route-1 or answer-1 for a question's proxy.")
+    is_phase = found[1] == "phase"
+    run = eval_runs.Run(date=datetime.date.today().isoformat(), commit=commit, round=round_id,
+                        pipeline="usability", task=f"{run_name}/{what}",
+                        arm=PHASE_ARM if is_phase else QUESTION_ARM, model=MODEL,
+                        role="user" if is_phase else "proxy", tokens=tokens, seconds=seconds,
+                        result=result)
+    return eval_runs.record_run(run, LOCAL)
 
 
 # --- Questions to Copilot -------------------------------------------------------------------
@@ -1119,73 +1350,150 @@ def report_text(result: RunScore, run: Path) -> str:
 
 
 def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str:
-    """Keep a scored run: its folder, but for main/ and any copy of the Toolbox's folder,
-    copied into `.scratch/usability-loop/runs/`, and a row in
-    `.scratch/usability-loop/results.md`, naming its actions and, from its inputs.json, the
-    start of its inputs hash, which `plan` reads."""
+    """Keep a scored run, all under the local folder: its folder, but for main/ and any copy of
+    the Toolbox's folder, in `usability/runs/`, a row in `usability/results.md` naming its
+    actions and, from its inputs.json, the start of its inputs hash, and the run in the memo,
+    under the key of its slot, which `plan` and `prepare` read. A run whose name ends in no
+    slot is refused, before anything is kept."""
+    inputs = run / "_loop" / "inputs.json"
+    if inputs.is_file():
+        require_slot(chosen, run.name)
     left_out = shutil.ignore_patterns("main", "sqlglot_composer", "__pycache__")
-    shutil.copytree(run, KEPT / "runs" / run.name, ignore=left_out)
+    kept = eval_runs.make_local_path("usability", "runs", run.name, local=LOCAL)
+    shutil.copytree(run, kept, ignore=left_out, dirs_exist_ok=True)
     actions = f"{result.actions} actions"
     note = f"{note}; {actions}" if note else actions
-    inputs = run / "_loop" / "inputs.json"
     if inputs.is_file():
         inputs_hash = json.loads(inputs.read_text(encoding="utf-8"))["inputs_hash"]
         note += f"; inputs {inputs_hash[:SHORT_HASH]}"
+        keep_run(chosen, inputs_hash, run.name, result.passed, report_text(result, run))
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
-    if not RESULTS.is_file():
-        RESULTS.write_text("# Usability loop results\n\nOne row per scored run "
-                           "(`tools/usability_loop.py score <scenario> <run> --record`).\n\n"
-                           "| date | scenario | split | run | result | questions | note |\n"
-                           "|---|---|---|---|---|---|---|\n", encoding="utf-8")
-    with RESULTS.open("a", encoding="utf-8") as results:
+    results_path = eval_runs.make_local_path("usability", "results.md", local=LOCAL)
+    if not results_path.is_file():
+        results_path.write_text(
+            "# Usability loop results\n\nOne row per scored run "
+            "(`tools/usability_loop.py score <scenario> <run> --record`).\n\n"
+            "| date | scenario | split | run | result | questions | note |\n"
+            "|---|---|---|---|---|---|---|\n", encoding="utf-8")
+    with results_path.open("a", encoding="utf-8") as results:
         results.write(row + "\n")
     return row
 
 
-def main(arguments: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    commands = parser.add_subparsers(dest="command", required=True)
-    planning = commands.add_parser("plan", help="say which scenarios are memoized")
+def _plan(given: argparse.Namespace) -> int:
+    """Print each scenario's line of the plan, then the round's estimate."""
+    chosen = [read_scenario(scenario_id) for scenario_id in given.scenarios]
+    planned = [plan_scenario(each, CACHE, fresh=given.fresh) for each in chosen]
+    for each in planned:
+        print(each.text)
+    print(estimate_line([each.slots for each in planned], chosen, given.over_budget))
+    return 0
+
+
+def _prepare(given: argparse.Namespace) -> int:
+    """Make a run's folder, then print it and the agent of each phase to spawn."""
+    chosen = read_scenario(given.scenario)
+    run = prepare(chosen, RUNS / given.run, cache=CACHE, fresh=given.fresh)
+    print(f"Run folder: {run}")
+    print("\n".join(phase_spawn_lines(chosen, run)))
+    return 0
+
+
+def _usage(given: argparse.Namespace) -> int:
+    """Add an agent's reported usage to the ledger."""
+    commit = given.commit or dev_commit()
+    path = record_usage(given.run, given.what, tokens=given.tokens, seconds=given.seconds,
+                        result=given.result, round_id=given.round, commit=commit)
+    print(f"Recorded {given.run}/{given.what} in {path.name}.")
+    return 0
+
+
+def _route(given: argparse.Namespace) -> int:
+    """Start a question's chat and print the proxy to spawn."""
+    print(proxy_spawn_line(*route(RUNS / given.run, given.question)))
+    return 0
+
+
+def _answer(given: argparse.Namespace) -> int:
+    """Go on with a question's chat and print the proxy to spawn."""
+    asked = answer(RUNS / given.run, given.number, given.copilot_files, given.attach)
+    print(proxy_spawn_line(*asked))
+    return 0
+
+
+def _score(given: argparse.Namespace) -> int:
+    """Score a run, and keep it when asked to."""
+    run = RUNS / given.run
+    chosen = read_scenario(given.scenario)
+    result = score(chosen, run)
+    print(report_text(result, run))
+    if given.record is not None:
+        print(record(result, run, chosen, given.record))
+    return 0
+
+
+def _migrate(given: argparse.Namespace) -> int:
+    """Keep each run results.md records in the memo."""
+    print(f"Kept {counted(migrate_results(), 'run')} from results.md in the memo.")
+    return 0
+
+
+def _round_parsers(commands: argparse._SubParsersAction) -> None:
+    """The commands that plan a round and make and spawn a run."""
+    planning = commands.add_parser("plan", help="say which scenarios are memoized, and the "
+                                   "round's estimated tokens")
     planning.add_argument("scenarios", nargs="+")
-    preparing = commands.add_parser("prepare")
+    planning.add_argument("--fresh", action="store_true",
+                          help="plan every run again, though it passed")
+    planning.add_argument("--over-budget", action="store_true",
+                          help="plan a round that is over the usability budget")
+    preparing = commands.add_parser("prepare", help="make a run's folder; print the agent of "
+                                    "each phase to spawn")
     preparing.add_argument("scenario")
     preparing.add_argument("run", help="the run's name, its folder made in " + str(RUNS))
     preparing.add_argument("--fresh", action="store_true",
                            help="prepare it though it is memoized, to run it again")
-    routing = commands.add_parser("route")
+    routing = commands.add_parser("route", help="start a question's chat; print the proxy to "
+                                  "spawn")
     routing.add_argument("run")
     routing.add_argument("question")
-    answering = commands.add_parser("answer")
+    answering = commands.add_parser("answer", help="go on with a question's chat; print the "
+                                    "proxy to spawn")
     answering.add_argument("run")
     answering.add_argument("number", type=int)
     answering.add_argument("copilot_files", nargs="+", help="each Copilot file loaded, in turn")
     answering.add_argument("--attach", type=Path, action="append",
                            help="a file the user attaches, by its path from the run's folder")
-    scoring = commands.add_parser("score")
+
+
+def _record_parsers(commands: argparse._SubParsersAction) -> None:
+    """The commands that score a run, keep what it cost and bring in older results."""
+    scoring = commands.add_parser("score", help="score a run against its answer key")
     scoring.add_argument("scenario")
     scoring.add_argument("run")
     scoring.add_argument("--record", metavar="NOTE", nargs="?", const="")
+    usage = commands.add_parser("usage", help="add an agent's reported usage to the ledger")
+    usage.add_argument("run")
+    usage.add_argument("what", help="phase-<n>, or route-<n> or answer-<n> for a question's "
+                       "proxy")
+    for name in ("tokens", "seconds", "result"):
+        usage.add_argument(f"--{name}", required=True)
+    usage.add_argument("--round", default=datetime.date.today().isoformat(),
+                       help="the round's id (default: today's date)")
+    usage.add_argument("--commit", default="", help="default: dev's last commit")
+    commands.add_parser("migrate", help="keep each run results.md records in the memo")
+
+
+def main(arguments: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    commands = parser.add_subparsers(dest="command", required=True)
+    _round_parsers(commands)
+    _record_parsers(commands)
     given = parser.parse_args(arguments)
-    if given.command == "plan":
-        for scenario_id in given.scenarios:
-            print(plan(read_scenario(scenario_id), CACHE))
-        return 0
-    run = RUNS / given.run
-    if given.command == "prepare":
-        print(prepare(read_scenario(given.scenario), run, cache=CACHE, fresh=given.fresh))
-    elif given.command == "route":
-        print("\n".join(str(path) for path in route(run, given.question)))
-    elif given.command == "answer":
-        print("\n".join(str(path) for path in answer(run, given.number, given.copilot_files,
-                                                      given.attach)))
-    else:
-        chosen = read_scenario(given.scenario)
-        result = score(chosen, run)
-        print(report_text(result, run))
-        if given.record is not None:
-            print(record(result, run, chosen, given.record))
-    return 0
+    run_command = {"plan": _plan, "prepare": _prepare, "route": _route, "answer": _answer,
+                   "score": _score, "usage": _usage, "migrate": _migrate}
+    return run_command[given.command](given)
 
 
 if __name__ == "__main__":

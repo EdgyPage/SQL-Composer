@@ -1,19 +1,23 @@
 # The usability loop: can someone with no context follow the Workflows?
 
-Toolbox 8.2's measure of the docs (`.scratch/toolbox-8-2/map.md`, "The loop"). A fresh small
-model plays a person who has never seen sqlglot Composer, given only what main ships: its
-README, its pages in `main/docs/` (the how-tos, the Example gallery, the Workflows overview and
-the Example projects, since Toolbox 8.7's ticket 13 took them out of the Toolbox's folder and
-main's `example_projects/` away), the Toolbox and the Copilot files, as each phase's message
-says. For a
-Workflow scenario that's a technical user. For an Excel scenario it's a non-technical user who
-fills in the Formula workbook, then a fresh converter who turns it into tables. Each run is
-scored against its scenario's answer key. A run that passes shows the docs were enough; each
-question asked shows a gap.
+Toolbox 8.2's measure of the docs (`.scratch/toolbox-8-2/map.md`, "The loop"), run by script
+since the evaluation system (`.scratch/eval-system/map.md`). A fresh small model plays a person
+who has never seen sqlglot Composer, given only what main ships: its README, its pages in
+`main/docs/`, the Toolbox and the Copilot files, as each phase's message says. For a Workflow
+scenario that is a technical user. For an Excel scenario it is a non-technical user who fills
+in the Formula workbook, then a fresh converter who turns it into tables. Each run is scored
+against its scenario's answer key. A run that passes shows the docs were enough; each question
+asked shows a gap.
 
-Run each command from the repo's top, with dev's virtual environment. Runs are made outside
-the repo, in the computer's temporary folder (`<temp>/usability-loop/runs/`), so an agent finds
-nothing of dev's near its work.
+These steps need no other context. Run each command from the repo's top, with dev's virtual
+environment (`.venv/Scripts/python`). Nothing a round makes is committed: its records are kept
+under `.eval-local/`, which git ignores, and a run's own folder is made outside the repo, in the
+computer's temporary folder (`<temp>/usability-loop/runs/`), so an agent finds nothing of dev's
+near its work. The loop only prints what to spawn: you spawn each agent, from the line it
+prints, and record its usage.
+
+An agent line is `<agent type> | <model> | <prompt>`: spawn that agent type, on that model,
+with that prompt, exactly.
 
 ## Once: the agents' Python
 
@@ -23,64 +27,114 @@ installs, plus openpyxl, which stands in for Excel's own hands:
     py -3.13 -m venv %TEMP%\usability-loop\python
     %TEMP%\usability-loop\python\Scripts\python -m pip install -r requirements.txt openpyxl==3.1.5
 
-## First: which scenarios to run
+## Once: results kept before the memo
 
-    .venv/Scripts/python tools/usability_loop.py plan W1 W8
+Runs scored before the evaluation system were recorded in `results.md` only. To bring each into
+the memo, so its scenario isn't run again, run this once; running it again changes nothing:
 
-`plan` prints one line per scenario. `memoized` means the runs a round gives it (three for a
-dev scenario, one for a held-out one) passed with the inputs it has now, and none failed: give
-it to no agent, and name those runs in the round's notes. `run it` says why: no run recorded
-with these inputs, fewer passed than a round asks, or one failed. When no run was recorded with
-these inputs, it also names each input that changed since the scenario's last recorded run,
-such as `changed since its last run, 2026-11-10-W1-3: the Toolbox folder and README section
-"The Workflows"`. The inputs are what an agent is given and reads (see "What a run is given",
-below), not dev's commit, so a commit that changes none of them, such as one to `tools/` or
-`.scratch/`, or to a README section no scenario lists, leaves a scenario memoized.
+    .venv/Scripts/python tools/usability_loop.py migrate
 
-## One run
+## A round
 
-1. **Prepare the run's folder.** For scenario `W1`, run 1, today:
+1. **Plan the round.** Name every scenario of the round, such as `W1 W8`:
 
-       .venv/Scripts/python tools/usability_loop.py prepare W1 2026-11-01-W1-1
+       .venv/Scripts/python tools/usability_loop.py plan W1 W8
+
+   It prints one line per scenario, then the round's estimate. `memoized` means every run the
+   round gives the scenario (three for a dev scenario, one for a held-out one) passed with the
+   inputs it has now, and none failed: give it to no agent, and name those runs in the round's
+   notes. `run it` says why: no run recorded with these inputs, fewer passed than a round asks,
+   or one failed. When no run was recorded with these inputs, it also names each input that
+   changed since the scenario's last recorded run, such as `changed since its last run,
+   2026-11-10-W1-3: the Toolbox folder and README section "The Workflows"`. The last line is
+   the round's estimated tokens, from past phase agents in the ledger (or `No estimate`, with
+   none yet), and the usability budget. A round over the budget is refused: to run it anyway,
+   add `--over-budget`. `--fresh` plans every run again, though each passed.
+2. **Name each run.** A run is named `<date>-<scenario>-<n>`, `n` from 1 to the runs the round
+   gives the scenario: `2026-11-14-W1-1`, `2026-11-14-W1-2`, `2026-11-14-W1-3` for a dev
+   scenario. The number is the run's slot in its round, which the memo keeps it under.
+3. **Prepare the run's folder.** For scenario `W1`, run 1:
+
+       .venv/Scripts/python tools/usability_loop.py prepare W1 2026-11-14-W1-1
 
    It copies in main's tree as dev's last commit builds it, the scenario's files, the team's
    connection to a warehouse that keeps each write, and, for a scenario that starts from a
    Project (W5, W8, H2), that Project as `my_project/`; writes each phase's message to
-   `_loop/phase_<n>.md`, and what the run is given to `_loop/inputs.json`. It prints the
-   folder. It refuses a memoized scenario, naming its runs: add `--fresh` to run it again
-   anyway.
-2. **Start phase 1's agent.** Use the `zero-context-user` agent, on Haiku, with the prompt
-   `Read <run>/_loop/phase_1.md and follow it.`
-3. **Answer each question it asks.** When the agent's turn ends with a `QUESTION: ` line:
-   1. Run `tools/usability_loop.py route <run name> "<the question>"`. It prints the message and
-      the reply file.
-   2. Start a `copilot-proxy` agent, on Haiku, with: `Message file: <message>`, `Answers file:
-      <reply file>`, and no header lines.
-   3. Run `tools/usability_loop.py answer <run name> <n> <each file it named>`, where `<n>`
-      is the question's number; the files are pasted in that order, as the Steps sheet's
-      step 12 loads several. Add `--attach <path>` for each file the agent said it would
-      attach, such as `my_work/report.xlsx`.
-   4. Start a second, fresh `copilot-proxy` on that message and reply file.
-   5. Send the reply's text back to the user agent, continuing it with its context. An agent
-      whose turn ends by handing back its report reads a message after it as the end of its
-      run and only repeats its report (three of the 8.7 round's ten Excel converters did),
-      so say in the same message that its run is not over: "Copilot answered your QUESTION:
-      <the reply, or the file in the run's folder it was copied to>. Your run is not over:
-      carry on with the job, as your phase file says, and end with one DONE:, STUCK: or
-      QUESTION: line only when it is done, you are stuck, or you need Copilot again."
+   `_loop/phase_<n>.md`, and what the run is given to `_loop/inputs.json`. It refuses a
+   memoized scenario, or a slot whose run passed, naming the runs: add `--fresh` to run it
+   again anyway. It prints `Run folder: <path>`, then one agent line per phase:
+
+       zero-context-user | haiku | Read <run folder>/_loop/phase_1.md and follow it.
+       zero-context-user | haiku | Read <run folder>/_loop/phase_2.md and follow it.
+
+4. **Spawn phase 1's agent** from its line. Note the tokens and seconds Claude Code reports
+   when it finishes.
+5. **Record its usage**, in the ledger, from those figures; `--result` is `done`, `stuck` or
+   `questions`, as its last line says:
+
+       .venv/Scripts/python tools/usability_loop.py usage 2026-11-14-W1-1 phase-1 --tokens <tokens> --seconds <seconds> --result done
+
+   (Add `--round <id>` to name the round: it is today's date unless you say.)
+6. **Answer each question it asks.** When the agent's turn ends with a `QUESTION: ` line, with
+   `<n>` the question's number, counting from 1:
+   1. Route it:
+
+          .venv/Scripts/python tools/usability_loop.py route 2026-11-14-W1-1 "<the question>"
+
+      It prints one agent line, a `copilot-proxy | haiku | Message file: ... Answers file: ...
+      No header lines.` Spawn it, and record its usage with `usage 2026-11-14-W1-1 route-<n>`,
+      as in step 5.
+   2. Read the Answers file: it names the Copilot file or files to load next.
+   3. Answer it, with each file it named, in that order, as the Steps sheet's step 12 loads
+      several. Add `--attach <path>` for each file the agent said it would attach, such as
+      `my_work/report.xlsx`:
+
+          .venv/Scripts/python tools/usability_loop.py answer 2026-11-14-W1-1 <n> 07_convert_hive.txt
+
+      It prints one agent line for a second, fresh `copilot-proxy`. Spawn it, and record its
+      usage with `usage 2026-11-14-W1-1 answer-<n>`.
+   4. Send the reply's text back to the user agent, continuing it with its context (a message
+      to the same agent, not a new one), with: "Copilot answered your QUESTION: <the reply, or
+      the file in the run's folder it was copied to>. Your run is not over: carry on with the
+      job, as your phase file says, and end with one DONE:, STUCK: or QUESTION: line only when
+      it is done, you are stuck, or you need Copilot again." (An agent whose turn ends by
+      handing back its report reads a message after it as the end of its run and only repeats
+      its report, so the message says its run is not over.) Add the tokens it reports for this
+      turn to the agent's usage in step 5, or record them as a further `phase-1` row.
 
    After five questions, stop the run: it is stuck.
-4. **Keep each agent's last message.** Save it as `<run>/_loop/phase_<n>_reply.md`.
-5. **Start the next phase, if there is one.** Start the next phase's agent the same way, fresh,
-   so it remembers nothing of the one before.
-6. **Score it and record it:**
+7. **Keep each agent's last message.** Save it as `<run folder>/_loop/phase_<n>_reply.md`.
+8. **Run the next phase, if there is one.** Spawn the next phase's agent from its line, fresh,
+   so it remembers nothing of the one before, then record its usage as `phase-2`.
+9. **Score the run and record it:**
 
-       .venv/Scripts/python tools/usability_loop.py score W1 2026-11-01-W1-1 --record "<where it stopped, if it did>"
+       .venv/Scripts/python tools/usability_loop.py score W1 2026-11-14-W1-1 --record "<where it stopped, if it did>"
 
    This copies the run's folder, but for `main/` and any copy of the Toolbox's folder, into
-   `.scratch/usability-loop/runs/`, and adds a row to `.scratch/usability-loop/results.md`.
-   The row's note ends `inputs <hash>`, the first 16 characters of the run's inputs hash:
-   `plan` reads it there, so keep it when you move the row into the round's section.
+   `.eval-local/usability/runs/` (its phase replies and questions are the transcript), adds a
+   row to `.eval-local/usability/results.md`, and keeps the run in the memo under its slot and
+   inputs. It prints the score: `pass` or `FAIL`, what is missing, and the run's actions. Its
+   name must end in the scenario and a number, as step 2 says.
+10. **Repeat steps 3 to 9** for each run the plan said to run, each with fresh agents. Runs of
+    different scenarios may be prepared at once.
+11. **Read the failures.** Fix only what a dev run showed, in what a user reads: the README, the
+    how-tos, the Steps sheet, the notebooks' text, refusal messages and the Copilot files. A
+    Toolbox bug a run finds is fixed too, test first. Then plan the round again, and run what
+    it says. The loop is done when every dev scenario passes three of three in two rounds
+    running. Every held-out scenario runs once per version of the docs.
+
+## What the loop keeps, and where
+
+Everything is under `.eval-local/`, which is never committed:
+
+- `ledger.csv`: one row per agent, from `usage`: a phase's agent (role `user`, arm `phase`) or
+  a question's proxy (role `proxy`, arm `question`), with its tokens, seconds and result;
+- `memo/`: each scored run, under the key of its slot (the scenario and the run's number), the
+  arm `run`, the model `haiku`, the hash of the scenario's text, and its inputs hash. A slot
+  holding a run that failed is asked again; one holding a run that passed is not;
+- `usability/runs/<run>/`: the run's folder, but for `main/` and the Toolbox's copy;
+- `usability/results.md`: one row per scored run, its note ending `inputs <hash>`, the first
+  16 characters of the run's inputs hash, which `plan` reads for what changed.
 
 ## What a run is given, and what is cached
 
@@ -88,9 +142,9 @@ below), not dev's commit, so a commit that changes none of them, such as one to 
 given, each with the export's stamp (when it ran, and from which commit) left out:
 
 - `main`, main's tree by part:
-  - `toolbox`: one hash of the Toolbox folder and the pages in main's `docs/` (since Toolbox
-    8.7's ticket 13 moved them out of the folder), whole, but for the how-tos on the how-to
-    page, `docs/how_to.html`, since its code changes what every run does;
+  - `toolbox`: one hash of the Toolbox folder and the pages in main's `docs/`, whole, but for
+    the how-tos on the how-to page, `docs/how_to.html`, since its code changes what every run
+    does;
   - `readme`: the README, one hash per `##` section, by its heading, the part above the first
     by the README's title, `sqlglot Composer`;
   - `how_tos`: each how-to of `docs/how_to.html`, by its link, such as
@@ -112,7 +166,7 @@ given, each with the export's stamp (when it ran, and from which commit) left ou
 `inputs_hash` is made only from what the scenario's agents read: the Toolbox folder, the parts
 of main its `reads.json` lists, the files the phases name, the rest of `inputs.json`
 (`project`, `warehouse`, `scenario_files`, `phases`, `loop_files`) and the list itself; dev's
-commit is left out of it. So:
+commit is left out of it. It is the text the memo's key says a run loaded. So:
 
 - a change to the Toolbox folder or to a page in main's `docs/` runs every scenario again, but
   for a change to a how-to on the how-to page, `docs/how_to.html`, which runs again only the
@@ -120,7 +174,9 @@ commit is left out of it. So:
 - a change to a README section, how-to or Copilot file runs again only the scenarios that list
   it; one no scenario lists runs none;
 - a change to anything else of the scenario's, such as its answer key or its list, runs it
-  again.
+  again;
+- a commit that changes none of what a scenario reads, such as one to `tools/` or `.scratch/`,
+  or to a README section no scenario lists, leaves it memoized.
 
 `prepare` and `plan` refuse a scenario whose list names a section, how-to or Copilot file main
 hasn't, so one renamed can't leave a scenario memoized on nothing; a test holds every list to
@@ -155,17 +211,6 @@ the folder `cache\prepare.lock`, and removes it when it is done, however it ends
 - If the lock is still held after that, the prepare stops and names the lock folder. If a
   prepare is still running, wait for it to finish, then prepare again. If none is running, one
   was stopped while it held the lock: delete `cache\prepare.lock`, then prepare again.
-
-## A round
-
-- First run `plan` on every scenario of the round, and give agents only those it says to run.
-- Every dev scenario runs three times, each with fresh agents.
-- Every held-out scenario runs once per version of the docs.
-- Fix only what a dev run showed, in what a user reads: the README, the how-tos, the Steps
-  sheet, the notebooks' text, refusal messages and the Copilot files. A Toolbox bug a run
-  finds is fixed too, test first.
-- Then run the round again. The loop is done when every dev scenario passes three of three in
-  two rounds running.
 
 ## What a user reads must be an exact process
 

@@ -18,7 +18,7 @@ them, and a few tripping points; each links its how-to for the rest.
   path's from workflow_graph's `EXCEL_FLOW`, each its sentence up to its first colon.
 - **The hand-offs** (`HAND_OFFS`) and **the tripping points** (`TRIPPING_POINTS`) are written
   here by hand, the tripping points drawn from the usability rounds' findings in
-  `.scratch/usability-loop/results.md`: what tripped a run, said as what to do.
+  `.eval-local/usability/results.md`: what tripped a run, said as what to do.
 - **The page** is built with the page module, `sqlglot_composer/html_page.py`: its tokens, base
   CSS, legend and drawing script, which lights up a box's path when it is clicked. Its own
   script shows the clicked Workflow's part of the side panel. With scripts off, every part
