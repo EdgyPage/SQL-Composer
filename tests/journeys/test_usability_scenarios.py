@@ -3,8 +3,11 @@
 Each scenario's reference end, reached with the Toolbox in a prepared run, passes its answer
 key. A Workflow scenario's key holds the rows its original Hive wrote, or an independent
 query's, so its end passing checks the Workflow: a conversion of CTEs, CREATE statements, a
-staging table and a FROM with several INSERTs, its compare and promotion; a new table from its
-Template or from a query; Table references; a change to a Saved table; an upgrade. An Excel
+staging table and a FROM with several INSERTs, its compare and promotion; Script tags answered
+with text, a Run value, or a Hivevar its scheduler gives, exported with its .hivevars file
+(W9, Toolbox 8.7); a new table from its Template or from a query; Table references; a change to
+a Saved table; a Scheduled run made through the schedule Workflow (W8, since 8.7); an upgrade.
+An Excel
 scenario's key is computed in Python from its workbook's raw rows, so its end passing checks the
 SQL its formulas map to: COUNTIFS and AVERAGEIFS as a GROUP BY, a VLOOKUP as a join, a Power
 Query filter as a WHERE, a fixed value and a value typed over a formula, each with no type left

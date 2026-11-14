@@ -42,7 +42,7 @@ from workflow_warehouse import SavedWarehouse  # noqa: E402
 
 import example_database  # noqa: E402
 from sqlglot_composer import TOOLBOX_VERSION, admin, equals, project  # noqa: E402
-from sqlglot_composer import notebooks, run_execute  # noqa: E402
+from sqlglot_composer import export_hive, notebooks, run_execute  # noqa: E402
 
 FOLDER = usability_loop.SCENARIOS
 DEV, PROD = "mart_dev", "team_prod"
@@ -359,6 +359,21 @@ WHERE r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 1) AND <PARM="PERIOD_END"/>
 """
 RUN_LOG_RAN = RUN_LOG.replace('<PARM="PERIOD_END"/>', "'2026-09-24'")
 
+# W9's script (Toolbox 8.7, ticket 15): each team's runs for the two days up to PERIOD_END,
+# which its scheduler puts in each run; and as it ran, the day filled in. Its copy leaves
+# PERIOD_END to the scheduler, a Hivevar, with that day its default.
+PERIOD_RUNS = """SET hive.exec.dynamic.partition.mode=nonstrict;
+CREATE TABLE IF NOT EXISTS mart.period_runs (team STRING, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.period_runs PARTITION (dt)
+SELECT o.team AS team, COUNT(*) AS runs, r.dt
+FROM ops.job_runs r JOIN ops.job_owners o ON r.job_id = o.job_id
+WHERE r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 1) AND <PARM="PERIOD_END"/>
+GROUP BY o.team, r.dt;
+"""
+PERIOD_END = "2026-09-24"
+PERIOD_RUNS_RAN = PERIOD_RUNS.replace('<PARM="PERIOD_END"/>', f"'{PERIOD_END}'")
+
 # W8's warehouse (Toolbox 8.6, ticket 11): the three tables of the intermediate Example project
 # a Scheduled run of mart.team_days writes, created as each one's Table notebook's step 1
 # creates them, holding no row yet.
@@ -500,8 +515,9 @@ def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
 
 def scenarios() -> dict[str, Built]:
     """Each scenario, by its id: the Workflow ones, then the Excel ones."""
-    return {**workflow_scenarios(), **run_value_scenarios(), **new_table_scenarios(),
-            **scheduled_run_scenarios(), **excel_scenarios(), **held_out_workflow_scenarios()}
+    return {**workflow_scenarios(), **run_value_scenarios(), **hivevar_scenarios(),
+            **new_table_scenarios(), **scheduled_run_scenarios(), **excel_scenarios(),
+            **held_out_workflow_scenarios()}
 
 
 def workflow_scenarios() -> dict[str, Built]:
@@ -590,6 +606,43 @@ def run_value_scenarios() -> dict[str, Built]:
     }
 
 
+def hivevar_scenarios() -> dict[str, Built]:
+    """Each Workflow scenario whose Script tag is left to a scheduler, a Hivevar (Toolbox 8.7,
+    ticket 15), by its id."""
+    period_runs = f"{DEV}.period_runs"
+    folder = "tables/mart_dev__period_runs/mart_dev__period_runs"
+    return {
+        "W9": Built({
+            "id": "W9", "split": "dev",
+            "title": "convert a script whose Script tag its scheduler gives, then export it",
+            "phases": [technical(
+                "Your team's script, from_your_team/period_runs.hql, writes mart.period_runs, "
+                "a table in a database you can't write to. The scheduler that runs it puts a "
+                'day in place of <PARM="PERIOD_END"/> before Hive reads it: this time it put '
+                f"{PERIOD_END}, and the script has run, so mart.period_runs holds its rows. "
+                f"Make your own copy of that table in your Dev Database, {period_runs}, "
+                "written there and checked against the original, with the Toolbox. Your "
+                "team's scheduler will then run your copy's Hive itself, giving it PERIOD_END "
+                "each time by that name, so your copy must leave PERIOD_END for the scheduler "
+                f"to give, with {PERIOD_END} as its value when none is given. Once it is "
+                "written and checked, write out your copy's Hive for the scheduler, with the "
+                f"file of values the scheduler passes beside it. {DATABASES_SAID}")],
+            "hive_ran": ["period_runs_ran.hql"],
+            "given": {"from_your_team/period_runs.hql": "period_runs.hql"}},
+            {"period_runs.hql": PERIOD_RUNS, "period_runs_ran.hql": PERIOD_RUNS_RAN},
+            key=lambda: {"tables": {period_runs: table_key(
+                [PERIOD_RUNS_RAN], "SELECT team, runs, dt FROM mart.period_runs")},
+                "files": [{"path": COMPARED.format(stem="mart_dev__period_runs"),
+                           "holds": ["Passed"]},
+                          {"path": f"{folder}.hql", "holds": ["'${hivevar:PERIOD_END}'"]},
+                          {"path": f"{folder}.hivevars",
+                           "holds": [f"--hivevar PERIOD_END={PERIOD_END}"]}]},
+            reads=path_reads([*CONVERT_README, "6. Save a table"],
+                             [*CONVERT_HOW_TOS, "save_a_table"],
+                             [*CONVERT_COPILOT, "17_run_values_and_seed_limits.txt"])),
+    }
+
+
 def new_table_scenarios() -> dict[str, Built]:
     """Each Workflow scenario that makes a new table of the user's own, by its id."""
     return {
@@ -633,18 +686,21 @@ def new_table_scenarios() -> dict[str, Built]:
 
 
 def scheduled_run_scenarios() -> dict[str, Built]:
-    """Each Scheduled run scenario (Toolbox 8.6, ticket 11), by its id."""
+    """Each Scheduled run scenario (Toolbox 8.6, ticket 11), by its id. Since 8.7 (ticket 15),
+    W8's run is made through the schedule Workflow, whose notebook names it."""
     run = "team_week"
     return {
         "W8": Built({
             "id": "W8", "split": "dev",
-            "title": "a Scheduled run of a week's breakdown, its week given as text",
+            "title": "a Scheduled run of a week's breakdown, made through the schedule "
+                     "Workflow, its week given as text",
             "phases": [technical(
                 "Your team's Project, my_project, saves each team's numbers per day in "
                 "mart.team_days, written from mart.job_day_facts and mart.job_day_costs, and "
                 "mart.team_days's logic has week_totals, each team's totals for a week. Your "
                 "team's scheduler must be able to add up any week again: make it a Scheduled "
-                f"run of your own, {run}, with the Toolbox. The scheduler gives it WEEK, a day "
+                f"run of your own, {run}, with the Toolbox, starting it through the Workflow "
+                f"that makes a Scheduled run. The scheduler gives it WEEK, a day "
                 f"of the week to add up, as text, such as {TEAM_WEEK}. Each run writes "
                 "mart.team_days for each day of WEEK's week, Monday to Sunday, and no other "
                 "day, each table mart.team_days reads written for those days first, then "
@@ -657,9 +713,11 @@ def scheduled_run_scenarios() -> dict[str, Built]:
                          "files": [{"path": f"scheduled_runs/{run}/{run}.ipynb",
                                     "holds": ["WEEK"]},
                                    {"path": "admin/registry.csv",
-                                    "holds": [f"scheduled_run,{run}"]}]},
-            reads=path_reads(["6. Save a table", "Scheduled runs"],
-                             ["save_a_table", "schedule_a_run"],
+                                    "holds": [f"scheduled_run,{run}"]},
+                                   {"path": "admin/workflows/schedule/schedule.ipynb",
+                                    "holds": [run]}]},
+            reads=path_reads(["6. Save a table", "The Workflows", "Scheduled runs"],
+                             ["save_a_table", "follow_a_workflow", "schedule_a_run"],
                              ["17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt"])),
     }
 
@@ -878,6 +936,36 @@ DECISIONS = {{
 """
 
 
+def reference_w9(root: Path, warehouse: SavedWarehouse) -> None:
+    """W9's end: the script converted, PERIOD_END answered with a Hivevar whose default is the
+    day the script ran with, then the table's Hive exported from its Table notebook, a
+    .hivevars file beside it (Toolbox 8.7, ticket 15)."""
+    folder = root / "admin" / "workflows" / "convert"
+    shutil.copyfile(root.parent / "from_your_team" / "period_runs.hql",
+                    folder / "period_runs.hql")
+    table = f"{DEV}.period_runs"
+    type_into(root, "convert", NAME="period_runs", FILES=["period_runs.hql"],
+              RENAME={"mart.period_runs": "period_runs"})
+    run_the_workflow("convert", warehouse)
+    notebook = folder / "convert.ipynb"
+    for number, (_, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if text.startswith("DECISIONS ="):
+            notebooks.write_cell_text(notebook, number, W9_DECISIONS.format(
+                table=table, location=location(table), day=PERIOD_END))
+    finish("convert", warehouse)
+    with contextlib.chdir(root / "tables" / "mart_dev__period_runs"):
+        export_hive()
+
+
+W9_DECISIONS = """from sqlglot_composer import hivevar
+
+DECISIONS = {{
+    "{table}": {{"location": "{location}",
+                 "tags": {{"PERIOD_END": hivevar("PERIOD_END", default="'{day}'")}}}},
+}}
+"""
+
+
 def fill_runs_per_day_logic(text: str) -> str:
     """The saved_table Template's logic, filled in for runs_per_day, as a user fills it in."""
     for placeholder, value in (
@@ -975,10 +1063,12 @@ def statements() -> dict[str, Statement]:
 
 
 def reference_w8(root: Path, warehouse: SavedWarehouse) -> None:
-    """W8's end: team_week made, its two cells typed in as its user fills them in, then run
-    top to bottom as its scheduler runs it, WEEK given as text. Its connection is the team's
-    already: the run gave the Project's Template it."""
-    project.new_scheduled_run("team_week")
+    """W8's end: team_week made through the schedule Workflow, its name typed into the
+    Workflow's names cell (Toolbox 8.7), its two cells typed in as its user fills them in, then
+    run top to bottom as its scheduler runs it, WEEK given as text. Its connection is the
+    team's already: the run gave the Project's Template it."""
+    type_into(root, "schedule", NAME="team_week")
+    finish("schedule", warehouse)
     notebook = root / "scheduled_runs" / "team_week" / "team_week.ipynb"
     for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
         if kind == "code" and notebooks.first_line(text) in TEAM_WEEK_CELLS:
@@ -1057,7 +1147,7 @@ JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
     "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "W8": reference_w8,
-    "H1": reference_h1,
+    "W9": reference_w9, "H1": reference_h1,
     "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),

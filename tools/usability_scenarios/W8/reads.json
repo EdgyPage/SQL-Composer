@@ -2,10 +2,12 @@
  "readme": [
   "sqlglot Composer",
   "6. Save a table",
+  "The Workflows",
   "Scheduled runs"
  ],
  "how_tos": [
   "save_a_table",
+  "follow_a_workflow",
   "schedule_a_run"
  ],
  "copilot": [

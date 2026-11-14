@@ -121,6 +121,12 @@
    "holds": [
     "scheduled_run,team_week"
    ]
+  },
+  {
+   "path": "admin/workflows/schedule/schedule.ipynb",
+   "holds": [
+    "team_week"
+   ]
   }
  ]
 }

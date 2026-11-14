@@ -1,0 +1,17 @@
+{
+ "id": "W9",
+ "split": "dev",
+ "title": "convert a script whose Script tag its scheduler gives, then export it",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's script, from_your_team/period_runs.hql, writes mart.period_runs, a table in a database you can't write to. The scheduler that runs it puts a day in place of <PARM=\"PERIOD_END\"/> before Hive reads it: this time it put 2026-09-24, and the script has run, so mart.period_runs holds its rows. Make your own copy of that table in your Dev Database, mart_dev.period_runs, written there and checked against the original, with the Toolbox. Your team's scheduler will then run your copy's Hive itself, giving it PERIOD_END each time by that name, so your copy must leave PERIOD_END for the scheduler to give, with 2026-09-24 as its value when none is given. Once it is written and checked, write out your copy's Hive for the scheduler, with the file of values the scheduler passes beside it. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
+  }
+ ],
+ "hive_ran": [
+  "period_runs_ran.hql"
+ ],
+ "given": {
+  "from_your_team/period_runs.hql": "period_runs.hql"
+ }
+}
