@@ -145,10 +145,10 @@ SOURCE_FIELDS = [one.name for one in fields(SourceRow)]
 HASH_START = 12
 
 
-def _row(run: SourceRow | RunOf, passed: bool, loaded: str, status: str,
+def _row(run: SourceRow | RunOf, passed: bool, loaded_hash: str, status: str,
          cited: list[str], unknown: list[str]) -> SourceRow:
     return SourceRow(run.date, run.round, run.pipeline, run.task, run.arm, run.model,
-                     "pass" if passed else "fail", run.files, loaded[:HASH_START], status,
+                     "pass" if passed else "fail", run.files, loaded_hash[:HASH_START], status,
                      SEPARATOR.join(cited), SEPARATOR.join(unknown))
 
 
@@ -162,12 +162,13 @@ def source_row(run: RunOf, passed: bool, reply: str, loaded: dict[str, str]) -> 
     return _row(run, passed, loaded_hash, "cited" if tokens else "none", cited, unknown)
 
 
-def read_row(run: RunOf, passed: bool, reply: str, loaded: str) -> SourceRow:
-    """A usability run's row, from its `Read:` lines; `loaded` is its inputs hash."""
+def read_row(run: RunOf, passed: bool, reply: str, inputs_hash: str) -> SourceRow:
+    """A usability run's row, from its `Read:` lines; its inputs hash stands for the text it
+    loaded."""
     items = read_items(reply)
     if items is None:
-        return _row(run, passed, loaded, "no source", [], [])
-    return _row(run, passed, loaded, "cited" if items else "none", items, [])
+        return _row(run, passed, inputs_hash, "no source", [], [])
+    return _row(run, passed, inputs_hash, "cited" if items else "none", items, [])
 
 
 def read_sources(local: Path = eval_runs.LOCAL) -> list[SourceRow]:
@@ -276,12 +277,17 @@ def summary_text(rows: list[SourceRow], round_name: str | None = None,
     """The attribution of a round's rows, or of every round's, as text for the report."""
     rows = [one for one in rows if round_name in (None, one.round)
             and pipeline in (None, one.pipeline)]
-    scope = " ".join(part for part in (pipeline, round_name and f"round {round_name}") if part)
+    scope = []
+    if pipeline:
+        scope.append(pipeline)
+    if round_name:
+        scope.append(f"round {round_name}")
+    named = " ".join(scope)
     if not rows:
-        return f"No sources recorded{' for ' + scope if scope else ''}."
+        return f"No sources recorded for {named}." if named else "No sources recorded."
     found = attribute(rows)
     versions = sorted({one.loaded for one in rows})
-    lines = [f"Sources{' of ' + scope if scope else ''}: {len(rows)} replies, "
+    lines = [f"Sources{' of ' + named if named else ''}: {len(rows)} replies, "
              f"{found.failing_replies} failing and {found.passing_replies} passing gave a "
              f"source; loaded text {', '.join(versions)}.",
              "", "Ids ranked, failing replies citing them against passing replies:"]

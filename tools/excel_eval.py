@@ -126,7 +126,7 @@ def files_loaded(arm: str, task_id: str) -> dict[str, str]:
     and none in the arm that loads no file."""
     if arm == "A0":
         return {}
-    texts = {}
+    texts: dict[str, str] = {}
     for number in EXCEL_FILES:
         [path] = sorted(COPILOT.glob(f"{number}_*.txt"))
         texts[number] = path.read_text(encoding="utf-8")
