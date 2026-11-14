@@ -125,6 +125,9 @@ the memo, so its scenario isn't run again, run this once; running it again chang
     Toolbox bug a run finds is fixed too, test first. Then plan the round again, and run what
     it says. The loop is done when every dev scenario passes three of three in two rounds
     running. Every held-out scenario runs once per version of the docs.
+12. **Report.** `.venv/Scripts/python tools/eval_report.py` writes `.eval-local/report.html`: cost,
+    pass rate, eventful commits and the doc ids failing runs cite; `docs/copilot-eval.md`'s step 7
+    gives the one `git log` command for its commits file.
 
 ## What the loop keeps, and where
 
