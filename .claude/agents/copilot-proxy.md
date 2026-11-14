@@ -15,3 +15,8 @@ prompt names a message file and an answers file.
 3. Write your whole reply to the answers file, once: the task's heading (`## T..`, or `## X..`
    for a workbook) per task with your answer under it, as the message asks: Python in a
    ```python block, SQL in a ```sql block. Write no header lines before the first heading.
+4. End each task's answer with a line `Used: ` and the ids of the patterns (`P3`), rules (`R7`)
+   and worked patterns (`W1`) of the loaded Copilot file that you followed, separated by
+   commas: `Used: P3, R7, W1`. When the message holds more than one file, put each id's file
+   number before it: `Used: 11:F4, 15:W1`. If you followed none, or the message holds no file
+   with ids, write `Used: none`. Name only ids you can see in the message.

@@ -13,5 +13,8 @@ message and the file for your next reply.
    your prompts name: the measurement holds only if your replies come from those alone.
 2. Reply as your part would, in plain chat text, and write that reply, alone, to the file
    your prompt names. Run nothing.
-3. End your turn with one word: `asked` if, as Copilot, your reply asks a question; `request`
+3. As Copilot, end each reply you write with a line `Used: ` and the ids of the file's rules
+   (`A1`, `D2`, `Q7`) that you followed, separated by commas: `Used: A1, D2, Q7`, or `Used:
+   none`. Name only ids you can see in the file. The user writes no such line.
+4. End your turn with one word: `asked` if, as Copilot, your reply asks a question; `request`
    if it holds the Metric request; `answered` as the user.

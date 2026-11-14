@@ -74,7 +74,10 @@ the memo, so its scenario isn't run again, run this once; running it again chang
 
        .venv/Scripts/python tools/usability_loop.py usage 2026-11-14-W1-1 phase-1 --tokens <tokens> --seconds <seconds> --result done
 
-   (Add `--round <id>` to name the round: it is today's date unless you say.)
+   (Add `--round <id>` to name the round: it is today's date unless you say.) A phase's agent
+   ends its last message with a `Read: <file> <section>, ...` line, which its prompt asks for;
+   add `--final "<its last message>"` to keep it in the run's `_loop/`, where `score --record`
+   reads it. A run with no such line is kept as "no source", never as a failure.
 6. **Answer each question it asks.** When the agent's turn ends with a `QUESTION: ` line, with
    `<n>` the question's number, counting from 1:
    1. Route it:
@@ -133,6 +136,10 @@ Everything is under `.eval-local/`, which is never committed:
   arm `run`, the model `haiku`, the hash of the scenario's text, and its inputs hash. A slot
   holding a run that failed is asked again; one holding a run that passed is not;
 - `usability/runs/<run>/`: the run's folder, but for `main/` and the Toolbox's copy;
+- `sources.csv`: one row per scored run (and per new reply of the other pipelines) with its
+  result, its inputs hash and the files and sections its agents said they read. Read it with
+  `.venv/Scripts/python tools/eval_sources.py summary [--round <id>] [--pipeline <name>]`;
+  `docs/copilot-eval.md` says how it ranks them;
 - `usability/results.md`: one row per scored run, its note ending `inputs <hash>`, the first
   16 characters of the run's inputs hash, which `plan` reads for what changed.
 

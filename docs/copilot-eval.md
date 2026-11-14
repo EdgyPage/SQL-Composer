@@ -93,6 +93,25 @@ Dev and held-out tasks are kept alike. A held-out task is asked once per version
 it loads (an edit to another file leaves it), and `--fresh` doesn't ask it again. Each memo file
 holds its key, the date it was asked, its score line, then the reply as it came.
 
+## Sources: which rule a failing reply followed
+
+A proxy ends each answer with a `Used: ` line naming the patterns, rules and worked patterns it
+followed (`Used: P3, R7, W1`, each with its file's number, `11:F4`, where the message holds
+several files), and Copilot in a Metric request conversation does the same at the end of each
+of its turns. An id is one a file defines: a Patterns row, a bullet such as `- **R7**` or `- A1.`,
+or a worked pattern's `### W1:` heading. `score` keeps each reply it scored anew (not one taken
+from the memo, which an earlier round kept) with its result, the ids it cited, the start of the
+hash of the text the task loaded and the Copilot files' version, in `.eval-local/sources.csv`.
+A reply with no `Used:` line is "no source", never a failure; a cited id the loaded file doesn't
+define is flagged. Arms that load no file of ids (A0, A1, R) keep nothing.
+
+    .venv/Scripts/python tools/eval_sources.py summary [--round <name>] [--pipeline <name>]
+
+It ranks the cited ids by the share of failing replies that cite them against the share of
+passing replies that do, so the ids most tied to failures come first, lists the failures that
+cited nothing (a pattern the file lacks, or a missing line), and lists the flagged ids. The
+`summary_text(rows, round_name, pipeline)` function behind it is what the cost report shows.
+
 ## By hand, in Copilot's web chat
 
 1. Write the prompts and an answers file's template, which hold only the tasks `plan` says to ask:
