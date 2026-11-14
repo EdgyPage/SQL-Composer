@@ -21,6 +21,7 @@ tables.
 | P8 | "run it", "show me the rows" | `rows = run_query(s, query)` | W1 |
 | P9 | "first ..., then from those ..." | a Derived table | W2 |
 | P10 | "is missing", "has no owner" | `is_null(t.owner)` | R8 |
+| P13 | "name has ...", "starts with ..." | `contains(c, "x")`, `starts_with(c, "x")` | R8 |
 | P11 | "label ... else ..." | `if_else(c, then, otherwise)` | R8 |
 | P12 | latest row per group; two tables | file 05; file 04 | A10 |
 
@@ -57,7 +58,7 @@ tables.
 
 ## Names for this objective, with their arguments
 
-{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, at_least, between, last_n_days, is_in, is_null, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
+{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, at_least, between, last_n_days, is_in, is_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
 
 ## Worked patterns
 

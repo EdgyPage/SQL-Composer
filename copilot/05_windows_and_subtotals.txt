@@ -50,7 +50,7 @@ row before or after, a running total, subtotals, or Statements stacked.
 - **R6** Only if the user asks for a label on a total's row:
   `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
 - **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
-  the same order, each bounded; `UNION` drops repeats.
+  the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
 ## Always: rules A1 to A10
 
@@ -102,6 +102,8 @@ row before or after, a running total, subtotals, or Statements stacked.
 - is_total(column)
 - UNION_ALL(*statements, returns_all_rows=False)
 - UNION(*statements, returns_all_rows=False)
+- INTERSECT(*statements, returns_all_rows=False)
+- EXCEPT(*statements, returns_all_rows=False)
 
 ## Worked patterns
 
