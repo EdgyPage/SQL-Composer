@@ -18,9 +18,9 @@ write that Python, so you can ask it in plain words.
 
 | ID | You would type | Load |
 |---|---|---|
-| P1 | "start a Project", "what do I import", "run it with my query" | 01 |
-| P2 | "a Table reference for", "its Key is", "check the Key holds" | 02 |
-| P3 | "count", "total", "average", "filter", "from day A to day B" | 03 |
+| P1 | "start a Project", "import everything", "using my Database module" | 01 |
+| P2 | "a Table reference for", "its Key is", "check the Key holds" | 02 or 08 |
+| P3 | "count", "total", "average", "filter", "from day A to day B" | 03 or 01 |
 | P4 | "with its name from", "every job, 0 for none", "no match in" | 04 |
 | P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
 | P6 | "write into my Saved table", "add to it", "the logic cell" | 06 |
@@ -51,6 +51,8 @@ write that Python, so you can ask it in plain words.
 - **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
   its own), then the workbook: a chat holds one file at a time, but for this one task.
 - **R7** Two tasks: a new chat for each, with each task's file.
+- **R8** Where Load names two files, either one answers it: a Key check is in 02 and 08, and
+  a read you also want run with your query is in 03 and 01.
 
 ## Terms
 
@@ -1952,7 +1954,7 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 - **M1** A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank
   in a column a formula reads, COALESCE(x, 0) or COALESCE(x, ''), mark "blank". Inside an
   -IF(S) form or ISBLANK, the column as it is: they skip a blank, as SUM and AVG skip NULL.
-- **M2** VLOOKUP or MATCH with TRUE or 1 is approximate: write the exact match; name it.
+- **M2** VLOOKUP or MATCH with TRUE or 1, approximate: the exact match; name it.
 - **M3** A date held as text, such as 20260911, that a formula makes or reads as a date
   (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
   `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
@@ -1966,9 +1968,9 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 - **X1** INDIRECT, OFFSET, RAND, RANDBETWEEN; a cell outside a Table that isn't a defined
   name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
-  reading its own column; ROW(), the row before, anything hanging on the sheet's row order;
-  MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula files 11
-  and 12 don't list. Left alone, and named: charts, PivotTables, cells outside a Table.
+  reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
+  row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
+  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
 
 ## Worked patterns
 

@@ -104,7 +104,7 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 - **M1** A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank
   in a column a formula reads, COALESCE(x, 0) or COALESCE(x, ''), mark "blank". Inside an
   -IF(S) form or ISBLANK, the column as it is: they skip a blank, as SUM and AVG skip NULL.
-- **M2** VLOOKUP or MATCH with TRUE or 1 is approximate: write the exact match; name it.
+- **M2** VLOOKUP or MATCH with TRUE or 1, approximate: the exact match; name it.
 - **M3** A date held as text, such as 20260911, that a formula makes or reads as a date
   (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
   `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
@@ -118,9 +118,9 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 - **X1** INDIRECT, OFFSET, RAND, RANDBETWEEN; a cell outside a Table that isn't a defined
   name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
-  reading its own column; ROW(), the row before, anything hanging on the sheet's row order;
-  MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula files 11
-  and 12 don't list. Left alone, and named: charts, PivotTables, cells outside a Table.
+  reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
+  row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
+  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
 
 ## Worked patterns
 
