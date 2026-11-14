@@ -2,7 +2,7 @@
 
 I read only what the brief listed. I triggered every message in Python, looked up two words in CONTEXT.md, and ran internal helpers or the old code only to confirm what a stop would cost. I edited nothing, and no file was written: `write_table_reference` was never called, only its `_date_partition_lines` helper with a fake `send`.
 
-Files: `C:\Users\<user folder>\Repos\Git\SQL-Composer\sql_composer\refusals.py`, `C:\Users\<user folder>\Repos\Git\SQL-Composer\sql_composer\CHANGES.md`, `C:\Users\<user folder>\Repos\Git\SQL-Composer\sql_composer\tables.py`, `C:\Users\<user folder>\Repos\Git\SQL-Composer\CONTEXT.md`.
+Files: `sql_composer\refusals.py`, `sql_composer\CHANGES.md`, `sql_composer\tables.py`, `CONTEXT.md`.
 
 ### A. The new refusal as printed (refusals.py:113-129; date_format at tables.py:486-488)
 

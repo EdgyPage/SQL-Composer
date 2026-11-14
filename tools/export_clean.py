@@ -37,6 +37,8 @@ It then checks what it built:
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
   is imported or run: the Toolbox and the Templates, the pages, the Copilot files, and the
   README, Markdown and plain text read as pages, so that none of it can reach the network;
+- no file holds a local path or a personal detail, as `tools/local_paths.py` reads them: an
+  absolute user path, the user's folder name, an AppData, Temp or scratchpad path, an email;
 - no file imports the Example database, which main doesn't hold;
 - the folder's `version.txt` names the Toolbox and its version;
 - the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the pages and the
@@ -73,6 +75,7 @@ from pathlib import Path
 
 import toolbox_registry
 import offline_policy
+import local_paths
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
@@ -388,6 +391,14 @@ def check_offline(into: Path, paths: list[str]) -> None:
             "ALLOWED in tools/offline_policy.py, with the user's OK.")
 
 
+def check_local_paths(into: Path) -> None:
+    """Refuse the Clean tree if any file in `into` holds a local path or a personal detail, as
+    `tools/local_paths.py` reads them: records stay on one machine and git holds none."""
+    found = local_paths.scan_tree(into)
+    if found:
+        raise ExportRefused(local_paths.refusal(found) + " Take each out on dev.")
+
+
 def files_in(folder: Path) -> list[str]:
     """Every file under `folder`, as sorted paths relative to it, such as
     ".github/README.md"."""
@@ -606,6 +617,7 @@ def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str
         encoding="utf-8", newline="\n")
     check_offline(into, [README])
     copy_root_files(source, into)
+    check_local_paths(into)
     check_no_example_database(into)
     outside = outside_allowlist(files_in(into))
     if outside:

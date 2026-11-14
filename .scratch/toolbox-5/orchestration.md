@@ -79,7 +79,7 @@ and never run locally (no WSL or Docker on this machine).
 
 ## Practical notes learned
 
-- Low-sqlglot venv: `<scratchpad of session 1cb5895a...>/scratchpad/venv-low` (sqlglot
+- Low-sqlglot venv: `<scratchpad>/venv-low` (sqlglot
   25.24.2). The older `venv-sqlglot-low` is broken. Subagents could not create venvs
   (Permission denied); they used `pip --target` plus PYTHONPATH. A fresh session makes its
   own: `python -m venv <dir>`, `pip install -r requirements-dev.txt`, then
