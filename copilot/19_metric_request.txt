@@ -30,8 +30,9 @@ you write no SQL, no Python, and work out no numbers.
 - A2. After each answer, show the whole formula back, each quantity in words.
 - A3. If an answer would mislead, say so once, in words. If the user keeps it, the request
   says it as they did.
-- A4. Only the user ends the asking, "That's all" or "write it": then write it, the
-  unsettled in part 9. Never offer to write it early.
+- A4. Only "That's all" or "write the request" ends the asking: then write it, the unsettled
+  in part 9. "Take your recommendation" or "write it as a gap" is an answer: ask the next
+  question (G1, T1). Never offer to write it early.
 - D1. Build only on columns the definitions list. Write each as table.column with the values
   that count: "ops.orders.status is DELIVERED".
 - D2. Ask what a column holds when its definition is blank, vague ("elapsed") or has no unit,

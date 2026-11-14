@@ -258,3 +258,41 @@ check "with my query"). T01 (dev), T03 and T24 (held out), routing's strict
 misses on v1 to v7, shaped the Index change, so their passes since are second looks. On v9:
 routing dev 97 strict (T05 to 08, by R8; T05 and T24 ask one Key check the tasks give to two
 files), 100 by the Index; held out 100 strict twice running; arm C held out 01, 02, 08 at 100.
+
+### Metric request, six more held-out tasks (2026-11-14, after the close)
+
+A check found two gaps: the Metric request's average over its rounds was 92, below the 95 the
+user called acceptable, and its held-out set was five tasks, M17 among them having shaped two
+fixes. The rounds are in `.scratch/copilot-eval/results.md`'s "Ticket 17, Metric request"
+block, under "Six more held-out tasks".
+
+- **Six new held-out tasks, M18 to M23,** written and committed (35dabb0) before any was run,
+  under the user's rules: requirements-scored, directional, on the messy definitions, no maths.
+  M18 a rounded share on the latest snapshot day; M19 a queue wait no table records (missing);
+  M20 two columns asked, one meant; M21 a cost band over 7 days with sample rows; M22 failures
+  from bad data, a cause no table records (missing); M23 different bad days in the last 30.
+  `tests/test_metric_eval.py` holds their keys as the others' (each example meets its key,
+  each element taken out is unmet, each gap unnamed or unfixed fails), and that the six are
+  held out, varied, and two of them missing data. Twenty-three tasks: twelve dev, eleven held
+  out.
+- **On file 19 as it was (memo c1e3766113b7):** the six new 100; all eleven 91 (M20 failed),
+  then 100. With dev 6's 100 from the record, the average is 98.
+- **The fix, from M20's miss:** the user's "take your recommendation and write it as a gap" was
+  read as the end of the asking, so the grain and days were never asked. A4 now names the two
+  endings ("That's all", "write the request") and says a taken recommendation or "write it as
+  a gap" is an answer, with the next question (G1, T1) to follow. File 19: 8,722 characters,
+  8,876 with Windows line breaks.
+- **On the fixed file 19 (89c506d04b97):** dev 100, held out (all eleven) 100. Average 100.
+- **Held-out tasks that shaped a fix:** M20, on its second look. M18, M19, M21, M22 and M23
+  shaped nothing.
+- **The user's rule, given mid-run** (2026-11-14): "Don't test the entire suite of policies
+  unless there's reason to believe the tests will be different ie you changed the
+  documentation the model uses to answer the script. Run the whole suite at the end." So: run
+  only what can come out different (new tasks, or every task once after file 19 changes); take
+  the rest from the memo and the record; run the tests a change touches as it goes, and the
+  whole suite once at the end. The brief's held-out "twice in a row" on the last version gave
+  way to it: the fixed version's held out ran once. The two held-out runs on c1e3766113b7 had
+  already run, side by side, when the rule came.
+- **The proxies:** one sonnet runner per round, each turn a fresh haiku `copilot-proxy` given
+  its message file and the turn files so far; a runner that continued proxies by SendMessage
+  handed back before they had answered, since a resumed agent runs in the background.
