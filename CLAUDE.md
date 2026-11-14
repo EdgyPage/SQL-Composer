@@ -114,9 +114,11 @@ that stuff." (the evaluation system, `.scratch/eval-system/map.md`).
 - Git holds instructions: the tools, `docs/`, the proxy and maintainer agents, tasks with their
   keys, tests, maps and tickets. Every record stays on one machine, under the git-ignored
   `.eval-local/`: the ledger, the memo, every run folder, the results files, round summaries and
-  reports. Never `git add -f` one. `.venv/Scripts/python tools/eval_runs.py copy-records` copies
-  the records the old pipelines still write under `.scratch/` into it, until the pipelines write
-  there themselves.
+  reports. Never `git add -f` one. Every pipeline writes there itself; `.venv/Scripts/python
+  tools/eval_runs.py copy-records` copies in records an older checkout left under `.scratch/`.
+- A round is run by its numbered steps, with no orchestrating worker: `docs/copilot-eval.md`
+  for the Copilot, Excel and Metric request evaluations, `docs/usability-loop.md` for the
+  usability loop. Run only what the plan says changed.
 - No tracked file holds an absolute user path, the user's folder name, an AppData, Temp or
   scratchpad path, or an email. Write a path relative to the repo, or `<user folder>` and
   `<scratchpad>`. `tools/local_paths.py` is the one reader of this: `tests/repo/test_local_paths.py`
