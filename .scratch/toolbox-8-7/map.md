@@ -246,6 +246,8 @@ It also freezes the Example projects at 8.6 in `tests/upgrade_from/8.6/`.
 - [13 The docs on main](issues/13-docs-on-main.md)
 - [14 8.7: the Upgrade step and the raise](issues/14-eight-point-seven.md)
 - [15 The usability round](issues/15-the-usability-round.md)
+- [16 The Copilot files use the room](issues/16-copilot-files-use-the-room.md), added
+  2026-11-13 after the user raised the limit to 9,000
 
 01 to 03 come first. Then 04, with 05, 06 and 07 after it. 08 to 12 can run alongside that
 chain, and 13 after 12. 14 and 15 come last. The real dependencies are in each ticket's
