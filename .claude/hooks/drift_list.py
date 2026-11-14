@@ -28,7 +28,7 @@ RECORD_RUN = (
     '--task drift-reviewer --round <commit> --commit <commit> --arm - --model opus '
     '--tokens <tokens> --seconds <seconds> --result "<clean or opened D<n> ...>"'
 )
-REQUESTS_FILE ="sql-composer-drift-requests"
+REQUESTS_FILE = "sql-composer-drift-requests"
 
 WATCHED_FOLDERS = ("sqlglot_composer/", "worked_examples/", "example_projects/", "copilot/",
                    "docs/")

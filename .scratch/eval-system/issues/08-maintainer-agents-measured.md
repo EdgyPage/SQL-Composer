@@ -41,3 +41,11 @@ Tests: `tests/test_eval_runs.py` (each agent records; a bad task, role or result
 changed. The stop hook's message is unchanged: the request already carries the command.
 
 ## Code review
+
+Run with this ticket as spec, fixed point d81ede36 (review-standards and review-spec, sonnet).
+
+- Fixed: a dropped space in `REQUESTS_FILE =` (drift_list.py); a maintainer role on another
+  pipeline, or the reverse, passed half-checked, so both now go through `check_maintainer_run`
+  (tested).
+- Answered: only the drift request carries the command itself; the other three agents get it
+  from CLAUDE.md, which is what the ticket asks. The stop hook's message is unchanged.

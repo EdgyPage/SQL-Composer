@@ -100,7 +100,7 @@ def test_each_maintainer_agent_records_a_run_with_its_result(tmp_path: Path) -> 
 
 
 @pytest.mark.parametrize(("field", "value"), [("task", "T07"), ("role", "proxy"),
-                                              ("result", "pass")])
+                                              ("pipeline", "metric"), ("result", "pass")])
 def test_a_maintainer_row_naming_no_agent_or_no_outcome_is_refused(
         tmp_path: Path, field: str, value: str) -> None:
     with pytest.raises(SystemExit, match="maintainer"):

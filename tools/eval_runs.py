@@ -115,7 +115,7 @@ def check_run(run: Run) -> None:
     if run.role not in ROLES:
         raise SystemExit(f"The role {run.role!r} is not one the ledger knows: "
                          f"{', '.join(ROLES)}.")
-    if run.pipeline == "maintainer":
+    if "maintainer" in (run.pipeline, run.role):
         check_maintainer_run(run)
     for name in ("tokens", "seconds"):
         if not re.fullmatch(r"\d+(\.\d+)?", getattr(run, name)):
@@ -126,9 +126,10 @@ def check_run(run: Run) -> None:
 def check_maintainer_run(run: Run) -> None:
     """Refuse a maintainer row whose role or task isn't one of the agents' or whose result
     doesn't start with "clean" or "opened"."""
-    if run.role != "maintainer" or run.task not in MAINTAINER_AGENTS:
-        raise SystemExit(f"A maintainer run has the role maintainer and, as its task, one of "
-                         f"{', '.join(MAINTAINER_AGENTS)}, not {run.role!r} and {run.task!r}.")
+    if run.pipeline != "maintainer" or run.role != "maintainer" or run.task not in MAINTAINER_AGENTS:
+        raise SystemExit(f"A maintainer run has the pipeline and role maintainer and, as its "
+                         f"task, one of {', '.join(MAINTAINER_AGENTS)}, not "
+                         f"{run.pipeline!r}, {run.role!r} and {run.task!r}.")
     if not re.match(r"(clean|opened)\b", run.result):
         raise SystemExit(f"A maintainer run's result starts with clean or opened, not "
                          f"{run.result!r}.")
