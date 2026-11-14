@@ -38,13 +38,13 @@ def test_the_local_folder_is_the_repos_eval_local_and_is_made_on_first_use(
         tmp_path: Path) -> None:
     assert eval_runs.LOCAL == eval_runs.ROOT / ".eval-local"
     assert eval_runs.MEMO == eval_runs.LOCAL / "memo"
-    made = eval_runs.local_path("runs", "r1", local=tmp_path / ".eval-local")
+    made = eval_runs.make_local_path("runs", "r1", local=tmp_path / ".eval-local")
     assert made == tmp_path / ".eval-local" / "runs" / "r1" and made.parent.is_dir()
 
 
 def test_a_path_outside_the_local_folder_is_refused(tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match="outside"):
-        eval_runs.local_path("..", "elsewhere", local=tmp_path / ".eval-local")
+        eval_runs.make_local_path("..", "elsewhere", local=tmp_path / ".eval-local")
 
 
 # --- The ledger ------------------------------------------------------------------------------

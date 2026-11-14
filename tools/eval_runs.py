@@ -13,8 +13,8 @@ this module writes is under `.eval-local/`, which git ignores.
     .venv/Scripts/python tools/eval_runs.py ledger
     .venv/Scripts/python tools/eval_runs.py carry-over
 
-- **The local folder**, `LOCAL`: `.eval-local/`, made on first use. `local_path` is the one way
-  to a path in it and refuses a path that would leave it.
+- **The local folder**, `LOCAL`: `.eval-local/`, made on first use. `make_local_path` is the one
+  way to a path in it and refuses a path that would leave it.
 - **The ledger**, `.eval-local/ledger.csv`: one row (`Run`) per agent run, written by `record`
   from the usage the agent reported when it finished, and read by `read_ledger`.
 - **The memo**, `.eval-local/memo/`: each reply kept in one plain file under a `Key`: its
@@ -67,7 +67,7 @@ REPLY_HEADING = "\n\n## Reply\n\n"
 # --- The local folder ------------------------------------------------------------------------
 
 
-def local_path(*parts: str, local: Path = LOCAL) -> Path:
+def make_local_path(*parts: str, local: Path = LOCAL) -> Path:
     """A path under the local folder, whose parent is made. Refuses a path outside it."""
     path = local.joinpath(*parts)
     if not path.resolve().is_relative_to(local.resolve()):
@@ -119,7 +119,7 @@ def check_run(run: Run) -> None:
 def record_run(run: Run, local: Path = LOCAL) -> Path:
     """Add a run to the ledger, whose header is written with its first row."""
     check_run(run)
-    path = local_path(LEDGER_NAME, local=local)
+    path = make_local_path(LEDGER_NAME, local=local)
     is_new = not path.exists()
     with path.open("a", encoding="utf-8", newline="") as ledger:
         writer = csv.writer(ledger, lineterminator="\n")
@@ -373,7 +373,7 @@ def _record(given: argparse.Namespace) -> int:
     return 0
 
 
-def _ledger(given: argparse.Namespace) -> int:
+def _print_ledger(given: argparse.Namespace) -> int:
     """Print the ledger's rows and their total tokens."""
     rows = read_ledger(given.local)
     for row in rows:
@@ -407,8 +407,8 @@ def main(argv: list[str] | None = None) -> int:
     for command in (record, ledger, carry):
         command.add_argument("--local", type=Path, default=LOCAL)
     given = parser.parse_args(argv)
-    return {"record": _record, "ledger": _ledger, "carry-over": _carry_over}[given.command](
-        given)
+    run_command = {"record": _record, "ledger": _print_ledger, "carry-over": _carry_over}
+    return run_command[given.command](given)
 
 
 if __name__ == "__main__":

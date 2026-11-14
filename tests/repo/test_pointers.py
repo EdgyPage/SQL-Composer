@@ -23,7 +23,7 @@ STANDING_DOCS = sorted([
     *(ROOT / "docs" / "agents").glob("*.md"),
 ])
 
-# Folders that git ignores and `tools/eval_runs.py` makes on first use, so a fresh clone lacks them.
+# Folders that git ignores and `tools/eval_runs.py` makes on first use, so a clone lacks them.
 LOCAL_FOLDERS = {".eval-local/"}
 
 IN_BACKTICKS = re.compile(r"`([^`\n]+)`")
