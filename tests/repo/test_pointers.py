@@ -23,6 +23,9 @@ STANDING_DOCS = sorted([
     *(ROOT / "docs" / "agents").glob("*.md"),
 ])
 
+# Folders that git ignores and `tools/eval_runs.py` makes on first use, so a fresh clone lacks them.
+LOCAL_FOLDERS = {".eval-local/"}
+
 IN_BACKTICKS = re.compile(r"`([^`\n]+)`")
 LINK_TARGET = re.compile(r"\]\(([^)\s]+)\)")
 FILE_EXTENSION = re.compile(r"\.(md|py|txt|toml|json|yml|yaml|html|cfg|ini)$")
@@ -34,7 +37,7 @@ def named_paths(text: str) -> list[str]:
     return [
         candidate
         for candidate in candidates
-        if not NOT_A_PATH.search(candidate)
+        if not NOT_A_PATH.search(candidate) and candidate not in LOCAL_FOLDERS
         and (candidate.endswith("/") or FILE_EXTENSION.search(candidate))
     ]
 
