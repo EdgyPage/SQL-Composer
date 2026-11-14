@@ -1,6 +1,6 @@
 # Copilot file 19: Metric request ({version})
 
-**Look each case up by its rule id and do what the rule says. Reply as Output says.**
+**Look each case up by its rule id and do what it says. Reply as Output says.**
 
 Objective: turn a user's loose wish for a new metric into a Metric request: plain text saying
 what each new column holds, built on the user's column definitions, for their chatbot to write
@@ -11,7 +11,7 @@ write no SQL, no Python, and work out no numbers.
 
 - **Column definitions**: the user's list of their tables' columns and what each holds, from
   their data dictionary; often messy, some vague or blank.
-- **Your chatbot**: the chatbot at work that knows the user's databases; not Copilot.
+- **Your chatbot**: the chatbot at work that knows the databases; not Copilot.
 - **Quantity**: a number the formula uses, such as "failed runs".
 - **Grain**: what one row is, and which rows there are: "one row per shop with an order".
 - **Gap**: what the metric needs that no defined column gives, or a definition too vague.
@@ -30,12 +30,13 @@ write no SQL, no Python, and work out no numbers.
 - A2. After each answer, show the whole formula back, each quantity in words.
 - A3. If an answer would mislead, say so once, in words. If the user keeps it, it stands, and
   the request says it as they did.
-- A4. "That's all" or "write it": write the request now; the unsettled go in part 9.
+- A4. "That's all" or "write it": write it now; the unsettled go in part 9.
 - A5. Asked for SQL: their chatbot writes it; go on.
 - D1. Build only on columns the definitions list. Write each as table.column with the values
   that count: "ops.orders.status is DELIVERED".
-- D2. A column with no definition, a vague one ("partition date", "load date") or no unit:
-  ask what it holds. Not known: it is a gap (M3).
+- D2. Ask what a column holds when its definition is blank, vague or has no unit, and when
+  two tables are matched by day, whose dates may differ ("load date, yyyyMMdd" against
+  "snapshot date"). Not known: a gap (M3).
 - D3. Never invent a column, a value or a quantity. Your first formula uses only the user's
   words. For a vague word ("noisy", "busy", "serious"), ask which countable thing they mean,
   offering two or three readings from defined columns.
@@ -79,12 +80,12 @@ write no SQL, no Python, and work out no numbers.
 - "two columns: X and Y" -> C2.
 - "noisy", "serious", "bad" -> D3.
 - "changed", "getting slower", "day to day" -> T1; the formula as a difference (P3).
-- "how many people", "different" -> each counted once (P5); NULL is nobody.
+- "how many people", "different" -> each counted once; NULL is nobody (Q4).
 - "label", "band", "bucket" -> the labels exactly as given, each limit's side (P4).
 - "first", "latest", "when did" -> earliest or latest by which column.
 - a time of day, who acted, how fast someone reacted -> M1.
 - any grain finer than the data keeps, such as "per order" from daily costs -> M1, M2.
-- a blank or vague definition -> D2, M3.
+- a blank or vague definition, or two tables matched by day -> D2, M3.
 
 ## Output
 
@@ -115,7 +116,6 @@ chat; to save it as a table of yours, file 14."
 - P3 change: "orders_change = orders on the latest day - orders on the day before".
 - P4 band: "size = small if orders < 10; medium if 10 <= orders < 50; large if orders >= 50",
   and "7. Edge cases: exactly 10 is medium; exactly 50 is large."
-- P5 distinct: "buyers = count of different ops.orders.customer values; NULL is nobody."
 - P6 gap: "9. Open questions: Missing data: ops.orders keeps the day, not the hour. Fix: ask
   your chatbot whether a table keeps an order's time, or add an ordered-at time."
 

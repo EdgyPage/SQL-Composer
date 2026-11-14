@@ -625,7 +625,8 @@ job_id | cost_cents | region | dt       | budget_cents
             *gap(r"react|pick|respon|acknowledg|notic|time"),
             grain(r"\bteam\b"),
             values(r"FAILED"),
-            Required("the team from the jobs table", "", (r"ops\.jobs\b|jobs table|jobs\.team",)),
+            Required("the team by its table", "", (
+                r"jobs\.team|job_owners\.team|jobs table|owners table",)),
             Required("minutes as the unit", "", (r"minute",)),
         ),
         example=request("team reaction time", ("reaction_minutes", (
