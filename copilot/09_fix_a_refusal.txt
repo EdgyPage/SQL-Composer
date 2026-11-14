@@ -50,7 +50,8 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -67,10 +68,15 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 - any_of(*conditions)
 - AS(expression, name)
 - count_rows(where=None, over=None)
+- GROUP_BY(*columns)
 - LIMIT(n)
 - LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
 - CROSS_JOIN(table, reads_all_partitions=False)
+- SELECT_DISTINCT(*columns)
 - derived(name, statement)
+- row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None)
+- run_query(s, query=None)
+- run_execute(s, execute=None)
 
 ## Steps
 
@@ -98,6 +104,11 @@ If the refusal says what a line below quotes, write the fix after the colon.
 - "SELECT has a calculation with no name: COUNT(*).": name it, `AS(count_rows(), "runs")`.
 - "SELECT has job_runs.status, which GROUP_BY leaves out.": add it to GROUP_BY, or count or
   add it up.
+- "SELECT has job_runs.job_id, but the Statement counts or adds up rows and has no
+  GROUP_BY.": add `GROUP_BY(job_runs.job_id)`. For each group's whole latest row instead:
+  `row_number(...)` in a Derived table, kept at 1 (file 05).
+- "load(...): the logic cell of ... calls run_query.": keep the logic cell to imports and
+  functions that build Statements; call run_query or run_execute in the next cell.
 - "equals(job_runs.status, None) compares with None.": `is_null(t.status)` or
   `is_not_null(...)`.
 - "statement(...) has its clauses out of SQL order: FROM, SELECT.": put them in order:
@@ -142,4 +153,5 @@ s = statement(
 - The fixed code passes each item of the Always list, and keeps the user's columns, tables
   and days.
 - An opt-out appears only where the user asked for it; else the answer asks the user.
+- Names the user's own code defines, such as `write()` or a Building block, are kept.
 - A sentence says what changed, and why.

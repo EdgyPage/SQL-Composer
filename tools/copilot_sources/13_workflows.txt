@@ -23,7 +23,7 @@ and changes to a Saved table; a step's own file, its Python.
 
 ## Names for this objective, with their arguments
 
-{names: project.check, project.run_workflow, project.convert, project.compare_batch, project.write_decisions}
+{names: project.check, project.run_workflow, project.convert, project.compare_batch, project.write_decisions, project.batch_tables}
 
 ## Steps
 
@@ -39,7 +39,8 @@ and changes to a Saved table; a step's own file, its Python.
 ## Decision rules
 
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
-  before it are done.
+  before it are done. **The names cell comes first, filled in, every time**: the cells after
+  it read NAME and the other inputs from it.
 - If the user asks for every step's cell, give each one as listed, in order.
 - If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
   a Decision is the user's, never yours.
@@ -64,22 +65,29 @@ and changes to a Saved table; a step's own file, its Python.
 - A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
   user gives; for one worked out each run, such as the latest Partition, a Run value: a
-  function of theirs (file 17). If they give none, never guess: ask.
+  function of theirs (file 17). If they give none, never guess: ask. A tag is the place the
+  old scheduler put its value: that is never a reason to leave it unanswered.
 - `"all_tables": {"key": "proposed"}` accepts each table's proposed Key as if typed. More
   of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
+- A proposed Key is used as it is; accepting it only takes off its `# proposed` mark. Once
+  the batch has finished, write it with
+  `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
 - Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
-  `PARTITIONS = [{"dt": "2026-09-23"}]`.
+  `PARTITIONS = [{"dt": "2026-09-23"}]`. Once the batch is in finished/, another Partition
+  is compared with `project.compare_batch(NAME, query=query, partitions=[{"dt": ...}])`.
 - "Run up to your Decisions", then "Run the rest": one call, run before and after the
   answers, each up to the first step only the user can do; `dry_run=True` sends nothing.
+  With no Decision open, the first runs to the end, writing and comparing.
 
 ## convert: someone else's Hive into Saved tables in dev
 
 Its inputs:
 
 - NAME: the batch's name; for the run cells, it may be a list of batches converted already.
-- FILES: the .hql files, beside the notebook or by path, each read where it is; left `[]`,
-  every .hql beside it, or HIVE, the Hive as text. A query alone makes a Saved
-  table too, named for its file or NAME.
+- FILES: the .hql files by name, `["daily.hql"]`, when beside the notebook, else by full
+  path, each read where it is; left `[]`,
+  every .hql beside it, or HIVE, the Hive as text. A query that only SELECTs, writing no
+  table, makes a Saved table too, named for its file or NAME.
 - EACH_SCRIPT_ITS_OWN_BATCH: True makes each file a batch named for it, one decisions cell
   for all; scripts reading each other's tables are refused.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
@@ -88,8 +96,8 @@ Its inputs:
   <table>_<its database>: mart_dev.team_fails_mart.
 - STAGING: a staging table is one a statement makes and a later one reads, named in
   convert's report. Folded, its query goes inside each table that reads it; kept, it is a
-  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if
-  temporary or DROPped, else kept.
+  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if the
+  script makes it TEMPORARY or DROPs it after use, else kept.
 
 {workflow: convert}
 
@@ -115,7 +123,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 ## Self-check
 
 - The reply names the Workflow and the user's step.
-- Each cell is one listed here, with the user's names in it.
+- Each cell is one listed here, with the user's names in it, the names cell first.
 - Each later step is named in words, unless every cell was asked for.
 - Each Decision answered is in DECISIONS by the table's name; each other is named.
 - Promoting is named as file 16's, never given here.

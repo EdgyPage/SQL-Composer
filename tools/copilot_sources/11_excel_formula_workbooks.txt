@@ -40,7 +40,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE);
   UPPER, LOWER, TRIM as they are.
 - YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE;
-  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
+  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); a date minus a date, b - a: DATEDIFF(b, a);
+  DATEDIF(a, b, "d"):
   DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
   EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
   one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
@@ -72,12 +73,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   once, such as two values of one column, or written `((..)+(..)>0)`.
   SUMPRODUCT((t[s]="x")*(t[v]>5)*t[v]): `SUM(CASE WHEN s = 'x' AND v > 5 THEN v ELSE 0
   END)`; with no column to add, as `(..)*1`: `COUNT(CASE WHEN .. THEN 1 END)`. If it reads
-  its own Table, then add OVER (), as each row shows the same total.
+  its own Table, each row shows the same total: write `SUM(...) OVER ()`, the whole Table.
 - A wildcard, "*ail*" or "f*": `LOWER(s) LIKE '%ail%'`, `'f%'`, as Excel ignores case.
 - `t[d], "<="&[@d]` over its own Table is a running total, ties included as Excel's: `SUM(v)
   OVER (PARTITION BY a ORDER BY d RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
   COUNTIFS the same with COUNT(*). COUNTIFS(t[a], [@a], t[v], ">"&[@v])+1: `RANK() OVER
   (PARTITION BY a ORDER BY v DESC)`; with "<", ASC.
+- A window's ORDER BY and PARTITION BY read the source's columns, as `ORDER BY dt`, never a
+  name the same SELECT makes with AS, which Hive can't see there.
 
 ## A value typed over a formula
 
@@ -93,8 +96,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   "blank". Inside an -IF(S) form or ISBLANK, write the column as it is: they skip a blank,
   as SUM, AVG, MIN and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
-- A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
-  '-', SUBSTR(dt, 7, 2))`, and name it.
+- A date held as text, such as 20260911, that a formula makes or reads as a date
+  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT): `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
+  SUBSTR(dt, 7, 2))` inside that formula's Hive, and name it. **A column no formula reads as
+  a date stays as it is**: shown, compared in an -IFS form or ordered on, `dt` is written
+  `dt`, never converted.
+- An XLOOKUP, VLOOKUP or INDEX/MATCH whose key repeats in the looked-up Table's sample: Excel
+  takes the first match, a LEFT JOIN every one, repeating the row. Write the LEFT JOIN, and
+  name the mark "repeated key".
 - A defined name for a cell outside a Table: write its value, and say to move it into
   Parameters.
 
@@ -125,4 +134,5 @@ FROM <database>.job_runs
 - Each formula column is in its final's SELECT, by this file, or `NULL AS` its header.
 - Each value typed over a formula is a CASE matched on its Keys row's columns.
 - Each COALESCE this file asks for is there, and each mark is named.
+- A text date is converted only inside a formula that reads it as a date.
 - No AND(, OR( or NOT( is left in the Hive: each is written `a AND b`, `(a OR b)`, `NOT x`.

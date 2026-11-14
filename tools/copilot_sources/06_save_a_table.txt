@@ -20,7 +20,7 @@ it, add to it, or write the logic cell of a Table notebook.
 
 ## Names for this objective, with their arguments
 
-{names: project.new_table, project.load, project.run_tables, create_table, INSERT_OVERWRITE, INSERT_INTO, hive_settings, statement, SELECT_DISTINCT, AS, count_rows, run_query, run_execute, show_hive}
+{names: project.new_table, project.load, project.run_tables, project.reference_from_logic, create_table, INSERT_OVERWRITE, INSERT_INTO, hive_settings, statement, SELECT_DISTINCT, AS, count_rows, between, run_query, run_execute, show_hive, export_hive}
 
 ## The Table notebook
 
@@ -52,6 +52,11 @@ it, add to it, or write the logic cell of a Table notebook.
 - If the rows are added to what is there: INSERT_INTO; a rerun adds them twice.
 - If one named Partition is written: `INSERT_OVERWRITE(t, partition={"dt": day})`, its
   column left out of SELECT.
+- If each run writes several days again, or a Scheduled run (file 18) must write the days
+  it is given: `rows(first_day, last_day)` takes the days and bounds its read with
+  `between(...)`; `write_days(first_day, last_day)` is `statement(INSERT_OVERWRITE(t),
+  *rows(first_day, last_day))`; `write()` returns `write_days(...)` with its own days and
+  takes nothing, as every write() does; `preview()` gives `rows(...)` for the same days.
 - If the table has a Key: one row per Key, by GROUP_BY over it, SELECT_DISTINCT or a
   row_number kept at 1 (file 05), or the write is refused. `unproven_key=True` only if the
   user says why the rows are one per Key.

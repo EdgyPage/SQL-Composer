@@ -19,7 +19,7 @@ match in another table, or a count of matches.
 
 ## Names for this objective, with their arguments
 
-{names: JOIN, LEFT_JOIN, FULL_JOIN, SEMI_JOIN, ANTI_JOIN, CROSS_JOIN, AS, all_of, equals, count_distinct, count_rows, statement, SELECT, FROM, WHERE, GROUP_BY}
+{names: JOIN, LEFT_JOIN, FULL_JOIN, SEMI_JOIN, ANTI_JOIN, CROSS_JOIN, AS, all_of, equals, count_distinct, count_rows, derived, statement, SELECT, FROM, WHERE, GROUP_BY}
 
 ## Joins
 
@@ -90,7 +90,7 @@ s = statement(
 )
 ```
 
-Every job, with how many runs the scheduler started for it that day, 0 for none:
+Every job, with its scheduler runs that day, 0 for none:
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, all_of, count_distinct,
@@ -104,6 +104,27 @@ s = statement(
     LEFT_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.job_id, jobs.job_id),
                                         equals(scheduler_runs.dt, "2026-09-24"))),
     GROUP_BY(jobs.job_id),
+)
+```
+
+Each job's minutes that day, job_runs grouped to one row per job first:
+
+```python
+from sqlglot_composer import (AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, derived, equals,
+                              statement, sum_of)
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+
+per_job = derived("per_job", statement(
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, "2026-09-24")),
+    GROUP_BY(job_runs.job_id),
+))
+s = statement(
+    SELECT(jobs.job_name, per_job.minutes),
+    FROM(jobs),
+    JOIN(per_job, ON=equals(per_job.job_id, jobs.job_id)),
 )
 ```
 

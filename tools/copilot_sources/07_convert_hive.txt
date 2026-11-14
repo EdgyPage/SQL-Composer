@@ -14,7 +14,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 ## Names for this objective, with their arguments
 
-{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, is_in, count_rows, count_distinct, sum_of, fill_null, hive_function, unchecked_column, hive_settings, hivevar}
+{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, is_in, count_rows, count_distinct, sum_of, fill_null, hive_function, unchecked_column, hive_settings, script_tag, tag_text, hivevar}
 
 ## In the Project
 
@@ -52,8 +52,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported; a day worked out each run: file 17; a value passed to Hive:
-  `hivevar("NAME", default="'2026-09-24'")`.
+  imported. What TAGS holds is a Decision rule's.
 
 ## Steps
 
@@ -69,6 +68,13 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - Otherwise, one query or a script: the convert Workflow's cells (file 13).
 - If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
   the user wants every day.
+- If the user gives a Script tag's value: TAGS holds it as text, a bare tag's with its
+  quotes, `"'2026-09-24'"`, though their old scheduler filled the tag in. If they give
+  none, ask; never guess it.
+- If the value is worked out each time the Hive is built, such as the latest Partition a
+  table holds: a Run value, the value a function of theirs gives (file 17).
+- Only if the user asks for a Hivevar, `${hivevar:NAME}` left in the Hive for their
+  scheduler to fill in: `hivevar("NAME", default="'2026-09-24'")`, imported.
 
 ## Output
 

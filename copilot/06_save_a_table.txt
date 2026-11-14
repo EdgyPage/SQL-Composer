@@ -48,13 +48,15 @@ it, add to it, or write the logic cell of a Table notebook.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
 - project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
+- project.reference_from_logic(name)
 - create_table(t, may_exist=False)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
 - INSERT_INTO(table, unproven_key=False, partition=None)
@@ -63,9 +65,11 @@ it, add to it, or write the logic cell of a Table notebook.
 - SELECT_DISTINCT(*columns)
 - AS(expression, name)
 - count_rows(where=None, over=None)
+- between(column, low, high)
 - run_query(s, query=None)
 - run_execute(s, execute=None)
 - show_hive(*statements)
+- export_hive(s=None)
 
 ## The Table notebook
 
@@ -97,6 +101,11 @@ it, add to it, or write the logic cell of a Table notebook.
 - If the rows are added to what is there: INSERT_INTO; a rerun adds them twice.
 - If one named Partition is written: `INSERT_OVERWRITE(t, partition={"dt": day})`, its
   column left out of SELECT.
+- If each run writes several days again, or a Scheduled run (file 18) must write the days
+  it is given: `rows(first_day, last_day)` takes the days and bounds its read with
+  `between(...)`; `write_days(first_day, last_day)` is `statement(INSERT_OVERWRITE(t),
+  *rows(first_day, last_day))`; `write()` returns `write_days(...)` with its own days and
+  takes nothing, as every write() does; `preview()` gives `rows(...)` for the same days.
 - If the table has a Key: one row per Key, by GROUP_BY over it, SELECT_DISTINCT or a
   row_number kept at 1 (file 05), or the write is refused. `unproven_key=True` only if the
   user says why the rows are one per Key.

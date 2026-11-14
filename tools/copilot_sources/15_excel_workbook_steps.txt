@@ -42,7 +42,7 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
    for each final, start its query: each source read as `<database>.<table>`, each step it
    reads as a CTE in it (`WITH name AS (...)`), each CTE after every CTE it reads. **A
    Table's typed columns are always read from `<database>.<table>`, never typed in**; only a
-   summary's typed groups are typed in.
+   summary's groups are written into the Hive.
    Done when each final has its FROM and CTEs. Then step 5.
 5. **Write each final's columns.** Goal: each column gives the workbook's values. Action:
    write the columns in the Table's order, each formula by file 11, each query step and
@@ -61,8 +61,10 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 - If a Table has a formula column and no query loads it: if another Table's formula or a
   query reads it, it is a step; if nothing else reads it, it is a final. Its own formula
   columns reading its own row don't count.
-- If a Table's only typed columns are the ones its SUMIFS or COUNTIFS match on, it is a
-  summary: its final query is a GROUP BY of the Table it reads, its typed rows kept.
+- If a Table's only typed columns are the ones its SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS or
+  MINIFS match on, it is a summary: its final query is a GROUP BY of the Table it reads, its
+  typed rows kept, written into the Hive, and named in the map, since a later day or team
+  won't be in the table. Its final keeps the summary Table's own name.
 - If a query's M names another query, the named query is a step: a CTE in each final that
   reads it, `WITH owner_load AS (...)`, never a read of `<database>.owner_load`.
 - If a query loads a Table: if another Table's formula reads that Table, the Table is a step;
@@ -114,7 +116,7 @@ SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
 summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
-file 12's second example. by_job's typed job_ids, its groups, are typed in:
+file 12's second example. Values written in: by_job's groups, job_ids 1 and 2:
 
 ```sql
 SELECT j.job_id, COALESCE(c.runs, 0) AS runs
@@ -129,7 +131,9 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - Each final, Total Rows included, has its own ```sql block; no block is a step alone.
 - Each final's columns are its Table's, in order; a refused one is `NULL AS` its header.
 - Each source and each Table's typed columns are read from `<database>.<table>`; the only
-  rows typed in are a summary's groups.
+  rows written into the Hive are a summary's groups, each named in the map.
+- A text date is converted only where a formula reads it as a date (file 11); a column
+  passed through is as the source holds it.
 - Each Total Row's block has a column only for each cell that holds a total.
 - Each step a final reads is a CTE inside that final's block, after each CTE it reads.
 - Each value typed over a formula is in a CASE, matched on its Keys row's columns.

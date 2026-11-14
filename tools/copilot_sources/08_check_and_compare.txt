@@ -21,7 +21,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 
 ## Names for this objective, with their arguments
 
-{names: compare_hive, compare_with_original, check_key, check_table_reference, project.check, export_lineage, export_hive, explain, to_hive, show_hive, run_query, equals, between}
+{names: compare_hive, compare_with_original, check_key, check_table_reference, project.check, project.compare_batch, project.export_project_lineage, export_lineage, export_hive, explain, to_hive, show_hive, run_query, equals, between}
 
 ## Steps
 
@@ -48,8 +48,12 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   `check_table_reference(t, query=query)`.
 - If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
   a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
+- If asked to compare a converted batch again, on another Partition, once finished too:
+  `project.compare_batch("ops_reports", query=query, partitions=[{"dt": "2026-09-23"}])`.
 - If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
-  the notebook.
+  the notebook, as HTML, where clicking a box shows its Hive in a side panel, and as
+  Markdown. For every Saved table of the Project, drawn whole:
+  `project.export_project_lineage()`, written in admin/lineage/.
 - If asked for Hive's plan, without running: `run_query(explain(s), query)`.
 - If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
 - If asked for a Table notebook's Hive in a file: save the notebook, then run its

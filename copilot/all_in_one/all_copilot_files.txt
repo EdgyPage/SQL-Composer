@@ -26,6 +26,10 @@ you can ask it in plain words.
 - **Refusal**: the Toolbox's message when it won't write a Statement's Hive.
 - **Workflow**: the steps to one end goal, such as converting Hive, each a cell of the
   Workflow's notebook in admin/workflows/.
+- **Run value**: the value a function of yours works out each time a table is written, such
+  as the latest day a table holds.
+- **Your chatbot**: the chatbot at your work that knows your databases and their column
+  descriptions; not Copilot. File 19's Metric request is text for it.
 
 ## Steps
 
@@ -41,9 +45,13 @@ you can ask it in plain words.
    one's Table reference, its file in your Project's references/ folder, or say its import
    line and columns, such as: `from references.ops__job_runs import job_runs` gives
    ops.job_runs: run_id bigint, job_id bigint, status string, dt string; partitioned by dt;
-   Key run_id. Done when Copilot answers with code. Then step 5.
+   Key run_id. For file 19, say the metric in your own words: no table is needed. For an
+   Excel workbook, attach it. Done when Copilot answers with code, with Hive for a workbook,
+   or with a question for file 19. Then step 5.
 5. **Run it.** Goal: the code works in your notebook. Action: run what Copilot gives. Done
-   when it runs. If the Toolbox refuses it, step 6.
+   when it runs. If the Toolbox refuses it, step 6. For a workbook's Hive, save each query
+   as a .hql file and run the convert Workflow (file 13). For file 19, answer each question;
+   then paste the Metric request it ends with into your chatbot.
 6. **Fix a refusal.** Goal: code the Toolbox takes. Action: start a new chat with file 09,
    paste the code and the whole message, and ask for the fix. Done when Copilot answers
    with the fixed code. Then step 5.
@@ -62,7 +70,12 @@ you can ask it in plain words.
   some Partitions, load file 17.
 - If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
   paste what `project.describe_logic([...])` prints for the tables it uses.
-- If you want a new metric defined for your chatbot, not code, load file 19.
+- If you want a new metric defined for your chatbot, not code, load file 19. Your chatbot
+  gives back Hive: for it as Toolbox code, load file 07; for it as a Saved table, save it as a
+  .hql file and load file 14 (a new table from a query).
+- If you want a Script tag left as a Hivevar, `${hivevar:NAME}` in the Hive for your
+  scheduler to fill in each run, load file 17; for a Scheduled run's own value of it, file
+  18. A value worked out when the Hive is built is a Run value: file 17 too.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -98,9 +111,9 @@ you can ask it in plain words.
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
 - `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
   the promote Workflow's notebook.
-- `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
-  value each time a table is written, such as a Script tag's day; answers for every table of
-  a Workflow notebook; and seed limits, the Partitions a seed copies.
+- `17_run_values_and_seed_limits.txt`: a Run value, the value a function of yours works out
+  each time a table is written, such as a Script tag's day, or a Hivevar; answers for every
+  table of a Workflow notebook; and seed limits, the Partitions a seed copies.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
@@ -121,7 +134,7 @@ you can ask it in plain words.
 - The chat is new, and its first message is the file your task's line names (for an Excel
   workbook, files 15, 11 and 12).
 - Your question names each table to read, by its Table reference or its import line and
-  columns.
+  columns; for file 19, it says the metric in your words, and for a workbook, it is attached.
 - For a refusal, the new chat holds file 09, your code and the whole message.
 
 ===== 01_imports_and_project.txt =====
@@ -178,7 +191,8 @@ something and see its rows.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -186,6 +200,8 @@ something and see its rows.
 - project.add_references(names, *, query=None)
 - project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
+- project.check()
+- project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
 - FROM(table, reads_all_partitions=False)
@@ -198,6 +214,8 @@ something and see its rows.
 
 ## A Project
 
+- The Project's folder is any folder of the user's own, such as my_project/, with the
+  Toolbox's folder, `sqlglot_composer/`, copied into it whole.
 - In a notebook in the Project's folder: `from sqlglot_composer import project`, then
   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
   warehouse.py.
@@ -224,6 +242,8 @@ something and see its rows.
 - A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
   `import pathlib` and `import sys`.
+- A Windows path typed in is written with forward slashes, `"C:/work/my_project"`: a
+  backslash in plain quotes, as in "C:\new", starts an escape and breaks the path.
 
 ## Steps
 
@@ -241,6 +261,9 @@ something and see its rows.
 - If the user wants only the Hive: `print(to_hive(s))`, which sends nothing, or
   `show_hive(s)`, laid out.
 - If the user's code passes `send=`: write `query` or `execute`, which replaced it in 7.0.
+- If the user asks what to do next in the Project: `project.check()`, which names each
+  Workflow's next step; a Table reference's `# TODO` line, such as its first line, waits on
+  nothing and blocks no run.
 
 ## Output
 
@@ -340,17 +363,20 @@ table, or asks about a table's columns, partitions or Key.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
 - project.add_references(names, *, query=None)
+- project.reference_from_logic(name)
 - write_table_reference(name, *, query=None, folder=None)
 - Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
 - first_look(t)
 - all_columns(t)
+- run_query(s, query=None)
 - equals(column, value)
 - between(column, low, high)
 - is_in(column, values)
@@ -402,6 +428,12 @@ table, or asks about a table's columns, partitions or Key.
 ## Decision rules
 
 - If the user names a Key, write it as `key=`. If not, leave `key=` out, or ask.
+- If the user isn't sure a proposed Key is right: `check_key` on one Partition first, as in
+  the second example, then answer the Decision with what it says.
+- If a line of the reference ends `# TODO`, such as its first line or `does_not_add_up=`, it
+  waits on nothing: fill it in when the user can. Emptying `does_not_add_up=[]` means no
+  column is refused when added up. A line marked `# proposed` is a guess the user accepts or
+  changes.
 - If it is a Saved table, give it a `location=`. If it is only read, give none.
 - If asked to write a database's file, such as references/ops.py: the Project actions do.
 
@@ -496,7 +528,8 @@ Load this file when the user asks for rows, counts, totals or a list from their 
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -537,6 +570,7 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 - if_else(condition, then, otherwise)
 - fill_null(column, value)
 - descending(column)
+- run_query(s, query=None)
 
 ## Clauses
 
@@ -546,7 +580,8 @@ Load this file when the user asks for rows, counts, totals or a list from their 
   of a table: `SELECT(*all_columns(t))`.
 - Dates are compared as the table holds them: `equals(t.dt, "2026-09-24")`,
   `between(t.dt, "2026-09-18", "2026-09-24")`, or `last_n_days(t.dt, 7)` for the 7 days
-  before today.
+  before today. A table writing its days as 20260924, as its Table reference's columns
+  show, is compared that way: `equals(region_costs.dt, "20260924")`.
 - Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
   "running")`. More than two labels: file 10.
 - `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole result,
@@ -574,6 +609,12 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 - If the user asks for every day of `t`: `FROM(t, reads_all_partitions=True)`.
 - If a column must be NULL: `is_null(t.owner)`, never `equals(t.owner, None)`.
+- If the user asks to run it or see its rows: add `rows = run_query(s, query)` after
+  `from warehouse import query`, as the first example does. If they ask only for the
+  Statement, run nothing.
+- If a share or percent: divide two totals, each named once, such as
+  `AS(count_rows(where=equals(t.status, "FAILED")) * 100 / count_rows(), "fail_pct")`;
+  Hive's `/` gives a decimal, never a whole number.
 
 ## Output
 
@@ -584,12 +625,13 @@ Reply with these parts, in this order, and nothing else:
 
 ## Examples
 
-Each job's runs and total minutes on two days, the jobs with more than one run:
+Each job's runs and total minutes on two days, the jobs with more than one run, run:
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, between,
-                              count_rows, more_than, statement, sum_of)
+                              count_rows, more_than, run_query, statement, sum_of)
 from references.ops__job_runs import job_runs
+from warehouse import query
 
 s = statement(
     SELECT(job_runs.job_id, AS(count_rows(), "runs"),
@@ -599,6 +641,7 @@ s = statement(
     GROUP_BY(job_runs.job_id),
     HAVING(more_than(count_rows(), 1)),
 )
+rows = run_query(s, query)
 ```
 
 In two steps, a Derived table first:
@@ -678,7 +721,8 @@ match in another table, or a count of matches.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -693,6 +737,7 @@ match in another table, or a count of matches.
 - equals(column, value)
 - count_distinct(column, where=None)
 - count_rows(where=None, over=None)
+- derived(name, statement)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
 - FROM(table, reads_all_partitions=False)
@@ -768,7 +813,7 @@ s = statement(
 )
 ```
 
-Every job, with how many runs the scheduler started for it that day, 0 for none:
+Every job, with its scheduler runs that day, 0 for none:
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, all_of, count_distinct,
@@ -782,6 +827,27 @@ s = statement(
     LEFT_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.job_id, jobs.job_id),
                                         equals(scheduler_runs.dt, "2026-09-24"))),
     GROUP_BY(jobs.job_id),
+)
+```
+
+Each job's minutes that day, job_runs grouped to one row per job first:
+
+```python
+from sqlglot_composer import (AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, derived, equals,
+                              statement, sum_of)
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+
+per_job = derived("per_job", statement(
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, "2026-09-24")),
+    GROUP_BY(job_runs.job_id),
+))
+s = statement(
+    SELECT(jobs.job_name, per_job.minutes),
+    FROM(jobs),
+    JOIN(per_job, ON=equals(per_job.job_id, jobs.job_id)),
 )
 ```
 
@@ -843,7 +909,8 @@ the rows of several Statements together.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -880,11 +947,11 @@ the rows of several Statements together.
 - Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
   `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
   `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
-  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
-  rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
-- A window's value can't be tested in its own WHERE or HAVING.
-- Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
-- The Toolbox refuses adding up a window's value again.
+  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY, rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
+- A window's value can't be tested in its own WHERE or HAVING: test it in a Statement
+  reading its Derived table.
+- Ties: add a second ORDER_BY column, such as the row's id. A window's value is never added
+  up again.
 
 ## Subtotals and stacks
 
@@ -908,6 +975,8 @@ the rows of several Statements together.
   row 1 in the Statement that reads it; never max_of on each column, which can mix values
   from different rows.
 - If a top 3 of each group: the same, keeping `at_most(d.n, 3)`, `n` the number's AS name.
+- A total's row shows NULL in each column it totals over. Only if the user asks for a label
+  there: `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
 
 ## Output
 
@@ -951,6 +1020,21 @@ s = statement(
            AS(sum_of(job_runs.duration_mins, over=each_job), "minutes_so_far")),
     FROM(job_runs),
     WHERE(equals(job_runs.dt, "2026-09-24")),
+)
+```
+
+Runs per job and day, with totals per job (dt NULL) and in all:
+
+```python
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows,
+                              rollup, statement)
+from references.ops__job_runs import job_runs
+
+s = statement(
+    SELECT(job_runs.job_id, job_runs.dt, AS(count_rows(), "runs")),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+    GROUP_BY(rollup(job_runs.job_id, job_runs.dt)),
 )
 ```
 
@@ -1012,13 +1096,15 @@ it, add to it, or write the logic cell of a Table notebook.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
 - project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
+- project.reference_from_logic(name)
 - create_table(t, may_exist=False)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
 - INSERT_INTO(table, unproven_key=False, partition=None)
@@ -1027,9 +1113,11 @@ it, add to it, or write the logic cell of a Table notebook.
 - SELECT_DISTINCT(*columns)
 - AS(expression, name)
 - count_rows(where=None, over=None)
+- between(column, low, high)
 - run_query(s, query=None)
 - run_execute(s, execute=None)
 - show_hive(*statements)
+- export_hive(s=None)
 
 ## The Table notebook
 
@@ -1061,6 +1149,11 @@ it, add to it, or write the logic cell of a Table notebook.
 - If the rows are added to what is there: INSERT_INTO; a rerun adds them twice.
 - If one named Partition is written: `INSERT_OVERWRITE(t, partition={"dt": day})`, its
   column left out of SELECT.
+- If each run writes several days again, or a Scheduled run (file 18) must write the days
+  it is given: `rows(first_day, last_day)` takes the days and bounds its read with
+  `between(...)`; `write_days(first_day, last_day)` is `statement(INSERT_OVERWRITE(t),
+  *rows(first_day, last_day))`; `write()` returns `write_days(...)` with its own days and
+  takes nothing, as every write() does; `preview()` gives `rows(...)` for the same days.
 - If the table has a Key: one row per Key, by GROUP_BY over it, SELECT_DISTINCT or a
   row_number kept at 1 (file 05), or the write is refused. `unproven_key=True` only if the
   user says why the rows are one per Key.
@@ -1164,7 +1257,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -1185,6 +1279,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - hive_function(name, *args)
 - unchecked_column(text, **columns)
 - hive_settings(*names, sets=None)
+- script_tag(text)
+- tag_text(value, *, quoted=True)
 - hivevar(name, *, default)
 
 ## In the Project
@@ -1223,8 +1319,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported; a day worked out each run: file 17; a value passed to Hive:
-  `hivevar("NAME", default="'2026-09-24'")`.
+  imported. What TAGS holds is a Decision rule's.
 
 ## Steps
 
@@ -1240,6 +1335,13 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - Otherwise, one query or a script: the convert Workflow's cells (file 13).
 - If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
   the user wants every day.
+- If the user gives a Script tag's value: TAGS holds it as text, a bare tag's with its
+  quotes, `"'2026-09-24'"`, though their old scheduler filled the tag in. If they give
+  none, ask; never guess it.
+- If the value is worked out each time the Hive is built, such as the latest Partition a
+  table holds: a Run value, the value a function of theirs gives (file 17).
+- Only if the user asks for a Hivevar, `${hivevar:NAME}` left in the Hive for their
+  scheduler to fill in: `hivevar("NAME", default="'2026-09-24'")`, imported.
 
 ## Output
 
@@ -1327,7 +1429,8 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -1336,6 +1439,8 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
 - project.check()
+- project.compare_batch(name, *, query=None, tables=None, partitions=None)
+- project.export_project_lineage()
 - export_lineage(*statements, to=None)
 - export_hive(s=None)
 - explain(s)
@@ -1370,8 +1475,12 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   `check_table_reference(t, query=query)`.
 - If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
   a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
+- If asked to compare a converted batch again, on another Partition, once finished too:
+  `project.compare_batch("ops_reports", query=query, partitions=[{"dt": "2026-09-23"}])`.
 - If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
-  the notebook.
+  the notebook, as HTML, where clicking a box shows its Hive in a side panel, and as
+  Markdown. For every Saved table of the Project, drawn whole:
+  `project.export_project_lineage()`, written in admin/lineage/.
 - If asked for Hive's plan, without running: `run_query(explain(s), query)`.
 - If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
 - If asked for a Table notebook's Hive in a file: save the notebook, then run its
@@ -1483,7 +1592,8 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -1500,10 +1610,15 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 - any_of(*conditions)
 - AS(expression, name)
 - count_rows(where=None, over=None)
+- GROUP_BY(*columns)
 - LIMIT(n)
 - LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
 - CROSS_JOIN(table, reads_all_partitions=False)
+- SELECT_DISTINCT(*columns)
 - derived(name, statement)
+- row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None)
+- run_query(s, query=None)
+- run_execute(s, execute=None)
 
 ## Steps
 
@@ -1531,6 +1646,11 @@ If the refusal says what a line below quotes, write the fix after the colon.
 - "SELECT has a calculation with no name: COUNT(*).": name it, `AS(count_rows(), "runs")`.
 - "SELECT has job_runs.status, which GROUP_BY leaves out.": add it to GROUP_BY, or count or
   add it up.
+- "SELECT has job_runs.job_id, but the Statement counts or adds up rows and has no
+  GROUP_BY.": add `GROUP_BY(job_runs.job_id)`. For each group's whole latest row instead:
+  `row_number(...)` in a Derived table, kept at 1 (file 05).
+- "load(...): the logic cell of ... calls run_query.": keep the logic cell to imports and
+  functions that build Statements; call run_query or run_execute in the next cell.
 - "equals(job_runs.status, None) compares with None.": `is_null(t.status)` or
   `is_not_null(...)`.
 - "statement(...) has its clauses out of SQL order: FROM, SELECT.": put them in order:
@@ -1575,6 +1695,7 @@ s = statement(
 - The fixed code passes each item of the Always list, and keeps the user's columns, tables
   and days.
 - An opt-out appears only where the user asked for it; else the answer asks the user.
+- Names the user's own code defines, such as `write()` or a Building block, are kept.
 - A sentence says what changed, and why.
 
 ===== 10_hand_written_hive_and_functions.txt =====
@@ -1628,7 +1749,8 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -1648,6 +1770,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 - admin.add_columns(t, *, query=None)
 - run_query(s, query=None)
 - run_execute(s, execute=None)
+- show_hive(*statements)
 
 ## Steps
 
@@ -1660,7 +1783,8 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 
 - If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
 - If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  otherwise="elsewhere")`: each key a value the column holds, each value its label. Without
+  `otherwise=`, a value not in the dict gives NULL. None
   among the dict's keys isn't allowed: fill_null the column first.
 - If a label is a chain, the first condition that holds winning, never a nested if_else:
   `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
@@ -1681,8 +1805,12 @@ Lineage sees it:
 - a Derived table, read as a table:
   `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
 - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute;
-- `${hivevar:x}` is Hive as written, never a `{name}` placeholder; a day worked out each run:
-  file 17.
+- `${hivevar:x}` is Hive as written, never a `{name}` placeholder. A Script tag the user
+  wants left as a Hivevar is answered `hivevar(...)` (files 07 and 17), which also sends
+  its SET line; a day worked out when the Hive is built is a Run value, written in by
+  `hive_date(day)`: file 17.
+- A `{name}` placeholder stands for a column; a value is written in the text as Hive writes
+  it, such as `'FAILED'` in quotes or `60` bare.
 
 ## Upkeep of a Saved table
 
@@ -1692,6 +1820,9 @@ Each is sent with `run_execute(..., execute)`, after `from sqlglot_composer impo
 - `compute_statistics(t, partition={"dt": day})` counts its rows again.
 - `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
 - `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+- Before a drop or a change is sent, show its Hive with `show_hive(change)` for the user to
+  read. The change_a_saved_table Workflow (file 14) takes them through a change as a whole
+  job: its Statement, its Hive and a check, then the send.
 
 ## Output
 
@@ -1783,7 +1914,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE);
   UPPER, LOWER, TRIM as they are.
 - YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE;
-  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
+  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); a date minus a date, b - a: DATEDIFF(b, a);
+  DATEDIF(a, b, "d"):
   DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
   EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
   one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
@@ -1815,12 +1947,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   once, such as two values of one column, or written `((..)+(..)>0)`.
   SUMPRODUCT((t[s]="x")*(t[v]>5)*t[v]): `SUM(CASE WHEN s = 'x' AND v > 5 THEN v ELSE 0
   END)`; with no column to add, as `(..)*1`: `COUNT(CASE WHEN .. THEN 1 END)`. If it reads
-  its own Table, then add OVER (), as each row shows the same total.
+  its own Table, each row shows the same total: write `SUM(...) OVER ()`, the whole Table.
 - A wildcard, "*ail*" or "f*": `LOWER(s) LIKE '%ail%'`, `'f%'`, as Excel ignores case.
 - `t[d], "<="&[@d]` over its own Table is a running total, ties included as Excel's: `SUM(v)
   OVER (PARTITION BY a ORDER BY d RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
   COUNTIFS the same with COUNT(*). COUNTIFS(t[a], [@a], t[v], ">"&[@v])+1: `RANK() OVER
   (PARTITION BY a ORDER BY v DESC)`; with "<", ASC.
+- A window's ORDER BY and PARTITION BY read the source's columns, as `ORDER BY dt`, never a
+  name the same SELECT makes with AS, which Hive can't see there.
 
 ## A value typed over a formula
 
@@ -1836,8 +1970,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   "blank". Inside an -IF(S) form or ISBLANK, write the column as it is: they skip a blank,
   as SUM, AVG, MIN and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
-- A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
-  '-', SUBSTR(dt, 7, 2))`, and name it.
+- A date held as text, such as 20260911, that a formula makes or reads as a date
+  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT): `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
+  SUBSTR(dt, 7, 2))` inside that formula's Hive, and name it. **A column no formula reads as
+  a date stays as it is**: shown, compared in an -IFS form or ordered on, `dt` is written
+  `dt`, never converted.
+- An XLOOKUP, VLOOKUP or INDEX/MATCH whose key repeats in the looked-up Table's sample: Excel
+  takes the first match, a LEFT JOIN every one, repeating the row. Write the LEFT JOIN, and
+  name the mark "repeated key".
 - A defined name for a cell outside a Table: write its value, and say to move it into
   Parameters.
 
@@ -1868,6 +2008,7 @@ FROM <database>.job_runs
 - Each formula column is in its final's SELECT, by this file, or `NULL AS` its header.
 - Each value typed over a formula is a CASE matched on its Keys row's columns.
 - Each COALESCE this file asks for is there, and each mark is named.
+- A text date is converted only inside a formula that reads it as a date.
 - No AND(, OR( or NOT( is left in the Hive: each is written `a AND b`, `(a OR b)`, `NOT x`.
 
 ===== 12_excel_power_query.txt =====
@@ -1905,11 +2046,15 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   case kept, as M keeps it. `not`: NOT.
 - List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k is in
   another table: `LEFT SEMI JOIN u ON u.k = t.k`; with `not`, the LeftAnti join below.
-- Table.SelectColumns, RemoveColumns, RenameColumns: the SELECT list; TransformColumnTypes:
-  nothing.
+- Table.SelectColumns, RemoveColumns, RenameColumns, ReorderColumns: the SELECT list, in the
+  last step's order; Table.DuplicateColumn(t, "c", "d"): `c, c AS d`. TransformColumnTypes,
+  Table.Buffer and Table.PromoteHeaders: nothing. Excel's own step names, such as "Changed
+  Type" or "Filtered Rows", are only names: read the function each step calls.
 - Table.AddColumn: an expression AS its name, `if c then a else b` as IF(c, a, b).
   Table.TransformColumns(t, {{"c", Text.Upper}}): UPPER(c) AS c. Table.ReplaceValue(t, null,
-  0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c.
+  0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c; with "x", "y" and
+  Replacer.ReplaceText: REPLACE(c, 'x', 'y') AS c; with Replacer.ReplaceValue and a value:
+  `IF(c = 'x', 'y', c) AS c`, the whole cell matched.
 - M's functions as their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
   Text.Start(x, n): SUBSTR(x, 1, n); Text.End(x, n): SUBSTR(x, -n); Text.Middle(x, s, n):
   SUBSTR(x, s + 1, n), as M counts from 0; Text.Replace: REPLACE; Text.Proper: INITCAP;
@@ -2013,7 +2158,10 @@ SELECT SUM(runs) AS runs FROM by_job
 ## Self-check
 
 - Each query's steps are read in order, each in its final's query or named as refused.
-- Each ORDER BY has a LIMIT after it.
+- Each ORDER BY has a LIMIT after it; each Table.Sort with no FirstN or index after it is
+  named in the map as a dropped order.
+- A query named in another query's M is a CTE, never read as `<database>.<query>`.
+- A query and the Table it loads, even of one name, each have their own role.
 - Each Total Row is its own final, and its Table's final holds only the Table's rows.
 
 ===== 13_workflows.txt =====
@@ -2048,6 +2196,7 @@ and changes to a Saved table; a step's own file, its Python.
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.write_decisions(answers, tables=None)
+- project.batch_tables(name, seeded=False)
 
 ## Steps
 
@@ -2063,7 +2212,8 @@ and changes to a Saved table; a step's own file, its Python.
 ## Decision rules
 
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
-  before it are done.
+  before it are done. **The names cell comes first, filled in, every time**: the cells after
+  it read NAME and the other inputs from it.
 - If the user asks for every step's cell, give each one as listed, in order.
 - If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
   a Decision is the user's, never yours.
@@ -2088,22 +2238,29 @@ and changes to a Saved table; a step's own file, its Python.
 - A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
   user gives; for one worked out each run, such as the latest Partition, a Run value: a
-  function of theirs (file 17). If they give none, never guess: ask.
+  function of theirs (file 17). If they give none, never guess: ask. A tag is the place the
+  old scheduler put its value: that is never a reason to leave it unanswered.
 - `"all_tables": {"key": "proposed"}` accepts each table's proposed Key as if typed. More
   of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
+- A proposed Key is used as it is; accepting it only takes off its `# proposed` mark. Once
+  the batch has finished, write it with
+  `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
 - Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
-  `PARTITIONS = [{"dt": "2026-09-23"}]`.
+  `PARTITIONS = [{"dt": "2026-09-23"}]`. Once the batch is in finished/, another Partition
+  is compared with `project.compare_batch(NAME, query=query, partitions=[{"dt": ...}])`.
 - "Run up to your Decisions", then "Run the rest": one call, run before and after the
   answers, each up to the first step only the user can do; `dry_run=True` sends nothing.
+  With no Decision open, the first runs to the end, writing and comparing.
 
 ## convert: someone else's Hive into Saved tables in dev
 
 Its inputs:
 
 - NAME: the batch's name; for the run cells, it may be a list of batches converted already.
-- FILES: the .hql files, beside the notebook or by path, each read where it is; left `[]`,
-  every .hql beside it, or HIVE, the Hive as text. A query alone makes a Saved
-  table too, named for its file or NAME.
+- FILES: the .hql files by name, `["daily.hql"]`, when beside the notebook, else by full
+  path, each read where it is; left `[]`,
+  every .hql beside it, or HIVE, the Hive as text. A query that only SELECTs, writing no
+  table, makes a Saved table too, named for its file or NAME.
 - EACH_SCRIPT_ITS_OWN_BATCH: True makes each file a batch named for it, one decisions cell
   for all; scripts reading each other's tables are refused.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
@@ -2112,8 +2269,8 @@ Its inputs:
   <table>_<its database>: mart_dev.team_fails_mart.
 - STAGING: a staging table is one a statement makes and a later one reads, named in
   convert's report. Folded, its query goes inside each table that reads it; kept, it is a
-  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if
-  temporary or DROPped, else kept.
+  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if the
+  script makes it TEMPORARY or DROPs it after use, else kept.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -2174,7 +2331,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 ## Self-check
 
 - The reply names the Workflow and the user's step.
-- Each cell is one listed here, with the user's names in it.
+- Each cell is one listed here, with the user's names in it, the names cell first.
 - Each later step is named in words, unless every cell was asked for.
 - Each Decision answered is in DECISIONS by the table's name; each other is named.
 - Promoting is named as file 16's, never given here.
@@ -2213,6 +2370,7 @@ Python.
 - project.new_table(name, template='saved_table', queries=None)
 - project.reference_from_logic(name)
 - project.add_references(names, *, query=None)
+- check_key(t, *, query=None, where=None, reads_all_partitions=False)
 
 ## Steps
 
@@ -2249,7 +2407,12 @@ Python.
   `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
 - references' step 1 proposes each Key, checked with check_key, and the first line and
   `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
-  Key, a table's own "key" wins.
+  Key, a table's own "key" wins. If the user doubts a Key, give
+  `check_key(t, query=query, where=equals(t.dt, day))` on one day before they answer.
+- A Table reference's `# TODO` line, such as its first line or `does_not_add_up=`, is no
+  Decision: it waits on nothing. `does_not_add_up=[]` left empty refuses no column.
+- At an upgrade, naming DEV and PROD in admin/databases.py renames nothing: each Saved table
+  made before keeps its name and folder. Move none unless the user asks.
 - "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
   before and after the answers, else the last cell, run to the first step the user must do;
   `dry_run=True` sends nothing.
@@ -2413,7 +2576,7 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
    for each final, start its query: each source read as `<database>.<table>`, each step it
    reads as a CTE in it (`WITH name AS (...)`), each CTE after every CTE it reads. **A
    Table's typed columns are always read from `<database>.<table>`, never typed in**; only a
-   summary's typed groups are typed in.
+   summary's groups are written into the Hive.
    Done when each final has its FROM and CTEs. Then step 5.
 5. **Write each final's columns.** Goal: each column gives the workbook's values. Action:
    write the columns in the Table's order, each formula by file 11, each query step and
@@ -2432,8 +2595,10 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 - If a Table has a formula column and no query loads it: if another Table's formula or a
   query reads it, it is a step; if nothing else reads it, it is a final. Its own formula
   columns reading its own row don't count.
-- If a Table's only typed columns are the ones its SUMIFS or COUNTIFS match on, it is a
-  summary: its final query is a GROUP BY of the Table it reads, its typed rows kept.
+- If a Table's only typed columns are the ones its SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS or
+  MINIFS match on, it is a summary: its final query is a GROUP BY of the Table it reads, its
+  typed rows kept, written into the Hive, and named in the map, since a later day or team
+  won't be in the table. Its final keeps the summary Table's own name.
 - If a query's M names another query, the named query is a step: a CTE in each final that
   reads it, `WITH owner_load AS (...)`, never a read of `<database>.owner_load`.
 - If a query loads a Table: if another Table's formula reads that Table, the Table is a step;
@@ -2485,7 +2650,7 @@ SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
 summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
-file 12's second example. by_job's typed job_ids, its groups, are typed in:
+file 12's second example. Values written in: by_job's groups, job_ids 1 and 2:
 
 ```sql
 SELECT j.job_id, COALESCE(c.runs, 0) AS runs
@@ -2500,7 +2665,9 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - Each final, Total Rows included, has its own ```sql block; no block is a step alone.
 - Each final's columns are its Table's, in order; a refused one is `NULL AS` its header.
 - Each source and each Table's typed columns are read from `<database>.<table>`; the only
-  rows typed in are a summary's groups.
+  rows written into the Hive are a summary's groups, each named in the map.
+- A text date is converted only where a formula reads it as a date (file 11); a column
+  passed through is as the source holds it.
 - Each Total Row's block has a column only for each cell that holds a total.
 - Each step a final reads is a CTE inside that final's block, after each CTE it reads.
 - Each value typed over a formula is in a CASE, matched on its Keys row's columns.
@@ -2583,8 +2750,8 @@ it.
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
   by its kind: `{"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
-- A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
-  write in prod too.
+- A prod copy keeps its dev table's TAGS, a Run value's function or a Hivevar among them,
+  worked out at each write in prod too.
 - Each Building block a promoted table imports, Run values among them, is copied into
   building_blocks/prod/, which the prod copy imports: a change in dev reaches prod only when
   promoted again; `project.check()` names a prod copy edited by hand.
@@ -2595,6 +2762,7 @@ it.
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
 - "Run up to your Decisions", then "Run the rest": one call, run before and after the
   answers, each stopping at the first step only the user can do; `dry_run=True` sends nothing.
+  With no Decision open, the first runs to the end: it creates, seeds and writes in prod.
 
 ## promote: dev tables to prod
 
@@ -2643,7 +2811,7 @@ Its input:
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 
-## Example
+## Examples
 
 The user: "mart_dev.daily_fails passed its compare. Promote it to prod: give the names cell
 and step 1's cell." Its location is left for promote to fill in.
@@ -2652,6 +2820,17 @@ and step 1's cell." Its location is left for promote to fill in.
 TABLES = ["mart_dev.daily_fails"]
 
 project.promote(TABLES)
+```
+
+The user, after step 1: "PROD has no location_root. Put team_prod.daily_fails, which reads
+itself, at /data/team/prod/daily_fails, seeded from 2026-09-01 on: give the decisions cell
+and step 3's cell."
+
+```python
+DECISIONS = {"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails",
+                                       "seed": {"dt": {"from": "2026-09-01"}}}}
+
+project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 ```
 
 ## Self-check
@@ -2668,8 +2847,8 @@ project.promote(TABLES)
 
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 
-Objective: write a Run value, a function of the user's that works out a value each time a
-table is written, and the decisions cell answers that use it: a Script tag's, one for every
+Objective: write the function of the user's that works out a Run value each time a table is
+written, and the decisions cell answers that use it: a Script tag's, a Hivevar, one for every
 table, and a seed's limits. Load this file when the user wants a tag's day worked out at
 each run, one answer for every table, or a seed of only some Partitions. File 13 is for the convert
 Workflow's other steps, file 16 for promote's.
@@ -2697,7 +2876,9 @@ Workflow's other steps, file 16 for promote's.
 - hive_date(day)
 - run_value(function, *arguments, **keywords)
 - tag_text(value, *, quoted=True)
+- hivevar(name, *, default)
 - project.write_decisions(answers, tables=None)
+- project.batch_tables(name, seeded=False)
 - project.register(name)
 
 ## Steps
@@ -2717,6 +2898,9 @@ Workflow's other steps, file 16 for promote's.
 
 - If a tag stands for a day that changes each run, answer it with a Run value. If the user
   gives one fixed day, answer with text, as file 13 says.
+- A tag is where the old scheduler put its value: that alone asks for no Hivevar. Only if
+  the user asks for one: `hivevar("PERIOD_END", default=period_end)` under "tags",
+  `hivevar` imported, which keeps `${hivevar:PERIOD_END}` in the Hive.
 - If the day is the newest Partition of a table:
   `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")` writes
   `latest_partition(job_runs.dt, query)`, which reads no row, and registers the file. If it
@@ -2733,8 +2917,11 @@ Workflow's other steps, file 16 for promote's.
   "seed", or `"key": "proposed"`, which accepts each table's proposed Key. A table's own
   answer overwrites it, kind by kind and tag by tag. Any other Key, and a type, goes under
   each table, never "all_tables".
-- A location is placed under "location_root" in admin/databases.py, never answered under
-  "all_tables", which refuses it.
+- Answer what the user gives, no more: `"key": None` if no columns name one row; `"key":
+  "proposed"` only if they accept the proposed Keys.
+- A location is never answered under "all_tables", which refuses it. If the user gives a
+  folder for every table, answer each table's own location under it,
+  `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
 - If a table that reads itself needs only some Partitions, answer "seed", by partition
   column: a value, **that value or later**, never it alone; `{"from": ..., "to": ...}`, either end left out as
   the user likes; a list, those values alone; numbers as numbers. Any value may be a Run
@@ -2743,8 +2930,6 @@ Workflow's other steps, file 16 for promote's.
   only to the tables with that column.
 - If the value goes in a Statement the user writes: `run_value(function, *arguments)`. In
   Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
-- If the table was converted before 8.4, its seed copies everything, as the Upgrade's mark
-  says: say to convert its scripts again for a seed limit. Its tags take a Run value as 8.4's.
 
 ## Output
 
@@ -2775,7 +2960,7 @@ def period_end() -> datetime.date:
 ```
 
 The latest day a run succeeded, from a Statement of its own, its read bounded by the newest
-Partition (lineage draws an arrow from ops.job_runs into the Run value):
+Partition:
 
 ```python
 import datetime
@@ -2810,6 +2995,20 @@ DECISIONS = {
 }
 
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+```
+
+Through the seed, convert's steps 4 and 5 follow:
+
+```python
+for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)
+to_seed = project.batch_tables(NAME, seeded=True)
+if not to_seed:
+    print("Seeded nothing: no table of the batch reads itself.")
+else:
+    run_execute(hive_settings("dynamic_partitions"), execute)
+    for table in to_seed:
+        run_execute(project.load(table).seed(), execute)
 ```
 
 ## Self-check
@@ -2849,6 +3048,7 @@ building a Statement of its own, file 17 for a Run value's function in building_
 
 - project.load(name)
 - project.build_run(statements, *, run_values=None, leave_out=None, hivevars=None)
+- project.describe_logic(names)
 - run_value(function, *arguments, **keywords)
 - latest_partition(column, query=None)
 - statement(*clauses, returns_all_rows=False)
@@ -2861,7 +3061,8 @@ building a Statement of its own, file 17 for a Run value's function in building_
 2. **Write the parameters cell** by the Decision rules. Done when each has a hint. Then step 3.
 3. **Write the # scheduled cell**: `statements()`, a dict of each Statement by its name,
    and any Run value's function. Done when each asked for is in it. Then step 4.
-4. **Write the Build cell**, with `run_values=` and `leave_out=` as the Decision rules say.
+4. **Write the Build cell**, with `run_values=`, `leave_out=` and any `hivevars=` as the
+   Decision rules say.
    Then step 5.
 5. **Check** by the Self-check; fix what it finds, then reply.
 
@@ -2872,7 +3073,11 @@ building a Statement of its own, file 17 for a Run value's function in building_
   "true" or "false"), `str`, each alone, in `list[...]` (items split at commas) or with
   `| None`. Never a parameter with no hint, nor another hint. Keep `START_FROM: str = ""`.
 - A parameter the run can't do without gets `| None = None` only if the cell works one out
-  when it is None, as a Run value; else give a real default.
+  when it is None, as a Run value; else give a real default, such as
+  `WEEK: datetime.date = datetime.date(2026, 9, 23)`. Never leave one with no default: the
+  notebook must also run as it is, in Jupyter.
+- If a value is the parameter as given, pass it in the call, `str(WEEK)`; if it is worked
+  out when the run is built, from a parameter or the warehouse, a Run value.
 - A logic function's arguments are given in the call, `team_days.week_totals(first, last)`,
   with the parameters or Run values. A date parameter passed where the signature says `str`
   is written `str(RUN_DATE)`.
@@ -2885,6 +3090,13 @@ building a Statement of its own, file 17 for a Run value's function in building_
 - The build adds the write of each Project table the Statements read, all the way up, on that
   table's own days, so never list those writes yourself. If the user says another run or job
   writes a table, give it in `leave_out=["mart.job_day_facts"]`.
+- If the user wants a table written for the period the run is given, not its own days: put
+  the logic function the paste lists for it that takes days, such as
+  `team_days.write_days(first, last)`, in `statements()`, named by the table's short name.
+  It takes the place of the write the build would add for that table.
+- If a Script tag of a table the run writes was answered `hivevar("PERIOD_END", ...)` and
+  the user gives its value for this run: `hivevars={"PERIOD_END": RUN_DATE}` in the Build
+  cell; left out, its default is sent.
 - A parameter reaches only what `statements()` passes it to. A write the build adds is its
   table's `write()`, which takes no arguments. To give a Run value inside it the user's value,
   write `run_values={"period_end": RUN_DATE}`, keyed by that Run value's function's name.
@@ -2998,13 +3210,15 @@ def statements() -> dict[str, Statement]:
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 
 Objective: turn a user's loose wish for a new metric into a Metric request: plain text that
-says exactly what each new column holds, for the user's chatbot that knows their databases
-and column descriptions to write the column from. Load this file when the user wants a new
-metric or column and can't yet say exactly what it counts. You write no SQL and no Python:
-the chatbot writes the column. To build a Statement once it is defined, load file 03.
+says exactly what each new column holds, for the user's chatbot to write the column from.
+Load this file when the user wants a new metric or column and can't yet say exactly what it
+counts. You write no SQL and no Python: the chatbot writes the column.
 
 ## Terms
 
+- **Metric**: a number worked out from the user's tables, such as a failure rate.
+- **Your chatbot**: the chatbot at the user's work that knows their databases and column
+  descriptions; not Copilot. It reads the Metric request and gives back the column's Hive.
 - **Metric request**: the text this file ends with, a section per column, each with the
   nine parts under Output.
 - **Quantity**: a number the formula uses, such as "failed runs".
@@ -3013,60 +3227,64 @@ the chatbot writes the column. To build a Statement once it is defined, load fil
 
 ## Steps
 
-1. **Say it back.** Goal: you and the user mean the same thing. Action: restate the wish in
-   one sentence and a first formula, then ask the first question. Done when the user
-   answers. Then step 2.
-2. **Split or join the columns.** Goal: one column per number the user will read. Action: of
-   a column that may hold two numbers, such as "workload", ask "One column or two?"; of two
-   columns, ask "Are these two really one?": what will you do with them? Done when the user
-   has named each column. Then step 3.
+1. **Say it back.** Goal: you and the user mean the same thing. Action: write the first
+   message as Output says: the wish in one sentence, a first formula, the first question.
+   Done when the user answers. Then step 2.
+2. **Split or join the columns.** Goal: one column per number the user will read. Action:
+   ask the question the Decision rules give for a column that could be two numbers, or two
+   that could be one. Done when the user has named each column. Then step 3.
 3. **Pin each quantity.** Goal: no quantity a chatbot could read two ways. Action: for each
-   column in turn, ask what Decision rules list, one question per message. Done when no rule
-   leaves a question for any column. Then step 4.
+   column in turn, ask what the Decision rules list, one question per message. Done when no
+   rule leaves a question for any column. Then step 4.
 4. **Work the example.** Goal: the user sees the numbers the formula gives. Action: work each
-   formula on the sample rows, row by row; with none, ask for three or four rows, or make up
-   three and say so. Done when the user says each result is right, or step 3 for what they
-   correct. Then step 5.
-5. **Write the Metric request**, as Output says. Then step 6.
-6. **Check** it by the Self-check; fix what it finds, then reply.
+   formula on the sample rows, row by row, as the Decision rules say. Done when the user says
+   each result is right; for a result they correct, go back to step 3.
+5. **Write the Metric request.** Goal: text the chatbot can't read two ways. Action: write
+   it as Output says. Done when each column has its section. Then step 6.
+6. **Check.** Goal: a request with nothing to fix. Action: go through the Self-check; fix
+   what it finds. Done when each check holds; then reply.
 
 ## Decision rules
 
 - Ask one question per message, with your recommended answer and why, in a line:
-  "Recommended: leave TEST runs out, as nobody's work ran them."
+  "Recommended: leave `TEST` runs out, as nobody's work ran them."
 - After each answer, show the whole formula back, each quantity in words:
   `failure rate (%) = 100 x failed runs / finished runs`.
+- If a column could be two numbers, ask "One column or two?" before its quantities. If two
+  columns are only ever added, compared or divided, ask "Are these two really one?". A
+  column that is plainly one number needs neither.
 - For each quantity, ask in turn:
+  - which column holds it, if the user knows one, such as `status`;
   - what counts: which rows, by which column's values;
   - what is left out: tests, rows still running, duplicates, rows cancelled;
   - how a repeat counts: "Does a retried run count once or twice?";
-  - which days: every day the table holds, a range, or the latest; one total, or per day;
+  - which days: every day the table holds, a range, or the latest;
   - what an empty or NULL value means: left out, 0, or a case of its own;
-  - an edge: a value equal to a limit ("over" is more than, or at least?), nothing to divide
+  - an edge: a value equal to a limit ("does 'over 10' include 10?"), nothing to divide
     by, a row with no match in the other table.
 - Ask the grain, and whether a row with nothing to count is left out or shows 0.
 - Ask whether a ratio is a fraction or a percent, and rounded or not.
-- If a column could be two numbers, ask "One column or two?" before its quantities. If two
-  columns are only ever added, compared or divided, ask "Are these two really one?".
 - If the user names a column, such as `status` or `ops.job_runs.duration_mins`, write that
   name in the request. If they don't know one, describe the quantity in exact words, and
-  never guess a column name.
+  never guess a column name. The new column's own name may be the one you recommend.
 - If the user pastes sample rows, work every formula on them, and say which rows are left out
-  and why.
+  and why. If they paste none, ask once for three or four; if they have none, make up three
+  and say they are made up.
 - If an answer would give a misleading number, push back once: say what goes wrong, with a
   number from the rows where you can, and recommend a change. **If the user keeps their
   answer, it stands**: the request follows it, with no second push.
 - If the user says "that's all" or "write it", write the request with what is settled, and
   list what isn't under Open questions.
-- If the user asks for SQL, say the chatbot that knows their tables writes it from the
-  Metric request, and go on.
+- If the user asks for SQL, say their chatbot writes it from the Metric request, and go on.
 
 ## Output
 
 While asking, each message holds, in order: a line on what you understood; the formula; one
 question and its recommended answer.
 
-At the end, the Metric request alone, a section per column, in plain words and maths:
+At the end, the Metric request, a section per column, in plain words and maths, then one
+line: "Paste this into your chatbot. For the Hive it gives back as Toolbox code, load file
+07 in a new chat; to save it as a table of yours, file 14."
 
 ```text
 # Metric request: <the metric's name>
@@ -3086,18 +3304,20 @@ At the end, the Metric request alone, a section per column, in plain words and m
 ## Examples
 
 One asked, two meant. User: "Add a busyness column per shop."
-You: "Busyness could be orders, or the minutes staff spent. One column or two?
-Recommended: two, orders and minutes, as one blended score hides which moved."
+You: "You want how busy each shop is. Formula: busyness = ? per shop. Busyness could be
+orders, or the minutes staff spent. One column or two? Recommended: two, orders and minutes,
+as one blended score hides which moved."
 
 Two asked, one meant. User: "Two columns per store: returns and exchanges."
-You: "Will you read them apart, or only add them? Are these two really one?
-Recommended: one column, returns plus exchanges, if you only add them."
+You: "You want returns and exchanges per store. Formula: returns = returned orders;
+exchanges = exchanged orders. Are these two really one? Recommended: one column, returns
+plus exchanges, if you only ever add them."
 
 Pushing back. User: "Count a cancelled order as late."
 You: "A cancelled order was never due, so on your rows the late rate goes from 1 in 3 to
 2 in 4. Recommended: leave cancelled orders out. Your call."
-User: "Keep it late." You write: "a cancelled order counts as late", and ask the next
-question.
+User: "Keep it late." The request says "a cancelled order counts as late", and your next
+message asks the next question.
 
 A finished section, from sample rows of `sales.orders`:
 
@@ -3122,9 +3342,9 @@ A finished section, from sample rows of `sales.orders`:
 ## Self-check
 
 - Each message asked one question, with a recommended answer, and showed the formula.
-- Each column asked for was split or joined by "One column or two?" or "Are these two really
-  one?".
+- Each column that could be two numbers was asked "One column or two?", and each pair only
+  added, compared or divided, "Are these two really one?".
 - Each column's section has the nine parts, in order, and the formula names each quantity.
 - Each column name in the request is one the user gave; the rest are in exact words.
 - Where the user overrode your advice, the request says what they chose.
-- The request holds no SQL and no Python.
+- The request holds no SQL and no Python, and ends with the line on what to do with it.

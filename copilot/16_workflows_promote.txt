@@ -73,8 +73,8 @@ it.
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
   by its kind: `{"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
-- A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
-  write in prod too.
+- A prod copy keeps its dev table's TAGS, a Run value's function or a Hivevar among them,
+  worked out at each write in prod too.
 - Each Building block a promoted table imports, Run values among them, is copied into
   building_blocks/prod/, which the prod copy imports: a change in dev reaches prod only when
   promoted again; `project.check()` names a prod copy edited by hand.
@@ -85,6 +85,7 @@ it.
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
 - "Run up to your Decisions", then "Run the rest": one call, run before and after the
   answers, each stopping at the first step only the user can do; `dry_run=True` sends nothing.
+  With no Decision open, the first runs to the end: it creates, seeds and writes in prod.
 
 ## promote: dev tables to prod
 
@@ -133,7 +134,7 @@ Its input:
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 
-## Example
+## Examples
 
 The user: "mart_dev.daily_fails passed its compare. Promote it to prod: give the names cell
 and step 1's cell." Its location is left for promote to fill in.
@@ -142,6 +143,17 @@ and step 1's cell." Its location is left for promote to fill in.
 TABLES = ["mart_dev.daily_fails"]
 
 project.promote(TABLES)
+```
+
+The user, after step 1: "PROD has no location_root. Put team_prod.daily_fails, which reads
+itself, at /data/team/prod/daily_fails, seeded from 2026-09-01 on: give the decisions cell
+and step 3's cell."
+
+```python
+DECISIONS = {"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails",
+                                       "seed": {"dt": {"from": "2026-09-01"}}}}
+
+project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 ```
 
 ## Self-check

@@ -30,6 +30,7 @@ Python.
 - project.new_table(name, template='saved_table', queries=None)
 - project.reference_from_logic(name)
 - project.add_references(names, *, query=None)
+- check_key(t, *, query=None, where=None, reads_all_partitions=False)
 
 ## Steps
 
@@ -66,7 +67,12 @@ Python.
   `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
 - references' step 1 proposes each Key, checked with check_key, and the first line and
   `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
-  Key, a table's own "key" wins.
+  Key, a table's own "key" wins. If the user doubts a Key, give
+  `check_key(t, query=query, where=equals(t.dt, day))` on one day before they answer.
+- A Table reference's `# TODO` line, such as its first line or `does_not_add_up=`, is no
+  Decision: it waits on nothing. `does_not_add_up=[]` left empty refuses no column.
+- At an upgrade, naming DEV and PROD in admin/databases.py renames nothing: each Saved table
+  made before keeps its name and folder. Move none unless the user asks.
 - "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
   before and after the answers, else the last cell, run to the first step the user must do;
   `dry_run=True` sends nothing.

@@ -22,10 +22,12 @@ something and see its rows.
 
 ## Names for this objective, with their arguments
 
-{names: project.start, project.add_references, project.new_table, project.load, statement, SELECT, FROM, WHERE, equals, run_query, run_execute, to_hive, show_hive}
+{names: project.start, project.add_references, project.new_table, project.load, project.check, project.do_next, statement, SELECT, FROM, WHERE, equals, run_query, run_execute, to_hive, show_hive}
 
 ## A Project
 
+- The Project's folder is any folder of the user's own, such as my_project/, with the
+  Toolbox's folder, `sqlglot_composer/`, copied into it whole.
 - In a notebook in the Project's folder: `from sqlglot_composer import project`, then
   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
   warehouse.py.
@@ -52,6 +54,8 @@ something and see its rows.
 - A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
   `import pathlib` and `import sys`.
+- A Windows path typed in is written with forward slashes, `"C:/work/my_project"`: a
+  backslash in plain quotes, as in "C:\new", starts an escape and breaks the path.
 
 ## Steps
 
@@ -69,6 +73,9 @@ something and see its rows.
 - If the user wants only the Hive: `print(to_hive(s))`, which sends nothing, or
   `show_hive(s)`, laid out.
 - If the user's code passes `send=`: write `query` or `execute`, which replaced it in 7.0.
+- If the user asks what to do next in the Project: `project.check()`, which names each
+  Workflow's next step; a Table reference's `# TODO` line, such as its first line, waits on
+  nothing and blocks no run.
 
 ## Output
 

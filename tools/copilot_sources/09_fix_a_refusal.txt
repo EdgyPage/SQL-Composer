@@ -22,7 +22,7 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 
 ## Names for this objective, with their arguments
 
-{names: equals, not_equals, more_than, less_than, between, last_n_days, is_in, is_null, is_not_null, all_of, any_of, AS, count_rows, LIMIT, LEFT_JOIN, CROSS_JOIN, derived}
+{names: equals, not_equals, more_than, less_than, between, last_n_days, is_in, is_null, is_not_null, all_of, any_of, AS, count_rows, GROUP_BY, LIMIT, LEFT_JOIN, CROSS_JOIN, SELECT_DISTINCT, derived, row_number, run_query, run_execute}
 
 ## Steps
 
@@ -50,6 +50,11 @@ If the refusal says what a line below quotes, write the fix after the colon.
 - "SELECT has a calculation with no name: COUNT(*).": name it, `AS(count_rows(), "runs")`.
 - "SELECT has job_runs.status, which GROUP_BY leaves out.": add it to GROUP_BY, or count or
   add it up.
+- "SELECT has job_runs.job_id, but the Statement counts or adds up rows and has no
+  GROUP_BY.": add `GROUP_BY(job_runs.job_id)`. For each group's whole latest row instead:
+  `row_number(...)` in a Derived table, kept at 1 (file 05).
+- "load(...): the logic cell of ... calls run_query.": keep the logic cell to imports and
+  functions that build Statements; call run_query or run_execute in the next cell.
 - "equals(job_runs.status, None) compares with None.": `is_null(t.status)` or
   `is_not_null(...)`.
 - "statement(...) has its clauses out of SQL order: FROM, SELECT.": put them in order:
@@ -94,4 +99,5 @@ s = statement(
 - The fixed code passes each item of the Always list, and keeps the user's columns, tables
   and days.
 - An opt-out appears only where the user asked for it; else the answer asks the user.
+- Names the user's own code defines, such as `write()` or a Building block, are kept.
 - A sentence says what changed, and why.

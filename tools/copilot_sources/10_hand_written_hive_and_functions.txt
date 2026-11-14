@@ -19,7 +19,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 
 ## Names for this objective, with their arguments
 
-{names: if_else, mapped, first_match, fill_null, hive_function, unchecked_column, unchecked_condition, unchecked_derived, unchecked_hive, repair_partitions, compute_statistics, admin.drop_table, admin.drop_partitions, admin.add_columns, run_query, run_execute}
+{names: if_else, mapped, first_match, fill_null, hive_function, unchecked_column, unchecked_condition, unchecked_derived, unchecked_hive, repair_partitions, compute_statistics, admin.drop_table, admin.drop_partitions, admin.add_columns, run_query, run_execute, show_hive}
 
 ## Steps
 
@@ -32,7 +32,8 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 
 - If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
 - If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  otherwise="elsewhere")`: each key a value the column holds, each value its label. Without
+  `otherwise=`, a value not in the dict gives NULL. None
   among the dict's keys isn't allowed: fill_null the column first.
 - If a label is a chain, the first condition that holds winning, never a nested if_else:
   `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
@@ -53,8 +54,12 @@ Lineage sees it:
 - a Derived table, read as a table:
   `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
 - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute;
-- `${hivevar:x}` is Hive as written, never a `{name}` placeholder; a day worked out each run:
-  file 17.
+- `${hivevar:x}` is Hive as written, never a `{name}` placeholder. A Script tag the user
+  wants left as a Hivevar is answered `hivevar(...)` (files 07 and 17), which also sends
+  its SET line; a day worked out when the Hive is built is a Run value, written in by
+  `hive_date(day)`: file 17.
+- A `{name}` placeholder stands for a column; a value is written in the text as Hive writes
+  it, such as `'FAILED'` in quotes or `60` bare.
 
 ## Upkeep of a Saved table
 
@@ -64,6 +69,9 @@ Each is sent with `run_execute(..., execute)`, after `from sqlglot_composer impo
 - `compute_statistics(t, partition={"dt": day})` counts its rows again.
 - `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
 - `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+- Before a drop or a change is sent, show its Hive with `show_hive(change)` for the user to
+  read. The change_a_saved_table Workflow (file 14) takes them through a change as a whole
+  job: its Statement, its Hive and a check, then the send.
 
 ## Output
 

@@ -21,7 +21,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Names for this objective, with their arguments
 
-{names: project.add_references, write_table_reference, Table, check_key, check_table_reference, first_look, all_columns, equals, between, is_in}
+{names: project.add_references, project.reference_from_logic, write_table_reference, Table, check_key, check_table_reference, first_look, all_columns, run_query, equals, between, is_in}
 
 ## Where one comes from
 
@@ -70,6 +70,12 @@ table, or asks about a table's columns, partitions or Key.
 ## Decision rules
 
 - If the user names a Key, write it as `key=`. If not, leave `key=` out, or ask.
+- If the user isn't sure a proposed Key is right: `check_key` on one Partition first, as in
+  the second example, then answer the Decision with what it says.
+- If a line of the reference ends `# TODO`, such as its first line or `does_not_add_up=`, it
+  waits on nothing: fill it in when the user can. Emptying `does_not_add_up=[]` means no
+  column is refused when added up. A line marked `# proposed` is a guess the user accepts or
+  changes.
 - If it is a Saved table, give it a `location=`. If it is only read, give none.
 - If asked to write a database's file, such as references/ops.py: the Project actions do.
 
