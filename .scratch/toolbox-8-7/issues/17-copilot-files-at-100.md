@@ -128,4 +128,8 @@ references" 02 and 14, "drop a day" 10 and 14, "total" 03 and 05) with no rule c
 13 has no row for `project.run_workflow("convert", ...)`; Patterns sit above Terms, so terms
 come before their definitions.
 
+**v5** (d048c37b0c6d, e1b8332a: files 03 and 05 teach `contains`, `starts_with`, `INTERSECT`
+and `EXCEPT` again): arm C dev 100 (T07, T08, T13, T14 asked, 28 from the memo), held out 100
+(T09, T15); arm R not asked, file 00 unchanged; no file changed.
+
 Status stays open: the Metric request half's part is on its own branch.
