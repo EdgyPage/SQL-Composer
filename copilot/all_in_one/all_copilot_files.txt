@@ -45,7 +45,7 @@ you can ask it in plain words.
    one's Table reference, its file in your Project's references/ folder, or say its import
    line and columns, such as: `from references.ops__job_runs import job_runs` gives
    ops.job_runs: run_id bigint, job_id bigint, status string, dt string; partitioned by dt;
-   Key run_id. For file 19, say the metric in your own words: no table is needed. For an
+   Key run_id. For file 19, paste your column definitions and say the metric. For an
    Excel workbook, attach it. Done when Copilot answers with code, with Hive for a workbook,
    or with a question for file 19. Then step 5.
 5. **Run it.** Goal: the code works in your notebook. Action: run what Copilot gives. Done
@@ -117,9 +117,9 @@ you can ask it in plain words.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
-- `19_metric_request.txt`: a new metric, defined a question at a time: one column or two,
-  each quantity, the days, what is left out, worked on your sample rows; it ends with a
-  Metric request, text for your chatbot that knows your databases, not code.
+- `19_metric_request.txt`: a new metric, defined a question at a time from your column
+  definitions: one column or two, each quantity, the rows, the days, what is left out, and
+  any data missing; it ends with a Metric request, text for your chatbot, not code or sums.
 
 ## Fitting Copilot
 
@@ -134,7 +134,7 @@ you can ask it in plain words.
 - The chat is new, and its first message is the file your task's line names (for an Excel
   workbook, files 15, 11 and 12).
 - Your question names each table to read, by its Table reference or its import line and
-  columns; for file 19, it says the metric in your words, and for a workbook, it is attached.
+  columns; for file 19, it holds your column definitions; for a workbook, it is attached.
 - For a refusal, the new chat holds file 09, your code and the whole message.
 
 ===== 01_imports_and_project.txt =====

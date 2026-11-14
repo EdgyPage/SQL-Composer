@@ -1683,8 +1683,8 @@ chatbot that knows your databases to define the columns from.
 2. **Give it to Copilot.** Action: open a new chat, and paste the one file for what you want to
    do as your first message. Done when it is sent; then step 3.
 3. **Ask.** Action: ask in plain words, giving the import line and columns of each table to
-   read; with file 19, say the metric you want, and answer its questions one at a time. Done
-   when Copilot answers; then step 4.
+   read; with file 19, paste your tables' column definitions, say the metric you want, and
+   answer its questions one at a time. Done when Copilot answers; then step 4.
 4. **Run its answer.** Action: run what Copilot gives you as you would your own code: the
    Toolbox still refuses what would give a wrong number. Done when it runs. With file 19 there
    is nothing to run: give the Metric request to the chatbot that knows your databases.
