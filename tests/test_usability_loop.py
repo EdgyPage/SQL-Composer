@@ -22,6 +22,7 @@ from pathlib import Path
 import notebook_runner
 import openpyxl
 import pytest
+import eval_runs
 import usability_loop
 from conftest import forget_the_projects_modules, toolbox_module
 from openpyxl.worksheet.table import Table
@@ -624,74 +625,97 @@ def test_a_prepare_waits_for_the_caches_lock_and_refuses_once_it_has_waited_too_
     assert not (cache / usability_loop.LOCK).exists()
 
 
-RESULTS_HEAD = ("| date | scenario | split | run | result | questions | note |\n"
-                "|---|---|---|---|---|---|---|\n"
-                "| 2026-11-06 | T1 | dev | 2026-11-06-T1-1 | pass | 0 | 8.5 round; 5 actions "
-                "|\n")
+@pytest.fixture
+def local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The evaluation records' folder, a temporary one, as `eval_runs.LOCAL` is for the loop."""
+    folder = tmp_path / "local"
+    monkeypatch.setattr(usability_loop, "LOCAL", folder)
+    return folder
 
 
-def _row(run: str, result: str, inputs: str, scenario: str = "T1") -> str:
-    return (f"| 2026-11-10 | {scenario} | dev | {run} | {result} | 0 | a round; 3 actions; "
-            f"inputs {inputs[:16]} |\n")
+def _keep(chosen: usability_loop.Scenario, inputs: str, number: int,
+          passed: bool = True) -> None:
+    """The run `number` of T1 kept in the memo, as a scored run keeps it."""
+    usability_loop.keep_run(chosen, inputs, f"2026-11-10-T1-{number}", passed,
+                            "T1: pass, 0 questions")
 
 
-@pytest.mark.parametrize(("rows", "memoized", "said"), [
-    pytest.param(["a pass", "b pass", "c pass"], True,
+@pytest.mark.parametrize(("kept", "memoized", "said"), [
+    pytest.param([(1, True), (2, True), (3, True)], True,
                  "T1: memoized: 3 runs passed with these inputs", id="three_passed"),
-    pytest.param(["a pass", "b pass"], False, "T1: run it: 2 of 3 runs passed", id="two"),
-    pytest.param(["a pass", "b pass", "c pass", "d fail"], False, "T1: run it: d failed",
-                 id="one_failed"),
+    pytest.param([(1, True), (2, True)], False, "T1: run it: 2 of 3 runs passed", id="two"),
+    pytest.param([(1, True), (2, True), (3, False)], False,
+                 "T1: run it: 2026-11-10-T1-3 failed", id="one_failed"),
     pytest.param([], False, "T1: run it: no run recorded with these inputs", id="none"),
 ])
 def test_plan_says_whether_a_scenario_is_memoized_naming_its_runs(
-        chosen: usability_loop.Scenario, tmp_path: Path, rows: list[str], memoized: bool,
-        said: str) -> None:
+        chosen: usability_loop.Scenario, local: Path, kept: list[tuple[int, bool]],
+        memoized: bool, said: str) -> None:
     inputs = "ab" * 32
-    results = tmp_path / "results.md"
-    text = RESULTS_HEAD + _row("e", "pass", "cd" * 32) + _row("f", "pass", inputs, "T9")
-    for each in rows:
-        run, result = each.split()
-        text += _row(run, result, inputs)
-    results.write_text(text, encoding="utf-8")
-    recorded = usability_loop.read_recorded_runs(results)
-    assert usability_loop.is_memoized(chosen, inputs, recorded) is memoized
-    planned = usability_loop.plan_text(chosen, inputs, recorded)
+    for number, passed in kept:
+        _keep(chosen, inputs, number, passed)
+    _keep(chosen, "cd" * 32, 1)  # kept with other inputs: not these
+    assert usability_loop.is_memoized(chosen, inputs) is memoized
+    planned = usability_loop.plan_text(chosen, inputs)
     assert planned.startswith(said) and inputs[:16] in planned
     if memoized:
-        assert planned.endswith("a, b and c")
+        assert planned.endswith("2026-11-10-T1-1, 2026-11-10-T1-2 and 2026-11-10-T1-3")
 
 
 def test_a_held_out_scenario_is_memoized_by_one_run_that_passed(
-        chosen: usability_loop.Scenario, tmp_path: Path) -> None:
+        chosen: usability_loop.Scenario, local: Path) -> None:
     held_out = dataclasses.replace(chosen, split="held_out")
     inputs = "ab" * 32
-    results = tmp_path / "results.md"
-    results.write_text(RESULTS_HEAD + _row("a", "pass", inputs), encoding="utf-8")
-    recorded = usability_loop.read_recorded_runs(results)
-    assert usability_loop.is_memoized(held_out, inputs, recorded)
+    usability_loop.keep_run(held_out, inputs, "2026-11-10-T1-1", True, "T1: pass")
+    assert usability_loop.is_memoized(held_out, inputs)
 
 
-def test_a_recorded_run_names_its_inputs_and_a_memoized_scenario_isnt_prepared_unless_fresh(
-        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
-    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+def test_fresh_plans_every_run_again_though_each_passed(
+        chosen: usability_loop.Scenario, local: Path) -> None:
+    inputs = "ab" * 32
     for number in (1, 2, 3):
-        run = usability_loop.prepare(chosen, tmp_path / f"T1-{number}", main=main_tree,
-                                     python=Path(sys.executable))
+        _keep(chosen, inputs, number)
+    fresh = usability_loop.slot_plan(chosen, inputs, fresh=True)
+    assert [one.asked for one in fresh] == [True] * 3
+    assert [one.asked for one in usability_loop.slot_plan(chosen, inputs)] == [False] * 3
+
+
+def test_a_recorded_run_is_kept_locally_and_a_memoized_scenario_isnt_prepared_unless_fresh(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
+    for number in (1, 2, 3):
+        run = usability_loop.prepare(chosen, tmp_path / f"2026-11-10-T1-{number}",
+                                     main=main_tree, python=Path(sys.executable))
         _finish(run)
         row = usability_loop.record(usability_loop.score(chosen, run), run, chosen)
         assert f"; inputs {_inputs(run)['inputs_hash'][:16]} |" in row
+    kept = local / "usability" / "runs" / "2026-11-10-T1-1"
+    assert (kept / "_loop" / "inputs.json").is_file() and not (kept / "main").exists()
+    assert row in (local / "usability" / "results.md").read_text(encoding="utf-8")
+    assert len(list((local / "memo").glob("T1-*-run-haiku-*.md"))) == 3
     with pytest.raises(ValueError, match="--fresh"):
-        usability_loop.prepare(chosen, tmp_path / "T1-4", main=main_tree,
+        usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-4", main=main_tree,
                                python=Path(sys.executable))
-    assert not (tmp_path / "T1-4").exists()
-    again = usability_loop.prepare(chosen, tmp_path / "T1-5", main=main_tree,
+    assert not (tmp_path / "2026-11-10-T1-4").exists()
+    again = usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-5", main=main_tree,
                                    python=Path(sys.executable), fresh=True)
     assert (again / "_loop" / "inputs.json").is_file()
     planned = usability_loop.plan(chosen, cache=None, main=main_tree)
     assert planned.startswith("T1: memoized: 3 runs passed")
-    assert planned.endswith("T1-1, T1-2 and T1-3")
+    assert planned.endswith("2026-11-10-T1-1, 2026-11-10-T1-2 and 2026-11-10-T1-3")
+
+
+def test_a_run_whose_slot_already_passed_is_refused_but_the_next_slot_is_not(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
+    first = usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-1", main=main_tree,
+                                   python=Path(sys.executable))
+    _finish(first)
+    usability_loop.record(usability_loop.score(chosen, first), first, chosen)
+    with pytest.raises(ValueError, match=r"T1-1 passed.*--fresh"):
+        usability_loop.prepare(chosen, tmp_path / "2026-11-11-T1-1", main=main_tree,
+                               python=Path(sys.executable))
+    second = usability_loop.prepare(chosen, tmp_path / "2026-11-11-T1-2", main=main_tree,
+                                    python=Path(sys.executable))
+    assert second.is_dir()
 
 
 def _record_runs(chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
@@ -708,10 +732,7 @@ def _record_runs(chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Pat
 
 
 def test_plan_names_each_input_changed_since_the_scenarios_last_run(
-        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
-    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
     _record_runs(chosen, main_tree, tmp_path, ["T1-1", "T1-2"])
     _replace_in(main_tree / ".github" / "README.md", "Each Workflow.", "Each one.")
     _replace_in(main_tree / ".github" / "README.md", "Start it.", "Start.")  # not listed
@@ -723,16 +744,16 @@ def test_plan_names_each_input_changed_since_the_scenarios_last_run(
 
 
 def test_runs_recorded_with_mains_whole_tree_are_run_again_never_memoized(
-        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
     # Before Toolbox 8.7, ticket 01, inputs.json held one hash of main's whole tree, and the
-    # inputs hash was one hash of all its inputs. A row naming that hash runs once more.
-    monkeypatch.setattr(usability_loop, "KEPT", tmp_path / "kept")
-    monkeypatch.setattr(usability_loop, "RESULTS", tmp_path / "kept" / "results.md")
+    # inputs hash was one hash of all its inputs. A row naming that hash runs once more, though
+    # it is brought into the memo.
+    monkeypatch.setattr(usability_loop, "SCENARIOS", chosen.folder)
     runs = _record_runs(chosen, main_tree, tmp_path, ["T1-1", "T1-2", "T1-3"])
-    results = usability_loop.RESULTS.read_text(encoding="utf-8")
+    results = (local / "usability" / "results.md").read_text(encoding="utf-8")
     for run in runs:
-        kept = usability_loop.KEPT / "runs" / run.name / "_loop" / "inputs.json"
+        kept = local / "usability" / "runs" / run.name / "_loop" / "inputs.json"
         inputs = json.loads(kept.read_text(encoding="utf-8"))
         given = {"main": {"tree": "0" * 64, "named": inputs["main"]["named"]},
                  **{part: inputs[part] for part in ("project", "warehouse", "scenario_files",
@@ -741,11 +762,103 @@ def test_runs_recorded_with_mains_whole_tree_are_run_again_never_memoized(
         results = results.replace(inputs["inputs_hash"][:16], old_hash[:16])
         kept.write_text(json.dumps({"scenario": "T1", "commit": inputs["commit"], **given,
                                     "inputs_hash": old_hash}), encoding="utf-8")
-    usability_loop.RESULTS.write_text(results, encoding="utf-8")
+    (local / "usability" / "results.md").write_text(results, encoding="utf-8")
+    shutil.rmtree(local / "memo")
+    assert usability_loop.migrate_results() == 3
     planned = usability_loop.plan(chosen, cache=None, main=main_tree)
     assert planned.startswith("T1: run it: no run recorded with these inputs")
     assert planned.endswith("; its last run, T1-3, was recorded with main's whole tree as one "
                             "input")
+
+
+def test_results_recorded_before_the_memo_are_brought_into_it_once(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(usability_loop, "SCENARIOS", chosen.folder)
+    _record_runs(chosen, main_tree, tmp_path, ["2026-11-10-T1-1", "2026-11-10-T1-2",
+                                               "2026-11-10-T1-3"])
+    shutil.rmtree(local / "memo")  # as results were kept before the memo
+    assert not usability_loop.plan(chosen, cache=None, main=main_tree).startswith(
+        "T1: memoized")
+    assert usability_loop.migrate_results() == 3
+    assert usability_loop.plan(chosen, cache=None, main=main_tree).startswith("T1: memoized")
+    assert usability_loop.migrate_results() == 3  # again: the same files, nothing doubled
+    assert len(list((local / "memo").glob("T1-*.md"))) == 3
+
+
+# --- Agents to spawn, and their usage in the ledger (evaluation system, ticket 05) -----------
+
+
+def test_each_phases_agent_is_one_line_of_type_model_and_prompt(
+        chosen: usability_loop.Scenario, tmp_path: Path) -> None:
+    lines = usability_loop.phase_spawn_lines(chosen, tmp_path / "run")
+    assert len(lines) == 2
+    for number, line in enumerate(lines, 1):
+        agent, model, prompt = line.split(" | ")
+        assert (agent, model) == ("zero-context-user", "haiku")
+        assert prompt == (f"Read {tmp_path / 'run' / '_loop' / f'phase_{number}.md'} and "
+                          "follow it.")
+
+
+def test_a_routed_question_prints_the_proxy_to_spawn(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    message, reply = usability_loop.route(run, "How?")
+    agent, model, prompt = usability_loop.proxy_spawn_line(message, reply).split(" | ")
+    assert (agent, model) == ("copilot-proxy", "haiku")
+    assert prompt == f"Message file: {message} Answers file: {reply} No header lines."
+
+
+def test_the_route_command_prints_one_line_for_the_proxy(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    monkeypatch.setattr(usability_loop, "RUNS", tmp_path)
+    usability_loop.main(["route", "run", "How?"])
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 1 and lines[0].startswith("copilot-proxy | haiku | Message file: ")
+    assert (run / "_loop" / "questions.json").is_file()
+
+
+def test_usage_is_recorded_for_a_phase_agent_and_for_each_routed_question(
+        local: Path) -> None:
+    usability_loop.record_usage("2026-11-10-W1-1", "phase-2", tokens="51000", seconds="90",
+                                result="done", round_id="r1", commit="abc")
+    usability_loop.record_usage("2026-11-10-W1-1", "route-1", tokens="4000", seconds="5",
+                                result="ok", round_id="r1", commit="abc")
+    usability_loop.record_usage("2026-11-10-W1-1", "answer-1", tokens="6000", seconds="8",
+                                result="ok", round_id="r1", commit="abc")
+    phase, route, answer = eval_runs.read_ledger(local)
+    assert (phase.pipeline, phase.role, phase.arm, phase.model, phase.task) == (
+        "usability", "user", "phase", "haiku", "2026-11-10-W1-1/phase-2")
+    assert (route.role, route.arm, route.task) == ("proxy", "question",
+                                                   "2026-11-10-W1-1/route-1")
+    assert answer.task == "2026-11-10-W1-1/answer-1" and answer.tokens == "6000"
+
+
+@pytest.mark.parametrize("what", ["phase", "phase-x", "ask-1", "route-0"])
+def test_usage_of_an_agent_the_loop_has_none_of_is_refused(local: Path, what: str) -> None:
+    with pytest.raises(SystemExit):
+        usability_loop.record_usage("r", what, tokens="1", seconds="1", result="ok",
+                                    round_id="r1", commit="abc")
+    assert eval_runs.read_ledger(local) == []
+
+
+def test_a_round_is_estimated_from_past_phase_rows_and_refused_over_its_budget(
+        chosen: usability_loop.Scenario, local: Path) -> None:
+    plans = [usability_loop.slot_plan(chosen, "ab" * 32)]
+    assert "No estimate" in usability_loop.estimate_line(plans, [chosen], over_budget=False)
+    usability_loop.record_usage("r", "phase-1", tokens="10000", seconds="1", result="done",
+                                round_id="r1", commit="c")
+    # T1 asks 3 runs of 2 phases each: 6 phase agents of 10,000 tokens.
+    line = usability_loop.estimate_line(plans, [chosen], over_budget=False)
+    assert line.startswith("Round estimated 60000 tokens")
+    over = {**eval_runs.BUDGET, "usability": 1000.0}
+    with pytest.raises(SystemExit, match="over the usability budget"):
+        usability_loop.estimate_line(plans, [chosen], over_budget=False, budget=over)
+    assert "over budget" in usability_loop.estimate_line(plans, [chosen], over_budget=True,
+                                                         budget=over)
+
 
 
 @pytest.mark.parametrize("path_first", [True, False], ids=["path first", "path last"])
