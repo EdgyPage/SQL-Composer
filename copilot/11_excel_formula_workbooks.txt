@@ -104,12 +104,12 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 - **M1** A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank
   in a column a formula reads, COALESCE(x, 0) or COALESCE(x, ''), mark "blank". Inside an
   -IF(S) form or ISBLANK, the column as it is: they skip a blank, as SUM and AVG skip NULL.
-- **M2** VLOOKUP or MATCH with TRUE or 1, approximate: the exact match; name it.
+- **M2** VLOOKUP or MATCH with TRUE or 1: the exact match; mark "approximate".
 - **M3** A date held as text, such as 20260911, that a formula makes or reads as a date
   (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
   `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
-  SUBSTR(dt, 7, 2))` inside that formula's Hive, and named. **A column no formula reads as
-  a date stays as it is**: shown, compared in an -IFS form or ordered on, `dt` is `dt`.
+  SUBSTR(dt, 7, 2))` inside that formula's Hive; mark "text date". **A column no formula
+  reads as a date stays as it is**: shown, compared in -IFS or ordered on, `dt` is `dt`.
 - **M4** A lookup whose key repeats in the looked-up Table's sample: Excel takes the first
   match, a LEFT JOIN every one. Write the LEFT JOIN, mark "repeated key".
 - **M5** A defined name for a cell outside a Table: its value; say to move it to Parameters.
