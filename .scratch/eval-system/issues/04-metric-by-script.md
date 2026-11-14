@@ -1,7 +1,7 @@
 # The Metric request evaluation by script, one agent per role
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01, 02
 Size: M
 
@@ -61,3 +61,19 @@ ran the same instructions on `copilot-proxy` (also Read and Write only, haiku); 
 spawns `metric-proxy` as the doc says. Subagents of a worktree session cannot write to the main
 checkout, so the conversations ran in the worktree's own `.eval-local/` and only the ledger rows
 went to the main checkout's. `--only` was added so one task can be run.
+
+## Code review
+
+Run with this ticket as spec, fixed point 3de80309 (review-standards and review-spec, sonnet).
+
+- Fixed: `next_step` renamed `advance` (it writes the transcript at the end) and
+  `write_task_messages` renamed `write_task_folder` (it also writes the conversation record);
+  `score_round` reads the memo only in the branch that needs it and counts on its own line; the
+  doc says A0 ends as `ended: no request in turn 1` and that `--role user` is arm C only; the
+  ticket's Status is resolved.
+- Answered: the comparison is stopped at six Copilot turns, not run to a request, to bound its
+  cost, and said so above; the ledger rows are local, so the numbers are in the Answer. The
+  ledger accepts any result text for the metric pipeline (only maintainer rows are checked).
+- Left, as judgement calls: `memo_key`'s unused `reply` (the memo's key function shape, in its
+  docstring); the free-text reason in `ending` doubling as the ledger result; `round` as a field
+  name; `_parser`'s per-command `if` on the name; `datetime.date.today()` three times.

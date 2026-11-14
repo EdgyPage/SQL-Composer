@@ -201,12 +201,13 @@ message and reads every reply, so you only spawn and send what it prints.
    `next` lines at a time.
 5. **The end.** `next` prints `ended: request in turn N` (Copilot's turn holds the Metric
    request) or `ended: turn cap, 12 turns`, and writes the folder's transcript.md and
-   request.md. In A0 the one agent's first turn ends it. Never write a turn file yourself, and
+   request.md. In A0 the one agent's first turn ends it, as `ended: no request in turn 1` where
+   it holds none. Never write a turn file yourself, and
    never send an agent more than the line says: its replies come from what it was named alone.
 6. **Record each agent's usage.** When a conversation has ended, take each of its two agents'
    reported total tokens and seconds, and run `tools/metric_eval.py usage <folder> --role
    copilot --tokens <tokens> --seconds <seconds> --commit <sha>`, and the same with `--role
-   user`. That puts one ledger row per agent per conversation in `.eval-local/ledger.csv`;
+   user` (arm C only: A0 has no user agent). That puts one ledger row per agent per conversation in `.eval-local/ledger.csv`;
    `tools/eval_runs.py ledger` prints the ledger.
 7. **Score.** `tools/metric_eval.py score <name> C --split dev --model haiku` scores each
    task's request.md, a task with no folder from the memo, keeps each new request in the memo,

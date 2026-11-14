@@ -34,11 +34,11 @@ ledger.
     .venv/Scripts/python tools/metric_eval.py score r1 C --split dev --model haiku
 
 `start` writes each asked task's folder (user.md and copilot.md, or in A0 copilot.md alone) and,
-for each, what the session spawns first. `next` reads the folder's newest turn and prints the one
-thing to do: spawn the user's agent, or send a turn to an agent already spawned, each naming the
-agent type, the model and the files to read and write; at the end it writes transcript.md and
-request.md. `usage` records one agent's reported usage in the ledger. `score` scores the round's
-requests, taking a task with no folder from the memo, and records its row.
+for each, what the session spawns first. `next` reads the folder's newest turn and prints the
+one thing to do: spawn the user's agent, or send a turn to an agent already spawned, each
+naming the agent type, the model and the files to read and write; at the end it writes
+transcript.md and request.md. `usage` records one agent's reported usage in the ledger. `score`
+scores the round's requests, taking a task with no folder from the memo, and records its row.
 """
 
 from __future__ import annotations
@@ -365,7 +365,7 @@ def task_folder(round_name: str, task: str, local: Path = eval_runs.LOCAL) -> Pa
     return eval_runs.make_local_path("metric", round_name, task, local=local)
 
 
-def write_task_messages(task: MetricTask, conversation: Conversation, folder: Path) -> None:
+def write_task_folder(task: MetricTask, conversation: Conversation, folder: Path) -> None:
     """Write what a task's agents start from into its folder: copilot.md and, in arm C, the
     stand-in user's user.md, and the conversation's record."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -427,7 +427,7 @@ def ending(folder: Path) -> str | None:
     return None
 
 
-def next_step(folder: Path) -> str:
+def advance(folder: Path) -> str:
     """The one thing the session does next for a task, in a line: spawn an agent with its
     first message, or send an agent already spawned the other's newest turn. When the
     conversation is over, it writes the transcript and request and says so."""
@@ -484,8 +484,8 @@ def start_round(given: argparse.Namespace) -> str:
     for task in plan.asked:
         folder = task_folder(given.round, task, given.local)
         conversation = Conversation(given.round, task, given.arm, given.model)
-        write_task_messages(BY_ID[task], conversation, folder)
-        lines.append(next_step(folder))
+        write_task_folder(BY_ID[task], conversation, folder)
+        lines.append(advance(folder))
     return "\n".join(lines)
 
 
@@ -541,18 +541,19 @@ def score_round(given: argparse.Namespace) -> str:
     lines, results, from_memo = [], [], 0
     for task in _round_tasks(given.split, given.only):
         path = task_folder(given.round, task, given.local) / "request.md"
-        kept = eval_runs.kept_reply(task, key_of, given.local / "memo")
         if path.exists():
             reply = path.read_text(encoding="utf-8")
             result = score_request(BY_ID[task], reply)
             eval_runs.write_kept(
                 eval_runs.Kept(key_of(task, reply), datetime.date.today().isoformat(),
                                score_line(result), reply), given.local / "memo")
-        elif kept is not None:
-            result, from_memo = score_request(BY_ID[task], kept.reply), from_memo + 1
         else:
-            lines.append(f"{task}  no reply")
-            continue
+            kept = eval_runs.kept_reply(task, key_of, given.local / "memo")
+            if kept is None:
+                lines.append(f"{task}  no reply")
+                continue
+            result = score_request(BY_ID[task], kept.reply)
+            from_memo += 1
         results.append(result)
         lines.append(score_line(result))
     if results:
@@ -616,7 +617,7 @@ def main(argv: list[str] | None = None) -> int:
     elif given.command == "start":
         print(start_round(given))
     elif given.command == "next":
-        print(next_step(given.folder))
+        print(advance(given.folder))
     elif given.command == "usage":
         print(record_usage(given))
     else:
