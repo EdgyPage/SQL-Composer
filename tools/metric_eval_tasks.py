@@ -21,13 +21,15 @@ the helpful ones met than not, and nothing invented. The user: "I am more concer
 directional correctness than exact correctness. Messy or incomplete data definitions are
 anticipated." So the definitions are messy, as real ones are.
 
-Twelve tasks are dev, which file 19 may be tuned on, and five are held out, asked once per
-version of the Copilot files. Four muddle their columns, as users do: one column asked for
-where two are meant ("one asked, two meant"), or two where one is ("two asked, one meant").
-Three bring sample rows. Five ask for what the data can't give, or gives only in part
-(`missing`): a column no table has (M11, M14), a grain the tables don't hold (M15), a column
-with no definition (M16) and a date whose definition is too vague to decide (M17). They pass
-on a request that names the gap, suggests the fix and heads the right way with what is there.
+Twelve tasks are dev, which file 19 may be tuned on, and eleven are held out, asked once per
+version of the Copilot files. M18 to M23 were added to the held-out set after file 19 was
+tuned, written before any of them was run, so no fix had seen them. Five muddle their columns,
+as users do: one column asked for where two are meant ("one asked, two meant"), or two where
+one is ("two asked, one meant"). Four bring sample rows. Seven ask for what the data can't
+give, or gives only in part (`missing`): a column no table has (M11, M14, M19, M22), a grain
+the tables don't hold (M15), a column with no definition (M16) and a date whose definition is
+too vague to decide (M17). They pass on a request that names the gap, suggests the fix and
+heads the right way with what is there.
 The user again: "Simply suggest fixes; do not invent answers to make users happy just to give
 them something."
 """
@@ -904,6 +906,269 @@ alert_id | run_id | severity | dt
             "the day after, match each cost to the day before.",
         ))),
         missing=True,
+    ),
+    MetricTask(
+        id="M18",
+        split="held_out",
+        opening="Which regions have a lot of jobs nobody looks after?",
+        answer_key="""\
+- One column: the share of the region's jobs that have no owner, as a percent, rounded to one
+  decimal place.
+- The region is the jobs table's region (ops.jobs.region), not the costs table's.
+- Owners are in the owners table (ops.job_owners), a row per job per snapshot day. Use only the
+  latest snapshot day the owners table holds.
+- A job has no owner when its owner is NULL that day, or when it has no row in the owners table
+  that day: both count as unowned.
+- One row per region with at least one job in ops.jobs.
+""",
+        columns=1,
+        required=(
+            Required("a percent", "Formula", (PERCENT,)),
+            quantities(r"\bowner\b"),
+            grain(r"region", r"at least one|\bwith (a|an|any|one)\b|with jobs?"
+                  r"|ha(s|ve|ving) (a |any )?jobs?"),
+            Required("the region from the jobs table", "", (
+                r"jobs\.region|ops\.jobs\b|jobs table",)),
+            Required("the latest snapshot day", "Days counted",
+                     (r"latest|last|most recent|newest",)),
+            Required("a NULL owner as no owner", "", (r"NULL|blank",)),
+            Required("a job with no owners row as unowned", "Edge cases", (
+                r"no (row|entry|record)|missing|absent|not in|isn't in|doesn't appear",)),
+            Required("rounded to one decimal place", "", (
+                r"one decimal|1 decimal|one place|1 place|\b1 ?dp\b|one digit|tenth",)),
+        ),
+        example=request("unowned jobs by region", ("unowned_jobs_pct", (
+            "the share of a region's jobs with no owner on the latest snapshot day, a percent.",
+            "unowned_jobs_pct = 100 x unowned jobs / jobs",
+            "jobs: rows of ops.jobs, each in its region (ops.jobs.region); unowned jobs: those "
+            "whose owner in ops.job_owners is NULL on the latest dt, or that have no row in "
+            "ops.job_owners that day.",
+            "region (ops.jobs.region) with at least one job in ops.jobs.",
+            "the latest dt ops.job_owners holds.",
+            "nothing: every job in ops.jobs counts.",
+            "a job with no row in ops.job_owners on that day counts as unowned; a region whose "
+            "jobs all have owners shows 0.",
+            "a job owned only on an earlier day is unowned.",
+            "none. Rounded to one decimal place.",
+        ))),
+    ),
+    MetricTask(
+        id="M19",
+        split="held_out",
+        opening="How long do our jobs sit in the queue before they actually start?",
+        answer_key="""\
+- You mean, for each job, the average minutes between the scheduler queuing a run and the run
+  starting, not rounded.
+- You don't think anything records the time the scheduler queued a run, or the time a run
+  started: the scheduler table (ops.scheduler_runs) seems to keep only the day. If Copilot
+  asks, say so.
+- The events table's minutes column says only "elapsed": you don't know what it is elapsed
+  from. If asked, say you don't know.
+- You want the real wait, not something else in its place: if Copilot offers a stand-in, such
+  as run length or a count of runs, say no: you want to know what you would need.
+- TEST runs, started by hand, never go through the queue: leave them out.
+- One row per job, over every day the tables hold.
+""",
+        columns=1,
+        required=(
+            *gap(r"queue|wait|start|time|schedul"),
+            grain(r"\bjob\b"),
+            Required("the scheduler table named", "", (r"scheduler_runs",)),
+            Required("the events table named as a lead", "", (
+                r"job_events|event_type|events table",)),
+            Required("minutes as the unit", "", (r"minute",)),
+            TEST_OUT, EVERY_DAY_COUNTED, UNROUNDED,
+        ),
+        example=request("queue wait", ("avg_queue_minutes", (
+            "the average minutes a job's runs wait between the scheduler queuing them and their "
+            "start.",
+            "avg_queue_minutes = average over the job's runs of (time started - time queued)",
+            "runs queued: rows of ops.scheduler_runs (run_id, job_id); the time queued and the "
+            "time started: no column holds them, perhaps the start rows of ops.job_events "
+            "(event_type start), whose definition says only \"elapsed\".",
+            "job (job_id) with at least one run in ops.scheduler_runs.",
+            "every day the tables hold.",
+            "TEST runs, started by hand.",
+            "none settled while the data is missing.",
+            "once the data is there: a run that starts as it is queued shows 0.",
+            "Missing data: ops.scheduler_runs keeps only the day (dt), not the time a run was "
+            "queued or started. Fix: ask your chatbot whether any table keeps a run's queued "
+            "and started times, or add a queued-at time to ops.scheduler_runs. Not rounded.",
+        ))),
+        missing=True,
+    ),
+    MetricTask(
+        id="M20",
+        split="held_out",
+        opening=("Can I get two columns per job: how many runs the scheduler kicked off, and "
+                 "how many runs show up in the runs table?"),
+        answer_key="""\
+- You said two columns, but all you will do is take the second from the first, to see how
+  many runs go missing between the scheduler and the runs table. If Copilot asks what you will
+  do with them, say that; if it asks whether they are really one, or offers one column, agree:
+  one column, the job's missing runs.
+- A missing run is a row of the scheduler table (ops.scheduler_runs) whose run_id has no row in
+  ops.job_runs. A run that shows up counts as there whatever its status, TEST, NULL or any
+  other.
+- Match the two tables by run_id alone, not by day.
+- One row per job with at least one row in ops.scheduler_runs, over every day the tables hold,
+  all together. A job whose runs all show up shows 0.
+""",
+        columns=1,
+        required=(
+            quantities(r"scheduler_runs", r"run_id"),
+            grain(r"\bjob\b", r"schedul|at least one|\bwith (a|an|any)\b"),
+            Required("runs with no row in the runs table", "Formula", (
+                r"no (matching )?(row|run)|not (found |shown )?in|never|without|minus|\bless\b"
+                r"|absent|don't|doesn't|do not|does not|\s-\s|−",)),
+            Required("matched by run_id alone, not by day", "", (
+                r"not by (the )?(day|date|dt)|\balone\b|only by run_id|by run_id only"
+                r"|on any day|whatever (its |the )?(day|date|dt)",)),
+            Required("a run there whatever its status", "", (
+                r"whatever its status|any status|regardless of (its )?status|every status"
+                r"|all statuses",)),
+            Required("a job with none missing shows 0", "", (r"\b0\b|zero",)),
+            EVERY_DAY_COUNTED,
+        ),
+        example=request("runs lost after scheduling", ("missing_runs", (
+            "how many of a job's scheduled runs never show up in the runs table.",
+            "missing_runs = count of scheduled runs with no row in ops.job_runs",
+            "scheduled runs: rows of ops.scheduler_runs, matched to ops.job_runs by run_id "
+            "alone, not by day; a run that shows up counts as there whatever its status.",
+            "job (job_id) with at least one row in ops.scheduler_runs.",
+            "every day the tables hold, as one total.",
+            "nothing: every scheduled run counts.",
+            "a job whose scheduled runs all show up shows 0.",
+            "a scheduled run whose run_id is in ops.job_runs as TEST is not missing.",
+            "none.",
+        ))),
+        muddled="two asked, one meant",
+    ),
+    MetricTask(
+        id="M21",
+        split="held_out",
+        opening="""\
+Can each job get a cost tier for the last week? Some rows I copied from the costs table:
+
+job_id | cost_cents | region | dt
+1      | 400        | eu     | 20260920
+1      | 700        | us     | 20260921
+2      | NULL       | eu     | 20260921
+3      | 5000       | eu     | 20260922
+""",
+        answer_key="""\
+- One column, a text label from the job's total billed cost (cost_cents) over the last 7 days
+  the costs table (ops.region_costs) holds, the latest day and the six before it, every region
+  added up. Take its dt as the day the cost is for.
+- The labels, in lower case exactly: low under 1000 cents; medium from 1000 up to but not
+  including 5000; high at 5000 or more. 1000 itself is medium, 5000 itself is high.
+- A cost not billed yet (NULL, as job 2's) is left out. A job with no billed cost in those days
+  has no row.
+- One row per job with at least one billed cost in those days.
+""",
+        columns=1,
+        required=(
+            Required("the three labels", "", (r"\blow\b", r"\bmedium\b", r"\bhigh\b")),
+            Required("the limits 1000 and 5000", "", (r"\b1,?000\b", r"\b5,?000\b")),
+            Required("1000 is medium and 5000 high", "Edge cases",
+                     (r"\b1,?000\b", r"\b5,?000\b")),
+            quantities(r"cost_cents"),
+            grain(r"\bjob\b", r"billed|cost|at least one"),
+            Required("the last 7 days", "Days counted", (r"\b7\b|seven|week",)),
+            Required("a NULL cost left out", "", (r"NULL|not (yet )?billed|unbilled",)),
+            Required("the regions added up", "", (r"region",)),
+        ),
+        example=request("job cost tier", ("cost_tier", (
+            "a label for what a job's billed cost came to over the last 7 days.",
+            "cost_tier = low if total cost < 1000 cents; medium if 1000 <= total < 5000; high "
+            "if total >= 5000",
+            "total cost: the sum of cost_cents of ops.region_costs for the job, every region "
+            "added up, its dt taken as the day the cost is for.",
+            "job (job_id) with at least one billed cost in the days counted.",
+            "the last 7 days ops.region_costs holds: the latest dt and the six before it.",
+            "costs whose cost_cents is NULL, not billed yet.",
+            "a total of exactly 1000 is medium; exactly 5000 is high.",
+            "job 2's NULL cost is left out; job 3, at 5000 on one day, is high.",
+            "none.",
+        ))),
+        sample_rows=True,
+    ),
+    MetricTask(
+        id="M22",
+        split="held_out",
+        opening=("I'd like to know, for each job, how much of its failing is down to bad data "
+                 "rather than the platform."),
+        answer_key="""\
+- You mean the share of the job's failed runs (status FAILED) whose cause was bad input data,
+  as a percent, not rounded.
+- You don't think any table records why a run failed: if Copilot asks, say so. The team notes
+  table (ops.team_notes) is free text a team writes now and then, not tied to a run: if
+  Copilot offers to read causes from it, say no.
+- You want the real share, not something else in its place: if Copilot offers a stand-in, such
+  as the failure rate, say no: you want to know what you would need.
+- TEST runs, started by hand, are left out.
+- One row per job with at least one failed run, over every day the runs table (ops.job_runs)
+  holds.
+""",
+        columns=1,
+        required=(
+            *gap(r"cause|reason|why|bad data"),
+            grain(r"\bjob\b", r"fail|at least one"),
+            values(r"FAILED"),
+            Required("a percent", "Formula", (PERCENT,)),
+            Required("the runs table named", "", (r"job_runs",)),
+            TEST_OUT, EVERY_DAY_COUNTED, UNROUNDED,
+        ),
+        example=request("failures from bad data", ("bad_data_failure_pct", (
+            "the share of a job's failed runs that failed because of bad input data, a "
+            "percent.",
+            "bad_data_failure_pct = 100 x failed runs caused by bad data / failed runs",
+            "failed runs: rows of ops.job_runs whose status is FAILED; caused by bad data: no "
+            "column records it.",
+            "job (job_id) with at least one failed run.",
+            "every day ops.job_runs holds, as one total.",
+            "TEST runs.",
+            "none settled while the data is missing.",
+            "once the data is there: a job whose failures were all the platform's shows 0.",
+            "Missing data: no table records why a run failed; ops.team_notes is free text per "
+            "team, not per run. Fix: ask your chatbot whether any table keeps a failed run's "
+            "reason, or add a failure_reason column to ops.job_runs. Not rounded.",
+        ))),
+        missing=True,
+    ),
+    MetricTask(
+        id="M23",
+        split="held_out",
+        opening="How many bad days has each job had lately?",
+        answer_key="""\
+- A bad day is a day the job had at least one failed run (status FAILED). You want how many
+  different days, not how many failures: a day with three failures counts once.
+- Lately means the last 30 days the runs table (ops.job_runs) holds: the latest dt and the 29
+  before it.
+- TEST runs, started by hand, don't count.
+- One row per job in the jobs table (ops.jobs), every job: a job with no bad day shows 0.
+""",
+        columns=1,
+        required=(
+            quantities(r"\bstatus\b"),
+            values(r"FAILED"),
+            grain(r"\bjob\b", r"ops\.jobs\b|jobs table|every job|each job|all (the )?jobs"),
+            Required("the last 30 days", "Days counted", (r"\b30\b|thirty",)),
+            Required("each day counted once", "", (r"\bonce\b|distinct|different|unique",)),
+            Required("a job with no bad day shows 0", "", (r"\b0\b|zero",)),
+            TEST_OUT,
+        ),
+        example=request("bad days", ("bad_days", (
+            "how many different days in the last 30 a job had at least one failed run.",
+            "bad_days = count of different days (dt) with a failed run",
+            "failed runs: rows of ops.job_runs whose status is FAILED, by their dt.",
+            "job (job_id) in ops.jobs, every job, whether it ran or not.",
+            "the last 30 days ops.job_runs holds: the latest dt and the 29 before it.",
+            "TEST runs.",
+            "a day with three failures counts once; a job with no bad day shows 0.",
+            "a job that failed twice on one day and once on another has two bad days.",
+            "none.",
+        ))),
     ),
 )
 

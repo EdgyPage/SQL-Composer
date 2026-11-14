@@ -149,11 +149,12 @@ still has it scored apart.
 
 File 19 writes no code and works out no numbers: it asks the user about a new metric and ends
 with a Metric request, the business requirements a chatbot that knows the user's databases
-writes the columns from. It is measured on seventeen tasks (`tools/metric_eval_tasks.py`),
-twelve dev and five held out, each a vague goal, the answer key the user keeps to themselves,
-and a requirements key. Five ask for what the data can't give, or gives only in part: a column
-no table has, a grain the tables don't hold, a column with no definition, a date too vague to
-decide. Two proxies a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
+writes the columns from. It is measured on twenty-three tasks (`tools/metric_eval_tasks.py`),
+twelve dev and eleven held out, each a vague goal, the answer key the user keeps to themselves,
+and a requirements key. Seven ask for what the data can't give, or gives only in part: a
+column no table has, a grain the tables don't hold, a column with no definition, a date too
+vague to decide. Held-out tasks M18 to M23 were written after file 19 was tuned, before any
+was run. Two proxies a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
 the round's model, or a `copilot-proxy` told its part is in its message file, are both given
 the same messy column definitions (`COLUMN_DEFINITIONS`), part of the memo key:
 

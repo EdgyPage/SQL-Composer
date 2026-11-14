@@ -18,9 +18,16 @@ import pytest
 from metric_eval_tasks import BY_ID, TASKS, MetricTask, Required
 
 
-def test_there_are_seventeen_tasks_twelve_dev_and_five_held_out() -> None:
-    assert [task.id for task in TASKS] == [f"M{number:02}" for number in range(1, 18)]
-    assert sorted(task.split for task in TASKS) == ["dev"] * 12 + ["held_out"] * 5
+def test_there_are_twenty_three_tasks_twelve_dev_and_eleven_held_out() -> None:
+    assert [task.id for task in TASKS] == [f"M{number:02}" for number in range(1, 24)]
+    assert sorted(task.split for task in TASKS) == ["dev"] * 12 + ["held_out"] * 11
+
+
+def test_the_six_newest_held_out_tasks_vary_and_two_ask_for_missing_data() -> None:
+    newest = [BY_ID[f"M{number}"] for number in range(18, 24)]
+    assert {task.split for task in newest} == {"held_out"}
+    assert len([task for task in newest if task.missing]) >= 2
+    assert any(task.muddled for task in newest) and any(task.sample_rows for task in newest)
 
 
 def test_the_tasks_muddle_columns_bring_rows_and_ask_for_what_the_data_cant_give() -> None:
