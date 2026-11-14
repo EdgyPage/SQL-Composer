@@ -677,7 +677,8 @@ run_id | team    | status  | duration_mins | dt
             Required("a percent", "Formula", (PERCENT,)),
             quantities(r"duration_mins", r"\bstatus\b"),
             values(r"FAILED", r"SUCCESS"),
-            Required("the team from the jobs table", "", (r"ops\.jobs\b|jobs table|jobs\.team",)),
+            Required("the team from the jobs table", "",
+                     (r"ops\.jobs\b|jobs table|jobs\.team",)),
             TEST_OUT, NULL_OUT,
             grain(r"\bteam\b", FINISHED),
             EVERY_DAY_COUNTED, UNROUNDED,
@@ -893,7 +894,8 @@ alert_id | run_id | severity | dt
             "ops.region_costs for the same job, every region added up.",
             "owner per day with at least one billed cost.",
             "every day the tables hold.",
-            "rows whose owner is NULL (nobody); costs whose cost_cents is NULL, not billed yet.",
+            "rows whose owner is NULL (nobody); costs whose cost_cents is NULL, not billed"
+            " yet.",
             "ops.region_costs.dt is a load date written yyyyMMdd; ops.job_owners.dt is written "
             "2026-09-24.",
             "an owner of two jobs on a day shows the two jobs' costs added.",

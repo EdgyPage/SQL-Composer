@@ -79,7 +79,8 @@ SNAKE_NAME = re.compile(r"\b(?:ops\.)?[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
 # A Fix, which may name a column to add, to the end of its line.
 FIX_TEXT = re.compile(r"\bFix:[^\n]*", re.IGNORECASE)
 # A worked-out number: "=" and a number alone, such as "100 x 1 / 2 = 50".
-WORKED_NUMBER = re.compile(r"(?<![<>!=])=\s*-?\d[\d.,]*\s*(?:%|percent)?\s*(?:[.;,)]|$)", re.MULTILINE)
+WORKED_NUMBER = re.compile(r"(?<![<>!=])=\s*-?\d[\d.,]*\s*(?:%|percent)?\s*(?:[.;,)]|$)",
+                           re.MULTILINE)
 
 
 def holds_sql(request: str) -> bool:
@@ -106,8 +107,10 @@ def missing_parts(request: str) -> list[str]:
     has no column section at all."""
     if not sections(request):
         return ["a column section"]
-    return [f"{name}: {part}" for name, body in sections(request)
-            for part in PARTS if part not in parts_of(body)]
+    missing = []
+    for name, body in sections(request):
+        missing += [f"{name}: {part}" for part in PARTS if part not in parts_of(body)]
+    return missing
 
 
 def request_in(message: str) -> str:
@@ -288,8 +291,8 @@ def copilot_message(task: MetricTask) -> str:
 
 def request_form() -> str:
     """File 19's form of a Metric request, its first ```text block."""
-    found = re.search(r"```text\n(# Metric request:.*?)```", FILE_19.read_text(encoding="utf-8"),
-                      re.DOTALL)
+    text = FILE_19.read_text(encoding="utf-8")
+    found = re.search(r"```text\n(# Metric request:.*?)```", text, re.DOTALL)
     return found.group(1) if found else ""
 
 

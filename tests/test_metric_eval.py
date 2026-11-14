@@ -95,14 +95,16 @@ def test_a_request_mostly_right_passes_and_one_mostly_wrong_fails() -> None:
 
 def test_a_grain_without_its_condition_fails_whatever_else_it_holds() -> None:
     task = BY_ID["M01"]
-    loose = task.example.replace("job (job_id) with at least one finished run.", "job (job_id).")
+    loose = task.example.replace("job (job_id) with at least one finished run.",
+                                 "job (job_id).")
     result = metric_eval.score_request(task, loose)
     assert result.essential_unmet == ["the grain and its conditions"] and not result.passed
 
 
 def test_an_invented_column_or_a_worked_number_always_fails() -> None:
     task = BY_ID["M06"]
-    invented = task.example.replace("any severity,", "any severity, unless action_taken is set,")
+    invented = task.example.replace("any severity,",
+                                    "any severity, unless action_taken is set,")
     result = metric_eval.score_request(task, invented)
     assert result.invented == ["action_taken"] and not result.passed
     worked = task.example.replace("shows 0.", "shows 0. Job 1: 4 alerts / 3 runs = 1.33.")
@@ -114,7 +116,8 @@ def test_a_fix_may_name_a_column_to_add_and_a_limit_is_no_worked_number() -> Non
     task = BY_ID["M14"]
     named = task.example.replace("add a raised-at time", "add a raised_at column")
     assert metric_eval.score_request(task, named).passed
-    assert metric_eval.worked_numbers("speed = slow if 20 <= average < 30; >= 30 very slow") == []
+    limits = "speed = slow if 20 <= average < 30; >= 30 very slow"
+    assert metric_eval.worked_numbers(limits) == []
 
 
 def test_an_invented_kind_of_alert_fails_m06() -> None:
