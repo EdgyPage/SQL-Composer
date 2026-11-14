@@ -715,7 +715,7 @@ run_id | team    | status  | duration_mins | dt
             Required("a cost equal to the budget is not over", "Edge cases", (r"equal|same",)),
             Required("a NULL cost is never over", "", (r"NULL|blank|bill",)),
             Required("the budget for the same region", "", (r"region",)),
-            grain(r"job", r"over|at least one|exceed"),
+            grain(r"job", r"over|at least one|exceed|more than|greater|above|>"),
             EVERY_DAY_COUNTED,
         ),
         example=request("first over budget", ("first_over_budget_day", (
