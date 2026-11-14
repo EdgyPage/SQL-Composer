@@ -104,7 +104,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported. What TAGS holds is a Decision rule's.
+  imported. What TAGS holds: the Script tag Decision rules.
 
 ## Steps
 

@@ -97,7 +97,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   as SUM, AVG, MIN and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
 - A date held as text, such as 20260911, that a formula makes or reads as a date
-  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT): `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
+  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
+  `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
   SUBSTR(dt, 7, 2))` inside that formula's Hive, and name it. **A column no formula reads as
   a date stays as it is**: shown, compared in an -IFS form or ordered on, `dt` is written
   `dt`, never converted.

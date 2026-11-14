@@ -947,7 +947,8 @@ the rows of several Statements together.
 - Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
   `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
   `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
-  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY, rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
+  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
+  rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
 - A window's value can't be tested in its own WHERE or HAVING: test it in a Statement
   reading its Derived table.
 - Ties: add a second ORDER_BY column, such as the row's id. A window's value is never added
@@ -1023,7 +1024,7 @@ s = statement(
 )
 ```
 
-Runs per job and day, with totals per job (dt NULL) and in all:
+Runs per job and day, totals per job (dt NULL) and of all:
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows,
@@ -1319,7 +1320,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported. What TAGS holds is a Decision rule's.
+  imported. What TAGS holds: the Script tag Decision rules.
 
 ## Steps
 
@@ -1971,7 +1972,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   as SUM, AVG, MIN and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
 - A date held as text, such as 20260911, that a formula makes or reads as a date
-  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT): `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
+  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
+  `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
   SUBSTR(dt, 7, 2))` inside that formula's Hive, and name it. **A column no formula reads as
   a date stays as it is**: shown, compared in an -IFS form or ordered on, `dt` is written
   `dt`, never converted.
