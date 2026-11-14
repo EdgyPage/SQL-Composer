@@ -2624,7 +2624,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.6.
+    Upgraded the Project from 7.1 to 8.7.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2634,9 +2634,11 @@ def upgrade() -> ProjectReport:
     8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
     8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
+    8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-        admin/upgrade_8.4.md, admin/upgrade_8.5.md and admin/upgrade_8.6.md.
+        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md and
+        admin/upgrade_8.7.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which

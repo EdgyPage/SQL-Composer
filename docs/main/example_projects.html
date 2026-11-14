@@ -309,7 +309,7 @@ from sqlglot_composer import project</pre>
     print(project.new_block(BLOCKS))</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="starter/admin/project_version.txt"><code>admin/project_version.txt</code></h3>
-<details><summary>Show its 3 lines</summary><pre>8.6
+<details><summary>Show its 3 lines</summary><pre>8.7
 # The Toolbox version that last wrote this Project: project.start() and project.upgrade()
 # write it, so don&#x27;t edit it.
 </pre></details></section>
@@ -1711,7 +1711,7 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 <p>It changes only files, or only prints: run its cell.</p>
 <ul><li><strong>Goal:</strong> the Project&#x27;s files carried to the Toolbox version you copied in, each file it changes archived first.</li><li><strong>Action:</strong> Restart the kernel, then run the cell below.</li><li><strong>Done when</strong> admin/project_version.txt names the Toolbox version you copied in; then step 2.</li></ul></div>
 <p class="label">Code cell 2</p><pre>project.upgrade()</pre>
-<p class="label">It gives</p><pre class="out">The Project is at 8.6 already, as this Toolbox is: nothing to upgrade.</pre>
+<p class="label">It gives</p><pre class="out">The Project is at 8.7 already, as this Toolbox is: nothing to upgrade.</pre>
 <div class="md"><h4>2. Make each change an UPGRADE mark asks for, and delete the mark</h4>
 <p>It is a decision, yours to make.</p>
 <ul><li><strong>Goal:</strong> each change the Upgrade left for you made.</li><li><strong>Action:</strong> Go to each <code># UPGRADE</code> mark, which the Upgrade&#x27;s report names, <code>admin/upgrade_&lt;version&gt;.md</code> lists and <code>project.check()</code> lists, make the change it asks for, then delete the mark. If a mark in <code>admin/databases.py</code> asks for your Dev and Prod Databases&#x27; names, naming them renames nothing: each Saved table made before keeps its name and its folder.</li><li><strong>Done when</strong> no <code># UPGRADE</code> mark is left in the Project&#x27;s own files; the Workflow is done: go through the Self-check at the top.</li></ul></div>
@@ -3302,7 +3302,7 @@ from sqlglot_composer import project</pre>
     print(project.new_block(BLOCKS))</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="intermediate/admin/project_version.txt"><code>admin/project_version.txt</code></h3>
-<details><summary>Show its 3 lines</summary><pre>8.6
+<details><summary>Show its 3 lines</summary><pre>8.7
 # The Toolbox version that last wrote this Project: project.start() and project.upgrade()
 # write it, so don&#x27;t edit it.
 </pre></details></section>
@@ -4893,7 +4893,7 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 <p>It changes only files, or only prints: run its cell.</p>
 <ul><li><strong>Goal:</strong> the Project&#x27;s files carried to the Toolbox version you copied in, each file it changes archived first.</li><li><strong>Action:</strong> Restart the kernel, then run the cell below.</li><li><strong>Done when</strong> admin/project_version.txt names the Toolbox version you copied in; then step 2.</li></ul></div>
 <p class="label">Code cell 2</p><pre>project.upgrade()</pre>
-<p class="label">It gives</p><pre class="out">The Project is at 8.6 already, as this Toolbox is: nothing to upgrade.</pre>
+<p class="label">It gives</p><pre class="out">The Project is at 8.7 already, as this Toolbox is: nothing to upgrade.</pre>
 <div class="md"><h4>2. Make each change an UPGRADE mark asks for, and delete the mark</h4>
 <p>It is a decision, yours to make.</p>
 <ul><li><strong>Goal:</strong> each change the Upgrade left for you made.</li><li><strong>Action:</strong> Go to each <code># UPGRADE</code> mark, which the Upgrade&#x27;s report names, <code>admin/upgrade_&lt;version&gt;.md</code> lists and <code>project.check()</code> lists, make the change it asks for, then delete the mark. If a mark in <code>admin/databases.py</code> asks for your Dev and Prod Databases&#x27; names, naming them renames nothing: each Saved table made before keeps its name and its folder.</li><li><strong>Done when</strong> no <code># UPGRADE</code> mark is left in the Project&#x27;s own files; the Workflow is done: go through the Self-check at the top.</li></ul></div>

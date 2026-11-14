@@ -39,6 +39,20 @@ ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 # A line an Upgrade step's mark holds in a file, as `# UPGRADE 8.5: ...`.
 UPGRADE_MARK_LINE = re.compile(rb"^[ \t]*# UPGRADE \d+\.\d+: [^\n]*\n", re.MULTILINE)
+# The same in a notebook's file, a line of a cell's source as Jupyter's JSON holds it, as
+# `    "# UPGRADE 8.7: ...\n",`: a mark sits above a line, so it is never a cell's last.
+UPGRADE_MARK_SOURCE_LINE = re.compile(rb'^[ \t]*"[ \t]*# UPGRADE \d+\.\d+: [^\n]*\\n",\n',
+                                      re.MULTILINE)
+# The step that rewrites a Project's import of the Example database, and what it writes in a
+# setup cell where 8.6 connected the notebook to it (Toolbox 8.7, ticket 14).
+STEP_8_7 = "8.7"
+EXAMPLE_CONNECTION_8_7 = "import example_database\nconnect(example_database)"
+
+
+def without_marks(cells: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """A notebook's cells with each UPGRADE mark's line left out."""
+    return [(kind, UPGRADE_MARK_LINE.sub(b"", f"{text}\n".encode("utf-8")).decode("utf-8")[:-1])
+            for kind, text in cells]
 
 
 # What each Example project gained or changed by hand in a version, which no Upgrade makes, by
@@ -58,6 +72,9 @@ GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
     "8.6": {"starter": ("README.md",),
             "intermediate": ("README.md", "admin/registry.csv",
                              "scheduled_runs/weekly_team/")},
+    # 8.7's ticket 08: the intermediate's schedule notebook names weekly_team, as the user
+    # named it to make the run, which 8.7's step makes empty; and its README, which says so.
+    "8.7": {"intermediate": ("admin/workflows/schedule/schedule.ipynb", "README.md")},
 }
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
@@ -72,12 +89,8 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 }
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
-# 8.6's ticket 12 emptied it.
-AWAITING_ITS_STEP: tuple[str, ...] = (
-    # 8.7's ticket 08: the intermediate's schedule notebook names weekly_team, as the user
-    # named it to make the run; 8.7's step makes the notebook empty (ticket 14).
-    "admin/workflows/schedule/schedule.ipynb",
-)
+# 8.6's ticket 12 and 8.7's ticket 14 emptied it.
+AWAITING_ITS_STEP: tuple[str, ...] = ()
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
@@ -155,8 +168,8 @@ def files_of(folder: Path, left_out: tuple[str, ...] = ()) -> dict[str, bytes]:
                     or relative.startswith(("admin/upgrade_", "admin/removed/", *left_out)))
 
     return {path.relative_to(folder).as_posix():
-            awaiting_its_rewrite(UPGRADE_MARK_LINE.sub(
-                b"", path.read_bytes().replace(b"\r\n", b"\n")))
+            awaiting_its_rewrite(UPGRADE_MARK_SOURCE_LINE.sub(b"", UPGRADE_MARK_LINE.sub(
+                b"", path.read_bytes().replace(b"\r\n", b"\n"))))
             for path in sorted(folder.rglob("*"))
             if path.is_file() and "__pycache__" not in path.parts
             and kept(path.relative_to(folder).as_posix())}
@@ -232,11 +245,12 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[5].startswith("8.3: ")
     assert said[6].startswith("8.4: ")
     assert said[7].startswith("8.5: ")
-    assert said[8].startswith(f"{VERSION}: ")
-    assert said[9] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
-                       "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
-                       "admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md and "
-                       f"admin/upgrade_{VERSION}.md.")
+    assert said[8].startswith("8.6: ")
+    assert said[9].startswith(f"{VERSION}: ")
+    assert said[10] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+                        "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
+                        "admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md, "
+                        f"admin/upgrade_8.6.md and admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -772,11 +786,12 @@ def test_8_2_writes_check_references_again(
     assert "<a value>" in "".join(text for _, text in notebooks.read_cells(notebook))
     monkeypatch.chdir(copy)
     project.upgrade()
-    # Since 8.6, connected to the Example database, as the 8.1 Project's conn was.
+    # Since 8.6, connected to the Example database, as the 8.1 Project's conn was, and since
+    # 8.7 importing it from beside the Project, under 8.7's mark.
     placeholder = toolbox_module("project_templates").CONNECT_PLACEHOLDER
-    connected = [(kind, text.replace(placeholder, upgrades.EXAMPLE_CONNECTION))
+    connected = [(kind, text.replace(placeholder, EXAMPLE_CONNECTION_8_7))
                  for kind, text in project.admin_notebook_cells("check_references")]
-    assert notebooks.read_cells(notebook) == connected
+    assert without_marks(notebooks.read_cells(notebook)) == connected
     assert (copy / "admin" / "removed").is_dir()
 
 
@@ -1008,7 +1023,8 @@ def test_8_6_connects_each_notebook_to_the_example_database_as_conn_was(
                      copy / "admin" / "scheduled_runs.ipynb"]:
         code = _code(notebook)
         assert "from warehouse import connect" in code, notebook
-        assert f"\n{EXAMPLE_CONNECTION}" in code, notebook
+        # As 8.6 connected it, its import rewritten by 8.7's step.
+        assert f"\n{EXAMPLE_CONNECTION_8_7}" in code, notebook
         assert CONNECT_PLACEHOLDER not in code.split("\n"), notebook
     assert (copy / "scheduled_runs").is_dir()
     # Each Template, written again or added, is left as start() writes it: its line to fill in.
@@ -1061,9 +1077,14 @@ def test_8_6_marks_a_warehouse_py_whose_calls_you_wrote_yourself(
     monkeypatch.chdir(copy)
     project.upgrade()
     text = warehouse.read_text(encoding="utf-8")
-    assert UPGRADE_MARK_LINE.sub(b"", text.encode("utf-8")).decode("utf-8") == mine
-    (mark,) = [line for line in text.split("\n") if line.startswith("# UPGRADE")]
-    assert mark.startswith(f"# UPGRADE {STEP_8_6}: 8.6's notebooks import connect from here")
+    # Kept as it is, but for 8.7's step importing the Example database from beside it.
+    assert UPGRADE_MARK_LINE.sub(b"", text.encode("utf-8")).decode("utf-8") == mine.replace(
+        "from sqlglot_composer import example_database", "import example_database")
+    marks = [line for line in text.split("\n") if line.startswith("# UPGRADE")]
+    assert [mark.split(":")[0] for mark in marks] == [f"# UPGRADE {STEP_8_7}",
+                                                      f"# UPGRADE {STEP_8_6}"]
+    assert marks[1].startswith(
+        f"# UPGRADE {STEP_8_6}: 8.6's notebooks import connect from here")
 
 
 def test_8_6_keeps_your_comments_with_the_lines_of_yours_they_sit_by(
@@ -1112,7 +1133,9 @@ def test_8_6_keeps_a_conn_set_in_a_try_and_marks_it_to_move(
     assert lines[at - 1].startswith(f"# UPGRADE {STEP_8_6}: 8.6 takes your connection in each "
                                     "notebook")
     assert "\n".join(lines[at:at + 4]) == yours
-    assert "from sqlglot_composer import example_database" in lines
+    # Its import of the Example database, rewritten by 8.7's step under its mark.
+    at = lines.index("import example_database")
+    assert lines[at - 1].startswith(f"# UPGRADE {STEP_8_7}: ")
 
 
 def test_8_6_marks_a_connect_of_your_own_in_warehouse_py(
@@ -1185,7 +1208,7 @@ def test_8_6_connects_a_table_notebook_whose_import_is_over_several_lines(
     assert f"{STEP_8_6}: nothing to change by hand." in said
     code = _code(notebook)
     assert "from warehouse import (\n    query,\n)\nfrom warehouse import connect\n" in code
-    assert f"\n{EXAMPLE_CONNECTION}" in code
+    assert f"\n{EXAMPLE_CONNECTION_8_7}" in code
 
 
 def test_8_6_marks_a_table_notebook_it_cant_connect(
@@ -1266,7 +1289,9 @@ def test_8_6_marks_a_notebook_of_yours_that_reaches_the_warehouse(
     code = notebooks.read_cells(mine)[1][1].split("\n")
     assert code[0].startswith(f"# UPGRADE {STEP_8_6}: 8.6's query and execute refuse until "
                               "this notebook connects")
-    assert "such as connect(example_database), as warehouse.py's conn was" in code[0]
+    # 8.7's Toolbox has no Example database to connect it to, so the mark doesn't offer one
+    # (drift D514).
+    assert "example_database" not in code[0]
     assert code[1] == "from warehouse import query"
     # A module of yours runs on the connection of the notebook that imports it: not marked.
     assert module.read_text(encoding="utf-8") == "from warehouse import query\n"
@@ -1288,3 +1313,295 @@ def test_8_6_keeps_the_promoted_record_of_a_prod_copy_it_connects(
     assert files["tables/mart__team_day/gone.md"] == "0" * 64
     assert f"Edited by hand, which project.promote writes over: {relative}" not in repr(
         project.check())
+
+
+# --- 8.7 (ticket 14) ------------------------------------------------------------------------
+
+# The import forms a Project may hold of the Example database, as the Toolbox held it before
+# 8.7 (ticket 12's Answer), each in a notebook of the user's own: each form, and what 8.7's
+# step writes in its place.
+FORMS_8_6 = {
+    "alone": ("from sqlglot_composer import example_database\nquery = example_database.query",
+              "import example_database\nquery = example_database.query"),
+    "among others": ("from sqlglot_composer import example_database, project  # both\n"
+                     "project.check()",
+                     "import example_database\nfrom sqlglot_composer import project  # both\n"
+                     "project.check()"),
+    "in brackets": ("from sqlglot_composer import (\n    project,\n    example_database,\n)",
+                    "import example_database\nfrom sqlglot_composer import (\n    project,\n)"),
+    "as a name of yours": ("from sqlglot_composer import example_database as demo\n"
+                           "demo.query('SELECT 1')",
+                           "import example_database as demo\ndemo.query('SELECT 1')"),
+    "names from it": ("from sqlglot_composer.example_database import jobs, job_runs",
+                      "from example_database import jobs, job_runs"),
+    "through the package": ("import sqlglot_composer.example_database\n"
+                            "jobs = sqlglot_composer.example_database.jobs",
+                            "import sqlglot_composer, example_database\n"
+                            "jobs = example_database.jobs"),
+    "reached by the package": ("import sqlglot_composer\n\n"
+                               "rows = sqlglot_composer.example_database.query('SELECT 1')",
+                               "import sqlglot_composer\nimport example_database\n\n"
+                               "rows = example_database.query('SELECT 1')"),
+    "by the star import": ("from sqlglot_composer import *\n"
+                           "jobs, job_runs = example_database.jobs, example_database.job_runs",
+                           "from sqlglot_composer import *\nimport example_database\n"
+                           "jobs, job_runs = example_database.jobs, example_database.job_runs"),
+}
+# How many marks each form leaves: one at each line it rewrote.
+MARKS_LEFT = {"through the package": 2, "reached by the package": 2}
+# The first words of 8.7's mark on an import of the Example database it rewrote.
+NO_EXAMPLE_DATABASE = f"# UPGRADE {STEP_8_7}: 8.7's Toolbox has no Example database"
+MARK_LINE_TEXT = re.compile(r"# UPGRADE \d+\.\d+: ")
+
+
+def _copy_of_8_6(tmp_path: Path, name: str = "starter") -> Path:
+    """An Example project as 8.6 left it, to upgrade."""
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / "8.6" / name, copy)
+    return copy
+
+
+def _marks_of(text: str) -> list[str]:
+    """Each UPGRADE mark's line in a text, its indent stripped."""
+    return [line.strip() for line in text.split("\n") if MARK_LINE_TEXT.match(line.strip())]
+
+
+@pytest.mark.parametrize("form", list(FORMS_8_6))
+def test_8_7_rewrites_an_import_of_the_example_database_and_marks_it(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, form: str) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    mine = copy / "tables" / "mart__team_day" / "scratch.ipynb"
+    before, after = FORMS_8_6[form]
+    notebooks.write_notebook(mine, [("markdown", "Mine"), ("code", "x = 1"), ("code", before)])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    cells = notebooks.read_cells(mine)
+    # Each line of yours kept, but for what it rewrote, each under a mark.
+    assert without_marks(cells) == [("markdown", "Mine"), ("code", "x = 1"), ("code", after)]
+    marks = _marks_of(cells[2][1])
+    assert len(marks) == MARKS_LEFT.get(form, 1)
+    assert all(mark.startswith(NO_EXAMPLE_DATABASE) for mark in marks)
+    assert "your team's connection" in marks[0]
+    assert list((copy / "admin" / "removed").rglob("scratch.ipynb"))
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_7}.md").read_text(encoding="utf-8")
+    assert "- [ ] tables/mart__team_day/scratch.ipynb, cell 3, line" in checklist
+
+
+def test_8_7_rewrites_an_import_in_a_py_file_and_leaves_a_comment_naming_it(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    helpers = copy / "building_blocks" / "helpers.py"
+    helpers.write_text("# from sqlglot_composer import example_database, once\n"
+                       "def rows() -> object:\n"
+                       "    from sqlglot_composer import example_database\n"
+                       "    return example_database.query('SELECT 1')\n", encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    lines = helpers.read_text(encoding="utf-8").split("\n")
+    assert lines[0] == "# from sqlglot_composer import example_database, once"
+    at = lines.index("    import example_database")
+    assert lines[at - 1].startswith(f"    {NO_EXAMPLE_DATABASE}")
+    assert lines[at + 1] == "    return example_database.query('SELECT 1')"
+
+
+def test_8_7_marks_an_import_in_code_it_cant_read(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    mine = copy / "tables" / "mart__team_day" / "scratch.ipynb"
+    code = "from sqlglot_composer import example_database\nif True\n    pass"
+    notebooks.write_notebook(mine, [("code", code)])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    ((_, text),) = notebooks.read_cells(mine)
+    lines = text.split("\n")
+    assert lines[0].startswith(f"{NO_EXAMPLE_DATABASE}, and 8.7 couldn't read this code")
+    assert "\n".join(lines[1:]) == code
+
+
+def test_8_7_leaves_a_name_example_database_of_your_own(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    mine = copy / "tables" / "mart__team_day" / "scratch.ipynb"
+    code = "from sqlglot_composer import *\nexample_database = 'mine'\nprint(example_database)"
+    notebooks.write_notebook(mine, [("code", code)])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert notebooks.read_cells(mine) == [("code", code)]
+
+
+def test_8_7_imports_the_example_database_from_beside_the_project(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    monkeypatch.chdir(copy)
+    said = repr(project.upgrade())
+    assert f"{STEP_8_7}: " in said and "for you to make" in said
+    notebook = copy / "tables" / "mart__team_day" / "mart__team_day.ipynb"
+    code = _code(notebook)
+    assert f"\n{EXAMPLE_CONNECTION_8_7}" in code
+    assert "sqlglot_composer import example_database" not in code
+    # The new schedule notebook is connected as the Project's other Workflow notebooks are.
+    schedule = copy / "admin" / "workflows" / "schedule" / "schedule.ipynb"
+    assert f"\n{EXAMPLE_CONNECTION_8_7}" in _code(schedule)
+    # warehouse.py says 8.7's words, naming no Example database.
+    assert (copy / "warehouse.py").read_text(encoding="utf-8") == project.WAREHOUSE_TEXT
+
+
+def test_8_7_rewords_a_warehouse_py_you_changed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    warehouse = copy / "warehouse.py"
+    mine = warehouse.read_text(encoding="utf-8").replace(
+        "return _connection.query(hive)", "return _connection.fetch(hive)")
+    assert "_connection.fetch(hive)" in mine
+    warehouse.write_text(mine, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    text = warehouse.read_text(encoding="utf-8")
+    assert "_connection.fetch(hive)" in text
+    assert "example_database" not in text
+    assert _marks_of(text) == []
+
+
+def test_8_7_marks_a_warehouse_py_line_still_naming_the_example_database(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    warehouse = copy / "warehouse.py"
+    mine = warehouse.read_text(encoding="utf-8").replace(
+        "connect(example_database) in the Example projects. If yours",
+        "connect(example_database) at home. If yours")
+    warehouse.write_text(mine, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    lines = warehouse.read_text(encoding="utf-8").split("\n")
+    (at,) = [number for number, line in enumerate(lines) if "connect(example_database)" in line
+             and "# UPGRADE" not in line]
+    assert lines[at - 1].strip().startswith(f"{NO_EXAMPLE_DATABASE}, and this line still "
+                                            "shows connect(example_database)")
+
+
+def test_8_7_takes_new_runs_out_of_scheduled_runs_keeping_your_cells(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    notebook = copy / "admin" / "scheduled_runs.ipynb"
+    notebooks.write_notebook(notebook, [*notebooks.read_cells(notebook),
+                                        ("code", "print('mine')")])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    cells = notebooks.read_cells(notebook)
+    assert "NEW_RUNS" not in "\n".join(text for _, text in cells)
+    assert cells[-1] == ("code", "print('mine')")
+    # The rest as 8.7 writes it, its text cell too, but for the connection.
+    placeholder = toolbox_module("project_templates").CONNECT_PLACEHOLDER
+    fresh = [(kind, text.replace(placeholder, EXAMPLE_CONNECTION_8_7))
+             for kind, text in project.admin_notebook_cells("scheduled_runs")]
+    assert without_marks(cells[:-1]) == fresh
+    assert list((copy / "admin" / "removed").rglob("scheduled_runs.ipynb"))
+
+
+def test_8_7_marks_the_schedule_notebook_for_a_run_new_runs_named_and_didnt_make(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    notebook = copy / "admin" / "scheduled_runs.ipynb"
+    notebooks.write_notebook(notebook, [
+        (kind, text.replace("NEW_RUNS = []", 'NEW_RUNS = ["daily"]'))
+        for kind, text in notebooks.read_cells(notebook)])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    schedule = copy / "admin" / "workflows" / "schedule" / "schedule.ipynb"
+    code = _code(schedule).split("\n")
+    at = next(number for number, line in enumerate(code) if line.startswith("NAME = "))
+    assert code[at - 1].startswith(f"# UPGRADE {STEP_8_7}: 8.6's NEW_RUNS")
+    assert "'daily'" in code[at - 1]
+    assert "NEW_RUNS" not in _code(notebook)
+
+
+def test_8_7_marks_a_cell_of_yours_using_new_runs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    notebook = copy / "admin" / "scheduled_runs.ipynb"
+    notebooks.write_notebook(notebook, [
+        (kind, text.replace("    print(project.new_scheduled_run(NEW_RUNS))",
+                            "    print(project.new_scheduled_run(NEW_RUNS))\nprint('mine')"))
+        for kind, text in notebooks.read_cells(notebook)])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    (yours,) = [text for _, text in notebooks.read_cells(notebook) if "NEW_RUNS" in text]
+    assert yours.startswith(f"# UPGRADE {STEP_8_7}: 8.7 makes a Scheduled run in the schedule "
+                            "Workflow")
+    assert yours.endswith("print('mine')")
+
+
+# What the 8.6 Toolbox's step wrote, where conn was the Example database, that told the user to
+# do what 8.7 can't (drift D514).
+SAID_BY_8_6 = (
+    "8.6's query and execute refuse until this notebook connects: import connect with them, "
+    "and call connect(...) with your connection under this line, such as "
+    "connect(example_database), as warehouse.py's conn was",
+    "8.6's warehouse.py has no conn, which was the Example database: here, import it as `from "
+    "sqlglot_composer import example_database` and use it in conn's place, or call "
+    "warehouse's query and execute, which use the connection the notebook running this gave "
+    "connect(...)",
+)
+
+
+def test_8_7_rewords_each_mark_8_6_left_that_offered_the_example_database(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_6(tmp_path)
+    mine = copy / "tables" / "mart__team_day" / "scratch.ipynb"
+    notebooks.write_notebook(mine, [("code", f"# UPGRADE 8.6: {SAID_BY_8_6[0]}\n"
+                                             "from warehouse import query")])
+    helpers = copy / "building_blocks" / "helpers.py"
+    helpers.write_text(f"# UPGRADE 8.6: {SAID_BY_8_6[1]}\nfrom warehouse import conn\n",
+                       encoding="utf-8")
+    checklist = copy / "admin" / "upgrade_8.6.md"
+    checklist.write_text(
+        f"# Upgrade to 8.6\n\n- [ ] tables/mart__team_day/scratch.ipynb, cell 1, line 1: "
+        f"{SAID_BY_8_6[0]}\n- [ ] building_blocks/helpers.py, line 1: {SAID_BY_8_6[1]}\n",
+        encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert _marks_of(_code(mine)) == [f"# UPGRADE 8.6: {upgrades.CONNECT_HERE}"]
+    assert _marks_of(helpers.read_text(encoding="utf-8")) == [
+        f"# UPGRADE 8.6: {upgrades.CONN_GONE}"]
+    assert checklist.read_text(encoding="utf-8") == (
+        f"# Upgrade to 8.6\n\n- [ ] tables/mart__team_day/scratch.ipynb, cell 1, line 1: "
+        f"{upgrades.CONNECT_HERE}\n- [ ] building_blocks/helpers.py, line 1: "
+        f"{upgrades.CONN_GONE}\n")
+    for said in (upgrades.CONNECT_HERE, upgrades.CONN_GONE):
+        assert "example_database" not in said
+
+
+def test_an_8_5_project_upgraded_to_8_7_is_told_nothing_8_7_cant_do(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_5(tmp_path)
+    mine = copy / "tables" / "mart__team_day" / "scratch.ipynb"
+    notebooks.write_notebook(mine, [("code", "from warehouse import query")])
+    (copy / "building_blocks" / "helpers.py").write_text("from warehouse import conn\n",
+                                                         encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    told = "\n".join([*upgrades.marks_in(copy, upgrades.MARK_LINE),
+                      (copy / "admin" / "upgrade_8.6.md").read_text(encoding="utf-8")])
+    assert f"{upgrades.CONNECT_HERE}\n" in f"{told}\n"
+    assert upgrades.CONN_GONE in told
+    for said in SAID_BY_8_6:
+        assert said not in told
+    assert "sqlglot_composer import example_database" not in told
+
+
+def test_8_7_loses_no_line_of_the_example_projects_but_the_imports_it_rewrites(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # Each file but warehouse.py and scheduled_runs.ipynb, whose words and NEW_RUNS cell 8.7
+    # changes, holds each line it held, but for each import of the Example database.
+    copy = _copy_of_8_6(tmp_path, "intermediate")
+    before = files_of(copy)
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    after = files_of(copy)
+    for relative, text in before.items():
+        if relative in ("warehouse.py", "admin/scheduled_runs.ipynb",
+                        "admin/project_version.txt"):
+            continue
+        written = text.replace(b"from sqlglot_composer import example_database",
+                               b"import example_database")
+        assert after[relative] == written, relative

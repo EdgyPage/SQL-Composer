@@ -1,4 +1,4 @@
-# Copilot file 19: Metric request (sqlglot Composer 8.6)
+# Copilot file 19: Metric request (sqlglot Composer 8.7)
 
 **Follow the steps below in order, as written, adding none; reply as Output says.**
 
