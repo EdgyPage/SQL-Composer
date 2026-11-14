@@ -281,6 +281,49 @@ chain, and 13 after 12. 14 and 15 come last. The real dependencies are in each t
 
 ## Decisions so far
 
+- **01:** the usability loop hashes main by part (the Toolbox folder, each README section, each
+  how-to, each Copilot file) and each scenario's `reads.json` names what its path reads, so
+  `plan` memoizes a scenario until something it reads changes, naming what changed.
+- **02:** the Copilot and Excel evaluations keep each reply and score in
+  `.scratch/copilot-eval/memo/`, keyed by task, arm, model and the hash of the arm's text, and
+  a round asks only the tasks whose key changed.
+- **03:** the suite runs on pytest-xdist with costly fixtures grouped per worker
+  (`tests/workers.py`), the code audit and "committed is generated" tests memoized in
+  `.pytest_cache/memo/`, and CI regenerating everything whole.
+- **04:** one page module, `sqlglot_composer/html_page.py`, holds the colour tokens, base CSS
+  and scripts every page is built from, and `docs/agents/standards.md` gains an HTML section.
+- **05:** bold colours from the Okabe–Ito set, each fill with the same dark text, the loops'
+  red used for nothing else, on all three lineage pages.
+- **06:** clicking a box opens a side panel (full Hive with Copy, reads and writes, Run values
+  and Session settings, the Scheduled runs that write it); the report below the drawing goes,
+  and each Markdown line is in the HTML too.
+- **07:** `workflows.html`, built by `tools/workflows_page.py` from `tools/workflow_graph.py`'s
+  steps and a hand-kept list of tripping points, covers every Workflow, schedule and the Excel
+  path, and a test holds each step to its notebook.
+- **08:** the schedule Workflow, `admin/workflows/schedule/schedule.ipynb` with `NAME`, moves
+  `project.new_scheduled_run` into a Workflow of its own; `admin/scheduled_runs.ipynb` loses
+  `NEW_RUNS`.
+- **09:** a Script tag's Decision may be `hivevar("NAME", default=...)`: the Hive holds
+  `'${hivevar:NAME}'`, the Toolbox sends `SET hivevar:` before a write, and `export_hive`
+  writes the defaults into a `.hivevars` file beside the `.hql`, never a SET line.
+- **10:** a Conversion writes `SORT_ARRAY(x, TRUE)` as `SORT_ARRAY(x)` with a `changed`
+  finding, and keeps any other second argument with a `kept` finding.
+- **11:** Copilot file 19, the Metric request, grills a vague goal one question at a time into
+  nine parts for the user's chatbot, measured by a stand-in user, griller and chatbot.
+- **12:** the Example database leaves the library for `example_database/` at the repo's top,
+  dev only; docstring examples keep their tables by name, and the public name goes.
+- **13:** the how-tos, gallery, Workflows overview and a new Example projects page move to
+  main's `docs/` (dev's `docs/main/`), each how-to showing the tables it reads, the README
+  tutorial read, not run.
+- **14:** 8.7's Upgrade step rewrites or marks `example_database` imports, makes
+  `admin/workflows/schedule/` and takes out `NEW_RUNS`, with the Example projects frozen at 8.6.
+- **15:** the usability round ran all 15 scenarios, none memoized, every run passing (W8 through
+  the schedule Workflow, the new W9 a Hivevar exported); its findings were fixed in the README,
+  Copilot file 18, the Workflows overview and the loop's stand-in, or recorded for the next
+  version.
+- **16:** with the limit raised to 9,000 characters, every Copilot file gained what the
+  evaluations and beginner readers showed missing, each now 8,060 to 8,800 characters.
+
 ## Not yet specified
 
 ## Out of scope

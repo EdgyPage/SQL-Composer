@@ -157,15 +157,17 @@ def test_the_saved_warehouse_keeps_each_table_between_processes(tmp_path: Path) 
 
 def test_the_saved_warehouse_reads_a_set_hivevar_line_without_a_warning(
         tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    # A team's warehouse prints nothing for SET hivevar:NAME=value, so neither does the stand-in:
-    # every W9 run of the 8.7 round saw sqlglot's warning and read it as a failure (ticket 15).
+    # A team's warehouse prints nothing for SET hivevar:NAME=value, so neither does the
+    # stand-in: every W9 run of the 8.7 round saw sqlglot's warning and read it as a failure
+    # (ticket 15).
     warehouse = SavedWarehouse(tmp_path / "warehouse.json")
     warehouse.execute(HIVE_RAN)
     with caplog.at_level("WARNING"):
         warehouse.execute("SET hivevar:PERIOD_END=2026-09-24;\n"
                           "INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = "
                           "'${hivevar:PERIOD_END}') SELECT r.job_id, COUNT(*) AS fails FROM "
-                          "ops.job_runs r WHERE r.dt = '${hivevar:PERIOD_END}' GROUP BY r.job_id")
+                          "ops.job_runs r WHERE r.dt = '${hivevar:PERIOD_END}' "
+                          "GROUP BY r.job_id")
     assert not [record for record in caplog.records if record.name.startswith("sqlglot")]
     assert warehouse.hivevars == {"PERIOD_END": "2026-09-24"}
 
