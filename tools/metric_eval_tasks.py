@@ -980,8 +980,8 @@ alert_id | run_id | severity | dt
             TEST_OUT, EVERY_DAY_COUNTED, UNROUNDED,
         ),
         example=request("queue wait", ("avg_queue_minutes", (
-            "the average minutes a job's runs wait between the scheduler queuing them and their "
-            "start.",
+            "the average minutes a job's runs wait between the scheduler queuing them and "
+            "their start.",
             "avg_queue_minutes = average over the job's runs of (time started - time queued)",
             "runs queued: rows of ops.scheduler_runs (run_id, job_id); the time queued and the "
             "time started: no column holds them, perhaps the start rows of ops.job_events "

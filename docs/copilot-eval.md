@@ -187,6 +187,8 @@ goal, with no file and no one to ask.
    <version> --into <run>/answers.md` gathers the folders, `--memo-files` the version `plan`
    printed; then `score <run>/answers.md --split dev --record .scratch/copilot-eval/results.md`.
    Score a round before editing file 19: a dev reply is kept under the text it is scored on.
+   Ask only what can come out different: new tasks, or each split once after file 19 changes;
+   the rest is in the memo and the record.
 
 In Copilot's web chat the same steps run by hand: paste file 19 first, then the column
 definitions and the vague goal, and answer as the user would.
