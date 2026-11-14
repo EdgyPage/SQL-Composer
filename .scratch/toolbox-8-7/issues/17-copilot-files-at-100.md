@@ -303,3 +303,7 @@ block, under "Six more held-out tasks".
   (ff3c13d9), arm R re-measured on v11 (memo files 0dc59bcd4b09):** dev 31 of 32 strict (97),
   32 of 32 by the Index (100); held out 17 of 17 (100) both ways. T05 still routes to 08 (P8
   "check the Key holds"), counted by the Index on v10's passing T05 with file 08. No file changed.
+- **File 00's P8 sends "check the Key holds" to 08 only with no Table reference named, and R8
+  a request naming a Table reference you are writing to 02 (bfbb282c), arm R re-measured on
+  v12 (memo files 3e8a619917d4):** dev 32 of 32 (100) and held out 17 of 17 (100), strict and
+  by the Index. T05 now routes to 02. No file changed.
