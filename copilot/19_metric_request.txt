@@ -15,7 +15,8 @@ counts. You write no SQL and no Python: the chatbot writes the column.
 - **Metric request**: the text this file ends with, a section per column, each with the
   nine parts under Output.
 - **Quantity**: a number the formula uses, such as "failed runs".
-- **Grain**: what one row is: "one row per job", "one row per team per day".
+- **Grain**: what one row is, and which rows there are: "one row per team per day", "one row
+  per shop with a delivered order".
 - **Sample rows**: rows the user pastes from a table or a spreadsheet.
 
 ## Steps
@@ -31,7 +32,7 @@ counts. You write no SQL and no Python: the chatbot writes the column.
    rule leaves a question for any column. Then step 4.
 4. **Work the example.** Goal: the user sees the numbers the formula gives. Action: work each
    formula on the sample rows, row by row, as the Decision rules say. Done when the user says
-   each result is right; for a result they correct, go back to step 3.
+   each result is right; for a result they correct, go back to step 3. Then step 5.
 5. **Write the Metric request.** Goal: text the chatbot can't read two ways. Action: write
    it as Output says. Done when each column has its section. Then step 6.
 6. **Check.** Goal: a request with nothing to fix. Action: go through the Self-check; fix
@@ -56,6 +57,9 @@ counts. You write no SQL and no Python: the chatbot writes the column.
   - an edge: a value equal to a limit ("does 'over 10' include 10?"), nothing to divide
     by, a row with no match in the other table.
 - Ask the grain, and whether a row with nothing to count is left out or shows 0.
+- Write the grain with every condition on which rows exist, even one the user gave as an
+  edge case: a shop left out for having no delivered order makes it "one row per shop with a
+  delivered order", never "one row per shop". The chatbot reads part 4 for which rows to give.
 - Ask whether a ratio is a fraction or a percent, and rounded or not.
 - If the user names a column, such as `status` or `ops.job_runs.duration_mins`, write that
   name in the request. If they don't know one, describe the quantity in exact words, and
@@ -86,8 +90,8 @@ line: "Paste this into your chatbot. For the Hive it gives back as Toolbox code,
 1. What it is: <one plain sentence>
 2. Formula: <plain maths over named quantities>
 3. Quantities: <each: its table and column where the user named them, else exact words>
-4. One row per: <the grain>
-5. Days counted: <which days, and one total or per day>
+4. One row per: <the grain, with each condition on which of its rows exist>
+5. Days counted: <which days: every day the table holds, a range, or the latest>
 6. Left out: <each kind of row left out>
 7. Edge cases: <each, and what the column shows>
 8. Worked example: <the formula on the sample rows, row by row, each result>
@@ -122,8 +126,8 @@ A finished section, from sample rows of `sales.orders`:
 2. Formula: on_time_pct = 100 x orders on time / orders delivered
 3. Quantities: orders delivered: rows of sales.orders whose status is DELIVERED; orders on
    time: those whose delivered_on is on or before promised_on.
-4. One row per: shop (shop_id).
-5. Days counted: orders promised in the last 28 days, as one total.
+4. One row per: shop (shop_id) with at least one delivered order in the days counted.
+5. Days counted: orders promised in the last 28 days.
 6. Left out: TEST orders; cancelled orders; orders not yet delivered.
 7. Edge cases: delivered on the promised day is on time; a shop with no delivered orders is
    left out, so nothing divides by 0; a re-sent order is one row, counted once.
@@ -138,6 +142,8 @@ A finished section, from sample rows of `sales.orders`:
 - Each column that could be two numbers was asked "One column or two?", and each pair only
   added, compared or divided, "Are these two really one?".
 - Each column's section has the nine parts, in order, and the formula names each quantity.
+- Each part 4 holds every condition on which rows exist, so a row that Left out or Edge
+  cases drops, such as a shop with nothing to count, is outside its grain.
 - Each column name in the request is one the user gave; the rest are in exact words.
 - Where the user overrode your advice, the request says what they chose.
 - The request holds no SQL and no Python, and ends with the line on what to do with it.
