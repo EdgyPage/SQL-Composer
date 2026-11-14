@@ -950,8 +950,9 @@ def plan_scenario(chosen: Scenario, cache: Path | None = None, main: Path | None
             inputs = the_inputs(chosen, cache_folder, main).inputs
     inputs_hash = str(inputs["inputs_hash"])
     plan_line = plan_text(chosen, inputs_hash, fresh)
-    slots = slot_plan(chosen, inputs_hash, fresh)
-    if any(one.kept is not None for one in slot_plan(chosen, inputs_hash)):
+    held = slot_plan(chosen, inputs_hash)
+    slots = slot_plan(chosen, inputs_hash, fresh=True) if fresh else held
+    if any(one.kept is not None for one in held):
         return ScenarioPlan(plan_line, slots)
     return ScenarioPlan(plan_line + changes_text(chosen, inputs), slots)
 
@@ -1011,7 +1012,7 @@ def migrate_results() -> int:
     kept with it, so a scenario scored before the memo isn't run again. A run whose folder or
     scenario is gone, or whose name ends in no number, is passed over. Returns how many runs
     were kept."""
-    kept = 0
+    runs_kept = 0
     for each in read_recorded_runs(results_file()):
         inputs = kept_runs_folder() / each.run / "_loop" / "inputs.json"
         if not inputs.is_file() or not (SCENARIOS / each.scenario).is_dir():
@@ -1021,8 +1022,8 @@ def migrate_results() -> int:
             continue
         inputs_hash = json.loads(inputs.read_text(encoding="utf-8"))["inputs_hash"]
         keep_run(chosen, inputs_hash, each.run, each.passed, "from results.md")
-        kept += 1
-    return kept
+        runs_kept += 1
+    return runs_kept
 
 
 # --- The agents to spawn, and their usage in the ledger ---------------------------------------

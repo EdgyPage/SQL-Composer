@@ -53,3 +53,22 @@ Built 2026-11-14: `tools/usability_loop.py` on `tools/eval_runs.py`, tests in
 "one printed line per agent"; ticket 03's batches should match it, or this should follow
 them. The round estimate counts phase agents only. A run with an `inputs.json` whose name ends in
 no number is refused by `score --record`, before anything is kept.
+
+## Code review
+
+Run with this ticket as spec, fixed point 3de80309 (review-standards and review-spec, sonnet).
+- Fixed: `plan_scenario` read the memo twice (now once); `migrate_results`' counter renamed
+  `runs_kept`.
+- Answered: `plan` stays a thin text wrapper over `plan_scenario`, because the existing tests
+  and the doc call it; `key_of_slot`'s unused `reply` argument fits `eval_runs.memo_plan`'s
+  `key_of` signature; `estimate_line` refuses over budget as well as returning the line, which
+  its docstring says, since the budget check needs the estimate it prints; `record_usage` exits
+  with `SystemExit` as `eval_runs`' own commands do, `ValueError` being this file's habit for the
+  Project-making code; the `phase`, `route` and `answer` words and the `kept`/`passed` test are
+  small repeats a shared helper wouldn't make plainer ("Simple over short").
+- Spec axis: nothing missing. `migrate` and `--fresh`/`--over-budget` go beyond the Done-when
+  and are kept: `migrate` so scenarios scored before this aren't re-run, the flags from the map's
+  Notes on `plan`. The memo is keyed per slot, which the Answer states. The `<agent type> |
+  <model> | <prompt>` line format must match ticket 03's; the parent merges both.
+- Left: `usability_loop.py` is long (it already was); `estimate_line` and `record_usage` could
+  move into `eval_runs` if another pipeline needs them.
