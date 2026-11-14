@@ -253,7 +253,7 @@ TASKS = (
         columns=2,
         required=(
             quantities(r"duration_mins"),
-            grain(r"\bteam\b", r"\bdt\b|day", r"at least one|with (a |any )?runs?"
+            grain(r"\bteam\b", r"\bdt\b|day", r"at least one|\bwith (a|an|any)\b|with runs?"
                   r"|had (a |any )?runs?|\bran\b"),
             TEST_OUT,
             Required("runs still going counted", "Left out", (NULL_RUN,), absent=True),

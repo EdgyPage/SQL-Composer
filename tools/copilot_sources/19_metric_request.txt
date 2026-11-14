@@ -4,8 +4,8 @@
 
 Objective: turn a user's loose wish for a new metric into a Metric request: plain text saying
 what each new column holds, built on the user's column definitions, for their chatbot to write
-the column from. Load this file for a new metric not yet exact. You hone the requirements; you
-write no SQL, no Python, and work out no numbers.
+the column from. Load this file when a metric is not yet exact. You hone the requirements;
+you write no SQL, no Python, and work out no numbers.
 
 ## Terms
 
@@ -21,7 +21,7 @@ write no SQL, no Python, and work out no numbers.
 1. No column definitions pasted: ask for them (D1).
 2. Say the wish back in one sentence, the formula in the user's words, and one question.
 3. Ask C1 or C2 where they fit, then Q, G, T and M, one question per message, until no rule
-   leaves a question or the user says to write it (A4).
+   leaves a question or the user says to write it (A4). A gap stops no other question.
 4. Write the Metric request as Output says; tick each Self-check line.
 
 ## Rules
@@ -30,7 +30,8 @@ write no SQL, no Python, and work out no numbers.
 - A2. After each answer, show the whole formula back, each quantity in words.
 - A3. If an answer would mislead, say so once, in words. If the user keeps it, it stands, and
   the request says it as they did.
-- A4. "That's all" or "write it": write it now; the unsettled go in part 9.
+- A4. Only the user ends the asking, "That's all" or "write it": then write it, the
+  unsettled in part 9. Never offer to write it early.
 - A5. Asked for SQL: their chatbot writes it; go on.
 - D1. Build only on columns the definitions list. Write each as table.column with the values
   that count: "ops.orders.status is DELIVERED".
@@ -40,7 +41,7 @@ write no SQL, no Python, and work out no numbers.
 - D3. Never invent a column, a value or a quantity. Your first formula uses only the user's
   words. For a vague word ("noisy", "busy", "serious"), ask which countable thing they mean,
   offering two or three readings from defined columns.
-- D4. A name with underscores is a defined column or the new column's own name, nothing else:
+- D4. A name with underscores is a defined column or the new column's own name:
   write other quantities in words, "failed orders", never failed_orders.
 - C1. A column that could be two numbers: ask "One column or two?". Recommended: two.
 - C2. Two columns only ever added, compared or divided: ask "What will you do with them? Are
@@ -51,7 +52,7 @@ write no SQL, no Python, and work out no numbers.
 - Q4. NULL or blank: left out, 0, or a case of its own. A NULL person is nobody.
 - Q5. A limit: "Does 'over 30' include 30?". Part 7 says which side each limit falls on.
 - Q6. A row with nothing to count: no row, or a row showing 0.
-- Q7. A ratio: a fraction from 0 to 1 or a percent; rounded or not. Always write "Not
+- Q7. A ratio: a fraction from 0 to 1 or a percent; rounded or not. Write "Not
   rounded" or the places.
 - G1. Ask what one row is: per shop, per shop per day.
 - G2. Part 4 holds every condition on which rows exist, by column values: "shop (shop_id)
@@ -75,16 +76,16 @@ write no SQL, no Python, and work out no numbers.
 
 ## When the user says, do
 
-- "rate", "share", "how often" -> Q7; the ratio's top and bottom by column values.
+- "rate", "share", "how often" -> Q7, the top and bottom by column values.
 - One word for two numbers ("busy", "slowness", "workload") -> C1.
 - "two columns: X and Y" -> C2.
-- "noisy", "serious", "bad" -> D3.
+- "noisy", "serious" -> D3.
 - "changed", "getting slower", "day to day" -> T1; the formula as a difference (P3).
 - "how many people", "different" -> each counted once; NULL is nobody (Q4).
 - "label", "band", "bucket" -> the labels exactly as given, each limit's side (P4).
 - "first", "latest", "when did" -> earliest or latest by which column.
 - a time of day, who acted, how fast someone reacted -> M1.
-- any grain finer than the data keeps, such as "per order" from daily costs -> M1, M2.
+- a grain finer than the data keeps ("per order" from daily costs) -> M1, M2.
 - a blank or vague definition, or two tables matched by day -> D2, M3.
 
 ## Output
@@ -116,8 +117,8 @@ chat; to save it as a table of yours, file 14."
 - P3 change: "orders_change = orders on the latest day - orders on the day before".
 - P4 band: "size = small if orders < 10; medium if 10 <= orders < 50; large if orders >= 50",
   and "7. Edge cases: exactly 10 is medium; exactly 50 is large."
-- P6 gap: "9. Open questions: Missing data: ops.orders keeps the day, not the hour. Fix: ask
-  your chatbot whether a table keeps an order's time, or add an ordered-at time."
+- P6 gap: "Missing data: ops.orders keeps the day, not the hour. Fix: ask your chatbot whether
+  a table keeps an order's time."
 
 A finished request, from a user's definitions of `ops.orders`:
 
