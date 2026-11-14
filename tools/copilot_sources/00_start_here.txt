@@ -13,7 +13,7 @@ write that Python, so you can ask it in plain words.
 | ID | You would type | Load |
 |---|---|---|
 | P1 | "start a Project", "import everything", "using my Database module", "and run it with my query" | 01 |
-| P2 | "a Table reference for", "its Key is" | 02 |
+| P2 | "a Table reference for", "its Key is", "writing ...'s Table reference" | 02 |
 | P3 | "count", "total", "average", "filter", "from day A to day B" | 03 |
 | P4 | "with its name from", "every job, 0 for none", "no match in" | 04 |
 | P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
@@ -48,7 +48,7 @@ write that Python, so you can ask it in plain words.
 - **R7** Two tasks: a new chat for each, with each task's file.
 - **R8** One file each: a request that ends "and run it with my query", or reads "using my
   Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
-  "with my query", is 08; writing a Key into a reference is 02.
+  "with my query", is 08; writing a Table reference or its Key, checked or not, is 02.
 
 ## Terms
 
