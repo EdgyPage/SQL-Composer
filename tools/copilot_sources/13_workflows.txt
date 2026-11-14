@@ -1,12 +1,31 @@
 # Copilot file 13: the convert Workflow, Hive into dev ({version})
 
-**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
+**Find the request in Patterns, copy the cells it names, filled in with the user's names,
+then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with {version}, a Toolbox that writes Hive: the steps left, each a cell of the convert
-Workflow's notebook, in order. Load this file when the user asks to turn Hive into tables.
-File 16 promotes dev tables to prod; file 14 covers new tables, Table references, upgrades
-and changes to a Saved table; a step's own file, its Python.
+Objective: take the user through converting Hive into Saved tables in their Dev Database
+with {version}, each step a cell of the convert Workflow's notebook, in order.
+Load this file when the user asks to turn Hive into tables. File 16 promotes to prod; file
+14 covers new tables, Table references, upgrades and changes to a Saved table.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "convert a.hql as batch N: names cell, first step" | names cell, step 1 | W1 |
+| P2 | Hive pasted as text | `HIVE = """..."""`, `FILES = []` | R3 |
+| P3 | "fold the staging table" / "keep it" | `STAGING = {"db.t": "fold"}` or "keep" | R6 |
+| P4 | "its tables are in the ops database" | `DATABASE = "ops"` | R4 |
+| P5 | "convert names it mart_dev.x_mart" | that is the default: `RENAME = {}` | R5 |
+| P6 | "call the dev copy x" | `RENAME = {"mart.x": "x"}` | R5 |
+| P7 | "only the decisions cell and the one writing them" | DECISIONS, step 3 | W2 |
+| P8 | "dt is a string", "its folder is /data/..." | "types" and "location" answers | R8 |
+| P9 | a Script tag's value given | `"tags": {"RUN_DAY": "'2026-09-24'"}` | R9 |
+| P10 | "all the way through the compare", "every step" | every cell, steps 1 to 7 | R2 |
+| P11 | "accept the proposed Keys" | `"all_tables": {"key": "proposed"}` | R10 |
+| P12 | "compare another day too" | `PARTITIONS = [{"dt": ...}]` | R11 |
+| P13 | a day worked out each run; a seed of some days | file 17 | R9 |
+| P14 | "promote to prod" | file 16, once compared | R12 |
 
 ## Terms
 
@@ -16,95 +35,55 @@ and changes to a Saved table; a step's own file, its Python.
   or a column type, answered in the **decisions cell**, DECISIONS.
 - **Saved table**: a table the user's own code writes; its **Table reference** is the file
   of its columns, partitions, Key and location.
-- **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
-  Database, where others read them: dicts in admin/databases.py, each a "database" and a
-  "location_root", placing each new table.
-- **query**, **execute**: the user's warehouse calls, imported from warehouse.py.
+- **DEV**: the Dev Database, in admin/databases.py; **query**, **execute**: the user's
+  warehouse calls.
+
+## Rules
+
+- **R1** **The names cell comes first, filled in, every time**: the cells after it read NAME
+  and the other inputs. Then only the cells asked, each as the steps list it; a step's cell
+  runs once the steps before it are done.
+- **R2** Asked for every step's cell, or through the compare: the names cell, step 1, the
+  decisions cell, then steps 3 to 7 as listed, in order.
+- **R3** FILES: .hql files by name beside the notebook, `["daily.hql"]`, else by full path;
+  `HIVE = None`. Hive given as text: `FILES = []`, `HIVE = """..."""`. A query that only
+  SELECTs makes a Saved table too.
+- **R4** DATABASE: the database of a table the Hive names without one; else
+  `DATABASE = "default"`.
+- **R5** Each dev copy is named `<table>_<its database>` in DEV, as mart_dev.team_fails_mart;
+  a name the user says convert gives is that one: `RENAME = {}`. Only for another name the
+  user asks: `{"mart.team_fails": "team_fails"}`, by the full name, no database on the right.
+- **R6** STAGING: a staging table is one a statement makes and a later one reads, by its
+  name as the Hive writes it. Folded, its query goes inside each reader:
+  `{"ops_reports.failed": "fold"}`; kept, a Saved table: "keep". Not named, `STAGING = {}`.
+- **R7** `EACH_SCRIPT_ITS_OWN_BATCH = True` makes each file a batch of its own.
+- **R8** DECISIONS holds each answer by the table's name as `project.check()` writes it:
+  `{"mart_dev.weekly": {"key": ["job_id"], "types": {"dt": "string"}, "location":
+  "/data/team/mart_dev.db/weekly"}}`. Write each answer the user gives; name each other: a
+  Decision is the user's. None open: `DECISIONS = {}`.
+- **R9** A Script tag, `<PARM="NAME"/>`, is a Decision under "tags", answered with the value
+  the user gives: a bare one with its own quotes, `"'2026-10-31'"`, one inside quotes with
+  none, `"failed"`. The old scheduler filling it is no reason to leave it open. No value
+  given: ask. Worked out each run: a Run value (file 17).
+- **R10** `"all_tables": {"key": "proposed"}` accepts each proposed Key; once the batch has
+  finished: `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
+- **R11** `PARTITIONS = []` unless the user names a Partition for step 7 too. Once in
+  finished/: `project.compare_batch(NAME, query=query, partitions=[{"dt": ...}])`.
+- **R12** "Run up to your Decisions", then "Run the rest", `project.run_workflow(...)`, run
+  each to the first step only the user can do; `dry_run=True` sends nothing. Promoting is
+  file 16's.
 
 ## Names for this objective, with their arguments
 
 {names: project.check, project.run_workflow, project.convert, project.compare_batch, project.write_decisions, project.batch_tables}
 
-## Steps
-
-1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
-   names the next step. Then step 2.
-2. **Write the names cell**, each input below given the user's value. Then step 3.
-3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
-   Then step 4.
-4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
-   step 5.
-5. **Check** the Self-check; fix what it finds, then reply.
-
-## Decision rules
-
-- If the user asks for particular cells, give those: a step's cell runs only once the steps
-  before it are done. **The names cell comes first, filled in, every time**: the cells after
-  it read NAME and the other inputs from it.
-- If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
-  a Decision is the user's, never yours.
-- If the user names no rename, staging table or database, write `RENAME = {}`,
-  `STAGING = {}` or `DATABASE = "default"`. If no Decision is open, write `DECISIONS = {}`.
-- If the user asks to promote the tables to prod, name file 16 for it, once each compare
-  has passed.
-
-## Output
-
-1. The Workflow and the user's step, in one line.
-2. Each cell asked for in a ```python block, the names cell first.
-3. Each Decision left to the user, then each later step, in words.
-
-## How a Workflow runs
-
-- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"key": ["job_id"], "types": {"fails": "bigint"}, "tags":
-  {"PERIOD_END": "'2026-10-31'"}}}`; the next step writes each into its Table reference.
-- "Run up to your Decisions" prints a whole DECISIONS to paste in the decisions cell under
-  it, each answer still to give `"<FILL IN>"`, none until filled in.
-- A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
-  `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
-  user gives; for one worked out each run, such as the latest Partition, a Run value: a
-  function of theirs (file 17). If they give none, never guess: ask. A tag is the place the
-  old scheduler put its value: that is never a reason to leave it unanswered.
-- `"all_tables": {"key": "proposed"}` accepts each table's proposed Key as if typed. More
-  of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
-- A proposed Key is used as it is; accepting it only takes off its `# proposed` mark. Once
-  the batch has finished, write it with
-  `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
-- Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
-  `PARTITIONS = [{"dt": "2026-09-23"}]`. Once the batch is in finished/, another Partition
-  is compared with `project.compare_batch(NAME, query=query, partitions=[{"dt": ...}])`.
-- "Run up to your Decisions", then "Run the rest": one call, run before and after the
-  answers, each up to the first step only the user can do; `dry_run=True` sends nothing.
-  With no Decision open, the first runs to the end, writing and comparing.
-
-## convert: someone else's Hive into Saved tables in dev
-
-Its inputs:
-
-- NAME: the batch's name; for the run cells, it may be a list of batches converted already.
-- FILES: the .hql files by name, `["daily.hql"]`, when beside the notebook, else by full
-  path, each read where it is; left `[]`,
-  every .hql beside it, or HIVE, the Hive as text. A query that only SELECTs, writing no
-  table, makes a Saved table too, named for its file or NAME.
-- EACH_SCRIPT_ITS_OWN_BATCH: True makes each file a batch named for it, one decisions cell
-  for all; scripts reading each other's tables are refused.
-- DATABASE: the database of a table the Hive names without one, such as "ops".
-- RENAME: a dev copy's own name, by the table's full name, without a database:
-  `{"mart.team_fails": "team_fails"}` makes mart_dev.team_fails. Left `{}`, it is
-  <table>_<its database>: mart_dev.team_fails_mart.
-- STAGING: a staging table is one a statement makes and a later one reads, named in
-  convert's report. Folded, its query goes inside each table that reads it; kept, it is a
-  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if the
-  script makes it TEMPORARY or DROPs it after use, else kept.
+## The steps of convert
 
 {workflow: convert}
 
-## Example
+## Worked patterns
 
-The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
-convert notebook's names cell, then its first step's cell:
+### W1: "daily.hql and weekly.hql from the ops team": the names cell, then step 1
 
 ```python
 NAME = "ops_reports"
@@ -120,10 +99,34 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)
 ```
 
+### W2: the decisions cell answered, then step 3
+
+```python
+NAME = "ops_reports"
+DECISIONS = {"mart_dev.weekly_mart": {"types": {"dt": "string"},
+                                      "location": "/data/team/mart_dev.db/weekly"}}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+```
+
+## Steps
+
+1. **Place.** Name the Workflow and the user's step. Then step 2.
+2. **Find.** Match each part of the request to a Patterns row. Then step 3.
+3. **Copy.** Write the names cell, then each cell asked, with the user's names. Then step 4.
+4. **Name the rest**: each Decision left open, and each later step, in words. Then step 5.
+5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
 ## Self-check
 
-- The reply names the Workflow and the user's step.
-- Each cell is one listed here, with the user's names in it, the names cell first.
-- Each later step is named in words, unless every cell was asked for.
-- Each Decision answered is in DECISIONS by the table's name; each other is named.
-- Promoting is named as file 16's, never given here.
+- [ ] **C1** The names cell is first, filled in; `RENAME = {}` unless another name was asked.
+- [ ] **C2** Each cell is one the steps list, with the user's names, as asked.
+- [ ] **C3** Each Decision answered is in DECISIONS by the table's name; each other is named.
+- [ ] **C4** Each Script tag the user gave a value is answered with it.
+- [ ] **C5** Each later step is named in words, unless every cell was asked.

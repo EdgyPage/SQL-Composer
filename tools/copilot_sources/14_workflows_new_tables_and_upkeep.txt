@@ -1,12 +1,25 @@
 # Copilot file 14: the Workflows, new tables and upkeep ({version})
 
-**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
+**Find the request in Patterns, copy the cells it names, filled in with the user's names,
+then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through a job on their own Project, with {version}, a Toolbox that
-writes Hive: the steps left, each a cell of a Workflow's notebook, in order.
+Objective: take the user through a job on their own Project with {version}, each step a
+cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
-change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file, its
-Python.
+change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "Table references for ops.a and ops.b" | references: `TABLES`, step 1 | W1 |
+| P2 | "a new Saved table, logic I'll write" | new_table: `QUERIES = {}`, step 1 | W2 |
+| P3 | "a new table from my query in x.hql" | `QUERIES = {"x": "x.hql"}` | R3 |
+| P4 | "I doubt the proposed Key" | `check_key(...)` on one day first | R6 |
+| P5 | a `# TODO` line | no Decision; it waits on nothing | R7 |
+| P6 | "a new Toolbox copied in" | upgrade | R8 |
+| P7 | "drop a day", "change my Saved table" | change_a_saved_table | R9 |
+| P8 | "run it all", "run to my Decisions" | `project.run_workflow(...)` | R10 |
 
 ## Terms
 
@@ -14,85 +27,64 @@ Python.
   admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
 - **Decision**: one thing about one table only the user decides, such as its location, Key
   or a column type, answered in the **decisions cell**, DECISIONS.
-- **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic.
-  A **Table reference** is the file of a table's columns, partitions, Key and location.
-- **DEV**: the Dev Database, where tables are built and compared: a dict in
-  admin/databases.py, a "database" and a "location_root" that places each new table.
-- **Reference sheet**: one table of every column of every table with a Table reference.
-- **Admin statement**: an admin module Statement that changes a Saved table's
-  definition or deletes its data. An **UPGRADE mark** is a comment an upgrade leaves for the
-  user.
+- **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic;
+  its **Table reference** is the file of its columns, partitions, Key and location.
+- **DEV**: the Dev Database, in admin/databases.py; its "location_root" places each table.
+- **Admin statement**: a Statement that changes a Saved table's definition or deletes its
+  data; an **UPGRADE mark**, a comment an upgrade leaves for the user.
+
+## Rules
+
+- **R1** The names cell comes first, filled in: TABLES by full name, as
+  `["mart_dev.job_day_counts"]`. Then only the cells asked, each as its steps list it.
+- **R2** Asked for every step's cell: each one as listed, in order.
+- **R3** A new table from a query: QUERIES gives its .hql file by the table's name without
+  its database, and the table is made from it. No query: `QUERIES = {}`.
+- **R4** **A new table's Table reference is written from its logic, never by hand.**
+- **R5** DECISIONS holds each answer by table: `{"mart_dev.weekly": {"key": ["job_id"]}}`.
+  Write each answer the user gives; name each other: a Decision is the user's.
+- **R6** references' step 1 proposes each Key, checked, marked # proposed;
+  `"all_tables": {"key": "proposed"}` accepts every one. A doubted Key: give
+  `check_key(t, query=query, where=equals(t.dt, day))` on one day before they answer.
+- **R7** A `# TODO` line, such as the first line or `does_not_add_up=`, is no Decision.
+- **R8** At an upgrade, naming DEV and PROD renames nothing: each Saved table keeps its name
+  and folder.
+- **R9** A change to a Saved table: its Admin statement, its Hive shown, then sent.
+- **R10** "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
+  before and after the answers, each to the first step the user must do;
+  `dry_run=True` sends nothing.
 
 ## Names for this objective, with their arguments
 
 {names: project.check, project.run_workflow, project.new_table, project.reference_from_logic, project.add_references, check_key}
 
-## Steps
-
-1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
-   names the next step. Then step 2.
-2. **Write the names cell**, each input below given the user's value. Then step 3.
-3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
-   Then step 4.
-4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
-   step 5.
-5. **Check** the Self-check; fix what it finds, then reply.
-
-## Decision rules
-
-- If the user asks for particular cells, give those: a step's cell runs only once the steps
-  before it are done.
-- If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
-  a Decision is the user's, never yours.
-- If the user has a new table's query, QUERIES gives its .hql file by the table's name
-  without its database, and the table is made from it: no `<...>` to fill in. If not,
-  `QUERIES = {}`.
-- **A new table's Table reference is written from its logic, never by hand.**
-
-## Output
-
-1. The Workflow and the user's step, in one line.
-2. Each cell asked for in a ```python block, the names cell first.
-3. Each Decision left to the user, then each later step, in words.
-
-## How a Workflow runs
-
-- DECISIONS holds each answer by table, as `project.check()` writes it:
-  `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
-- references' step 1 proposes each Key, checked with check_key, and the first line and
-  `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
-  Key, a table's own "key" wins. If the user doubts a Key, give
-  `check_key(t, query=query, where=equals(t.dt, day))` on one day before they answer.
-- A Table reference's `# TODO` line, such as its first line or `does_not_add_up=`, is no
-  Decision: it waits on nothing. `does_not_add_up=[]` left empty refuses no column.
-- At an upgrade, naming DEV and PROD in admin/databases.py renames nothing: each Saved table
-  made before keeps its name and folder. Move none unless the user asks.
-- "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
-  before and after the answers, else the last cell, run to the first step the user must do;
-  `dry_run=True` sends nothing.
-
-## new_table: a Saved table of your own
+## The steps of new_table: a Saved table of your own
 
 {workflow: new_table}
 
-## references: Table references for tables you read
+## The steps of references: Table references for tables you read
 
 {workflow: references}
 
-## upgrade: a new Toolbox copied in
+## The steps of upgrade: a new Toolbox copied in
 
 {workflow: upgrade}
 
-## change_a_saved_table: an Admin statement on a Saved table
+## The steps of change_a_saved_table: an Admin statement on a Saved table
 
 {workflow: change_a_saved_table}
 
-## Example
+## Worked patterns
 
-The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
-notebook's names cell, its decisions cell (its location placed under DEV's root), then "Run
-the rest", which makes, writes and compares the table:
+### W1: references, its names cell and step 1
+
+```python
+TABLES = ["ops.job_runs"]
+
+project.add_references(TABLES, query=query)
+```
+
+### W2: new_table from a query, the names cell, the decisions cell, then "Run the rest"
 
 ```python
 TABLES = ["mart_dev.failed_per_job"]
@@ -101,10 +93,24 @@ DECISIONS = {"mart_dev.failed_per_job": {"key": ["job_id"]}}
 project.run_workflow("new_table", query=query, execute=execute)
 ```
 
+## Steps
+
+1. **Place.** Name the Workflow and the user's step. Then step 2.
+2. **Find.** Match each part of the request to a Patterns row. Then step 3.
+3. **Copy.** Write the names cell, then each cell asked, with the user's names. Then step 4.
+4. **Name the rest**: each Decision left open, and each later step, in words. Then step 5.
+5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
 ## Self-check
 
-- The reply names the Workflow and the user's step.
-- Each cell is one listed here, with the user's names in it.
-- Each later step is named in words, unless every cell was asked for.
-- Each Decision answered is in DECISIONS by the table's name; each other is named.
-- A new table with a query is in QUERIES; no Table reference is written by hand.
+- [ ] **C1** The names cell is first, filled in with the user's tables.
+- [ ] **C2** Each cell is one the steps list, with the user's names, as asked.
+- [ ] **C3** A new table with a query is in QUERIES; no Table reference is written by hand.
+- [ ] **C4** Each Decision answered is in DECISIONS by the table's name; each other is named.
+- [ ] **C5** Each later step is named in words, unless every cell was asked.

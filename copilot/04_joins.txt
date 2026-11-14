@@ -1,54 +1,89 @@
 # Copilot file 04: joins (sqlglot Composer 8.7)
 
-**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+**Find the request in Patterns, copy the worked pattern it names, change only the tables,
+columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: combine rows of two or more tables.
 Load this file when the user asks for columns from several tables, rows with or without a
 match in another table, or a count of matches.
 
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "each run with its job's name" | JOIN, ON= the match, bounds in WHERE | W1 |
+| P2 | "A's ... through B to C" | one JOIN per table, in a chain | R2 |
+| P3 | "every job ..., 0 for none", "kept" | LEFT_JOIN, bound in ON=, count_distinct | W2 |
+| P4 | "only those that have a match" | SEMI_JOIN | R5 |
+| P5 | "those with no match", "never ran" | ANTI_JOIN | R5 |
+| P6 | "every row of both" | FULL_JOIN | R5 |
+| P7 | "right join" | the tables swapped, LEFT_JOIN | R5 |
+| P8 | "every row with every row" | `CROSS_JOIN(other)` | R5 |
+| P9 | "the same table twice" | `o = AS(other, "o")` | R3 |
+| P10 | a total per value, then joined | a Derived table grouped first | W3 |
+| P11 | "the repeats are wanted" | `many_matches=True` | R7 |
+| P12 | "a LEFT_JOIN keeping only matches" | `keeps_only_matches=True` | R7 |
+| P13 | "copy the small table to each worker" | `broadcast=True`, no opt-out | R7 |
+
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.7, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
   `equals(...)`.
 - `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.
 - **Key**: the columns that tell one row from another, from the Table reference.
-- **Derived table**: a named Statement, `derived(...)`, read like a table (file 03).
+- **Derived table**: a named Statement, `derived(...)`, read like a table.
 
-## Always
+## Rules
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
-   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
-   words are Toolbox names only where this file writes them as functions, as SELECT and
-   FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
-2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
-   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
-   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
-4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
-   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
-   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
-5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
-   partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
-   `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
-   SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
-   table's column bounds nothing. A table with no partitions needs no bound.
-6. Give every ORDER_BY a LIMIT.
-7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
-   `from warehouse import query, execute`. Never call query or execute yourself.
-8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
-   allows, and say why in a comment.
-9. Reach a column as `table.column`, from the user's Table reference:
-   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
-    12. If this one doesn't cover what is asked, say so and name the file that
-    does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
-    building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
-    converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
-    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
+- **R1** After FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a
+  Condition; several, with `all_of(...)`.
+- **R2** Three or more tables: one JOIN after another, each ON= matching the table it brings
+  in to one already there, each partitioned one bounded (R4).
+- **R3** The same table twice, or two tables of one name: give one a second name,
+  `o = AS(other, "o")`, then `o.job_id`.
+- **R4** Each partitioned table needs its own bound with a value; `equals(other.dt, t.dt)`
+  matches rows but bounds nothing. FROM and JOIN: in WHERE,
+  `WHERE(equals(t.dt, day), equals(other.dt, day))`. LEFT_JOIN, SEMI_JOIN, ANTI_JOIN: inside
+  ON=, `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
+- **R5** JOIN keeps rows matched in both; LEFT_JOIN every row of FROM's table, NULL where
+  `other` has none; SEMI_JOIN FROM's matched rows, each once, no column of `other`. There is
+  no RIGHT_JOIN. A JOIN with no ON= is refused.
+- **R6** A WHERE on a LEFT_JOIN's table is refused, as it drops the unmatched rows: put that
+  Condition in ON=. A count of matches after a LEFT_JOIN is `count_distinct(other.run_id)`,
+  0 for none, where `count_rows()` gives 1.
+- **R7** Join on the joined table's whole Key; on less, one row can match many and counts
+  come out too big: join a Derived table of one row per value (W3). Opt-outs only if asked.
+
+## Always: rules A1 to A10
+
+- **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
+  statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
+  there is no COUNT, SUM, AND, CASE or ALIAS function.
+- **A2** One `statement(...)`, its Clause functions in SQL order: a write's INSERT_OVERWRITE
+  or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
+  HAVING, ORDER_BY, LIMIT.
+- **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
+  none. `+ - * /` work on Columns; comparisons are A4's.
+- **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
+  Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+  is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+- **A5** **Bound every read of a partitioned table** with a value for one of its partition
+  columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
+  `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
+  SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
+  table's column bounds nothing. A table with no partitions needs no bound.
+- **A6** Give every ORDER_BY a LIMIT.
+- **A7** Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`,
+  after `from warehouse import query, execute`. Never call query or execute yourself.
+- **A8** Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for
+  what it allows, and say why in a comment.
+- **A9** Reach a column as `table.column`, from the user's Table reference:
+  `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+- **A10** If this file doesn't cover the request, say so and name the file to load in a new
+  chat: 01 the Project, 02 Table references, 03 a Statement, 04 joins, 05 windows and
+  subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
+  Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
+  a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
 
 ## Names for this objective, with their arguments
 
@@ -62,69 +97,11 @@ match in another table, or a count of matches.
 - all_of(*conditions)
 - equals(column, value)
 - count_distinct(column, where=None)
-- count_rows(where=None, over=None)
 - derived(name, statement)
-- statement(*clauses, returns_all_rows=False)
-- SELECT(*columns)
-- FROM(table, reads_all_partitions=False)
-- WHERE(*conditions)
-- GROUP_BY(*columns)
 
-## Joins
+## Worked patterns
 
-- After FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a Condition;
-  several, with `all_of(...)`.
-- Join on the joined table's whole Key. Joined on less, one row can match many, and the
-  Toolbox warns that counts and sums may come out too big. Then join a Derived table with
-  one row per value instead.
-- The same table twice, or two tables of one name: give one a second name,
-  `o = AS(other, "o")`, then use `o.job_id`.
-
-## Partitions
-
-- Each partitioned table needs its own bound, with a value; `equals(other.dt, t.dt)` matches
-  rows but bounds nothing:
-  - FROM and JOIN: in WHERE, `WHERE(equals(t.dt, day), equals(other.dt, day))`.
-  - LEFT_JOIN, SEMI_JOIN and ANTI_JOIN: inside ON=,
-    `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
-- A WHERE on a LEFT_JOIN's table is refused: it would throw away the rows with no match.
-  Put that Condition in ON= instead.
-
-## Steps
-
-1. **Pick.** Goal: know which rows stay. Action: name each join by the Decision rules. Done
-   when each has one; then step 2.
-2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
-3. **Check.** Action: run the Self-check; fix what fails, then reply.
-
-## Decision rules
-
-- If only rows with a match in both stay: JOIN.
-- If every row of FROM's table stays, with NULL where `other` has no match: LEFT_JOIN.
-- If every row of both stays: FULL_JOIN.
-- If FROM's rows that have a match stay, each once, with no column of `other`: SEMI_JOIN.
-- If FROM's rows that have no match stay: ANTI_JOIN.
-- If the user asks for a right join: swap the tables and use LEFT_JOIN; there is no
-  RIGHT_JOIN.
-- If every row goes with every row: `CROSS_JOIN(other)`. A JOIN with no ON= is refused.
-- If it counts matches after a LEFT_JOIN: `count_distinct(other.run_id)`, which gives 0 for
-  a row with no match; `count_rows()` would give 1.
-- If the user says the repeats are wanted: `many_matches=True`.
-- If the user asks that a LEFT_JOIN keep only matched rows: `keeps_only_matches=True`, the
-  opt-out that lets WHERE test its table.
-- If the user asks Hive to copy a small table to every worker, to join it faster:
-  `broadcast=True`, which is no opt-out.
-
-## Output
-
-Reply with these parts, in this order, and nothing else:
-
-1. **Code**: one ```python block to paste into a notebook cell.
-2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
-
-## Examples
-
-Each run of a day with its job's name:
+### W1: each run of a day with its job's name
 
 ```python
 from sqlglot_composer import FROM, JOIN, SELECT, WHERE, equals, statement
@@ -139,7 +116,7 @@ s = statement(
 )
 ```
 
-Every job, with its scheduler runs that day, 0 for none:
+### W2: every job, with its scheduler runs that day, 0 for none
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, all_of, count_distinct,
@@ -156,7 +133,7 @@ s = statement(
 )
 ```
 
-Each job's minutes that day, job_runs grouped to one row per job first:
+### W3: each job's minutes, job_runs grouped to a row per job first
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, derived, equals,
@@ -177,9 +154,21 @@ s = statement(
 )
 ```
 
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Copy.** Copy the worked pattern or rule it names, with the user's tables, columns and
+   values. Done when every name is imported; then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
 ## Self-check
 
-- Every join has ON=, on the joined table's Key where it can.
-- Every partitioned table, joined or not, has a bound with a value.
-- No WHERE tests a LEFT_JOIN's table.
-- Each opt-out is one the user asked for.
+- [ ] **C1** Every join but CROSS_JOIN has ON=, on the joined table's Key where it can.
+- [ ] **C2** Every partitioned table, joined or not, has a bound with a value (R4).
+- [ ] **C3** No WHERE tests a LEFT_JOIN's table; a count after one is `count_distinct`.
+- [ ] **C4** Each opt-out is one the user asked for.

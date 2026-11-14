@@ -307,7 +307,7 @@ def test_a_question_is_one_chat_file_00_first_then_the_file_it_names(
     message, reply = usability_loop.route(run, "How do I convert a script?")
     routed = message.read_text(encoding="utf-8")
     assert "Copilot files for sqlglot Composer" in routed and "## Q1" in routed
-    assert "How do I convert a script?" in routed and "one Copilot file" in routed
+    assert "How do I convert a script?" in routed and "## Which file" in routed
     assert reply.name == "question_1_route_reply.md"
     answered = usability_loop.answer(run, 1, ["07_convert_hive.txt"])[0].read_text(
         encoding="utf-8")

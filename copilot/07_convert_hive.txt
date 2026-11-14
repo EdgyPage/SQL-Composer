@@ -1,49 +1,93 @@
 # Copilot file 07: converting Hive (sqlglot Composer 8.7)
 
-**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+**Find each Hive part in Patterns, write the code it names, then tick the Self-check. Add
+nothing the Hive doesn't hold.**
 
 Objective: turn Hive someone else wrote into Toolbox code that gives the same rows.
 Load this file when the user pastes Hive and asks for it as Toolbox code.
+
+## Patterns: when the Hive says X, write Y
+
+| ID | The Hive says | Write |
+|---|---|---|
+| P1 | `FROM ops.job_runs r` | `r = AS(job_runs, "r")`, then `r.status` |
+| P2 | `WITH ev AS (SELECT ...)`, `FROM (SELECT ...) ev` | `ev = derived("ev", statement(...))` |
+| P3 | `a = 'x' AND b > 3` | `WHERE(equals(t.a, "x"), more_than(t.b, 3))` |
+| P4 | `OR`, `IS NULL`, `<>`, `BETWEEN` | `any_of`, `is_null`, `not_equals`, `between` |
+| P5 | `IN ('a', 'b', 'c', 'd')` | `STATUS_VALUES = [...]`, `is_in(t.status, STATUS_VALUES)` |
+| P6 | `COUNT(*)`, `COUNT(DISTINCT x)` | `count_rows()`, `count_distinct(t.x)`, with AS |
+| P7 | `SUM`, `AVG`, `MIN`, `MAX` | `sum_of`, `average_of`, `min_of`, `max_of`, with AS |
+| P8 | `SUM(CASE WHEN c THEN 1 ELSE 0 END)` | `sum_of(if_else(c, 1, 0))` |
+| P9 | `COALESCE(x, 0)` | `fill_null(t.x, 0)` |
+| P10 | `CASE x WHEN 'a' THEN 'A' ... ELSE 'O' END` | `mapped(t.x, {"a": "A"}, otherwise="O")` |
+| P11 | `CASE WHEN c1 THEN v1 ... ELSE v END` | `first_match([(c1, v1)], otherwise=v)` |
+| P12 | `LEFT JOIN t ON ... AND t.dt = 'd'` | `equals(t.dt, "d")` kept in ON=, `all_of` |
+| P13 | `UPPER(x)`, a function not wrapped | `hive_function("upper", t.x)` |
+| P14 | anything else, as `x DIV 60` | `unchecked_column("{m} DIV 60", m=t.minutes)` |
+| P15 | `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)` | `row_number(...)`, file 05 |
+| P16 | `SET k=v;` | `hive_settings("converted", sets={"converted": {"k": "v"}})` |
+| P17 | `INSERT OVERWRITE TABLE ... SELECT` | the SELECT; the write is file 06's |
+| P18 | `<PARM="NAME"/>`, a Script tag | R6 to R8 |
 
 ## Terms
 
 - **Saved table**: a table of the user's own; `project.convert` makes one of each table the
   Hive writes, in the Dev Database, with its Decisions, what only the user decides.
+- **Script tag**: `<PARM="NAME"/>` in the Hive, which the old scheduler filled in.
 
-## Always
+## Rules
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
-   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
-   words are Toolbox names only where this file writes them as functions, as SELECT and
-   FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
-2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
-   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
-   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
-4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
-   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
-   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
-5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
-   partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
-   `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
-   SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
-   table's column bounds nothing. A table with no partitions needs no bound.
-6. Give every ORDER_BY a LIMIT.
-7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
-   `from warehouse import query, execute`. Never call query or execute yourself.
-8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
-   allows, and say why in a comment.
-9. Reach a column as `table.column`, from the user's Table reference:
-   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
-    12. If this one doesn't cover what is asked, say so and name the file that
-    does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
-    building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
-    converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
-    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
+- **R1** Asked for Toolbox code, piece by piece or not: write it by hand, as W1, one
+  Statement `s`. Asked to make the Hive into tables in their Project: file 13's convert
+  Workflow, `project.convert("weekly_events", HIVE, query=query)`.
+- **R2** Keep the Hive's columns: same names, same order; each short table name kept with
+  AS; each condition there, none added. Keep a CTE's or subquery's name after the bracket.
+- **R3** Hive reading a partitioned table whole: say so; `reads_all_partitions=True` only if
+  the user wants every day.
+- **R4** Compare on one day, once written: `compare_with_original(s, HIVE, query=query,
+  partition={"dt": "2026-09-24"})`.
+- **R5** In a Project, `project.load("mart_dev.weekly_events").preview()` gives a
+  converted table's Statement; `project.check()` notes each `# CONVERSION:` mark.
+- **R6** A Script tag whose value the user gives: `TAGS = {"NAME": "'2026-09-24'"}` written
+  above the Statement, not imported, its value text; a bare tag's value keeps its own quotes,
+  a tag inside quotes has none: `"FAILED"`. A bare tag is `script_tag(TAGS["NAME"])`, a
+  quoted one `tag_text(TAGS["NAME"])`. Their old scheduler filling it in changes nothing.
+  If they give no value, ask; never guess it.
+- **R7** A value worked out each time the Hive is built, such as the latest Partition a
+  table holds: a Run value, the value a function of theirs gives (file 17).
+- **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
+  `hivevar("NAME", default="'2026-09-24'")`, imported.
+
+## Always: rules A1 to A10
+
+- **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
+  statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
+  there is no COUNT, SUM, AND, CASE or ALIAS function.
+- **A2** One `statement(...)`, its Clause functions in SQL order: a write's INSERT_OVERWRITE
+  or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
+  HAVING, ORDER_BY, LIMIT.
+- **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
+  none. `+ - * /` work on Columns; comparisons are A4's.
+- **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
+  Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+  is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+- **A5** **Bound every read of a partitioned table** with a value for one of its partition
+  columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
+  `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
+  SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
+  table's column bounds nothing. A table with no partitions needs no bound.
+- **A6** Give every ORDER_BY a LIMIT.
+- **A7** Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`,
+  after `from warehouse import query, execute`. Never call query or execute yourself.
+- **A8** Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for
+  what it allows, and say why in a comment.
+- **A9** Reach a column as `table.column`, from the user's Table reference:
+  `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+- **A10** If this file doesn't cover the request, say so and name the file to load in a new
+  chat: 01 the Project, 02 Table references, 03 a Statement, 04 joins, 05 windows and
+  subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
+  Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
+  a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
 
 ## Names for this objective, with their arguments
 
@@ -68,72 +112,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - tag_text(value, *, quoted=True)
 - hivevar(name, *, default)
 
-## In the Project
+## Worked patterns
 
-- The convert Workflow (file 13), admin/workflows/convert/convert.ipynb, DEV filled in in
-  admin/databases.py, converts any Hive, one query or scripts of any length:
-  `project.convert("weekly_events", HIVE, query=query)`, or `files=[...]`; one query alone
-  is `<dev>.weekly_events`.
-- `project.load("mart_dev.weekly_events").preview()` gives the Statement; each Key is
-  proposed, a temporary table folded into its readers; `project.check()` notes each
-  `# CONVERSION:` mark.
-
-## By hand: what each Hive part becomes
-
-- `FROM ops.job_runs r`: `r = AS(job_runs, "r")`, then `r.status`.
-- A CTE, `WITH ev AS (SELECT ...)`, or `FROM (SELECT ...) ev`: `ev = derived("ev",
-  statement(...))`, then `FROM(ev)`, `ev.job_id`. Keep the name after the bracket.
-- `a = 'x' AND b > 3`: `WHERE(equals(t.a, "x"), more_than(t.b, 3))`; `OR`: `any_of(...)`;
-  `IS NULL`: `is_null(...)`; `<>`: `not_equals(...)`; `BETWEEN`: `between(...)`.
-- `IN ('a', 'b', 'c', 'd')`: a list, `STATUS_VALUES = [...]`, `is_in(t.status, STATUS_VALUES)`.
-- `COUNT(*)`: `count_rows()`; `COUNT(DISTINCT x)`: `count_distinct(x)`; `SUM`, `AVG`,
-  `MIN`, `MAX`: `sum_of`, `average_of`, `min_of`, `max_of`; each named with AS.
-- `SUM(CASE WHEN c THEN 1 ELSE 0 END)`: `sum_of(if_else(c, 1, 0))`; `COALESCE(x, 0)`:
-  `fill_null(t.x, 0)`.
-- `CASE x WHEN 'a' THEN 'A' ... ELSE 'O' END`: a constant dict,
-  `mapped(t.x, {"a": "A"}, otherwise="O")`.
-- `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 ELSE v END`:
-  `first_match([(c1, v1), (c2, v2)], otherwise=v)`.
-- A function the Toolbox doesn't wrap, `UPPER(x)`: `hive_function("upper", t.x)`.
-- Anything else, such as `x DIV 60`: `unchecked_column("{m} DIV 60", m=t.minutes)`.
-- `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` in ON=, by `all_of`.
-- `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)`:
-  `row_number(PARTITION_BY=t.a, ORDER_BY=descending(t.b))` (file 05).
-- `SET k=v;`: `hive_settings("converted", sets={"converted": {"k": "v"}})`, run_execute first.
-- `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
-  Saved table's logic cell (file 06).
-- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
-  `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported. What TAGS holds: the Script tag Decision rules.
-
-## Steps
-
-1. **Pick the way** by the Decision rules: by hand, step 2; the Workflow, step 4.
-2. **Convert each part** by the list above. Done when each has its code. Then step 3.
-3. **Compare** on one day: `compare_with_original(s, HIVE, query=query,
-   partition={"dt": "2026-09-24"})`. Then step 4.
-4. **Check** by the Self-check; fix what it finds wrong, then reply.
-
-## Decision rules
-
-- If the user asks for code by hand, or to explain a part: by hand.
-- Otherwise, one query or a script: the convert Workflow's cells (file 13).
-- If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
-  the user wants every day.
-- If the user gives a Script tag's value: TAGS holds it as text, a bare tag's with its
-  quotes, `"'2026-09-24'"`, though their old scheduler filled the tag in. If they give
-  none, ask; never guess it.
-- If the value is worked out each time the Hive is built, such as the latest Partition a
-  table holds: a Run value, the value a function of theirs gives (file 17).
-- Only if the user asks for a Hivevar, `${hivevar:NAME}` left in the Hive for their
-  scheduler to fill in: `hivevar("NAME", default="'2026-09-24'")`, imported.
-
-## Output
-
-The Workflow's cells (file 13), or one Python code block building the Statement, then a line
-naming each part kept as Hive.
-
-## Example
+### W1: a query with a short name, an IN list and a count
 
 `SELECT e.job_id, COUNT(*) AS events FROM ops.job_events e WHERE e.dt = '2026-09-24'
 AND e.event_type IN ('start', 'finish', 'retry', 'fail') GROUP BY e.job_id`
@@ -154,9 +135,22 @@ s = statement(
 )
 ```
 
+## Steps
+
+1. **Find.** Match each Hive part to a Patterns row. Then step 2.
+2. **Write.** Write each part's code, in the Hive's order, with the user's tables and
+   values. Done when every name is imported; then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+One ```python block building the Statement `s`, then a line naming each part kept as Hive.
+
 ## Self-check
 
-- The columns are the Hive's: same names, same order; each short name kept with AS.
-- Each Hive condition is there, none added; reads bounded as before.
-- No COUNT, CASE, WHEN or COALESCE is called as a Toolbox name.
-- Each part kept as Hive is named after the code.
+- [ ] **C1** The columns are the Hive's: same names, same order; each short name kept.
+- [ ] **C2** Each Hive condition is there, none added; reads bounded as before.
+- [ ] **C3** No COUNT, CASE, WHEN or COALESCE is called as a Toolbox name.
+- [ ] **C4** Each Script tag the user gave is in TAGS, written above, a bare one's quotes
+  kept.
+- [ ] **C5** Each part kept as Hive is named after the code.

@@ -1,99 +1,86 @@
 # Copilot file 17: Run values, answers for every table, and seed limits ({version})
 
-**Follow the steps below in order, as written, adding none; reply as Output says.**
+**Find the request in Patterns, copy the cells it names, filled in with the user's names,
+then tick the Self-check. Answer only what the user gives; add no cell they didn't ask for.**
 
-Objective: write the function of the user's that works out a Run value each time a table is
-written, and the decisions cell answers that use it: a Script tag's, a Hivevar, one for every
-table, and a seed's limits. Load this file when the user wants a tag's day worked out at
-each run, one answer for every table, or a seed of only some Partitions. It gives
-convert's other cells if asked; file 16 is promote's.
+Objective: write the user's function that works out a Run value each time a table is
+written, and the decisions cell answers using it: a Script tag's, a Hivevar, one for every
+table, a seed's limits. Load this file when the user wants a tag's day worked out at each
+run, one answer for every table, or a seed of some Partitions. It also gives the convert
+Workflow's other cells when asked.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "the latest day ops.t holds", no function yet | `project.new_run_value(...)` | W2 |
+| P2 | "period_end() in my run_values.py gives it" | import it; answer by its name | W2 |
+| P3 | a day no Partition names | a function running a Statement | W1 |
+| P4 | "today", "yesterday" | `today()`, minus `datetime.timedelta(days=1)` | R4 |
+| P5 | one fixed day for a tag | text, `"'2026-09-24'"` | R1 |
+| P6 | "keep it a Hivevar" | `hivevar("NAME", default=...)` | R2 |
+| P7 | the same answer for every table | `"all_tables": {...}` | R6 |
+| P8 | "no columns name one row" | `"key": None` | R7 |
+| P9 | "every table's folder goes under /data/team" | `<folder>/<database>.db/<table>` | R8 |
+| P10 | "copy only its Partitions from D on" | `"seed": {"dt": {"from": D}}` | R9 |
+| P11 | "convert names the table mart_dev.x_mart" | the default name: `RENAME = {}` | R11 |
+| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 7 | R11 |
+| P13 | "I converted it ...", decisions and later cells | DECISIONS, step 3, those asked | W2 |
+| P14 | a Run value in a Statement | `run_value(...)`; `hive_date(day)` | R10 |
 
 ## Terms
 
-- **Script tag**: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that ran it
-  filled in; a Conversion leaves each as a Decision of its table, under "tags".
+- **Script tag**: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that ran
+  it filled in; a Conversion leaves each as a Decision of its table, under "tags".
 - **Decision**: one thing about one table only the user decides, answered in a Workflow
-  notebook's **decisions cell**, DECISIONS; the answers' step (step 3; new_table's step 5)
-  writes each answer into the table's **Table reference**, the file of its columns,
-  partitions, Key and TAGS.
-- **Run value**: what a function gives each time a Statement is built, written into the Hive as
-  plain text: a `datetime.date` as '2026-09-24', a number as it is, True or False as TRUE or
-  FALSE, text as Hive.
-- **Partition**: the rows of a table that share one value of each partition column, such as dt.
-- **Seed**: the one copy of the original's rows into a converted table that reads itself,
-  before its first write: step 5 of convert and promote.
+  notebook's **decisions cell**, DECISIONS; the answers' step (convert's step 3) writes each
+  into the table's **Table reference**, the file of its columns, partitions, Key and TAGS.
+- **Run value**: what a function gives each time a Statement is built, written into the Hive
+  as plain text: a `datetime.date` as '2026-09-24', a number as it is.
+- **Partition**: the rows of a table that share one value of each partition column.
+- **Seed**: step 5's one copy of the original's rows into a table that reads itself.
+
+## Rules
+
+- **R1** A tag for a day that changes each run is answered with a Run value; one fixed day
+  the user gives, with text. A tag is where the old scheduler put its value: that alone asks
+  for no Hivevar.
+- **R2** Only if the user asks for a Hivevar: `hivevar("PERIOD_END", default=period_end)`
+  under "tags", `hivevar` imported.
+- **R3** Answer with the function's name, no brackets: `{"tags": {"PERIOD_END":
+  period_end}}`. It lives in a Project file, imported at the top of the cell; one made in a
+  cell, a lambda or a nested one is left unwritten.
+- **R4** The newest Partition of a table: `project.new_run_value("period_end",
+  latest_partition="ops.job_runs.dt")` writes `latest_partition(job_runs.dt, query)` in
+  building_blocks/run_values.py and registers it. Today: `today()` in UTC,
+  `today(utc_offset_hours=-6)` six hours behind.
+- **R5** No Partition names it: the function runs a Statement of its own with run_query,
+  each partitioned read bounded, and takes no argument (W1).
+- **R6** "all_tables" holds only "tags", "seed" and `"key": "proposed"`; a table's own answer
+  overwrites it, kind by kind. Any other Key, a type and a location go under each table.
+- **R7** Answer what the user gives, no more: `"key": None` if no columns name one row;
+  `"key": "proposed"` only if they accept the proposed Keys.
+- **R8** A folder for every table: each table's own location under it,
+  `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
+- **R9** "seed", by partition column: a value, **that value or later**; `{"from": ...,
+  "to": ...}`, either end left out; a list, those values alone; numbers as numbers; a Run
+  value's function. A column left out is copied whole; no "seed", every Partition.
+- **R10** A Run value in a Statement the user writes: `run_value(function, *arguments)`. In
+  Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
+- **R11** Give only the cells asked, never a step the user has run, such as convert. Asked
+  for convert's other cells, give each in order: the names cell, `NAME`, `FILES =
+  ["daily.hql"]` by name, `HIVE = None`, `DATABASE = "default"`, `RENAME = {}`, `STAGING =
+  {}`, `PARTITIONS = []`; step 1, `project.convert(NAME, HIVE, files=FILES, query=query,
+  database=DATABASE, rename=RENAME, staging=STAGING)`; the decisions cell and step 3; then
+  steps 4 to 7 (W3). The name the user says convert gives is its own: `RENAME = {}`.
 
 ## Names for this objective, with their arguments
 
-{names: project.new_run_value, latest_partition, today, hive_date, run_value, tag_text, hivevar, project.write_decisions, project.batch_tables, project.register}
+{names: project.new_run_value, latest_partition, today, hive_date, run_value, hivevar, project.write_decisions, project.batch_tables, project.register}
 
-## Steps
+## Worked patterns
 
-1. **Pick the pieces**, the function, the answers or both, by the Decision rules. Done when
-   each piece asked for is named. Then step 2.
-2. **Write the function**, if one is asked for and the user hasn't one: for a table's
-   latest Partition, the `project.new_run_value` call at the top of the decisions cell; for
-   any other, by hand in building_blocks/run_values.py, importing `query` from warehouse; a
-   tag's function takes no argument. Done when it gives a value. Then step 3.
-3. **Write the decisions cell**: the function's import, then DECISIONS, then the notebook's
-   answers' step cell, which writes them in, and any other step's cell asked for. Done when
-   each answer is in. Then step 4.
-4. **Name the rest** in words, as Output says. Then step 5.
-5. **Check** by the Self-check; fix what it finds, then reply.
-
-## Decision rules
-
-- If a tag stands for a day that changes each run, answer it with a Run value. If the user
-  gives one fixed day, answer with text.
-- A tag is where the old scheduler put its value: that alone asks for no Hivevar. Only if
-  the user asks for one: `hivevar("PERIOD_END", default=period_end)` under "tags",
-  `hivevar` imported, which keeps `${hivevar:PERIOD_END}` in the Hive.
-- If the day is the newest Partition of a table:
-  `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")` writes
-  `latest_partition(job_runs.dt, query)`, which reads no row, and registers the file. If it
-  is today: `today()` in UTC, `today(utc_offset_hours=-6)` six hours behind; yesterday, that
-  minus `datetime.timedelta(days=1)`.
-- If no Partition names it, the function runs a Statement of its own with run_query, each
-  partitioned read bounded (file 03), as the first example.
-- Answer with the function's name, no brackets: `{"tags": {"PERIOD_END": period_end}}`. With
-  brackets it is one day, left unwritten.
-- The function lives in a Project file: one made in a notebook cell, a lambda or a nested
-  one is left unwritten.
-- If several tables share an answer, give it under "all_tables": "tags",
-  "seed", or `"key": "proposed"`, which accepts each table's proposed Key. A table's own
-  answer overwrites it, kind by kind and tag by tag. Any other Key, and a type, goes under
-  each table, never "all_tables".
-- Answer what the user gives, no more: `"key": None` if no columns name one row; `"key":
-  "proposed"` only if they accept the proposed Keys.
-- A location is never under "all_tables", which refuses it. If the user gives a
-  folder for every table, answer each table's own location under it,
-  `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
-- If a table that reads itself needs only some Partitions, answer "seed", by partition
-  column: a value, **that value or later**, never it alone; `{"from": ..., "to": ...}`, either end left out as
-  the user likes; a list, those values alone; numbers as numbers. Any value may be a Run
-  value's function. A column left out is copied whole; a column that isn't a partition column
-  is refused. With no "seed", every Partition is copied. Under "all_tables", a limit applies
-  only to the tables with that column.
-- If the value goes in a Statement the user writes: `run_value(function, *arguments)`. In
-  Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
-- Give only the cells asked: a step the user has run, such as convert, is never given again.
-  Asked for more, give each in order: first the names cell, NAME, `FILES = ["daily.hql"]` by
-  name, `HIVE = None`, `DATABASE = "default"`, `RENAME = {}`, `STAGING = {}`, `PARTITIONS =
-  []` unless the user names one, then step 1, `project.convert(NAME, HIVE,
-  files=FILES, query=query, database=DATABASE, rename=RENAME, staging=STAGING)`; after the
-  answers' step, steps 4 to 7, as the last example.
-
-## Output
-
-1. building_blocks/run_values.py in a ```python block, if step 2 wrote it.
-2. The decisions cell, then the answers' step cell, in one ```python block.
-3. In words: for a file written by hand, register it once with
-   `project.register("run_values")`, as `project.check()` asks; then run the notebook's
-   answers' step cell, and each later step through step 7's compare.
-
-## Examples
-
-building_blocks/run_values.py, for a day no Partition names:
+### W1: building_blocks/run_values.py, a day no Partition names
 
 ```python
 import datetime
@@ -113,8 +100,7 @@ def last_good_day() -> datetime.date:
     return datetime.date.fromisoformat(rows["day"][0])
 ```
 
-The decisions cell and step 3's: every table's PERIOD_END by period_end, its proposed Key
-accepted; team_log seeded with only the Partitions from 2026-09-01 on, team US or CA:
+### W2: the decisions cell and step 3: PERIOD_END by period_end, Keys accepted, a seed
 
 ```python
 project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
@@ -129,7 +115,7 @@ DECISIONS = {
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 ```
 
-Then convert's steps 4 to 7, a cell each: create, seed, write, compare:
+### W3: convert's steps 4 to 7, a cell each: create, seed, write, compare
 
 ```python
 for table in project.batch_tables(NAME):
@@ -148,11 +134,25 @@ project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ```
 
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Function.** Write the function only if one is asked for and the user hasn't one (W1, or
+   `project.new_run_value` at the top of the decisions cell). Then step 3.
+3. **Copy.** Write the cells asked, in order, with the user's names. Then step 4.
+4. **Name the rest** in words: each later step through step 7's compare. Then step 5.
+5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. building_blocks/run_values.py in a ```python block, if step 2 wrote it.
+2. The cells asked, in order, in ```python blocks.
+3. In words: each later step, and `project.register("run_values")` for a file by hand.
+
 ## Self-check
 
-- The function takes no argument and imports what it uses, `query` among them.
-- Each Run value is answered by the function's name, imported at the top of the cell.
-- "all_tables" holds only tags, seed and "key": "proposed"; each other Key and type is a
-  table's own.
-- The answers' step cell gives `tables=`, as its notebook does.
-- Only the cells asked are there, in order, none the user has run; each later one named.
+- [ ] **C1** Each Run value is answered by the function's name, imported at the cell's top.
+- [ ] **C2** "all_tables" holds only tags, seed and `"key": "proposed"`.
+- [ ] **C3** Each answer is one the user gave; each location is under their folder.
+- [ ] **C4** `RENAME = {}` unless the user asked for another name.
+- [ ] **C5** Only the cells asked are there, in order, none the user has run.
