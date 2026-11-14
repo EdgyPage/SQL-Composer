@@ -14,6 +14,7 @@ from pathlib import Path
 from drift_list import (
     DRIFT_LIST,
     MAKES_A_COMMIT,
+    RECORD_RUN,
     REVIEWER_BRIEF,
     add_request,
     changed_paths,
@@ -45,7 +46,8 @@ def review_request(commit: str, watched: list[str]) -> str:
         f"Commit {commit[:7]} touches {touched}, so it needs a drift review. Start a subagent "
         f"on the newest Opus (model \"opus\") now, before other work, with this prompt: "
         f"\"Read {REVIEWER_BRIEF.as_posix()} and follow it for commit {commit[:7]}.\" Then fix "
-        f"any item it opens as your next commits."
+        f"any item it opens as your next commits. When it finishes, record its run from its "
+        f"reported tokens and seconds: {RECORD_RUN}"
     )
 
 

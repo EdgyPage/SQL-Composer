@@ -54,6 +54,11 @@ PIPELINES = ("usability", "copilot", "excel", "metric", "maintainer")
 # request, Copilot itself, or a maintainer agent (drift reviewer, code reviewer, beginner
 # reader).
 ROLES = ("proxy", "user", "copilot", "maintainer")
+# A maintainer agent's run is a row of pipeline and role "maintainer": its task is one of these
+# names, its round the ticket or commit it reviewed, its arm "-", and its result "clean" or
+# "opened" with the items or findings it opened ("opened D3 D4", "opened 2 findings").
+MAINTAINER_AGENTS = ("drift-reviewer", "code-review-standards", "code-review-spec",
+                     "beginner-reader")
 # The most tokens a round of each pipeline may be estimated to use, with no limit until the
 # ledger has data to set one.
 BUDGET: dict[str, float] = dict.fromkeys(PIPELINES, math.inf)
@@ -110,10 +115,23 @@ def check_run(run: Run) -> None:
     if run.role not in ROLES:
         raise SystemExit(f"The role {run.role!r} is not one the ledger knows: "
                          f"{', '.join(ROLES)}.")
+    if run.pipeline == "maintainer":
+        check_maintainer_run(run)
     for name in ("tokens", "seconds"):
         if not re.fullmatch(r"\d+(\.\d+)?", getattr(run, name)):
             raise SystemExit(f"The ledger's {name} is a number of at least 0, not "
                              f"{getattr(run, name)!r}.")
+
+
+def check_maintainer_run(run: Run) -> None:
+    """Refuse a maintainer row whose role or task isn't one of the agents' or whose result
+    doesn't start with "clean" or "opened"."""
+    if run.role != "maintainer" or run.task not in MAINTAINER_AGENTS:
+        raise SystemExit(f"A maintainer run has the role maintainer and, as its task, one of "
+                         f"{', '.join(MAINTAINER_AGENTS)}, not {run.role!r} and {run.task!r}.")
+    if not re.match(r"(clean|opened)\b", run.result):
+        raise SystemExit(f"A maintainer run's result starts with clean or opened, not "
+                         f"{run.result!r}.")
 
 
 def record_run(run: Run, local: Path = LOCAL) -> Path:
