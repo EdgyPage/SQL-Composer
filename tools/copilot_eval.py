@@ -370,7 +370,8 @@ def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
 
 def files_loaded(arm: str, task_id: str) -> dict[str, str]:
     """The Copilot file whose ids a reply to the task may cite, by its number: the objective's
-    in arm C, and none in the arms that load no file of ids."""
+    in arm C, and none in the other arms, whose messages ask for no `Used:` line (arm R's reply
+    names the files to load, not the ids it followed)."""
     if arm != "C":
         return {}
     objective = BY_ID[task_id].objective

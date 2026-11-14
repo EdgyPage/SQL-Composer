@@ -103,7 +103,8 @@ or a worked pattern's `### W1:` heading. `score` keeps each reply it scored anew
 from the memo, which an earlier round kept) with its result, the ids it cited, the start of the
 hash of the text the task loaded and the Copilot files' version, in `.eval-local/sources.csv`.
 A reply with no `Used:` line is "no source", never a failure; a cited id the loaded file doesn't
-define is flagged. Arms that load no file of ids (A0, A1, R) keep nothing.
+define is flagged. Only arm C asks for a `Used:` line, so arms A0, A1 and R keep nothing (R's
+reply names the files to load, not the ids it followed).
 
     .venv/Scripts/python tools/eval_sources.py summary [--round <name>] [--pipeline <name>]
 
