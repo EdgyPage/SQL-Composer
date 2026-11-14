@@ -135,6 +135,11 @@ and `EXCEPT` again): arm C dev 100 (T07, T08, T13, T14 asked, 28 from the memo),
 **v6** (9b95a964c448, 5be7d7c8: file 03's R8 names `contains` and `starts_with`, P13 in order):
 arm C dev 100 (T07, T08 asked, 30 from the memo), held out 100 (T09); no file changed.
 
+**v7** (2ac4878025c9, c0c39299: file 00's steps 3 and 4 and C2 carry file 19's wording, at
+the merge): arm R, dev 31 of 32 and held out 15 of 17, strict 46 of 49 (94), by the Index 49
+of 49 (100); the three others (T01, T03 to 03, T24 to 02) are v3's, each by the Index; no
+file changed.
+
 Status stays open: the Metric request half's part is on its own branch.
 
 ### Metric request
