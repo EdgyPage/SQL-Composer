@@ -37,6 +37,11 @@ Done-when says, by the procedure and commands below. Planned and rehearsed 2026-
 clones in a session scratchpad; nothing was pushed, and no checkout or ref of the repo was
 rewritten.
 
+**Rehearsed with the user's answer (b)**, on a fresh mirror of dev at 8cc3fde1, steps 1 to 7
+as written below: `rules --keep-emails` wrote no mailmap; the check (`--keep-emails`) found "No
+local path or personal detail in any commit"; `compare` found 0 files differing in main or dev
+but for the scrubbed text; the authors keep their email.
+
 **Rehearsed again on the final history** (dev at 0eb5e057, after ticket 11), steps 1 to 7 on a
 fresh `--no-local` mirror, with a verified backup bundle of every ref and the recommended
 answer (a), the emails rewritten: the refs left to rewrite were dev, main and the tag; the
@@ -86,7 +91,12 @@ committer of most commits and the tagger of `last-spark-composer`. Either:
 - **(a) rewrite it** to the GitHub noreply address of the form
   `<id>+<login>@users.noreply.github.com` that the history already holds (one commit made on
   GitHub's website), keeping every name, by a mailmap `rules` writes at run time; or
-- **(b) keep it**: `rules --keep-emails`, and no `--mailmap` in step 4.
+- **(b) keep it**: `rules --keep-emails`, no `--mailmap` in step 4, and `check --keep-emails`
+  in step 6, which takes an email in a name line for no finding (one in a file or a message
+  still is, and is still replaced).
+
+**The user's answer (2026-11-14): (b), keep it** ("github hides my email so I don't have to
+care about that"). The procedure below is written for (b).
 
 Recommended: **(a)**. The address is in every clone and on every commit page on GitHub; the
 noreply address belongs to the same GitHub account, so commits stay linked to it and count in
@@ -172,17 +182,18 @@ git -C "$SCRUB/mirror.git" for-each-ref --format='delete %(refname)' refs/remote
   | git -C "$SCRUB/mirror.git" update-ref --stdin
 git -C "$SCRUB/mirror.git" for-each-ref --format='%(refname)'   # dev, main, the tag
 
-# 3. The rules, from the history's own name lines (add --keep-emails for answer (b); if it
-#    finds no GitHub noreply address, or more than one, add --noreply <the address>).
+# 3. The rules, from the history's own name lines. The user's answer is (b), so the emails
+#    are kept; for (a), leave out --keep-emails here and in step 6, and add --mailmap
+#    "$RULES/mailmap" in step 4.
 { git -C "$SCRUB/mirror.git" log --all --format='%ae%n%ce'
   git -C "$SCRUB/mirror.git" for-each-ref --format='%(taggeremail)' refs/tags
-} | "$PY" "$REPO/tools/scrub_history.py" rules
+} | "$PY" "$REPO/tools/scrub_history.py" rules --keep-emails
 
-# 4. The rewrite (for answer (b), leave out --mailmap).
+# 4. The rewrite.
 cd "$SCRUB/mirror.git"
 "$FILTER_REPO" --invert-paths --paths-from-file "$RULES/paths.txt" \
     --replace-text "$RULES/replacements.txt" --replace-message "$RULES/replacements.txt" \
-    --mailmap "$RULES/mailmap" --prune-empty never --prune-degenerate never
+    --prune-empty never --prune-degenerate never
 
 # 5. The second pass: main's stamps get the new hashes of the dev commits they name.
 cp filter-repo/commit-map "$RULES/commit-map"
@@ -194,7 +205,7 @@ git -C "$SCRUB/mirror.git" log -1 --format=%b main   # "Generated from dev <a ne
 
 # 6. The check over every commit of every ref: it must say "No local path or personal detail".
 git -C "$SCRUB/mirror.git" fast-export --all --show-original-ids --signed-tags=verbatim \
-  | "$PY" "$REPO/tools/scrub_history.py" check
+  | "$PY" "$REPO/tools/scrub_history.py" check --keep-emails
 
 # 7. main's and dev's trees: no file differs but for the scrubbed text.
 for BRANCH in main dev; do

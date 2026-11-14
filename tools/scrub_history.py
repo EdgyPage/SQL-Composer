@@ -177,11 +177,14 @@ def unquoted(path: bytes) -> str:
     return path.decode("utf-8", errors="replace")
 
 
-def stream_findings(stream: bytes, names: Iterable[str] | None = None) -> list[str]:
+def stream_findings(stream: bytes, names: Iterable[str] | None = None,
+                    keep_emails: bool = False) -> list[str]:
     """Each local path or personal detail in a fast-export `stream`: in a blob, as
     `path:line kind: text` at the first path that holds it; in a file's path itself, as
     `path as a path:1 kind: text`; in a commit's or a tag's message, or its author, committer
-    or tagger line, as `commit <id> message:line kind: text`."""
+    or tagger line, as `commit <id> message:line kind: text`. With `keep_emails` (the user's
+    answer (b)), an email in an author, committer or tagger line is not a finding; one in a
+    file or a message still is."""
     names = local_paths.own_names() if names is None else tuple(names)
     blob_findings: dict[str, list[str]] = {}
     reported: set[str] = set()
@@ -196,7 +199,7 @@ def stream_findings(stream: bytes, names: Iterable[str] | None = None) -> list[s
         elif word == "original-oid":
             oid = line[13:].decode("utf-8")
         elif word in ("author", "committer", "tagger"):
-            found += identity_findings(line, f"{command} {oid} {word}", names)
+            found += identity_findings(line, f"{command} {oid} {word}", names, keep_emails)
         elif word == "data" and command == "blob":
             blob_findings[mark] = local_paths.findings_in(data, "", names)
         elif word == "data":
@@ -239,12 +242,15 @@ def stream_lines(stream: bytes) -> Iterator[tuple[str, bytes, str]]:
         yield word, line, data
 
 
-def identity_findings(line: bytes, where: str, names: Iterable[str]) -> list[str]:
+def identity_findings(line: bytes, where: str, names: Iterable[str],
+                      keep_emails: bool = False) -> list[str]:
     """The findings in an author, committer or tagger `line`'s name and email, none for
-    GitHub's own committer address."""
+    GitHub's own committer address, and none for its email when the emails are kept."""
     identity = line.decode("utf-8").rsplit(">", 1)[0] + ">"
     if identity.lower().endswith(f"<{local_paths.GITHUB_COMMITTER}>"):
         return []
+    if keep_emails:
+        identity = identity.rsplit("<", 1)[0]
     return local_paths.findings_in(identity, where, names)
 
 
@@ -315,6 +321,9 @@ def main(argv: list[str] | None = None) -> int:
     check = commands.add_parser("check", help="read `git fast-export --all "
                                 "--show-original-ids` on stdin and count what it finds")
     check.add_argument("--list", action="store_true", help="print each finding too")
+    check.add_argument("--keep-emails", action="store_true",
+                       help="an author's, committer's or tagger's email is no finding, as "
+                       "`rules --keep-emails` leaves it")
     compare = commands.add_parser("compare", help="say each file of a rewritten tree that "
                                   "isn't the old tree's file scrubbed by the rules")
     compare.add_argument("before", type=Path, help="the old tree, as `git archive` gives it")
@@ -340,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote paths.txt, replacements.txt and, unless the emails are kept, mailmap "
               f"into {given.out}.")
         return 0
-    found = stream_findings(sys.stdin.buffer.read())
+    found = stream_findings(sys.stdin.buffer.read(), keep_emails=given.keep_emails)
     if given.list:
         print("".join(finding + "\n" for finding in found), end="")
     print(summary(found), end="")

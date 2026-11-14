@@ -262,3 +262,17 @@ def test_a_tag_message_and_its_tagger_are_read() -> None:
         f"tag {'9' * 40} tagger:1 email: jo@mail.test",
         f"tag {'9' * 40} message:1 email: jo@mail.test",
     ]
+
+
+def test_with_the_emails_kept_a_name_line_s_email_passes_but_not_its_name_or_a_message_s(
+        ) -> None:
+    stream = a_stream(blob(1, "mail jo@mail.test\n"),
+                      commit(2, "From jo@mail.test", "M 100644 :1 a.md",
+                             author="zorbax <jo@mail.test>"))
+    oid = "0" * 39 + "2"
+    assert scrub_history.stream_findings(stream, NAMES, keep_emails=True) == [
+        f"commit {oid} author:1 user's folder name: zorbax",
+        f"commit {oid} committer:1 user's folder name: zorbax",
+        f"commit {oid} message:1 email: jo@mail.test",
+        "a.md:1 email: jo@mail.test",
+    ]
