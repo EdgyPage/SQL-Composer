@@ -22,7 +22,8 @@ apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox, a copy of the Example projects and the Templates, the
+The branch holding only the Toolbox (its Templates inside it), the pages in its docs folder
+(the How-tos, the Example gallery, the Workflows overview and the Example projects page), the
 Copilot files, and their README, change notes, license and requirements.txt, generated from the
 Dev branch and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
@@ -568,7 +569,7 @@ _Avoid_: state table, Excel template, mapping sheet, custom table view
 
 **Example gallery**:
 The searchable page holding every Worked example, generated from them, which ships in the
-Toolbox.
+download's docs folder.
 _Avoid_: cookbook, docs site, examples page
 
 **README**:
@@ -581,15 +582,20 @@ _Avoid_: manual, guide, docs
 A walkthrough of one job from start to finish, as one notebook: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 run on the Example database; what works only at work, such as your own query and execute, is
-shown and not run. There are Getting started how-tos and Intermediate how-tos, on a page the
-Toolbox ships beside its Example gallery.
+shown and not run. There are Getting started how-tos and Intermediate how-tos, on a page in the
+download's docs folder beside the Example gallery.
 _Avoid_: tutorial, guide, lesson, recipe
 
 **Workflows overview**:
-The page the Toolbox ships that shows every Workflow, and the Excel path, as one drawing:
-which leads into which, each one's steps in a few words, and the places people trip.
+The page in the download's docs folder that shows every Workflow, and the Excel path, as one
+drawing: which leads into which, each one's steps in a few words, and the places people trip.
 Each Workflow's full walkthrough is its How-to.
 _Avoid_: workflow map, flowchart, dashboard
+
+**Example projects page**:
+The page in the download's docs folder that shows each Example project as it ran on the Dev
+branch: its folders, each notebook's cells with what they printed, and its lineage pages.
+_Avoid_: project gallery, sample projects page
 
 **Excel path**:
 The way from a Formula workbook to Saved tables: a person fills in the workbook, Copilot
