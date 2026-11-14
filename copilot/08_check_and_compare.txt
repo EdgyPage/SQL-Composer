@@ -49,7 +49,8 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -58,6 +59,8 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
 - project.check()
+- project.compare_batch(name, *, query=None, tables=None, partitions=None)
+- project.export_project_lineage()
 - export_lineage(*statements, to=None)
 - export_hive(s=None)
 - explain(s)
@@ -92,8 +95,12 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   `check_table_reference(t, query=query)`.
 - If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
   a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
+- If asked to compare a converted batch again, on another Partition, once finished too:
+  `project.compare_batch("ops_reports", query=query, partitions=[{"dt": "2026-09-23"}])`.
 - If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
-  the notebook.
+  the notebook, as HTML, where clicking a box shows its Hive in a side panel, and as
+  Markdown. For every Saved table of the Project, drawn whole:
+  `project.export_project_lineage()`, written in admin/lineage/.
 - If asked for Hive's plan, without running: `run_query(explain(s), query)`.
 - If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
 - If asked for a Table notebook's Hive in a file: save the notebook, then run its

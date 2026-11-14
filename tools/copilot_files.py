@@ -143,7 +143,8 @@ def copilot_files() -> dict[str, str]:
         if most > count_characters.LIMIT:
             raise CopilotFileRefused(
                 f"{source.name} comes to {most:,} characters, over the "
-                f"{count_characters.LIMIT:,} Copilot takes: shorten its source.")
+                f"{count_characters.LIMIT:,} each Copilot file keeps to: shorten its "
+                "source.")
         files[source.name] = text
     return files
 

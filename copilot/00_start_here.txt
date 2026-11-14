@@ -20,6 +20,10 @@ you can ask it in plain words.
 - **Refusal**: the Toolbox's message when it won't write a Statement's Hive.
 - **Workflow**: the steps to one end goal, such as converting Hive, each a cell of the
   Workflow's notebook in admin/workflows/.
+- **Run value**: the value a function of yours works out each time a table is written, such
+  as the latest day a table holds.
+- **Your chatbot**: the chatbot at your work that knows your databases and their column
+  descriptions; not Copilot. File 19's Metric request is text for it.
 
 ## Steps
 
@@ -35,9 +39,13 @@ you can ask it in plain words.
    one's Table reference, its file in your Project's references/ folder, or say its import
    line and columns, such as: `from references.ops__job_runs import job_runs` gives
    ops.job_runs: run_id bigint, job_id bigint, status string, dt string; partitioned by dt;
-   Key run_id. Done when Copilot answers with code. Then step 5.
+   Key run_id. For file 19, say the metric in your own words: no table is needed. For an
+   Excel workbook, attach it. Done when Copilot answers with code, with Hive for a workbook,
+   or with a question for file 19. Then step 5.
 5. **Run it.** Goal: the code works in your notebook. Action: run what Copilot gives. Done
-   when it runs. If the Toolbox refuses it, step 6.
+   when it runs. If the Toolbox refuses it, step 6. For a workbook's Hive, save each query
+   as a .hql file and run the convert Workflow (file 13). For file 19, answer each question;
+   then paste the Metric request it ends with into your chatbot.
 6. **Fix a refusal.** Goal: code the Toolbox takes. Action: start a new chat with file 09,
    paste the code and the whole message, and ask for the fix. Done when Copilot answers
    with the fixed code. Then step 5.
@@ -56,7 +64,12 @@ you can ask it in plain words.
   some Partitions, load file 17.
 - If you want a Scheduled run, a notebook your scheduler runs, filled in, load file 18 and
   paste what `project.describe_logic([...])` prints for the tables it uses.
-- If you want a new metric defined for your chatbot, not code, load file 19.
+- If you want a new metric defined for your chatbot, not code, load file 19. Your chatbot
+  gives back Hive: for it as Toolbox code, load file 07; for it as a Saved table, save it as a
+  .hql file and load file 14 (a new table from a query).
+- If you want a Script tag left as a Hivevar, `${hivevar:NAME}` in the Hive for your
+  scheduler to fill in each run, load file 17; for a Scheduled run's own value of it, file
+  18. A value worked out when the Hive is built is a Run value: file 17 too.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -92,9 +105,9 @@ you can ask it in plain words.
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
 - `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
   the promote Workflow's notebook.
-- `17_run_values_and_seed_limits.txt`: a Run value, a function of yours that works out a
-  value each time a table is written, such as a Script tag's day; answers for every table of
-  a Workflow notebook; and seed limits, the Partitions a seed copies.
+- `17_run_values_and_seed_limits.txt`: a Run value, the value a function of yours works out
+  each time a table is written, such as a Script tag's day, or a Hivevar; answers for every
+  table of a Workflow notebook; and seed limits, the Partitions a seed copies.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
   papermill runs top to bottom: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
@@ -115,5 +128,5 @@ you can ask it in plain words.
 - The chat is new, and its first message is the file your task's line names (for an Excel
   workbook, files 15, 11 and 12).
 - Your question names each table to read, by its Table reference or its import line and
-  columns.
+  columns; for file 19, it says the metric in your words, and for a workbook, it is attached.
 - For a refusal, the new chat holds file 09, your code and the whole message.

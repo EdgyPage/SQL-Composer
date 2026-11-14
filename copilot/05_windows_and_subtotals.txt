@@ -47,7 +47,8 @@ the rows of several Statements together.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -86,9 +87,10 @@ the rows of several Statements together.
   `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
   `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
   rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
-- A window's value can't be tested in its own WHERE or HAVING.
-- Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
-- The Toolbox refuses adding up a window's value again.
+- A window's value can't be tested in its own WHERE or HAVING: test it in a Statement
+  reading its Derived table.
+- Ties: add a second ORDER_BY column, such as the row's id. A window's value is never added
+  up again.
 
 ## Subtotals and stacks
 
@@ -112,6 +114,8 @@ the rows of several Statements together.
   row 1 in the Statement that reads it; never max_of on each column, which can mix values
   from different rows.
 - If a top 3 of each group: the same, keeping `at_most(d.n, 3)`, `n` the number's AS name.
+- A total's row shows NULL in each column it totals over. Only if the user asks for a label
+  there: `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
 
 ## Output
 
@@ -155,6 +159,21 @@ s = statement(
            AS(sum_of(job_runs.duration_mins, over=each_job), "minutes_so_far")),
     FROM(job_runs),
     WHERE(equals(job_runs.dt, "2026-09-24")),
+)
+```
+
+Runs per job and day, totals per job (dt NULL) and of all:
+
+```python
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows,
+                              rollup, statement)
+from references.ops__job_runs import job_runs
+
+s = statement(
+    SELECT(job_runs.job_id, job_runs.dt, AS(count_rows(), "runs")),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+    GROUP_BY(rollup(job_runs.job_id, job_runs.dt)),
 )
 ```
 

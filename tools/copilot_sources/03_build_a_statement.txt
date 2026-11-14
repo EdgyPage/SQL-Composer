@@ -17,7 +17,7 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 ## Names for this objective, with their arguments
 
-{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, not_equals, more_than, less_than, at_least, at_most, between, last_n_days, is_in, is_not_in, is_null, is_not_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending}
+{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, not_equals, more_than, less_than, at_least, at_most, between, last_n_days, is_in, is_not_in, is_null, is_not_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
 
 ## Clauses
 
@@ -27,7 +27,8 @@ Load this file when the user asks for rows, counts, totals or a list from their 
   of a table: `SELECT(*all_columns(t))`.
 - Dates are compared as the table holds them: `equals(t.dt, "2026-09-24")`,
   `between(t.dt, "2026-09-18", "2026-09-24")`, or `last_n_days(t.dt, 7)` for the 7 days
-  before today.
+  before today. A table writing its days as 20260924, as its Table reference's columns
+  show, is compared that way: `equals(region_costs.dt, "20260924")`.
 - Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
   "running")`. More than two labels: file 10.
 - `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole result,
@@ -55,6 +56,12 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 - If the user asks for every day of `t`: `FROM(t, reads_all_partitions=True)`.
 - If a column must be NULL: `is_null(t.owner)`, never `equals(t.owner, None)`.
+- If the user asks to run it or see its rows: add `rows = run_query(s, query)` after
+  `from warehouse import query`, as the first example does. If they ask only for the
+  Statement, run nothing.
+- If a share or percent: divide two totals, each named once, such as
+  `AS(count_rows(where=equals(t.status, "FAILED")) * 100 / count_rows(), "fail_pct")`;
+  Hive's `/` gives a decimal, never a whole number.
 
 ## Output
 
@@ -65,12 +72,13 @@ Reply with these parts, in this order, and nothing else:
 
 ## Examples
 
-Each job's runs and total minutes on two days, the jobs with more than one run:
+Each job's runs and total minutes on two days, the jobs with more than one run, run:
 
 ```python
 from sqlglot_composer import (AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, between,
-                              count_rows, more_than, statement, sum_of)
+                              count_rows, more_than, run_query, statement, sum_of)
 from references.ops__job_runs import job_runs
+from warehouse import query
 
 s = statement(
     SELECT(job_runs.job_id, AS(count_rows(), "runs"),
@@ -80,6 +88,7 @@ s = statement(
     GROUP_BY(job_runs.job_id),
     HAVING(more_than(count_rows(), 1)),
 )
+rows = run_query(s, query)
 ```
 
 In two steps, a Derived table first:

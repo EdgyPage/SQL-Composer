@@ -49,17 +49,20 @@ table, or asks about a table's columns, partitions or Key.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
 - project.add_references(names, *, query=None)
+- project.reference_from_logic(name)
 - write_table_reference(name, *, query=None, folder=None)
 - Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
 - first_look(t)
 - all_columns(t)
+- run_query(s, query=None)
 - equals(column, value)
 - between(column, low, high)
 - is_in(column, values)
@@ -111,6 +114,12 @@ table, or asks about a table's columns, partitions or Key.
 ## Decision rules
 
 - If the user names a Key, write it as `key=`. If not, leave `key=` out, or ask.
+- If the user isn't sure a proposed Key is right: `check_key` on one Partition first, as in
+  the second example, then answer the Decision with what it says.
+- If a line of the reference ends `# TODO`, such as its first line or `does_not_add_up=`, it
+  waits on nothing: fill it in when the user can. Emptying `does_not_add_up=[]` means no
+  column is refused when added up. A line marked `# proposed` is a guess the user accepts or
+  changes.
 - If it is a Saved table, give it a `location=`. If it is only read, give none.
 - If asked to write a database's file, such as references/ops.py: the Project actions do.
 

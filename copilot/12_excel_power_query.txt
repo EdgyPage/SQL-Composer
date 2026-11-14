@@ -31,11 +31,15 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   case kept, as M keeps it. `not`: NOT.
 - List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k is in
   another table: `LEFT SEMI JOIN u ON u.k = t.k`; with `not`, the LeftAnti join below.
-- Table.SelectColumns, RemoveColumns, RenameColumns: the SELECT list; TransformColumnTypes:
-  nothing.
+- Table.SelectColumns, RemoveColumns, RenameColumns, ReorderColumns: the SELECT list, in the
+  last step's order; Table.DuplicateColumn(t, "c", "d"): `c, c AS d`. TransformColumnTypes,
+  Table.Buffer and Table.PromoteHeaders: nothing. Excel's own step names, such as "Changed
+  Type" or "Filtered Rows", are only names: read the function each step calls.
 - Table.AddColumn: an expression AS its name, `if c then a else b` as IF(c, a, b).
   Table.TransformColumns(t, {{"c", Text.Upper}}): UPPER(c) AS c. Table.ReplaceValue(t, null,
-  0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c.
+  0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c; with "x", "y" and
+  Replacer.ReplaceText: REPLACE(c, 'x', 'y') AS c; with Replacer.ReplaceValue and a value:
+  `IF(c = 'x', 'y', c) AS c`, the whole cell matched.
 - M's functions as their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
   Text.Start(x, n): SUBSTR(x, 1, n); Text.End(x, n): SUBSTR(x, -n); Text.Middle(x, s, n):
   SUBSTR(x, s + 1, n), as M counts from 0; Text.Replace: REPLACE; Text.Proper: INITCAP;
@@ -139,5 +143,8 @@ SELECT SUM(runs) AS runs FROM by_job
 ## Self-check
 
 - Each query's steps are read in order, each in its final's query or named as refused.
-- Each ORDER BY has a LIMIT after it.
+- Each ORDER BY has a LIMIT after it; each Table.Sort with no FirstN or index after it is
+  named in the map as a dropped order.
+- A query named in another query's M is a CTE, never read as `<database>.<query>`.
+- A query and the Table it loads, even of one name, each have their own role.
 - Each Total Row is its own final, and its Table's final holds only the Table's rows.

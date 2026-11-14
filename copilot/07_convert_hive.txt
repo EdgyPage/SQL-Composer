@@ -42,7 +42,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -63,6 +64,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - hive_function(name, *args)
 - unchecked_column(text, **columns)
 - hive_settings(*names, sets=None)
+- script_tag(text)
+- tag_text(value, *, quoted=True)
 - hivevar(name, *, default)
 
 ## In the Project
@@ -101,8 +104,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   Saved table's logic cell (file 06).
 - `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
   `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
-  imported; a day worked out each run: file 17; a value passed to Hive:
-  `hivevar("NAME", default="'2026-09-24'")`.
+  imported. What TAGS holds: the Script tag Decision rules.
 
 ## Steps
 
@@ -118,6 +120,13 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - Otherwise, one query or a script: the convert Workflow's cells (file 13).
 - If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
   the user wants every day.
+- If the user gives a Script tag's value: TAGS holds it as text, a bare tag's with its
+  quotes, `"'2026-09-24'"`, though their old scheduler filled the tag in. If they give
+  none, ask; never guess it.
+- If the value is worked out each time the Hive is built, such as the latest Partition a
+  table holds: a Run value, the value a function of theirs gives (file 17).
+- Only if the user asks for a Hivevar, `${hivevar:NAME}` left in the Hive for their
+  scheduler to fill in: `hivevar("NAME", default="'2026-09-24'")`, imported.
 
 ## Output
 

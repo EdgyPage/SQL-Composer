@@ -47,7 +47,8 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -67,6 +68,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 - admin.add_columns(t, *, query=None)
 - run_query(s, query=None)
 - run_execute(s, execute=None)
+- show_hive(*statements)
 
 ## Steps
 
@@ -79,7 +81,8 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
 
 - If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
 - If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  otherwise="elsewhere")`: each key a value the column holds, each value its label. Without
+  `otherwise=`, a value not in the dict gives NULL. None
   among the dict's keys isn't allowed: fill_null the column first.
 - If a label is a chain, the first condition that holds winning, never a nested if_else:
   `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
@@ -100,8 +103,12 @@ Lineage sees it:
 - a Derived table, read as a table:
   `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
 - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute;
-- `${hivevar:x}` is Hive as written, never a `{name}` placeholder; a day worked out each run:
-  file 17.
+- `${hivevar:x}` is Hive as written, never a `{name}` placeholder. A Script tag the user
+  wants left as a Hivevar is answered `hivevar(...)` (files 07 and 17), which also sends
+  its SET line; a day worked out when the Hive is built is a Run value, written in by
+  `hive_date(day)`: file 17.
+- A `{name}` placeholder stands for a column; a value is written in the text as Hive writes
+  it, such as `'FAILED'` in quotes or `60` bare.
 
 ## Upkeep of a Saved table
 
@@ -111,6 +118,9 @@ Each is sent with `run_execute(..., execute)`, after `from sqlglot_composer impo
 - `compute_statistics(t, partition={"dt": day})` counts its rows again.
 - `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
 - `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+- Before a drop or a change is sent, show its Hive with `show_hive(change)` for the user to
+  read. The change_a_saved_table Workflow (file 14) takes them through a change as a whole
+  job: its Statement, its Hive and a check, then the send.
 
 ## Output
 

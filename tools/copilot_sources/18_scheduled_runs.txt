@@ -22,7 +22,7 @@ building a Statement of its own, file 17 for a Run value's function in building_
 
 ## Names for this objective, with their arguments
 
-{names: project.load, project.build_run, run_value, latest_partition, statement}
+{names: project.load, project.build_run, project.describe_logic, run_value, latest_partition, statement}
 
 ## Steps
 
@@ -32,7 +32,8 @@ building a Statement of its own, file 17 for a Run value's function in building_
 2. **Write the parameters cell** by the Decision rules. Done when each has a hint. Then step 3.
 3. **Write the # scheduled cell**: `statements()`, a dict of each Statement by its name,
    and any Run value's function. Done when each asked for is in it. Then step 4.
-4. **Write the Build cell**, with `run_values=` and `leave_out=` as the Decision rules say.
+4. **Write the Build cell**, with `run_values=`, `leave_out=` and any `hivevars=` as the
+   Decision rules say.
    Then step 5.
 5. **Check** by the Self-check; fix what it finds, then reply.
 
@@ -43,7 +44,11 @@ building a Statement of its own, file 17 for a Run value's function in building_
   "true" or "false"), `str`, each alone, in `list[...]` (items split at commas) or with
   `| None`. Never a parameter with no hint, nor another hint. Keep `START_FROM: str = ""`.
 - A parameter the run can't do without gets `| None = None` only if the cell works one out
-  when it is None, as a Run value; else give a real default.
+  when it is None, as a Run value; else give a real default, such as
+  `WEEK: datetime.date = datetime.date(2026, 9, 23)`. Never leave one with no default: the
+  notebook must also run as it is, in Jupyter.
+- If a value is the parameter as given, pass it in the call, `str(WEEK)`; if it is worked
+  out when the run is built, from a parameter or the warehouse, a Run value.
 - A logic function's arguments are given in the call, `team_days.week_totals(first, last)`,
   with the parameters or Run values. A date parameter passed where the signature says `str`
   is written `str(RUN_DATE)`.
@@ -56,6 +61,13 @@ building a Statement of its own, file 17 for a Run value's function in building_
 - The build adds the write of each Project table the Statements read, all the way up, on that
   table's own days, so never list those writes yourself. If the user says another run or job
   writes a table, give it in `leave_out=["mart.job_day_facts"]`.
+- If the user wants a table written for the period the run is given, not its own days: put
+  the logic function the paste lists for it that takes days, such as
+  `team_days.write_days(first, last)`, in `statements()`, named by the table's short name.
+  It takes the place of the write the build would add for that table.
+- If a Script tag of a table the run writes was answered `hivevar("PERIOD_END", ...)` and
+  the user gives its value for this run: `hivevars={"PERIOD_END": RUN_DATE}` in the Build
+  cell; left out, its default is sent.
 - A parameter reaches only what `statements()` passes it to. A write the build adds is its
   table's `write()`, which takes no arguments. To give a Run value inside it the user's value,
   write `run_values={"period_end": RUN_DATE}`, keyed by that Run value's function's name.

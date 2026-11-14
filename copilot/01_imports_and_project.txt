@@ -50,7 +50,8 @@ something and see its rows.
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
     functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
-    whole job's steps from its Workflow notebook.
+    whole job's steps from its Workflow notebook, 16 promoting dev tables to prod, 17 Run
+    values and seed limits, 18 a Scheduled run, 19 a new metric defined as a Metric request.
 
 ## Names for this objective, with their arguments
 
@@ -58,6 +59,8 @@ something and see its rows.
 - project.add_references(names, *, query=None)
 - project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
+- project.check()
+- project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
 - FROM(table, reads_all_partitions=False)
@@ -70,6 +73,8 @@ something and see its rows.
 
 ## A Project
 
+- The Project's folder is any folder of the user's own, such as my_project/, with the
+  Toolbox's folder, `sqlglot_composer/`, copied into it whole.
 - In a notebook in the Project's folder: `from sqlglot_composer import project`, then
   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
   warehouse.py.
@@ -96,6 +101,8 @@ something and see its rows.
 - A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
   `import pathlib` and `import sys`.
+- A Windows path typed in is written with forward slashes, `"C:/work/my_project"`: a
+  backslash in plain quotes, as in "C:\new", starts an escape and breaks the path.
 
 ## Steps
 
@@ -113,6 +120,9 @@ something and see its rows.
 - If the user wants only the Hive: `print(to_hive(s))`, which sends nothing, or
   `show_hive(s)`, laid out.
 - If the user's code passes `send=`: write `query` or `execute`, which replaced it in 7.0.
+- If the user asks what to do next in the Project: `project.check()`, which names each
+  Workflow's next step; a Table reference's `# TODO` line, such as its first line, waits on
+  nothing and blocks no run.
 
 ## Output
 
