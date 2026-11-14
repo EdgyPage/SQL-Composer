@@ -184,14 +184,17 @@ NULL_OUT = left_out("runs still going", NULL_RUN)
 UNROUNDED = Required("not rounded", "", (NOT_ROUNDED,))
 
 
+# The nine parts of a column's section, as file 19's Output writes them.
+PARTS = ("What it is", "Formula", "Quantities", "One row per", "Days counted", "Left out",
+         "Edge cases", "How to check", "Open questions")
+
+
 def request(name: str, *columns: tuple[str, tuple[str, ...]]) -> str:
     """A Metric request in file 19's form: each column's name and its nine parts' text."""
-    labels = ("What it is", "Formula", "Quantities", "One row per", "Days counted", "Left out",
-              "Edge cases", "How to check", "Open questions")
     sections = [f"# Metric request: {name}\n"]
     for column, parts in columns:
         lines = [f"{number}. {label}: {text}"
-                 for number, (label, text) in enumerate(zip(labels, parts), start=1)]
+                 for number, (label, text) in enumerate(zip(PARTS, parts), start=1)]
         sections.append(f"## Column: {column}\n" + "\n".join(lines) + "\n")
     return "\n".join(sections)
 

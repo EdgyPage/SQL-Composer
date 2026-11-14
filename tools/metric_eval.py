@@ -54,6 +54,7 @@ from copilot_eval import EXAMPLE_TABLES  # noqa: E402
 from metric_eval_tasks import (  # noqa: E402
     BY_ID,
     COLUMN_DEFINITIONS,
+    PARTS,
     TASKS,
     USER_RULES,
     MetricTask,
@@ -61,6 +62,7 @@ from metric_eval_tasks import (  # noqa: E402
 )
 
 import example_database  # noqa: E402
+from sqlglot_composer.shared import counted  # noqa: E402
 
 FILE_19 = ROOT / "copilot" / "19_metric_request.txt"
 
@@ -70,9 +72,6 @@ SQL_IN_TEXT = re.compile(r"```(?:sql|hive|hql)\b|\bSELECT\b[^\n]*\bFROM\b|\bCASE
 # Where a Metric request starts, and each column's section.
 REQUEST_START = re.compile(r"^# Metric request\b", re.MULTILINE)
 COLUMN = re.compile(r"^## Column: *(.+?) *$", re.MULTILINE)
-# The nine parts of a column's section, as file 19's Output writes them.
-PARTS = ("What it is", "Formula", "Quantities", "One row per", "Days counted", "Left out",
-         "Edge cases", "How to check", "Open questions")
 # A part's first line: its number, its label, perhaps a note, then a colon.
 PART_LINE = re.compile(rf"^\s*\d+\.\s*({'|'.join(PARTS)})\b[^:\n]*:", re.MULTILINE)
 # A name as a column or table is written: words joined by underscores, perhaps after "ops.".
@@ -171,8 +170,8 @@ def meets(request: str, required: Required) -> bool:
 def column_count(task: MetricTask) -> Required:
     """The requirement that a request has the task's number of column sections: essential
     where the user muddled their columns, helpful otherwise."""
-    return Required(f"{task.columns} column section{'s' if task.columns > 1 else ''}", "",
-                    (), essential=bool(task.muddled))
+    return Required(counted(task.columns, "column section"), "", (),
+                    essential=bool(task.muddled))
 
 
 @dataclass
@@ -195,7 +194,7 @@ class Score:
         return self.helpful_total - len(self.helpful_unmet)
 
     @property
-    def essential(self) -> bool:
+    def holds_essential(self) -> bool:
         """Whether the request holds every essential element."""
         return not self.request_missing and not self.essential_unmet
 
@@ -203,7 +202,7 @@ class Score:
     def passed(self) -> bool:
         """Whether the request heads the right way: every essential element, more helpful
         elements met than not, nothing invented, no number worked out, no SQL."""
-        return (self.essential and not self.sql_in_request and not self.invented
+        return (self.holds_essential and not self.sql_in_request and not self.invented
                 and not self.worked and 2 * self.helpful_met > self.helpful_total)
 
 
@@ -211,19 +210,19 @@ def score_request(task: MetricTask, reply: str) -> Score:
     """Score the Metric request in a reply against its task's requirements key."""
     result = Score(task.id)
     request = request_in(reply)
-    counted = column_count(task)
-    requirements = [counted, *task.required]
-    result.helpful_total = sum(not one.essential for one in requirements)
     result.request_missing = not request
     result.sql_in_request = holds_sql(request)
     result.parts_missing = missing_parts(request)
     result.invented = invented_names(request)
     result.worked = worked_numbers(request)
-    for one in requirements:
-        held = bool(request) and (len(sections(request)) == task.columns if one is counted
-                                  else meets(request, one))
-        if not held:
-            (result.essential_unmet if one.essential else result.helpful_unmet).append(one.what)
+    checks = [(column_count(task), len(sections(request)) == task.columns)]
+    checks += [(required, meets(request, required)) for required in task.required]
+    result.helpful_total = sum(not required.essential for required, _ in checks)
+    for required, met in checks:
+        if request and met:
+            continue
+        unmet = result.essential_unmet if required.essential else result.helpful_unmet
+        unmet.append(required.what)
     return result
 
 
@@ -317,8 +316,8 @@ def memo_key(task_id: str, reply: str, arm: str, model: str, files: str) -> eval
     """The key a task's reply is kept under in the memo (`tools/eval_memo.py`): in arm C the
     stand-in user's message, which holds the column definitions, with file 19 and the
     definitions, and a held-out task's Copilot files version `files`; in A0 the vague goal,
-    with the baseline's form and the definitions. `reply` is unused: the loaded text never
-    depends on it."""
+    with the baseline's form and the definitions. `reply` is unused, but `eval_memo` gives every
+    tool's key function one: the loaded text never depends on it."""
     task = BY_ID[task_id]
     if arm == "C":
         task_text = user_message(task)
@@ -431,7 +430,7 @@ def results_row(header: dict[str, str], split: str, results: list[Score],
     per_task = " ".join(f"{one.task}:{'pass' if one.passed else 'fail'}" for one in results)
     cells = [header.get("date", ""), header.get("files", ""), header["model"], header["arm"],
              split, str(_percent(sum(one.passed for one in results), total)),
-             str(_percent(sum(one.essential for one in results), total)), str(helpful),
+             str(_percent(sum(one.holds_essential for one in results), total)), str(helpful),
              str(invented), str(sum(one.sql_in_request for one in results)), per_task,
              str(from_memo)]
     return "| " + " | ".join(cells) + " |"

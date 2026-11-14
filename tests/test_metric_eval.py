@@ -90,7 +90,7 @@ def test_a_request_mostly_right_passes_and_one_mostly_wrong_fails() -> None:
                   "counted once", "Not rounded.", "(status NULL)", "runs still going"):
         sparse = sparse.replace(words, "")
     result = metric_eval.score_request(task, sparse)
-    assert result.essential and not result.passed
+    assert result.holds_essential and not result.passed
 
 
 def test_a_grain_without_its_condition_fails_whatever_else_it_holds() -> None:
