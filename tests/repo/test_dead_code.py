@@ -26,8 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 TOOLBOX = ROOT / "sqlglot_composer"
 # Folders no use is read from: a virtual environment, the tracker, generated Example projects
 # (tools/example_project_sources/ is read instead) and old worktrees.
-LEFT_OUT = {".venv", ".scratch", ".claude", "__pycache__", "example_projects", ".git",
-            "upgrade_from"}
+LEFT_OUT = {".venv", ".scratch", ".eval-local", ".claude", "__pycache__", "example_projects",
+            ".git", "upgrade_from"}
 IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
 PRIVATE_CONSTANT = re.compile(r"_[A-Z][A-Z0-9_]*")
 EXAMPLES = doctest.DocTestParser()

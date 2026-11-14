@@ -21,8 +21,9 @@ this module writes is under `.eval-local/`, which git ignores.
 - **The memo**, `.eval-local/memo/`: each reply kept in one plain file under a `Key`: its
   task's id and the hash of its text, the arm, the model, and the hash of exactly the text the
   task loads. A reply is asked again only when one of those changes, held-out tasks included.
-  (`files_version` in a key is for the pipelines not yet moved onto this module, which key a
-  held-out reply by the Copilot files' version too; a key made here leaves it out.)
+  (`files_version` in a key is read from replies kept before every pipeline moved onto this
+  module, which keyed a held-out reply by the Copilot files' version too; a key made now
+  leaves it out.)
 - **A plan**, `plan_round`: each task of a round, asked and why, or taken from the memo; the
   round's estimated tokens, the mean of the past ledger rows of the same pipeline, arm and
   model for each task asked; and the check against the pipeline's `BUDGET`.

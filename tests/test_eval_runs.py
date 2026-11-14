@@ -9,7 +9,6 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-import eval_memo
 import eval_runs
 import pytest
 
@@ -119,12 +118,6 @@ def test_a_kept_reply_reads_back_and_a_key_is_its_task_arm_model_and_texts(
     assert kept.key == key and kept.reply == "a reply"
     assert eval_runs.read_kept("T07", "C", "sonnet", tmp_path) == []
     assert key.loaded_text_hash == eval_runs.text_hash("file 03")
-
-
-def test_the_memo_is_the_one_eval_memo_reads(tmp_path: Path) -> None:
-    keep(a_key(), tmp_path)
-    (kept,) = eval_memo.read_kept("T07", "C", "haiku", tmp_path)
-    assert kept.key == a_key() and kept.reply == "a reply"
 
 
 def test_a_reply_is_kept_until_the_text_it_loads_changes(tmp_path: Path) -> None:

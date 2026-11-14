@@ -153,10 +153,11 @@ PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
 TOOLBOX = (toolbox_registry.FOLDER,)
 USER_COPIED = ("example_projects", "worked_examples", "copilot")
-# Folders never read: the tracker's notes, and what tools and Pythons leave behind, the dev
-# virtual environment's installed libraries among them.
-NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff_cache",
-                      ".mypy_cache", ".venv", "node_modules"})
+# Folders never read: the tracker's notes, the evaluations' local records (git-ignored, kept
+# under `.scratch/` until the evaluation system's ticket 02), and what tools and Pythons leave
+# behind, the dev virtual environment's installed libraries among them.
+NOT_READ = frozenset({".git", ".scratch", ".eval-local", "__pycache__", ".pytest_cache",
+                      ".ruff_cache", ".mypy_cache", ".venv", "node_modules"})
 # A `.pyw` is a Python file that Windows runs without a console, and imports like a `.py`.
 PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
