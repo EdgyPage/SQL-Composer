@@ -25,7 +25,7 @@ write that Python, so you can ask it in plain words.
 | P5 | "rank", "the latest of each", "the run before", "a total row" | 05 |
 | P6 | "write into my Saved table", "add to it", "the logic cell" | 06 |
 | P7 | "show me this Hive as Toolbox code", "piece by piece" | 07 |
-| P8 | "the same rows as my team's Hive", "compare", "check the Key holds", "lineage" | 08 |
+| P8 | "the same rows as my team's Hive", "compare", "check the Key holds" with no Table reference named, "lineage" | 08 |
 | P9 | a Toolbox message: GuardRefused, LoadRefused, a TypeError | 09 |
 | P10 | "a label for", "else", "in capitals", "drop a day", "repair" | 10 |
 | P11 | "convert these scripts into my Dev Database", "batch", "staging" | 13 |
@@ -54,7 +54,8 @@ write that Python, so you can ask it in plain words.
 - **R7** Two tasks: a new chat for each, with each task's file.
 - **R8** One file each: a request that ends "and run it with my query", or reads "using my
   Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
-  "with my query", is 08; writing a Table reference or its Key, checked or not, is 02.
+  "with my query", is 08; but a request that names a Table reference you are writing is 02,
+  even when it asks to check the Key first.
 
 ## Terms
 
