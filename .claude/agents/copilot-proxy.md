@@ -1,6 +1,6 @@
 ---
 name: copilot-proxy
-description: Stands in for Microsoft Copilot in the Copilot evaluation. Spawn it on a small model with one proxy message (.venv/Scripts/python tools/copilot_eval.py proxy <arm> --model <model>, which writes only the tasks the memo's plan names), saved to a file; it reads that one file and writes its reply to an answers file. It must not read the repo.
+description: Stands in for Microsoft Copilot in the Copilot and Excel evaluations. Spawn it on a small model with the one-line prompt that `tools/copilot_eval.py batch` or `tools/excel_eval.py batch` printed for it, which names its message file and its answers file; it reads that one file and writes its reply to the answers file. It must not read the repo.
 tools: Read, Write
 model: haiku
 ---
@@ -12,6 +12,6 @@ prompt names a message file and an answers file.
 2. Answer each request as Copilot would in that chat, from the message and what you already
    know. Read no other file and run nothing: the measurement holds only if your answers come
    from the message alone.
-3. Write your whole reply to the answers file, once, starting with the header lines the prompt
-   gives, then the task's heading (`## T..`, or `## X..` for a workbook) per task with your
-   answer under it, as the message asks: Python in a ```python block, SQL in a ```sql block.
+3. Write your whole reply to the answers file, once: the task's heading (`## T..`, or `## X..`
+   for a workbook) per task with your answer under it, as the message asks: Python in a
+   ```python block, SQL in a ```sql block. Write no header lines before the first heading.

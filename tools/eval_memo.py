@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import functools
-import hashlib
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -42,29 +41,18 @@ from eval_runs import (  # noqa: F401
     ROOT,
     Key,
     Kept,
+    files_version,
     hashed_key,
     kept_reply,
     read_kept,
     write_kept,
 )
 
-COPILOT = ROOT / "copilot"
 # What `prompts`, `proxy` and `template` print when the memo keeps every reply of a round.
 NOTHING_TO_ASK = ("Nothing to ask: the memo keeps a reply to every task of this round, as "
                   "plan shows. Score the round to score them again.")
 # The answers file's header line naming the Copilot files' version its replies were asked on.
 FILES_HEADER = "memo_files"
-
-
-def files_version(folder: Path = COPILOT) -> str:
-    """The Copilot files' version: one hash of every file in `folder`, by its path and its
-    bytes, each line ending read as \\n, cut to 12 characters."""
-    digest = hashlib.sha256()
-    for path in sorted(folder.rglob("*")):
-        if path.is_file():
-            digest.update(path.relative_to(folder).as_posix().encode("utf-8") + b"\0")
-            digest.update(path.read_bytes().replace(b"\r\n", b"\n") + b"\0")
-    return digest.hexdigest()[:12]
 
 
 # --- A round's plan --------------------------------------------------------------------------

@@ -26,6 +26,11 @@ this module writes is under `.eval-local/`, which git ignores.
 - **A plan**, `plan_round`: each task of a round, asked and why, or taken from the memo; the
   round's estimated tokens, the mean of the past ledger rows of the same pipeline, arm and
   model for each task asked; and the check against the pipeline's `BUDGET`.
+- **A round by script**, for the pipelines of proxies (the Copilot and Excel evaluations):
+  `Pipeline` and `add_round_commands` give each tool its `plan`, `prompts`, `template`,
+  `batch`, `collect` and `score`. `batch` writes a round's folder under
+  `.eval-local/<pipeline>/runs/<round>/`, a message file per proxy, and prints one line per
+  proxy, `copilot-proxy | <model> | <prompt>`; `collect` merges the proxies' answers files.
 - **Budgets**, `BUDGET`: `{pipeline: math.inf}` until the ledger has the data to set one, so a
   budget is one edit. A round over it is refused unless `--over-budget` is given.
 """
@@ -34,12 +39,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import hashlib
+import json
 import math
 import re
 import shutil
 from collections.abc import Callable
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from datetime import date
 from pathlib import Path
 
@@ -305,15 +312,16 @@ class Planned:
 
 
 def memo_plan(tasks: list[str], key_of: Callable[[str, str], Key], fresh: bool,
-              folder: Path = MEMO) -> list[Planned]:
+              folder: Path = MEMO, held_out: frozenset[str] = frozenset()) -> list[Planned]:
     """Whether a round asks each task, and why, or the reply kept for it: asked when no reply
-    is kept under the key it has now, and with `fresh` whatever is kept."""
+    is kept under the key it has now, and with `fresh` whatever is kept but a held-out task's,
+    which is asked once per version of the text it loads, however often a round is fresh."""
     plan = []
     for task in tasks:
         kept = kept_reply(task, key_of, folder)
         if kept is None:
             plan.append(Planned(task, _why_asked(task, key_of, folder), None))
-        elif fresh:
+        elif fresh and task not in held_out:
             plan.append(Planned(task, "--fresh", None))
         else:
             plan.append(Planned(task, "", kept))
@@ -356,12 +364,17 @@ def check_budget(pipeline: str, estimate: float | None, over_budget: bool,
 
 @dataclass
 class RoundToPlan:
-    """A round to plan: its pipeline, arm and model, and each task it covers by id."""
+    """A round to plan: its pipeline, arm and model, and each task it covers by id. `held_out`
+    names the tasks `--fresh` doesn't ask again. `agents` says how many agents (proxies) the
+    tasks asked take, where a proxy takes several; the estimate is by agent, as the ledger has
+    a row per agent. By default each task is an agent."""
 
     pipeline: str
     arm: str
     model: str
     tasks: list[str]
+    held_out: frozenset[str] = frozenset()
+    agents: Callable[[list[str]], int] | None = None
 
 
 @dataclass
@@ -380,10 +393,11 @@ def plan_round(asking: RoundToPlan, key_of: Callable[[str, str], Key], fresh: bo
     """Plan a round: each task asked and why, or taken from the memo, the estimate from the
     ledger, and the budget check, which refuses a round over its pipeline's budget unless
     `over_budget`."""
-    planned = memo_plan(asking.tasks, key_of, fresh, local / "memo")
+    planned = memo_plan(asking.tasks, key_of, fresh, local / "memo", asking.held_out)
     asked = [one.task for one in planned if one.kept is None]
+    agents = len(asked) if asking.agents is None else asking.agents(asked)
     tokens = estimated_tokens(read_ledger(local), asking.pipeline, asking.arm, asking.model,
-                              len(asked))
+                              agents)
     check_budget(asking.pipeline, tokens, over_budget, budget)
     lines = []
     for one in planned:
@@ -393,6 +407,8 @@ def plan_round(asking: RoundToPlan, key_of: Callable[[str, str], Key], fresh: bo
             lines.append(f"{one.task}: from the memo, {one.kept.key.file_name()}")
     lines.append(f"Ask {len(asked)} of {len(planned)}; {len(planned) - len(asked)} from "
                  "the memo.")
+    if asking.agents is not None:
+        lines.append(f"Spawn {agents} proxies.")
     lines.append(_estimate_line(tokens, budget[asking.pipeline]))
     return RoundPlan(asked, tokens, "\n".join(lines))
 
@@ -409,6 +425,333 @@ def _estimate_line(tokens: float | None, limit: float) -> str:
         return f"No estimate: the ledger has no past row of this pipeline, arm and model; "\
                f"{budget_text}."
     return f"Round estimated {tokens:.0f} tokens from past ledger rows ({budget_text})."
+
+
+# --- A round by script -----------------------------------------------------------------------
+#
+# A round of a proxy pipeline (the Copilot and Excel evaluations) is: `plan`, which tasks to
+# ask; `batch`, which writes each proxy's message file and prints one line per proxy to spawn;
+# the session spawns them; `collect`, which merges their answers files into the round's;
+# `score`, which scores and keeps them; and `record` per proxy from its reported usage. Each
+# round is a folder, `<local>/<pipeline>/runs/<round>/`, with a folder per proxy.
+
+ROUND_FILE = "round.json"
+MESSAGE_FILE = "message.md"
+ANSWERS_FILE = "answers.md"
+# The agent type a proxy is spawned as.
+PROXY_AGENT = "copilot-proxy"
+# The results file both the Copilot and the Excel evaluations add a row to, under the local
+# folder.
+RESULTS = ("copilot", "results.md")
+
+
+def files_version(folder: Path = ROOT / "copilot") -> str:
+    """The Copilot files' version: one hash of every file in `folder`, by its path and its
+    bytes, each line ending read as \\n, cut to 12 characters."""
+    digest = hashlib.sha256()
+    for path in sorted(folder.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(folder).as_posix().encode("utf-8") + b"\0")
+            digest.update(path.read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    return digest.hexdigest()[:12]
+
+
+@dataclass
+class Batch:
+    """A round of proxies: its pipeline, name, arm and model, the date, every task it covers
+    (those asked and those taken from the memo), and each proxy's tasks by the proxy's name."""
+
+    pipeline: str
+    name: str
+    arm: str
+    model: str
+    date: str
+    tasks: list[str]
+    proxies: dict[str, list[str]]
+
+
+def path_for_proxy(path: Path) -> str:
+    """A path as the proxy is told it: from the repo's root where it lies under it."""
+    resolved = path.resolve()
+    if resolved.is_relative_to(ROOT):
+        return resolved.relative_to(ROOT).as_posix()
+    return str(resolved)
+
+
+def write_batch(batch: Batch, messages: dict[str, str], local: Path = LOCAL) -> list[str]:
+    """Write a round's folder: its `round.json` and each proxy's message file. Returns one line
+    per proxy, giving the agent type, the model and the one-line prompt to spawn it with.
+    Refuses a round name already used, so a round's answers are never mixed with another's."""
+    round_file = make_local_path(batch.pipeline, "runs", batch.name, ROUND_FILE, local=local)
+    if round_file.exists():
+        raise SystemExit(f"The round {batch.name!r} exists: name a new one, or `collect` "
+                         "and `score` it.")
+    round_file.write_text(json.dumps(asdict(batch), indent=1), encoding="utf-8")
+    lines = []
+    for proxy in batch.proxies:
+        message = make_local_path(batch.pipeline, "runs", batch.name, proxy, MESSAGE_FILE,
+                                  local=local)
+        message.write_text(messages[proxy], encoding="utf-8")
+        answers = message.with_name(ANSWERS_FILE)
+        lines.append(f"{PROXY_AGENT} | {batch.model} | Read {path_for_proxy(message)} and "
+                     f"write your reply to {path_for_proxy(answers)}, as told.")
+    return lines
+
+
+def read_batch(pipeline: str, name: str, local: Path = LOCAL) -> Batch:
+    """A round written by `write_batch`."""
+    path = local / pipeline / "runs" / name / ROUND_FILE
+    if not path.is_file():
+        raise SystemExit(f"There is no round {name!r}: `batch` writes it.")
+    return Batch(**json.loads(path.read_text(encoding="utf-8")))
+
+
+def read_answers(text: str, letter: str) -> tuple[dict[str, str], dict[str, str]]:
+    """An answers file's header, by name, and each reply, by its task's id: a heading such as
+    `## T07` for the Copilot tasks, `letter` "T", and `## X07` for the Excel tasks."""
+    parts = re.split(rf"^## ({letter}\d+)\s*$", text, flags=re.MULTILINE)
+    header = dict(re.findall(r"^(\w+):[ \t]*(.*?)[ \t]*$", parts[0], re.MULTILINE))
+    return header, {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+@dataclass
+class Collected:
+    """What `collect` found: the answers file it wrote, the proxies with no answers file, and
+    the tasks no proxy's file answers."""
+
+    path: Path
+    no_file: list[str]
+    no_reply: list[str]
+
+
+def collect_batch(pipeline: str, name: str, letter: str, local: Path = LOCAL,
+                  files: str | None = None) -> Collected:
+    """Merge each proxy's answers file of a round into the round's `answers.md`, under a
+    header that gives its date, arm, model, the Copilot files' version and every task of the
+    round. A proxy's reply is taken only for a task it was given."""
+    batch = read_batch(pipeline, name, local)
+    folder = local / pipeline / "runs" / name
+    if files is None:
+        files = files_version()
+    header = [f"date: {batch.date}", f"arm: {batch.arm}", f"model: {batch.model}",
+              f"files: {files}", f"round: {batch.name}",
+              f"round_tasks: {','.join(batch.tasks)}"]
+    body, no_file, no_reply = [], [], []
+    for proxy, tasks in batch.proxies.items():
+        path = folder / proxy / ANSWERS_FILE
+        if not path.is_file():
+            no_file.append(proxy)
+            no_reply += tasks
+            continue
+        _, replies = read_answers(path.read_text(encoding="utf-8"), letter)
+        for task in tasks:
+            if task in replies:
+                body.append(f"\n## {task}\n{replies[task].rstrip()}\n")
+            else:
+                no_reply.append(task)
+    answers = make_local_path(pipeline, "runs", name, ANSWERS_FILE, local=local)
+    answers.write_text("\n".join(header) + "\n" + "".join(body), encoding="utf-8")
+    return Collected(answers, no_file, no_reply)
+
+
+def chunks(items: list[str], size: int) -> list[list[str]]:
+    """`items` in order, in lists of at most `size`."""
+    return [items[start:start + size] for start in range(0, len(items), size)]
+
+
+# --- Scoring a round -------------------------------------------------------------------------
+
+
+@dataclass
+class RoundReplies:
+    """The replies a round scores, by task in the round's order, those of them taken from the
+    memo, each task of the round, and the key of a task's reply."""
+
+    tasks: list[str]
+    replies: dict[str, str]
+    taken: dict[str, Kept]
+    key_of: Callable[[str, str], Key]
+    folder: Path
+
+
+def check_answers_header(header: dict[str, str], arms: list[str]) -> None:
+    """Refuse an answers file whose header doesn't give its arm and its model, which the memo
+    keeps each reply by."""
+    arm, model = header.get("arm", ""), header.get("model", "")
+    if arm not in arms or not model or model.startswith("<"):
+        raise SystemExit(f"The answers file's header gives arm {arm or 'none'} and model "
+                         f"{model or 'none'}. The memo keeps each reply by its arm, one of "
+                         f"{', '.join(arms)}, and its model, such as haiku: fill both in.")
+
+
+def round_replies(header: dict[str, str], answered: dict[str, str], tasks: list[str],
+                  memo_key: Callable[..., Key], arms: list[str], folder: Path = MEMO
+                  ) -> RoundReplies:
+    """The replies a round scores: the answers file's, and for each task of the round it
+    doesn't answer, the reply kept under the task's key now. The arm and the model are the
+    header's. `memo_key(task, reply, arm=, model=)` is the pipeline's own."""
+    check_answers_header(header, arms)
+    key_of = functools.partial(memo_key, arm=header["arm"], model=header["model"])
+    found = RoundReplies(tasks, {}, {}, key_of, folder)
+    for task in tasks:
+        if task in answered:
+            found.replies[task] = answered[task]
+            continue
+        kept = kept_reply(task, key_of, folder)
+        if kept is not None:
+            found.taken[task] = kept
+            found.replies[task] = kept.reply
+    return found
+
+
+def keep_round(found: RoundReplies, scores: dict[str, str], asked: str) -> None:
+    """Keep each reply a round scored with its new score line: a new reply as asked on
+    `asked`, a kept one as it was asked."""
+    for task, reply in found.replies.items():
+        asked_on = found.taken[task].asked if task in found.taken else asked
+        write_kept(Kept(found.key_of(task, reply), asked_on, scores[task], reply), found.folder)
+
+
+def memo_line(found: RoundReplies) -> str:
+    """How many of a round's replies came from the memo, and each task with no reply."""
+    line = f"{len(found.taken)} of {len(found.replies)} replies from the memo"
+    missing = [task for task in found.tasks if task not in found.replies]
+    if missing:
+        line += f"; no reply, in the answers file or the memo, for {', '.join(missing)}"
+    return line + "."
+
+
+# --- A proxy pipeline's round commands -------------------------------------------------------
+
+
+@dataclass
+class Pipeline:
+    """What a proxy pipeline (the Copilot or the Excel evaluation) gives the round commands:
+    its name, the letter of its task ids, its arms, its tasks and how a round chooses them, how
+    a task's reply is keyed, how the tasks asked are cut among proxies, and the texts it writes.
+    `chosen(given)` is the tasks `--split` and the tool's own filter name; `filtered(given)`
+    says whether the command gave a filter at all."""
+
+    name: str
+    letter: str
+    arms: list[str]
+    all_tasks: list[str]
+    held_out: Callable[[str], bool]
+    chosen: Callable[[argparse.Namespace], list[str]]
+    filtered: Callable[[argparse.Namespace], bool]
+    add_filters: Callable[[argparse.ArgumentParser, str | None], argparse.ArgumentParser]
+    memo_key: Callable[..., Key]
+    proxy_groups: Callable[[str, list[str]], dict[str, list[str]]]
+    proxy_message: Callable[[str, list[str]], str]
+    prompts: Callable[[list[str]], str]
+    template: Callable[[list[str]], str]
+
+
+def add_round_commands(commands: argparse._SubParsersAction[argparse.ArgumentParser],
+                       pipe: Pipeline) -> None:
+    """A proxy pipeline's commands: `plan`, `prompts`, `template` and `batch`, each of an arm
+    and a round's tasks; `collect` of a round; and `score` of a round or an answers file."""
+    for name in ("plan", "prompts", "template", "batch"):
+        command = pipe.add_filters(commands.add_parser(name), "dev")
+        command.add_argument("arm", choices=pipe.arms)
+        command.add_argument("--model", required=True,
+                             help="the model asked, such as haiku, or copilot-web by hand")
+        command.add_argument("--fresh", action="store_true",
+                             help="ask every dev task again, kept or not")
+        command.add_argument("--over-budget", action="store_true",
+                             help="run a round estimated over its pipeline's budget")
+        if name == "batch":
+            command.add_argument("--round", required=True, help="the new round's name")
+    collect = commands.add_parser("collect")
+    collect.add_argument("round")
+    scoring = pipe.add_filters(commands.add_parser("score"), None)
+    scoring.add_argument("target", help="a round's name, or an answers file")
+    scoring.add_argument("--record", type=Path,
+                         help="the results file, `<local>/copilot/results.md` by default")
+    for command in commands.choices.values():
+        command.add_argument("--local", type=Path, default=LOCAL, help=argparse.SUPPRESS)
+
+
+def plan_for(pipe: Pipeline, given: argparse.Namespace) -> RoundPlan:
+    """The plan of the round a `plan`, `prompts`, `template` or `batch` command names."""
+    tasks = pipe.chosen(given)
+
+    def proxies_for(asked: list[str]) -> int:
+        return len(pipe.proxy_groups(given.arm, asked))
+    asking = RoundToPlan(pipe.name, given.arm, given.model, tasks,
+                         frozenset(task for task in tasks if pipe.held_out(task)),
+                         agents=proxies_for)
+    key_of = functools.partial(pipe.memo_key, arm=given.arm, model=given.model)
+    return plan_round(asking, key_of, given.fresh, given.over_budget, given.local)
+
+
+# What `prompts`, `template` and `batch` say when the memo keeps every reply of a round.
+NOTHING_TO_ASK = ("Nothing to ask: the memo keeps a reply to every task of this round, as "
+                  "plan shows. Score the round to score them again.")
+
+
+def run_round_command(pipe: Pipeline, given: argparse.Namespace) -> int:
+    """Run `plan`, `prompts`, `template`, `batch` or `collect`, and return the exit code."""
+    if given.command == "collect":
+        return _collect(pipe, given)
+    plan = plan_for(pipe, given)
+    if given.command == "plan":
+        print(plan.text)
+    elif not plan.asked and given.command != "batch":
+        print(NOTHING_TO_ASK)
+    elif given.command == "prompts":
+        print(pipe.prompts(plan.asked))
+    elif given.command == "template":
+        print(pipe.template(plan.asked))
+    else:
+        _batch(pipe, given, plan)
+    return 0
+
+
+def _batch(pipe: Pipeline, given: argparse.Namespace, plan: RoundPlan) -> None:
+    """Write the round's folder and print one line per proxy to spawn; a round that asks
+    nothing says so and has no proxy, and is scored from the memo."""
+    groups = pipe.proxy_groups(given.arm, plan.asked) if plan.asked else {}
+    messages = {proxy: pipe.proxy_message(given.arm, tasks) for proxy, tasks in groups.items()}
+    batch = Batch(pipe.name, given.round, given.arm, given.model, date.today().isoformat(),
+                  pipe.chosen(given), groups)
+    lines = write_batch(batch, messages, given.local)
+    print("\n".join(lines) if lines else NOTHING_TO_ASK)
+
+
+def _collect(pipe: Pipeline, given: argparse.Namespace) -> int:
+    """Merge a round's answers files; say what is missing, and exit 1 if any is."""
+    found = collect_batch(pipe.name, given.round, pipe.letter, given.local)
+    print(f"Wrote {found.path.name} of round {given.round}.")
+    if found.no_file:
+        print(f"No answers file from {', '.join(found.no_file)}.")
+    if found.no_reply:
+        print(f"No reply for {', '.join(found.no_reply)}.")
+    return 1 if found.no_reply else 0
+
+
+def answers_to_score(pipe: Pipeline, given: argparse.Namespace
+                     ) -> tuple[dict[str, str], dict[str, str], list[str]]:
+    """What `score` reads: the answers file's header and replies, and the tasks of the round it
+    scores. `target` is a round's name or an answers file. The round's tasks are the filters'
+    where given, else the round's own (its header's `round_tasks`), else those answered."""
+    in_round = given.local / pipe.name / "runs" / given.target / ANSWERS_FILE
+    path = in_round if in_round.is_file() else Path(given.target)
+    header, answered = read_answers(path.read_text(encoding="utf-8"), pipe.letter)
+    if pipe.filtered(given):
+        tasks = pipe.chosen(given)
+    elif header.get("round_tasks"):
+        tasks = header["round_tasks"].split(",")
+    else:
+        tasks = [task for task in pipe.all_tasks if task in answered]
+    return header, answered, tasks
+
+
+def results_path(given: argparse.Namespace) -> Path:
+    """Where `score` adds its row: `--record`, or the Copilot results in the local folder."""
+    if given.record:
+        return given.record
+    return make_local_path(*RESULTS, local=given.local)
 
 
 # --- The commands ----------------------------------------------------------------------------

@@ -1,93 +1,136 @@
 # Scoring Copilot on the Copilot files
 
 The Copilot files (`copilot/`) should make Microsoft Copilot write Toolbox code that works. This
-is how to measure it in Copilot's web chat, against the same tasks and scorer the proxy runs
-use (`tools/copilot_eval_tasks.py`, `tools/copilot_eval.py`). It reaches nothing but this
-computer: you copy text into the browser and the replies back by hand.
+measures it against the same tasks and scorer, whether a proxy model answers in a Claude
+session (a round by script, below) or you ask Copilot's web chat by hand. Tasks:
+`tools/copilot_eval_tasks.py`, scorer: `tools/copilot_eval.py`; the Excel tasks and scorer
+are `tools/excel_eval_tasks.py` and `tools/excel_eval.py`. Everything reaches only this
+computer.
+
+Run every Python command with `.venv/Scripts/python` from the repo's top folder. Nothing a
+round writes is tracked: runs, the memo, the ledger and `results.md` are all under
+`.eval-local/`, which git ignores, so never copy one into a tracked file. Of a Copilot
+round, `.eval-local/copilot/runs/<round>/` holds a folder per proxy (its `message.md` and
+`answers.md`) and the round's merged `answers.md`; of an Excel round,
+`.eval-local/excel/runs/<round>/`. Both tools add a row per scored round to
+`.eval-local/copilot/results.md`.
+
+## A round by script: the steps
+
+A round has no orchestrating agent: a script plans it, writes each proxy's message, collects
+the replies, scores them and keeps them, and you spawn only the proxies, each with the one line
+the script printed. Follow these in order. `<round>` is a new name you choose, such as
+`2026-11-15-c03`; a name used before is refused.
+
+1. **Plan.** Choose the arm and the tasks, and run:
+
+       .venv/Scripts/python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
+
+   The arm is `C` (the task's objective file), `R` (routing: which file to load from file 00),
+   `A0` (nothing) or `A1` (the README's opening); `--split` is `dev`, `held_out` or `all`, and
+   `--objective` is one of the files' numbers. The plan says of each task `ask:` and why (no
+   reply kept, its text changed, the text it loads changed, or `--fresh`), or `from the
+   memo`; how many proxies to spawn; and the round's estimated tokens from past ledger
+   rows. `--fresh` asks every dev task again, kept or not; a held-out task is asked once per
+   version of the text it loads, so `--fresh` leaves it. If the plan is over its budget,
+   `--over-budget` runs it anyway. Excel: `.venv/Scripts/python tools/excel_eval.py plan C
+   --split dev --tasks X01,X02,X03,X04,X05 --model haiku`.
+2. **Batch.** The same command with `batch` and `--round <round>`:
+
+       .venv/Scripts/python tools/copilot_eval.py batch C --split dev --objective 03 --model haiku --round <round>
+
+   It writes each proxy's message file and prints one line per proxy:
+   `<agent type> | <model> | <prompt>`. If it prints `Nothing to ask`, skip to step 4.
+3. **Spawn.** For each line, spawn one agent of that type on that model, with that prompt
+   exactly and nothing else, all in one message so they run together. The proxy reads its message
+   file and writes its answers file, and has no other tool. Note each one's tokens and seconds,
+   which Claude Code reports when it finishes, and name each by its folder under the round's
+   (the prompt names it: `c03`, `r-1`).
+4. **Collect.**
+
+       .venv/Scripts/python tools/copilot_eval.py collect <round>
+
+   It merges the proxies' answers files into the round's `answers.md`, and says which proxy
+   wrote none and which tasks have no reply. Spawn that proxy again if one failed, or go on:
+   a task with no reply is scored from the memo where one is kept, and reported where not.
+5. **Score.**
+
+       .venv/Scripts/python tools/copilot_eval.py score <round>
+
+   It scores each reply, and for each task of the round the proxies didn't answer, the
+   reply the memo keeps for it now; keeps every reply with its score line in the memo; prints
+   the report and how many replies came from the memo; and adds a row to
+   `.eval-local/copilot/results.md`. Score a round before editing the files it measures: a dev
+   reply is kept under the text it was scored on.
+6. **Record.** For each proxy, with the tokens and seconds it reported:
+
+       .venv/Scripts/python tools/eval_runs.py record --pipeline copilot --role proxy --round <round> --task <proxy> --arm C --model haiku --tokens <tokens> --seconds <seconds> --result "<passed of asked, such as 3 of 3 pass>" --commit <git rev-parse --short HEAD>
+
+   Use `--pipeline excel` for an Excel round. `.venv/Scripts/python tools/eval_runs.py ledger`
+   prints the ledger, whose rows are the next round's estimates.
+
+Arm R scores routing and nothing else: each proxy replies with a file name per task, and `score`
+gives, per task and in total, two rates, both with no model. **Strict**: the reply names one
+file, and it is the task's objective's file, as the rules the proxy was asked under say. **By
+the Index**: the first file it names is one file 00's Index loads for that objective, read
+from the Index as it is now, so an edit to the Index changes the score. A reply naming file 00,
+a file that doesn't exist, or none, fails both. Its results row is `| date | files | model | R |
+split | replies | strict | index | from the memo |`.
 
 ## The memo: ask only what changed
 
-Every reply is kept, with its score, in `.scratch/copilot-eval/memo/` (`tools/eval_memo.py`),
-one plain file per key, so a round asks a model only the tasks whose text changed. A reply's
-key is:
+Every reply is kept with its score in `.eval-local/memo/`, one plain file per key, so a round
+asks a model only the tasks whose text changed. A reply's key is:
 
 - the task's id and text, the prompt it is asked;
 - the arm;
 - the model, `copilot-web` for Copilot's web chat;
-- the text the arm loads before the prompt: nothing in A0, the README's opening in A1, the
-  task's objective file in C, and in R file 00 and the file the reply names;
-- for a held-out task in an arm that loads a Copilot file (C and R, and the Excel tasks' C),
-  the Copilot files' version too: one hash of every file in `copilot/`.
+- the hash of exactly the text the task loads before the prompt: nothing in A0, the README's
+  opening in A1, the task's objective file in C, file 00 and the file the reply names in R, and
+  files 15, 11 and 12 for an Excel task in C.
 
-A held-out task is asked once per files version: the memo never scores it against a version it
-wasn't asked on, and `--fresh` doesn't ask it again on the same one. In A0 and A1, which load no
-Copilot file, a held-out task is asked once until its text or the arm's text changes. Each memo
-file holds its key, the date it was asked, its score line, then the reply as it came.
+Dev and held-out tasks are kept alike. A held-out task is asked once per version of the text
+it loads (an edit to another file leaves it), and `--fresh` doesn't ask it again. Each memo file
+holds its key, the date it was asked, its score line, then the reply as it came.
 
-Before a round, see what it asks:
+## By hand, in Copilot's web chat
 
-    .venv/Scripts/python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
+1. Write the prompts and an answers file's template, which hold only the tasks `plan` says to ask:
 
-`plan` first prints the Copilot files' version, then says of each task `ask:` and why (no reply
-kept, its text changed, the text its arm loads changed, or held out and the Copilot files
-changed), or `from the memo` and the file. `--fresh` asks every dev task again. `prompts`,
-`proxy` and `template` take the same arm, `--split`, `--objective`, `--model` and `--fresh`,
-and write only the tasks `plan` says to ask; when it says none, they print `Nothing to ask`.
+       .venv/Scripts/python tools/copilot_eval.py prompts C --split held_out --model copilot-web > prompts-C.md
+       .venv/Scripts/python tools/copilot_eval.py template C --split held_out --model copilot-web > answers-C.md
 
-Every answers file's header holds `memo_files:`, the files version its replies were asked on:
-`template` writes it, and for a proxy round you write the one `plan` printed. `score` keeps a
-held-out reply, and takes the round's kept held-out replies, by that version, not by the files
-as they are when you score, and refuses a held-out reply whose header has none.
+   Do the same with `A1` for the baseline. Fill in the template's header: `date:`, `arm:` (`A1`,
+   `C`), `model: copilot-web`, and `files:`, the Copilot files' hash, `git rev-parse
+   --short HEAD:copilot` (`none` for A1).
+2. Ask Copilot, one fresh chat per task and arm, because Copilot remembers its chat:
+   - **A1, before the files.** Paste the README's opening, as `copilot_eval.py batch A1 ...`
+     writes it in a message file, as the first message and send it. Then send the task's prompt.
+   - **C, with the file.** Paste the task's objective file (the task's heading names its
+     id; `copilot_eval_tasks.py` gives its objective, `01` to `10`, `13`, `14`, `16` or `17`;
+     the file is `copilot/<objective>_*.txt`) as the first message, or attach it, and send it. Then
+     send the task's prompt.
+   - **R, routing.** Send `copilot/00_start_here.txt`, then ask which file to load for the
+     task's prompt. Write the file it names under the task's heading.
+3. Paste each reply, as it came, under its task's heading in the answers file, then score the
+   file:
 
-## 1. Print the tasks
+       .venv/Scripts/python tools/copilot_eval.py score answers-C.md --split held_out
 
-    .venv/Scripts/python tools/copilot_eval.py prompts --arm C --split held_out --model copilot-web > prompts-C.md
-    .venv/Scripts/python tools/copilot_eval.py template --arm A1 --split held_out --model copilot-web > answers-A1.md
-    .venv/Scripts/python tools/copilot_eval.py template --arm C --split held_out --model copilot-web > answers-C.md
+   `score` takes the answers file in place of a round's name. With `--split` or `--objective` it
+   scores the round those name, taking the memo's replies for the tasks the file lacks; without
+   either, only the tasks the file answers. It refuses a header with no arm or model, which
+   the memo keeps each reply by.
 
-Print `prompts-A1.md` the same way with `--arm A1`. In each answers file, fill in its header:
-`date:`, `arm: A1` or `arm: C`, `model: copilot-web`, and `files:` with the Copilot files'
-hash, `git rev-parse --short HEAD:copilot` (`none` for A1). Leave `memo_files:` as `template`
-wrote it.
-
-## 2. Ask Copilot, one fresh chat per task and arm
-
-- **A1, before the files.** Open a new chat. Paste the README's opening, as
-  `.venv/Scripts/python tools/copilot_eval.py proxy A1 --split held_out --model copilot-web`
-  shows it between
-  `<<<` and `>>>`, as the first message, and send it. Then send the task's prompt.
-- **C, with the file.** Open a new chat. Paste the task's objective file (or attach it: the
-  task's prompt heading names its id, and `tools/copilot_eval_tasks.py` gives its objective,
-  `01` to `10`, `13`, `14` or `16`; the file is `copilot/<objective>_*.txt`) as the first message,
-  and send it. Then send the task's prompt.
-- **R, routing.** Open a new chat. Send `copilot/00_start_here.txt`, then ask which file to
-  load for the task's prompt. Note the file it names under the task's heading.
-
-Start a new chat for every task: Copilot remembers the chat it is in, and the tasks must not
-help each other.
-
-## 3. Paste the replies, then score them
-
-Paste each reply, as it came, under its task's heading in the answers file. Then score each
-file with the round's `--split` (and `--objective`, where the round had one):
-
-    .venv/Scripts/python tools/copilot_eval.py score answers-A1.md --split held_out --record .scratch/copilot-eval/results.md
-    .venv/Scripts/python tools/copilot_eval.py score answers-C.md --split held_out --record .scratch/copilot-eval/results.md
-
-`score` scores the answers file's replies and, for every other task of the round, the reply
-the memo keeps under its key now, and keeps each with its new score. It refuses a file whose
-header doesn't give its arm and model, which the memo keeps each reply by, or a held-out reply
-with no `memo_files:`. Its report and its
-row of `results.md`, in the last column, say how many replies came from the memo. Without
-`--split` or `--objective` it scores the file's replies alone, and still keeps them.
+## How an answer is scored
 
 Each answer is scored found, parses, builds, runs and correct. A pass is correct, and also
 invents no name, imports no name with `*`, adds no opt-out the task didn't need, and calls
 run_query where the request asks to run it. The files help when C passes at least 20 points
 more of the held-out tasks than A1.
 
-A Workflow task, for files 13, 14 and 16, asks for a Workflow notebook's cells. Every Python block
-of its reply is one cell, run in order from the Workflow's folder, in a Project of its own:
+A Workflow task, for files 13, 14, 16 and 17, asks for a Workflow notebook's cells. Every Python
+block of its reply is one cell, run in order from the Workflow's folder, in a Project of its own:
 its Dev and Prod Databases filled in, the Table references of the tables the task names, its
 files and the cells the user ran before. Its warehouse.py sends to a warehouse of its own that
 keeps each write (`tools/workflow_warehouse.py`, the Workflow journeys' too), holding the
@@ -98,22 +141,22 @@ folder and references/, and its warehouse holds the same tables with the same ro
 
 ## The Excel tasks: Copilot files 15, 11 and 12
 
-Files 15, 11 and 12 are measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
-`tools/excel_eval.py`): 84 filled-in Formula workbooks, 42 dev and 42 held out. A proxy model
-reads each workbook as text; in Copilot you attach the workbook itself.
+Files 15, 11 and 12 are measured the same way, on its own tasks and scorer
+(`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 84 filled-in Formula workbooks, 42 dev and
+42 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
+itself. The steps above run with `excel_eval.py` in place of `copilot_eval.py`, arms `A0` and
+`C`, `--tasks X01,X02,...` in place of `--objective`, and a proxy given five workbooks at most,
+as a person gives one to a fresh chat: a proxy given all 42 reads its message in pieces and
+cuts its replies short. Arm C loads files 15, 11 and 12, so a held-out task in arm C is asked
+once per version of those three.
 
-They keep their replies in the same memo, keyed the same way: the text arm C loads is files
-15, 11 and 12, and a held-out task in arm C is asked once per files version. `plan`,
-`prompts`, `proxy`, `template` and `score` take the round's tasks by `--split` and `--tasks`
-in place of `--objective`:
-
-    .venv/Scripts/python tools/excel_eval.py plan C --split dev --tasks X01,X02,X03,X04,X05 --model haiku
+By hand:
 
 1. Write the held-out workbooks and the answers files:
 
        .venv/Scripts/python tools/excel_eval.py workbooks --split held_out --into excel-round
-       .venv/Scripts/python tools/excel_eval.py template --arm A0 --split held_out --model copilot-web > answers-excel-A0.md
-       .venv/Scripts/python tools/excel_eval.py template --arm C --split held_out --model copilot-web > answers-excel-C.md
+       .venv/Scripts/python tools/excel_eval.py template A0 --split held_out --model copilot-web > answers-excel-A0.md
+       .venv/Scripts/python tools/excel_eval.py template C --split held_out --model copilot-web > answers-excel-C.md
 
    Fill in each header as above, with `arm: A0` or `arm: C`. A workbook whose task has a
    Power Query (each `Power Query "..."` in `excel_eval.py prompts`) has none in its file,
@@ -131,13 +174,7 @@ in place of `--objective`:
    paste them, one message each), then attach the workbook and send the same request.
 4. Paste each reply under its task's heading, then score each file:
 
-       .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --split held_out --record .scratch/copilot-eval/results.md
-
-A proxy round gives each proxy model a few workbooks, as a person gives one to a fresh
-chat: `excel_eval.py proxy C --split dev --tasks X01,X02,X03,X04,X05 --model haiku`, one
-message per five tasks the plan names, each answered by its own proxy, the replies merged
-under one header to score with the round's `--split` and `--tasks`.
-Given all 42 at once, a proxy reads its message in pieces and cuts its replies short.
+       .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --split held_out
 
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
 Table's rows, it says which Tables are the sources and which the finals, it names what the
