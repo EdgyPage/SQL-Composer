@@ -21,9 +21,9 @@ tables.
 | P8 | "run it", "show me the rows" | `rows = run_query(s, query)` | W1 |
 | P9 | "first ..., then from those ..." | a Derived table | W2 |
 | P10 | "is missing", "has no owner" | `is_null(t.owner)` | R8 |
-| P13 | "name has ...", "starts with ..." | `contains(c, "x")`, `starts_with(c, "x")` | R8 |
 | P11 | "label ... else ..." | `if_else(c, then, otherwise)` | R8 |
 | P12 | latest row per group; two tables | file 05; file 04 | A10 |
+| P13 | "name has ...", "starts with ..." | `contains(c, "x")`, `starts_with(c, "x")` | R8 |
 
 ## Terms
 
@@ -51,6 +51,7 @@ tables.
   Hive's `/` gives a decimal.
 - **R8** NULL: `is_null(t.owner)`, never `equals(t.owner, None)`; NULL made a value:
   `fill_null(t.status, "running")`. Two labels: `if_else(condition, then, otherwise)`.
+  Text: `contains(t.name, "x")`, `starts_with(t.name, "x")`.
 - **R9** `d = derived("d", statement(...))`, then `FROM(d)` and `d.runs`; no LIMIT inside
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
