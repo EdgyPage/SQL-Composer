@@ -133,6 +133,13 @@ request.
   where to take your chatbot's Hive, and files 04, 05 and 16 each gain an example. File 17
   gives convert's other cells, through the compare, when you ask for them, and file 19's
   request says which rows appear, such as only the jobs with a finished run.
+- **Copilot files 00 to 18 are written to be looked up.** Each opens on a Patterns table,
+  "when the user says X, do Y", its rules numbered with short ids (A1 to A10 for the rules
+  every code file holds, R1 and on for its own), worked patterns W1 and on to copy, and a
+  Self-check, C1 and on, to tick, under the same headings in every file. File 00 opens on an
+  Index of the words you'd type and the file each sends you to, with rules for when two lines
+  fit. Files 11 and 12 give each mark its name, such as "text date" or "pivot", and file 17
+  keeps `RENAME = {}` when you say the name convert gives.
 
 ## 8.6
 
