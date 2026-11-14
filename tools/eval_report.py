@@ -289,12 +289,33 @@ def rates_of(name: str, pipeline: str, runs: list[eval_runs.Run],
     return found.count("pass"), len(found)
 
 
-def rates_section(runs: list[eval_runs.Run], sources: list[eval_sources.SourceRow]) -> str:
-    """The pass rate of each round of the testing pipelines, with its flags and its cost."""
+def scored_rounds(rounds: list[eval_runs.RoundResult]
+                  ) -> dict[tuple[str, str], tuple[int, int]]:
+    """Each scored round's passing and scored replies, by its round and pipeline, its parts
+    summed."""
+    found: dict[tuple[str, str], tuple[int, int]] = {}
+    for one in rounds:
+        passed, scored = found.get((one.round, one.pipeline), (0, 0))
+        found[(one.round, one.pipeline)] = (passed + int(one.passed), scored + int(one.scored))
+    return found
+
+
+def rates_section(runs: list[eval_runs.Run], sources: list[eval_sources.SourceRow],
+                  rounds: list[eval_runs.RoundResult] | None = None) -> str:
+    """The pass rate of each round of the testing pipelines, with its flags and its cost: from
+    the round's kept score where it was scored (a round the memo answered whole shows at no
+    cost), otherwise from the ledger's results or the kept sources."""
     tested = [one for one in runs if one.pipeline != "maintainer"]
+    scored = scored_rounds(rounds or [])
+    groups = grouped(tested, ("round", "pipeline"))
+    for key in scored:
+        groups.setdefault(key, [])
     rows = []
-    for (name, pipeline), group in grouped(tested, ("round", "pipeline")).items():
-        passed, asked = rates_of(name, pipeline, group, sources)
+    for (name, pipeline), group in groups.items():
+        if (name, pipeline) in scored:
+            passed, asked = scored[(name, pipeline)]
+        else:
+            passed, asked = rates_of(name, pipeline, group, sources)
         over = sum(OVER_CAP in one.result for one in group)
         spent = tokens_of(group)
         rows.append([name, pipeline, f"{passed} of {asked}" if asked else "-",
@@ -387,7 +408,8 @@ def baseline_section(runs: list[eval_runs.Run], baselines: list[Baseline]) -> st
 
 
 def page_text(runs: list[eval_runs.Run], sources: list[eval_sources.SourceRow],
-              commits: list[Commit], baselines: list[Baseline]) -> str:
+              commits: list[Commit], baselines: list[Baseline],
+              rounds: list[eval_runs.RoundResult] | None = None) -> str:
     """The whole report page."""
     body = "\n".join([
         "<header><h1>The evaluation cost report</h1>",
@@ -396,7 +418,7 @@ def page_text(runs: list[eval_runs.Run], sources: list[eval_sources.SourceRow],
         "<main>",
         cost_section(runs, commits),
         eventful_section(runs, commits),
-        rates_section(runs, sources),
+        rates_section(runs, sources, rounds),
         sources_section(sources),
         maintainer_section(runs),
         baseline_section(runs, baselines),
@@ -416,7 +438,8 @@ def main(argv: list[str] | None = None) -> int:
     commits = (read_commits(commits_path.read_text(encoding="utf-8"))
                if commits_path.exists() else [])
     text = page_text(eval_runs.read_ledger(given.local), eval_sources.read_sources(given.local),
-                     commits, read_baseline(given.baseline or given.local / BASELINE_NAME))
+                     commits, read_baseline(given.baseline or given.local / BASELINE_NAME),
+                     eval_runs.read_rounds(given.local))
     path = eval_runs.make_local_path(REPORT_NAME, local=given.local)
     path.write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {path}.")

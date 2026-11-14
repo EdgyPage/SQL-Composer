@@ -1414,6 +1414,11 @@ def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
     keep_run_sources(result, run)
+    named = RUN_NAME.fullmatch(run.name)
+    eval_runs.record_round(eval_runs.RoundResult(
+        date=datetime.date.today().isoformat(), round=named[1] if named else run.name,
+        pipeline="usability", part=run.name, arm=MEMO_ARM, model=MODEL,
+        passed=str(int(result.passed)), scored="1", from_memo="0"), LOCAL)
     results_path = eval_runs.make_local_path("usability", "results.md", local=LOCAL)
     if not results_path.is_file():
         results_path.write_text(
@@ -1448,8 +1453,10 @@ def _prepare(given: argparse.Namespace) -> int:
 def _usage(given: argparse.Namespace) -> int:
     """Add an agent's reported usage to the ledger."""
     commit = given.commit or dev_commit()
+    named = RUN_NAME.fullmatch(given.run)
+    round_id = given.round or (named[1] if named else given.run)
     path = record_usage(given.run, given.what, tokens=given.tokens, seconds=given.seconds,
-                        result=given.result, round_id=given.round, commit=commit,
+                        result=given.result, round_id=round_id, commit=commit,
                         final=given.final)
     print(f"Recorded {given.run}/{given.what} in {path.name}.")
     return 0
@@ -1525,8 +1532,8 @@ def _record_parsers(commands: argparse._SubParsersAction) -> None:
                        "proxy")
     for name in ("tokens", "seconds", "result"):
         usage.add_argument(f"--{name}", required=True)
-    usage.add_argument("--round", default=datetime.date.today().isoformat(),
-                       help="the round's id (default: today's date)")
+    usage.add_argument("--round", help="the round's id (default: the run's name without its "
+                       "slot, as its results and sources name the round)")
     usage.add_argument("--commit", default="", help="default: dev's last commit")
     usage.add_argument("--final", help="a phase agent's last message, whose `Read:` line "
                        "says what it read")

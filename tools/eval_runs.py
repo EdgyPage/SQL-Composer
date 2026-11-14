@@ -172,6 +172,86 @@ def read_ledger(local: Path = LOCAL) -> list[Run]:
         return [Run(**row) for row in csv.DictReader(ledger)]
 
 
+# --- A round's pass rate ---------------------------------------------------------------------
+
+ROUNDS_NAME = "rounds.csv"
+
+
+@dataclass
+class RoundResult:
+    """A scored round's pass count, every reply counted, those the memo kept among them: one
+    row per round of a pipeline, arm and model, or per part where a round is scored in parts
+    (a usability run, named in `part`; "-" for a round scored whole)."""
+
+    date: str
+    round: str
+    pipeline: str
+    part: str
+    arm: str
+    model: str
+    passed: str
+    scored: str
+    from_memo: str
+
+
+ROUND_FIELDS = [one.name for one in fields(RoundResult)]
+
+
+def check_round(result: RoundResult) -> None:
+    """Refuse a round of an unknown pipeline, or whose counts aren't whole numbers that fit:
+    no more passed or taken from the memo than were scored."""
+    if result.pipeline not in PIPELINES:
+        raise SystemExit(f"The pipeline {result.pipeline!r} is not one the ledger knows: "
+                         f"{', '.join(PIPELINES)}.")
+    counts = [result.passed, result.scored, result.from_memo]
+    if not all(count.isdigit() for count in counts):
+        raise SystemExit(f"A round's counts are whole numbers: {counts}.")
+    if int(result.passed) > int(result.scored) or int(result.from_memo) > int(result.scored):
+        raise SystemExit(f"A round passes and takes from the memo no more than it scored: "
+                         f"{counts}.")
+
+
+def _round_key(result: RoundResult) -> tuple[str, ...]:
+    return (result.pipeline, result.round, result.part, result.arm, result.model)
+
+
+def record_round(result: RoundResult, local: Path = LOCAL) -> Path:
+    """Keep a scored round's pass count in `rounds.csv`, in place of the row an earlier score
+    of the same round (and part, arm and model) kept."""
+    check_round(result)
+    kept = [one for one in read_rounds(local) if _round_key(one) != _round_key(result)]
+    path = make_local_path(ROUNDS_NAME, local=local)
+    with path.open("w", encoding="utf-8", newline="") as rounds:
+        writer = csv.writer(rounds, lineterminator="\n")
+        writer.writerow(ROUND_FIELDS)
+        for one in [*kept, result]:
+            writer.writerow([getattr(one, name) for name in ROUND_FIELDS])
+    return path
+
+
+def read_rounds(local: Path = LOCAL) -> list[RoundResult]:
+    """Every scored round kept, in the order kept; none when no round was scored yet."""
+    path = local / ROUNDS_NAME
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8", newline="") as rounds:
+        return [RoundResult(**row) for row in csv.DictReader(rounds)]
+
+
+
+def keep_round_result(pipeline: str, header: dict[str, str], passes: list[bool],
+                      from_memo: int, local: Path = LOCAL) -> None:
+    """Keep a scored round's pass count, from its answers file's header (its round, date, arm
+    and model) and whether each reply passed; an answers file with no round in its header,
+    one scored by hand, keeps none."""
+    name = header.get("round")
+    if not name:
+        return
+    record_round(RoundResult(date=header.get("date", date.today().isoformat()), round=name,
+                             pipeline=pipeline, part="-", arm=header.get("arm", "?"),
+                             model=header.get("model", "?"), passed=str(sum(passes)),
+                             scored=str(len(passes)), from_memo=str(from_memo)), local)
+
 # --- The memo --------------------------------------------------------------------------------
 
 

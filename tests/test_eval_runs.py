@@ -277,3 +277,37 @@ def test_a_plans_estimate_is_by_agent_when_a_proxy_takes_several_tasks(tmp_path:
     plan = eval_runs.plan_round(asking, lambda task, reply: a_key(), fresh=False,
                                 over_budget=False, local=tmp_path)
     assert plan.tokens == 2000 and "Spawn 1 proxies." in plan.text
+
+
+# --- A round's pass rate ---------------------------------------------------------------------
+
+
+def a_round(**changed: str) -> eval_runs.RoundResult:
+    fields = {"date": "2026-11-14", "round": "r1", "pipeline": "copilot", "part": "-",
+              "arm": "C", "model": "haiku", "passed": "30", "scored": "32", "from_memo": "32"}
+    return eval_runs.RoundResult(**{**fields, **changed})
+
+
+def test_a_scored_round_reads_back_and_scoring_it_again_replaces_its_row(
+        tmp_path: Path) -> None:
+    assert eval_runs.read_rounds(tmp_path) == []
+    eval_runs.record_round(a_round(), tmp_path)
+    eval_runs.record_round(a_round(round="r2"), tmp_path)
+    eval_runs.record_round(a_round(passed="32"), tmp_path)
+    rows = eval_runs.read_rounds(tmp_path)
+    assert [(row.round, row.passed) for row in rows] == [("r2", "30"), ("r1", "32")]
+
+
+def test_each_part_of_a_round_keeps_its_own_row(tmp_path: Path) -> None:
+    eval_runs.record_round(a_round(pipeline="usability", part="2026-11-14-W1-1"), tmp_path)
+    eval_runs.record_round(a_round(pipeline="usability", part="2026-11-14-W1-2"), tmp_path)
+    assert len(eval_runs.read_rounds(tmp_path)) == 2
+
+
+@pytest.mark.parametrize(("field", "value"), [("pipeline", "tarot"), ("passed", "33"),
+                                              ("scored", "x"), ("from_memo", "-1")])
+def test_a_round_with_an_unknown_pipeline_or_bad_counts_is_refused(
+        tmp_path: Path, field: str, value: str) -> None:
+    with pytest.raises(SystemExit):
+        eval_runs.record_round(a_round(**{field: value}), tmp_path)
+    assert eval_runs.read_rounds(tmp_path) == []

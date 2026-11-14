@@ -74,7 +74,8 @@ the memo, so its scenario isn't run again, run this once; running it again chang
 
        .venv/Scripts/python tools/usability_loop.py usage 2026-11-14-W1-1 phase-1 --tokens <tokens> --seconds <seconds> --result done
 
-   (Add `--round <id>` to name the round: it is today's date unless you say.) A phase's agent
+   (The round is the run's name without its slot, `2026-11-14-W1`, unless `--round <id>`
+   names it.) A phase's agent
    ends its last message with a `Read: <file> <section>, ...` line, which its prompt asks for;
    add `--final "<its last message>"` to keep it in the run's `_loop/`, where `score --record`
    reads it. A run with no such line is kept as "no source", never as a failure.
@@ -143,6 +144,8 @@ Everything is under `.eval-local/`, which is never committed:
   result, its inputs hash and the files and sections its agents said they read. Read it with
   `.venv/Scripts/python tools/eval_sources.py summary [--round <id>] [--pipeline <name>]`;
   `docs/copilot-eval.md` says how it ranks them;
+- `rounds.csv`: one row per scored run, passed or not, under its round, which the report
+  sums into the round's pass rate beside its cost;
 - `usability/results.md`: one row per scored run, its note ending `inputs <hash>`, the first
   16 characters of the run's inputs hash, which `plan` reads for what changed.
 

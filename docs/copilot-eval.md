@@ -69,8 +69,9 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
    Use `--pipeline excel` for an Excel round. `.venv/Scripts/python tools/eval_runs.py ledger`
    prints the ledger, whose rows are the next round's estimates.
 7. **Report.** `.venv/Scripts/python tools/eval_report.py` writes `.eval-local/report.html`: cost,
-   pass rate, eventful commits and the doc ids failing replies cite, from the ledger; its commits
-   file is `git log --format="commit %h %cs %s" --name-only -n 600 > .eval-local/commits.txt`.
+   pass rate, eventful commits and the doc ids failing replies cite, from the ledger and the
+   pass count each `score` keeps in `.eval-local/rounds.csv` (every reply, the memo's too, so a
+   round the memo answered whole shows at no cost); its commits file is `git log --format="commit %h %cs %s" --name-only -n 600 > .eval-local/commits.txt`.
 
 Arm R scores routing and nothing else: each proxy replies with a file name per task, and `score`
 gives, per task and in total, two rates, both with no model. **Strict**: the reply names one

@@ -62,3 +62,13 @@ Run with this ticket as spec, fixed point 1ea285ef (review-standards and review-
 - Left, as judgement calls: renaming `one`, `count`, `note`, `section`; small repeated
   recomputation; a plain loop in `grouped`; `read_commits` builds parallel lists; the doc steps
   carry the command inline.
+
+## After ticket 11
+
+Ticket 11's first measured round showed every rate as "-": a round's pass or fail lived only in
+its pipeline's results file, and the proxies' ledger rows say "scored". Each `score` now keeps
+its round's pass count, every reply counted, the memo's among them, in `.eval-local/rounds.csv`
+(`eval_runs.RoundResult`, `record_round`, `keep_round_result`; the usability loop one row per
+run, under its round), and the report reads it first. A round the memo answered whole shows
+with no cost. The usability loop's `usage` now names the round as its results and sources do,
+the run's name without its slot, where it took today's date.

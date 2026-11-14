@@ -1268,6 +1268,9 @@ def _score_answers(given: argparse.Namespace) -> None:
                                 files_loaded, given.local)
     lines = eval_runs.hold_reply_caps("copilot", found, lines)
     eval_runs.keep_round(found, lines, header.get("date", "?"))
+    passes = ([one.strict for one in routes] if header["arm"] == "R"
+              else [one.passed for one in results])
+    eval_runs.keep_round_result(PIPELINE.name, header, passes, len(found.taken), given.local)
     print(eval_runs.memo_line(found))
     with eval_runs.results_path(given).open("a", encoding="utf-8") as record:
         record.write(row + "\n")

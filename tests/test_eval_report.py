@@ -201,3 +201,30 @@ def test_the_page_is_built_from_the_page_module_with_no_colour_or_style_of_its_o
 @pytest.mark.parametrize("line", ["commit abc", "commit abc 2026-11-14"])
 def test_a_commits_line_with_no_subject_is_still_read(line: str) -> None:
     assert eval_report.read_commits(line)[0].sha == "abc"
+
+
+def a_round(**changed: str) -> eval_runs.RoundResult:
+    fields = {"date": "2026-11-14", "round": "r2", "pipeline": "copilot", "part": "-",
+              "arm": "C", "model": "haiku", "passed": "9", "scored": "10", "from_memo": "7"}
+    return eval_runs.RoundResult(**{**fields, **changed})
+
+
+def test_a_scored_round_gives_the_rate_over_every_reply_the_memo_kept_too() -> None:
+    page = eval_report.page_text(ledger_rows(), [], eval_report.read_commits(COMMITS), [],
+                                 [a_round()])
+    assert re.search(r"r2 copilot 9 of 10 90% 1 6,000", text_of(page))
+
+
+def test_a_round_answered_wholly_from_the_memo_is_shown_at_no_cost() -> None:
+    page = eval_report.page_text(ledger_rows(), [], eval_report.read_commits(COMMITS), [],
+                                 [a_round(round="r9", passed="42", scored="42",
+                                          from_memo="42")])
+    assert re.search(r"r9 copilot 42 of 42 100% 0 0 0", text_of(page))
+
+
+def test_a_rounds_parts_are_summed() -> None:
+    parts = [a_round(round="r0", pipeline="usability", part="W1-1", passed="1", scored="1"),
+             a_round(round="r0", pipeline="usability", part="W1-2", passed="0", scored="1")]
+    page = eval_report.page_text(ledger_rows(), [], eval_report.read_commits(COMMITS), [],
+                                 parts)
+    assert re.search(r"r0 usability 1 of 2 50%", text_of(page))

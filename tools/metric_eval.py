@@ -607,6 +607,10 @@ def score_round(given: argparse.Namespace) -> str:
     if results:
         record_row(eval_runs.make_local_path("metric", "results.md", local=given.local),
                    results_row(given, results, from_memo))
+        eval_runs.keep_round_result(
+            "metric", {"round": given.round, "date": datetime.date.today().isoformat(),
+                       "arm": given.arm, "model": given.model},
+            [one.passed for one in results], from_memo, given.local)
     lines.append(f"{len(results)} scored, {from_memo} from the memo.")
     return "\n".join(lines)
 

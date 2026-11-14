@@ -852,6 +852,8 @@ def _score_answers(given: argparse.Namespace) -> None:
     lines = eval_runs.hold_reply_caps("excel", found,
                                       {one.task: _answer_line(one) for one in results})
     eval_runs.keep_round(found, lines, header.get("date", "?"))
+    eval_runs.keep_round_result(PIPELINE.name, header, [one.passed for one in results],
+                                len(found.taken), given.local)
     eval_sources.keep_round("excel", header, found, {one.task: one.passed for one in results},
                             files_loaded, given.local)
     print(report(header, results))
