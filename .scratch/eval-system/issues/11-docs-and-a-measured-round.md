@@ -29,6 +29,15 @@ numbered steps (plan, batch or prepare, spawn, collect, score, record, report). 
 points at both for a round, and at `.eval-local/` for every record; its line that the old
 pipelines still write under `.scratch/` is gone.
 
+**A fresh agent, from the doc alone.** A general-purpose haiku agent, given only "follow
+`docs/copilot-eval.md`'s numbered steps" and a round to run (arm C, dev, objective 03, asked
+again), ran plan, batch, the spawn, collect, score, record and report with no other help: 2 of 2
+passed, the proxy 17,255 tokens, the agent itself 72,174. It named three places it had to guess,
+each fixed in the doc after: whether `batch` takes the plan's `--fresh` (it does, step 2 now
+says so); what `--task` is when recording (the proxy's folder, `c03`); and whether the report
+needs the commits file first (it does, for versions and events; step 7 and the usability loop's
+step 12 now write it first).
+
 **What the plans asked**, by the user's rule (only what changed):
 
 | Pipeline | Asked | Why | Tokens | Result |

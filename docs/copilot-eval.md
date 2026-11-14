@@ -35,7 +35,8 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
    version of the text it loads, so `--fresh` leaves it. If the plan is over its budget,
    `--over-budget` runs it anyway. Excel: `.venv/Scripts/python tools/excel_eval.py plan C
    --split dev --tasks X01,X02,X03,X04,X05 --model haiku`.
-2. **Batch.** The same command with `batch` and `--round <round>`:
+2. **Batch.** The same command, every flag the plan had (`--fresh` too), with `batch` and
+   `--round <round>`:
 
        .venv/Scripts/python tools/copilot_eval.py batch C --split dev --objective 03 --model haiku --round <round>
 
@@ -64,14 +65,20 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
    reply is kept under the text it was scored on.
 6. **Record.** For each proxy, with the tokens and seconds it reported:
 
-       .venv/Scripts/python tools/eval_runs.py record --pipeline copilot --role proxy --round <round> --task <proxy> --arm C --model haiku --tokens <tokens> --seconds <seconds> --result "<passed of asked, such as 3 of 3 pass>" --commit <git rev-parse --short HEAD>
+       .venv/Scripts/python tools/eval_runs.py record --pipeline copilot --role proxy --round <round> --task <folder> --arm C --model haiku --tokens <tokens> --seconds <seconds> --result "<passed of asked, such as 3 of 3 pass>" --commit <git rev-parse --short HEAD>
 
-   Use `--pipeline excel` for an Excel round. `.venv/Scripts/python tools/eval_runs.py ledger`
+   `<folder>` is the proxy's folder, as step 3 named it (`c03`, `r-1`). Use `--pipeline
+   excel` for an Excel round. `.venv/Scripts/python tools/eval_runs.py ledger`
    prints the ledger, whose rows are the next round's estimates.
-7. **Report.** `.venv/Scripts/python tools/eval_report.py` writes `.eval-local/report.html`: cost,
+7. **Report.** First write the commits file, which gives the report each commit's version and
+   events (without it the page builds with neither):
+
+       git log --format="commit %h %cs %s" --name-only -n 600 > .eval-local/commits.txt
+
+   Then `.venv/Scripts/python tools/eval_report.py` writes `.eval-local/report.html`: cost,
    pass rate, eventful commits and the doc ids failing replies cite, from the ledger and the
    pass count each `score` keeps in `.eval-local/rounds.csv` (every reply, the memo's too, so a
-   round the memo answered whole shows at no cost); its commits file is `git log --format="commit %h %cs %s" --name-only -n 600 > .eval-local/commits.txt`.
+   round the memo answered whole shows at no cost).
 
 Arm R scores routing and nothing else: each proxy replies with a file name per task, and `score`
 gives, per task and in total, two rates, both with no model. **Strict**: the reply names one
