@@ -3,7 +3,7 @@
 Read at afc5fc2, the import stop as ticket 24 first committed it.
 
 **What I ran:**
-- I built both Editions into `<scratchpad>\t24\probe\built\` with `export_clean.build(ROOT, into, 2026-09-30 14:05, exported=(editions.SQL_COMPOSER, editions.SPARK_COMPOSER))`.
+- I built both Editions into `<scratchpad>\\t24\probe\built\` with `export_clean.build(ROOT, into, 2026-09-30 14:05, exported=(editions.SQL_COMPOSER, editions.SPARK_COMPOSER))`.
 - I made a second build at 2026-10-02 09:30 in `probe\built_later\`, for the "different export" case.
 - `probe\scenarios.py` copies the build, makes one mistake, and imports the folder in a fresh Python. It ran 18 cases; each case's folder is in `probe\runs\`.
 - I edited nothing in the repo.

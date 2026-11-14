@@ -105,6 +105,25 @@ whose CI job passed: the export doesn't check the gallery.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
+## Records stay local, and git holds no local path
+
+The user: "I want good evaluation instructions to be passed around from machine to machine, the
+actual records don't need to be shared at all." and "Let's make it a rule from now on not to push
+that stuff." (the evaluation system, `.scratch/eval-system/map.md`).
+
+- Git holds instructions: the tools, `docs/`, the proxy and maintainer agents, tasks with their
+  keys, tests, maps and tickets. Every record stays on one machine, under the git-ignored
+  `.eval-local/`: the ledger, the memo, every run folder, the results files, round summaries and
+  reports. Never `git add -f` one. `.venv/Scripts/python tools/eval_runs.py copy-records` copies
+  the records the old pipelines still write under `.scratch/` into it, until the pipelines write
+  there themselves.
+- No tracked file holds an absolute user path, the user's folder name, an AppData, Temp or
+  scratchpad path, or an email. Write a path relative to the repo, or `<user folder>` and
+  `<scratchpad>`. `tools/local_paths.py` is the one reader of this: `tests/repo/test_local_paths.py`
+  reads every tracked file with it, the commit hook `.claude/hooks/local_paths_hook.py` refuses a
+  commit that would hold one, and the export refuses a Clean tree that does. A test that names
+  these patterns to check for them goes in its `NAMES_THE_PATTERNS`.
+
 ## The Toolbox's folder
 
 The Toolbox is one folder, `sqlglot_composer/`, which writes its Hive with sqlglot (ADR 0009).

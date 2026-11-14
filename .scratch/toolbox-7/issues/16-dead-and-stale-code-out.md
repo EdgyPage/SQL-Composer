@@ -7,7 +7,7 @@ Size: M
 
 ## Question
 
-The plan's ticket 16 (C:/Users/<user folder>/.claude/plans/hazy-dancing-spindle.md). The user, on old
+The plan's ticket 16 (<user folder>/.claude/plans/hazy-dancing-spindle.md). The user, on old
 shims: "7.1 is the most current version. Dev is essentially the furthest along": main is 6.0,
 users go 6.0 to 7.1, so refusals of arguments only 7.0 had serve no one; 6.x's stay.
 

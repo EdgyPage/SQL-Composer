@@ -2,7 +2,7 @@
 
 Read at 66cb063, the refusals as ticket 23 first committed them.
 
-I made both mistakes for real. The notebook and Table reference probe is in `...\scratchpad\t23\probe\mix\`: `job_runs.py` was written by `spark_composer.write_table_reference` with its own Example database, and `notebook.py` imports from `sql_composer`. The send probe is in `...\scratchpad\t23\probe\send\spark_send.py`. It uses a local SparkSession (Spark 4.0.4, with the Example database tables as global temp views in `ops`) and passes `send=spark.sql`. I edited nothing in the repo.
+I made both mistakes for real. The notebook and Table reference probe is in `<scratchpad>\\t23\probe\mix\`: `job_runs.py` was written by `spark_composer.write_table_reference` with its own Example database, and `notebook.py` imports from `sql_composer`. The send probe is in `<scratchpad>\\t23\probe\send\spark_send.py`. It uses a local SparkSession (Spark 4.0.4, with the Example database tables as global temp views in `ops`) and passes `send=spark.sql`. I edited nothing in the repo.
 
 **What worked:**
 - Every mixed call was refused at the first wrong line, and each refusal named the other folder.

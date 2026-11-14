@@ -230,3 +230,34 @@ def test_the_old_memo_is_carried_over_under_its_keys_and_not_over_a_newer_reply(
     assert len(eval_runs.read_kept("T07", "C", "haiku", new)) == 2
     assert eval_runs.carry_over(old, new) == 0
     assert eval_runs.carry_over(tmp_path / "nothing", new) == 0
+
+
+def test_the_old_records_are_copied_under_the_local_folder_and_nothing_is_deleted(
+        tmp_path: Path) -> None:
+    root, local = tmp_path / "repo", tmp_path / "local"
+    scratch = root / ".scratch"
+    (scratch / "usability-loop" / "runs" / "r1").mkdir(parents=True)
+    report = scratch / "usability-loop" / "runs" / "r1" / "report.md"
+    report.write_text("u", encoding="utf-8")
+    (scratch / "usability-loop" / "results.md").write_text("ur", encoding="utf-8")
+    (scratch / "copilot-eval" / "runs" / "a").mkdir(parents=True)
+    (scratch / "copilot-eval" / "runs" / "a" / "x.md").write_text("c", encoding="utf-8")
+    keep(a_key(), scratch / "copilot-eval" / "memo")
+    assert eval_runs.copy_records(root, local) == 4
+    assert (local / "usability/runs/r1/report.md").read_text(encoding="utf-8") == "u"
+    assert (local / "usability" / "results.md").read_text(encoding="utf-8") == "ur"
+    assert (local / "copilot" / "runs" / "a" / "x.md").read_text(encoding="utf-8") == "c"
+    assert len(eval_runs.read_kept("T07", "C", "haiku", local / "memo")) == 1
+    assert (scratch / "usability-loop" / "results.md").is_file()
+    assert eval_runs.copy_records(root, local) == 0
+    assert eval_runs.copy_records(tmp_path / "nothing", local) == 0
+
+
+def test_the_copy_records_command_copies_from_a_root_into_a_local_folder(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root = tmp_path / "repo"
+    (root / ".scratch" / "copilot-eval").mkdir(parents=True)
+    (root / ".scratch" / "copilot-eval" / "results.md").write_text("r", encoding="utf-8")
+    assert eval_runs.main(["copy-records", "--root", str(root),
+                           "--local", str(tmp_path / "local")]) == 0
+    assert "Copied 1 files" in capsys.readouterr().out

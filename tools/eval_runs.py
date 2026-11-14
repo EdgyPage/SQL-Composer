@@ -12,6 +12,7 @@ this module writes is under `.eval-local/`, which git ignores.
         --commit <sha>
     .venv/Scripts/python tools/eval_runs.py ledger
     .venv/Scripts/python tools/eval_runs.py carry-over
+    .venv/Scripts/python tools/eval_runs.py copy-records
 
 - **The local folder**, `LOCAL`: `.eval-local/`, made on first use. `make_local_path` is the one
   way to a path in it and refuses a path that would leave it.
@@ -260,6 +261,36 @@ def carry_over(old: Path = OLD_MEMO, new: Path = MEMO) -> int:
     return copied
 
 
+# Where the records were kept in `.scratch/` while git held them, and where each goes under the
+# local folder (ticket 02). The memo's replies go through `carry_over`.
+OLD_RECORDS = {
+    ".scratch/usability-loop/runs": "usability/runs",
+    ".scratch/usability-loop/results.md": "usability/results.md",
+    ".scratch/copilot-eval/runs": "copilot/runs",
+    ".scratch/copilot-eval/results.md": "copilot/results.md",
+}
+
+
+def copy_records(root: Path = ROOT, local: Path = LOCAL) -> int:
+    """Copy each old record under `root`'s `.scratch/` (see `OLD_RECORDS`), and the old memo's
+    replies, into `local`, skipping a file already there. Nothing is deleted. Returns how many
+    files were copied."""
+    copied = 0
+    for old, new in OLD_RECORDS.items():
+        source = root / old
+        if source.is_file():
+            pairs = [(source, local / new)]
+        else:
+            pairs = [(path, local / new / path.relative_to(source))
+                     for path in sorted(source.rglob("*")) if path.is_file()]
+        for path, target in pairs:
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, target)
+                copied += 1
+    return copied + carry_over(root / ".scratch" / "copilot-eval" / "memo", local / "memo")
+
+
 # --- A round's plan --------------------------------------------------------------------------
 
 
@@ -409,9 +440,16 @@ def _carry_over(given: argparse.Namespace) -> int:
     return 0
 
 
+def _copy_records(given: argparse.Namespace) -> int:
+    """Copy the records git no longer holds from `.scratch/` into the local folder."""
+    copied = copy_records(given.root, given.local)
+    print(f"Copied {copied} files into {given.local.name}/.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Run `record`, `ledger` or `carry-over`; each takes `--local`, the folder it keeps its
-    records in, which is `.eval-local/` but for a test's."""
+    """Run `record`, `ledger`, `carry-over` or `copy-records`; each takes `--local`, the folder
+    it keeps its records in, which is `.eval-local/` but for a test's."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
     record = commands.add_parser("record", help="add an agent's run to the ledger")
@@ -423,10 +461,15 @@ def main(argv: list[str] | None = None) -> int:
     ledger = commands.add_parser("ledger", help="print the ledger")
     carry = commands.add_parser("carry-over", help="copy the old memo into the new one")
     carry.add_argument("--old", type=Path, default=OLD_MEMO)
-    for command in (record, ledger, carry):
+    copy = commands.add_parser("copy-records", help="copy the old records of .scratch/ into "
+                               "the local folder; run it before merging the commit that "
+                               "untracks them, which deletes them from a checkout")
+    copy.add_argument("--root", type=Path, default=ROOT)
+    for command in (record, ledger, carry, copy):
         command.add_argument("--local", type=Path, default=LOCAL)
     given = parser.parse_args(argv)
-    run_command = {"record": _record, "ledger": _print_ledger, "carry-over": _carry_over}
+    run_command = {"record": _record, "ledger": _print_ledger, "carry-over": _carry_over,
+                   "copy-records": _copy_records}
     return run_command[given.command](given)
 
 

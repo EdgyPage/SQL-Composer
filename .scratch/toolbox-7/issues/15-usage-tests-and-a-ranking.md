@@ -13,7 +13,7 @@ find opportunities for thoughtful refactoring. Ensure the tests and expected usa
 howtos and example docs still work." Then: rank each fix on two metrics, how much it simplifies
 and how much it is used ("low, medium, and high risk are valuable targets IF the usage is also
 high"); dev may use external tools, main stays offline. Plan:
-C:/Users/<user folder>/.claude/plans/hazy-dancing-spindle.md. Toolbox 7.1, not exported.
+<user folder>/.claude/plans/hazy-dancing-spindle.md. Toolbox 7.1, not exported.
 
 ## Done when
 

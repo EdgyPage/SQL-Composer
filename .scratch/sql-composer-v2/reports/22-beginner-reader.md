@@ -12,9 +12,9 @@ user; the ticket's Comments say which of it was fixed.
 Beginner-reader report: export_lineage (dev branch). Advisory only. I edited, created and committed nothing.
 
 Files read:
-- C:\Users\<user folder>\Repos\Git\SQL-Composer\sql_composer\lineage.py (module docstring lines 1-8, export_lineage docstring lines 679-705)
-- C:\Users\<user folder>\Repos\Git\SQL-Composer\sql_composer\CHANGES.md, lines 26-31
-- In ...\scratchpad\reader\: weekly_report.py and saved_table_chain.py
+- sql_composer\lineage.py (module docstring lines 1-8, export_lineage docstring lines 679-705)
+- sql_composer\CHANGES.md, lines 26-31
+- In <scratchpad>\\reader\: weekly_report.py and saved_table_chain.py
 - lineage\20260925-191210_nogit_lineage_weekly_report_runs_per_team.md / .html
 - lineage\20260925-191211_nogit_lineage_saved_table_chain_runs_by_team__fill.md / .html
 
