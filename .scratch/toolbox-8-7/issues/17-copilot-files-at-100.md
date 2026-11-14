@@ -1,7 +1,7 @@
 # The Copilot files at 100
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 16
 Size: L
 
@@ -242,3 +242,12 @@ Built 2026-11-14 on its own branch. The rounds, files versions and rules are in
 Its main stops: no example of what pasted column definitions look like; what to say to the
 chatbot with the request, and whether Hive comes back; who ends the asking (step 3 against A4).
 Left for the user: each is a change to file 19 and a new held-out round.
+
+### Closed 2026-11-14
+
+Both halves merged on dev (98831a5, e21af0c), with D523 (four names files 03 and 05 had lost)
+fixed in e1b8332 and file 03 tidied in 5be7d7c, each re-measured. On the current files, on
+haiku: files 01 to 17 dev and held out 100; Excel dev and held out 100; Metric request dev and
+held out 100 (held out twice running); routing 100 by the Index, 94 strict, its three strict
+misses requests two files answer. The whole suite passes on dev after the merges (exit 0), and
+no drift item is open.
