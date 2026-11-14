@@ -84,6 +84,30 @@ def test_a_row_with_an_unknown_pipeline_or_role_or_a_bad_number_is_refused(
     assert eval_runs.read_ledger(tmp_path) == []
 
 
+def a_maintainer_run(**changed: str) -> eval_runs.Run:
+    return a_run(**{"pipeline": "maintainer", "role": "maintainer", "task": "drift-reviewer",
+                    "round": "eval-system-08", "arm": "-", "model": "opus",
+                    "result": "opened D3 D4", **changed})
+
+
+def test_each_maintainer_agent_records_a_run_with_its_result(tmp_path: Path) -> None:
+    for agent in eval_runs.MAINTAINER_AGENTS:
+        eval_runs.record_run(a_maintainer_run(task=agent), tmp_path)
+    eval_runs.record_run(a_maintainer_run(result="clean"), tmp_path)
+    rows = eval_runs.read_ledger(tmp_path)
+    assert [row.task for row in rows[:4]] == list(eval_runs.MAINTAINER_AGENTS)
+    assert rows[-1].result == "clean"
+
+
+@pytest.mark.parametrize(("field", "value"), [("task", "T07"), ("role", "proxy"),
+                                              ("pipeline", "metric"), ("result", "pass")])
+def test_a_maintainer_row_naming_no_agent_or_no_outcome_is_refused(
+        tmp_path: Path, field: str, value: str) -> None:
+    with pytest.raises(SystemExit, match="maintainer"):
+        eval_runs.record_run(a_maintainer_run(**{field: value}), tmp_path)
+    assert eval_runs.read_ledger(tmp_path) == []
+
+
 # --- The memo, keyed by exactly the loaded text ----------------------------------------------
 
 

@@ -21,6 +21,13 @@ from pathlib import Path
 
 DRIFT_LIST = Path(".scratch") / "drift.md"
 REVIEWER_BRIEF = Path(".claude") / "hooks" / "drift-reviewer.md"
+# What the session runs when a drift review finishes, from the tokens and seconds the subagent
+# reported (eval-system ticket 08). `eval_runs record` is the ledger's one writer.
+RECORD_RUN = (
+    '.venv/Scripts/python tools/eval_runs.py record --pipeline maintainer --role maintainer '
+    '--task drift-reviewer --round <commit> --commit <commit> --arm - --model opus '
+    '--tokens <tokens> --seconds <seconds> --result "<clean or opened D<n> ...>"'
+)
 REQUESTS_FILE = "sql-composer-drift-requests"
 
 WATCHED_FOLDERS = ("sqlglot_composer/", "worked_examples/", "example_projects/", "copilot/",

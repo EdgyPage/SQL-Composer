@@ -190,6 +190,15 @@ A `task` ticket that changes code is done when:
 - **Drift reviewer:** `.claude/hooks/drift-reviewer.md`, run as a subagent on the newest Opus
   (model `opus`), as the drift hook's message says.
 
+Record each run of these agents in the ledger when it finishes, from the tokens and seconds
+Claude Code reports for it (Evaluation system, ticket 08; running them is unchanged):
+
+    .venv/Scripts/python tools/eval_runs.py record --pipeline maintainer --role maintainer --task <agent> --round <commit or ticket> --commit <commit> --arm - --model <opus or sonnet> --tokens <tokens> --seconds <seconds> --result "<clean, or opened D3 D4, or opened 2 findings>"
+
+`<agent>` is `drift-reviewer`, `code-review-standards`, `code-review-spec` or `beginner-reader`;
+`eval_runs` refuses any other, and a result that doesn't start with `clean` or `opened`. The
+ledger is local (`.eval-local/`), so the data decides later whether any agent runs less often.
+
 Each names its model by alias (`sonnet`, `opus`), which always means the newest of that class.
 The skills come from `mattpocock/skills`; update them with `npx skills update -g -y`.
 
