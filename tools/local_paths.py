@@ -35,6 +35,7 @@ NAMES_THE_PATTERNS = frozenset({
     "tests/repo/test_local_paths.py",
     "tests/repo/test_local_paths_hook.py",
     "tests/repo/test_code_audit.py",  # writes a Startup path into a made-up file to find it
+    "tests/repo/test_scrub_history.py",  # the history scrub's rules, on a made-up user
 })
 
 # A name that stands for a person's, so a path through it names no one.
@@ -53,6 +54,9 @@ _EMAIL = re.compile(r"[\w.+-]+@((?:[\w-]+\.)+[A-Za-z]{2,})\b")
 # Domains reserved for examples (RFC 2606), and the one Claude Code's own attribution line uses.
 EXAMPLE_DOMAINS = frozenset({"example.com", "example.org", "example.net", "anthropic.com",
                              "users.noreply.github.com"})
+# GitHub's own address, as the committer of a commit made on its website: no one's email. The
+# history scrub (`tools/scrub_history.py`) leaves it in a commit's name lines.
+GITHUB_COMMITTER = "noreply@github.com"
 _SHORTEST_NAME = 3
 
 
