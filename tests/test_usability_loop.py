@@ -296,10 +296,10 @@ def test_more_questions_than_a_run_may_ask_fail_it(chosen: usability_loop.Scenar
                                                    main_tree: Path, tmp_path: Path) -> None:
     run = _prepared(chosen, main_tree, tmp_path)
     _finish(run)
-    for number in range(usability_loop.MOST_QUESTIONS + 1):
+    for number in range(eval_runs.CAPS["usability"].turns + 1):
         usability_loop.route(run, f"question {number}")
     result = usability_loop.score(chosen, run)
-    assert result.questions == usability_loop.MOST_QUESTIONS + 1 and not result.passed
+    assert result.questions == eval_runs.CAPS["usability"].turns + 1 and not result.passed
 
 
 def test_a_question_is_one_chat_file_00_first_then_the_file_it_names(
@@ -1002,3 +1002,23 @@ def test_a_runs_actions_are_counted_cells_edited_and_files_of_its_own(
     assert "actions: 3, cells edited (convert 1), 2 files of its own" in (
         usability_loop.report_text(result, run))
     forget_the_projects_modules()
+
+
+# --- The caps (evaluation system, ticket 07) --------------------------------------------------
+
+
+def test_the_question_cap_is_the_usability_caps_in_the_one_table() -> None:
+    assert not hasattr(usability_loop, "MOST_QUESTIONS")
+    assert eval_runs.CAPS["usability"].turns == 5
+
+
+def test_a_questions_proxy_message_holds_the_reply_cap_and_a_longer_reply_is_flagged(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    _finish(run)
+    message, reply = usability_loop.route(run, "How do I convert a script?")
+    assert eval_runs.reply_cap_text("usability") in message.read_text(encoding="utf-8")
+    reply.write_text("## Q1\n" + "x" * eval_runs.CAPS["usability"].reply, encoding="utf-8")
+    result = usability_loop.score(chosen, run)
+    assert result.long_replies == [reply.name] and result.passed
+    assert "over the reply cap" in usability_loop.report_text(result, run)

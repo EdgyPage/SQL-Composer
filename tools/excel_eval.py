@@ -131,7 +131,7 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
                  "<<<\n" + shared + "\n>>>\n\n")
     ask = ("Each task below is a separate request the user sends next. Answer each as you "
            "would in that chat: reply with its `## X..` heading, then your answer, with SQL in "
-           "```sql blocks and any Python in ```python blocks.")
+           "```sql blocks and any Python in ```python blocks. " + eval_runs.cap_text("excel"))
     prompts = "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
     return head + ask + "\n\n" + prompts
 
@@ -831,8 +831,9 @@ def _score_answers(given: argparse.Namespace) -> None:
     found = eval_runs.round_replies(header, answered, tasks, memo_key, sorted(ARMS),
                                     given.local / "memo")
     results = scored(found.replies)
-    eval_runs.keep_round(found, {one.task: _answer_line(one) for one in results},
-                         header.get("date", "?"))
+    lines = eval_runs.hold_reply_caps("excel", found,
+                                      {one.task: _answer_line(one) for one in results})
+    eval_runs.keep_round(found, lines, header.get("date", "?"))
     print(report(header, results))
     print(eval_runs.memo_line(found))
     splits = "+".join(sorted({BY_ID[one.task].split for one in results}))

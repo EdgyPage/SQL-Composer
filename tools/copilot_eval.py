@@ -315,11 +315,12 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
                  "<<<\n" + shared + "\n>>>\n\n")
     if arm == "R":
         ask = ("For each task below, reply with its `## T..` heading and the one file name "
-               "you would load for it, such as 03_build_a_statement.txt, and nothing else.")
+               "you would load for it, such as 03_build_a_statement.txt, and nothing else. "
+               + eval_runs.cap_text("copilot"))
     else:
         ask = ("Each task below is a separate request the user sends next. Answer each as you "
                "would in that chat: reply with its `## T..` heading, then your answer, with "
-               "the code in a ```python block.")
+               "the code in a ```python block. " + eval_runs.cap_text("copilot"))
     return head + ask + "\n\n" + "\n\n".join(f"## {task.id}\n\n{prompt(task)}"
                                              for task in tasks)
 
@@ -1246,6 +1247,7 @@ def _score_answers(given: argparse.Namespace) -> None:
         lines = {one.task: _answer_line(one) for one in results}
         print(report(header, results))
         row = results_row(header, splits, results, len(found.taken))
+    lines = eval_runs.hold_reply_caps("copilot", found, lines)
     eval_runs.keep_round(found, lines, header.get("date", "?"))
     print(eval_runs.memo_line(found))
     with eval_runs.results_path(given).open("a", encoding="utf-8") as record:

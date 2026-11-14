@@ -256,8 +256,8 @@ def test_start_plans_the_round_and_names_what_the_session_spawns(
     folder = _folder(tmp_path, "r1", "M01")
     assert sorted(path.name for path in folder.iterdir()) == [
         "conversation.json", "copilot.md", "user.md"]
-    assert (folder / "user.md").read_text(encoding="utf-8") == metric_eval.user_message(
-        BY_ID["M01"])
+    assert (folder / "user.md").read_text(encoding="utf-8") == (
+        metric_eval.user_message(BY_ID["M01"]) + "\n\n" + eval_runs.cap_text("metric") + "\n")
     assert f"Ask {len(dev)} of {len(dev)}" in out
     spawn = [line for line in out.splitlines() if line.startswith("M01: spawn")]
     assert len(spawn) == 1
@@ -293,12 +293,13 @@ def test_a_conversation_ends_at_the_turn_cap(
     _run(["start", "C", "--round", "r1", "--split", "dev", "--model", "haiku"], tmp_path,
          capsys)
     folder = _folder(tmp_path, "r1", "M01")
-    for turn in range(1, metric_eval.TURN_CAP):
+    cap = eval_runs.CAPS["metric"].turns
+    for turn in range(1, cap):
         _write(folder, f"turn-{turn:02}-copilot.md", "Another question?")
         _write(folder, f"turn-{turn:02}-user.md", "An answer.")
-    _write(folder, f"turn-{metric_eval.TURN_CAP:02}-copilot.md", "One more question?")
+    _write(folder, f"turn-{cap:02}-copilot.md", "One more question?")
     out = _run(["next", str(folder)], tmp_path, capsys)
-    assert f"ended: turn cap, {metric_eval.TURN_CAP} turns" in out
+    assert f"ended: turn cap, {cap} turns" in out
     assert (folder / "request.md").read_text(encoding="utf-8") == ""
 
 
@@ -361,3 +362,53 @@ def test_only_the_tasks_named_are_asked(
                 "--only", "M01"], tmp_path, capsys)
     assert "Ask 1 of 1" in out
     assert sorted(path.name for path in (tmp_path / "metric" / "r1").iterdir()) == ["M01"]
+
+
+# --- The caps and the ladder (evaluation system, ticket 07) -----------------------------------
+
+
+def test_the_turn_cap_is_the_metric_caps_in_the_one_table() -> None:
+    assert not hasattr(metric_eval, "TURN_CAP")
+    assert eval_runs.CAPS["metric"].turns == 12
+
+
+def test_start_writes_the_caps_into_each_agents_first_message_and_not_into_the_key(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _run(["start", "C", "--round", "r1", "--split", "dev", "--model", "haiku",
+          "--only", "M01"], tmp_path, capsys)
+    folder = _folder(tmp_path, "r1", "M01")
+    for name in ("copilot.md", "user.md"):
+        assert eval_runs.cap_text("metric") in (folder / name).read_text(encoding="utf-8")
+    assert eval_runs.cap_text("metric") not in metric_eval.user_message(BY_ID["M01"])
+
+
+def test_a_turn_longer_than_the_reply_cap_or_a_turn_past_the_turn_cap_is_flagged_in_the_score(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _run(["start", "C", "--round", "r1", "--split", "dev", "--model", "haiku",
+          "--only", "M01"], tmp_path, capsys)
+    folder = _folder(tmp_path, "r1", "M01")
+    caps = eval_runs.CAPS["metric"]
+    for turn in range(1, caps.turns + 2):
+        _write(folder, f"turn-{turn:02}-copilot.md", "A question?")
+        _write(folder, f"turn-{turn:02}-user.md", "x" * (caps.reply + 1) if turn == 1 else "ok")
+    _write(folder, "request.md", REQUEST)
+    out = _run(["score", "r1", "C", "--split", "dev", "--model", "haiku", "--only", "M01"],
+               tmp_path, capsys)
+    assert "OVER CAP" in out and "turn-01-user.md" in out
+    assert f"{caps.turns + 1} turns of Copilot's, cap {caps.turns}" in out
+
+
+def test_the_metric_plan_asks_no_task_whose_key_is_unchanged_and_proposes_a_rung_otherwise(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    key = metric_eval.memo_key("M01", REQUEST, arm="C", model="haiku")
+    eval_runs.write_kept(eval_runs.Kept(key, "2026-11-14", "M01  pass", REQUEST),
+                         tmp_path / "memo")
+    out = _run(["plan", "C", "--split", "dev", "--only", "M01", "M02"], tmp_path, capsys)
+    assert "M01: from the memo" in out and "(haiku passed), not asked again" in out
+    assert "M02: ask on haiku: no reply kept" in out and "Rung haiku: M02" in out
+    out = _run(["plan", "C", "--split", "dev", "--only", "M01", "--model", "haiku"], tmp_path,
+               capsys)
+    assert "M01: from the memo" in out and "Ask 0 of 1" in out
+    with pytest.raises(SystemExit, match="each rung"):
+        metric_eval.main(["start", "C", "--round", "r9", "--split", "dev", "--model",
+                          "ladder", "--local", str(tmp_path)])

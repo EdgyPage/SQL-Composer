@@ -15,12 +15,12 @@ Claude session (`.claude/agents/metric-proxy.md`):
 A conversation is those two agents, each spawned once with its first message and continued with
 SendMessage for the turns after, so each keeps what it has read. The script writes each turn's
 message into the task's folder, reads each reply, and ends the conversation when Copilot's turn
-holds a request or after `TURN_CAP` of Copilot's turns. The request is scored directly, by
-rules (`score_request`), for direction, not exactness: it passes when it holds every essential
-element of its task's requirements key, more of the helpful elements than not, no invented
-column name and no worked-out number, and no SQL. The baseline, arm A0, is the same Copilot
-given file 19's request form, the definitions and the vague goal, with no file 19 and no one to
-ask.
+holds a request or after Copilot's turns reach the metric cap in `eval_runs.CAPS`. The
+request is scored directly, by rules (`score_request`), for direction, not exactness: it
+passes when it holds every essential element of its task's requirements key, more of the
+helpful elements than not, no invented column name and no worked-out number, and no SQL. The
+baseline, arm A0, is the same Copilot given file 19's request form, the definitions and the
+vague goal, with no file 19 and no one to ask.
 
 Everything is under `.eval-local/` (git-ignored): a round's folders in `metric/<round>/<task>/`,
 the results table in `metric/results.md`, the replies in the memo and each agent's usage in the
@@ -49,6 +49,7 @@ import functools
 import json
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -338,8 +339,6 @@ def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
 
 # --- A conversation ------------------------------------------------------------------------
 
-# The most turns of Copilot's a conversation runs before it is ended with no request.
-TURN_CAP = 12
 # The agent a conversation spawns, for either part.
 AGENT = "metric-proxy"
 CONVERSATION = "conversation.json"
@@ -370,10 +369,12 @@ def write_task_folder(task: MetricTask, conversation: Conversation, folder: Path
     stand-in user's user.md, and the conversation's record."""
     folder.mkdir(parents=True, exist_ok=True)
     if conversation.arm == "C":
-        (folder / "user.md").write_text(user_message(task), encoding="utf-8")
-        (folder / "copilot.md").write_text(copilot_message(task), encoding="utf-8")
+        caps = "\n\n" + eval_runs.cap_text("metric") + "\n"
+        (folder / "user.md").write_text(user_message(task) + caps, encoding="utf-8")
+        (folder / "copilot.md").write_text(copilot_message(task) + caps, encoding="utf-8")
     else:
-        (folder / "copilot.md").write_text(baseline_message(task), encoding="utf-8")
+        caps = "\n\n" + eval_runs.reply_cap_text("metric") + "\n"
+        (folder / "copilot.md").write_text(baseline_message(task) + caps, encoding="utf-8")
     (folder / CONVERSATION).write_text(json.dumps(vars(conversation)), encoding="utf-8")
 
 
@@ -413,7 +414,8 @@ def _shown(path: Path) -> str:
 
 def ending(folder: Path) -> str | None:
     """Why a task's conversation is over, or None while it goes on: Copilot's newest turn
-    holds a request, it is arm A0's one turn, or it is Copilot's turn `TURN_CAP`."""
+    holds a request, it is arm A0's one turn, or it is the turn the metric cap in
+    `eval_runs.CAPS` names."""
     copilots = [path for speaker, path in _turns(folder) if speaker == "Copilot"]
     if not copilots:
         return None
@@ -422,7 +424,7 @@ def ending(folder: Path) -> str | None:
         return f"request in turn {count}"
     if read_conversation(folder).arm == "A0":
         return f"no request in turn {count}"
-    if count >= TURN_CAP:
+    if count >= eval_runs.CAPS["metric"].turns:
         return f"turn cap, {count} turns"
     return None
 
@@ -459,9 +461,12 @@ def advance(folder: Path) -> str:
 
 
 def _round_tasks(split: str, only: list[str] | None = None) -> list[str]:
-    """The tasks of a split, or only the ones named."""
+    """The tasks of a split, or only the ones named, each as its own word or comma-separated."""
+    named = []
+    for item in only or []:
+        named += [task for task in item.split(",") if task]
     return [task.id for task in TASKS
-            if split in ("all", task.split) and (not only or task.id in only)]
+            if split in ("all", task.split) and (not named or task.id in named)]
 
 
 def _key_of(given: argparse.Namespace) -> functools.partial[eval_runs.Key]:
@@ -472,13 +477,17 @@ def _key_of(given: argparse.Namespace) -> functools.partial[eval_runs.Key]:
 def plan_of(given: argparse.Namespace) -> eval_runs.RoundPlan:
     """The round's plan: which tasks are asked, which come from the memo, and the estimate."""
     tasks = _round_tasks(given.split, given.only)
-    asking = eval_runs.RoundToPlan("metric", given.arm, given.model, tasks)
+    def key_for_model(model: str) -> Callable[[str, str], eval_runs.Key]:
+        return functools.partial(memo_key, arm=given.arm, model=model)
+    asking = eval_runs.RoundToPlan("metric", given.arm, given.model, tasks,
+                                   key_for_model=key_for_model)
     return eval_runs.plan_round(asking, _key_of(given), given.fresh, given.over_budget,
                                 given.local)
 
 
 def start_round(given: argparse.Namespace) -> str:
     """Plan a round, write each asked task's folder and say what the session spawns first."""
+    eval_runs.check_not_the_ladder(given.model)
     plan = plan_of(given)
     lines = [plan.text]
     for task in plan.asked:
@@ -533,10 +542,27 @@ def record_row(record: Path, row: str) -> None:
     record.write_text(text.rstrip("\n") + "\n" + row + "\n", encoding="utf-8")
 
 
+def cap_flags(folder: Path) -> str:
+    """What a conversation held past the metric caps, as a flag for its score line: each turn
+    file over the reply cap, and Copilot's turns past the turn cap; "" when it held both."""
+    caps = eval_runs.CAPS["metric"]
+    turns = _turns(folder)
+    notes = []
+    for _, path in turns:
+        length = len(path.read_text(encoding="utf-8").strip())
+        if length > caps.reply:
+            notes.append(f"{path.name} ({length} characters, cap {caps.reply})")
+    copilot_turns = len([one for one, _ in turns if one == "Copilot"])
+    if copilot_turns > caps.turns:
+        notes.append(f"{copilot_turns} turns of Copilot's, cap {caps.turns}")
+    return f"  OVER CAP: {'; '.join(notes)}" if notes else ""
+
+
 def score_round(given: argparse.Namespace) -> str:
     """Score a round's requests, each task's request.md or, with no folder, the reply kept
     for it in the memo; keep each new request in the memo; record the round's row. Gives the
     report, a line per task."""
+    eval_runs.check_not_the_ladder(given.model)
     key_of = _key_of(given)
     lines, results, from_memo = [], [], 0
     for task in _round_tasks(given.split, given.only):
@@ -544,18 +570,20 @@ def score_round(given: argparse.Namespace) -> str:
         if path.exists():
             reply = path.read_text(encoding="utf-8")
             result = score_request(BY_ID[task], reply)
+            line = score_line(result) + cap_flags(path.parent)
             eval_runs.write_kept(
                 eval_runs.Kept(key_of(task, reply), datetime.date.today().isoformat(),
-                               score_line(result), reply), given.local / "memo")
+                               line, reply), given.local / "memo")
         else:
             kept = eval_runs.kept_reply(task, key_of, given.local / "memo")
             if kept is None:
                 lines.append(f"{task}  no reply")
                 continue
             result = score_request(BY_ID[task], kept.reply)
+            line = score_line(result)
             from_memo += 1
         results.append(result)
-        lines.append(score_line(result))
+        lines.append(line)
     if results:
         record_row(eval_runs.make_local_path("metric", "results.md", local=given.local),
                    results_row(given, results, from_memo))
@@ -591,7 +619,10 @@ def _parser() -> argparse.ArgumentParser:
         if name == "start":
             command.add_argument("--round", required=True)
         command.add_argument("--split", choices=["dev", "held_out", "all"], default="dev")
-        command.add_argument("--model", required=True)
+        if name == "plan":
+            command.add_argument("--model", default=eval_runs.LADDER_MODEL)
+        else:
+            command.add_argument("--model", required=True)
         if name != "score":
             command.add_argument("--fresh", action="store_true")
             command.add_argument("--over-budget", action="store_true")

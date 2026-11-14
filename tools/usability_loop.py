@@ -141,8 +141,6 @@ CACHE = OUTSIDE / "cache"
 LOCK = "prepare.lock"
 LOCK_WAIT = 300.0
 LOCK_POLL = 0.5
-# The questions a run may ask before it counts as stuck.
-MOST_QUESTIONS = 5
 # The runs a round gives a scenario, by its split: memoized once that many passed with its
 # inputs and none failed.
 ROUND_RUNS = {"dev": 3, "held_out": 1}
@@ -585,7 +583,8 @@ def phase_message(phase: Phase, run: Path, python: Path, given: bool = True,
         "2. If you are stuck, you may ask Copilot, the help your company gives you: end your "
         "turn with one line `QUESTION: ` and your question, then, for each file you would "
         "attach in the chat, a line `ATTACH: ` and its path. You get Copilot's answer as your "
-        f"next message. You may ask at most {counted(MOST_QUESTIONS, 'question')}.",
+        "next message. You may ask at most "
+        f"{counted(eval_runs.CAPS['usability'].turns, 'question')}.",
         "3. Run each command in the foreground and wait for it to finish before you go on.",
         "4. When the job is done, end your turn with one line `DONE: ` and what you did, or, "
         "if you can't finish it, `STUCK: ` and where you stopped.",
@@ -1098,8 +1097,8 @@ def chat_so_far(run: Path, question: str) -> str:
 def write_copilot_message(run: Path, number: int, name: str, text: str) -> tuple[Path, Path]:
     """Keep a Copilot message for a question; its path, and the path its reply goes to."""
     message = run / "_loop" / f"question_{number}_{name}.md"
-    message.write_text(text + f"Write your reply under one heading, `## Q{number}`.\n",
-                       encoding="utf-8")
+    message.write_text(text + f"Write your reply under one heading, `## Q{number}`. "
+                       + eval_runs.reply_cap_text("usability") + "\n", encoding="utf-8")
     return message, run / "_loop" / f"question_{number}_{name}_reply.md"
 
 
@@ -1185,6 +1184,8 @@ class RunScore:
     edited_cells: dict[str, int] = field(default_factory=dict)
     own_files: list[str] = field(default_factory=list)
     questions: int = 0
+    # The Copilot proxy's reply files over the usability reply cap, which fail nothing.
+    long_replies: list[str] = field(default_factory=list)
     project: Path | None = None
 
     @property
@@ -1197,7 +1198,7 @@ class RunScore:
     def passed(self) -> bool:
         failures = [self.missing_tables, self.other_columns, self.other_rows,
                     self.missing_files, self.added_cells]
-        return not any(failures) and self.questions <= MOST_QUESTIONS
+        return not any(failures) and self.questions <= eval_runs.CAPS["usability"].turns
 
 
 def compared_value(value: object) -> tuple[str, object]:
@@ -1278,7 +1279,15 @@ def score(chosen: Scenario, run: Path) -> RunScore:
     check_files(result, key)
     check_cells(result)
     count_actions(result, run)
+    result.long_replies = long_question_replies(run)
     return result
+
+
+def long_question_replies(run: Path) -> list[str]:
+    """The names of a run's Copilot proxy replies longer than the usability reply cap."""
+    cap = eval_runs.CAPS["usability"].reply
+    return [path.name for path in sorted((run / "_loop").glob("question_*_reply.md"))
+            if len(path.read_text(encoding="utf-8").strip()) > cap]
 
 
 def count_actions(result: RunScore, run: Path) -> None:
@@ -1341,6 +1350,9 @@ def report_text(result: RunScore, run: Path) -> str:
                          ("cells added to", result.added_cells)):
         if names:
             lines.append(f"  {label}: {in_words(names)}")
+    if result.long_replies:
+        lines.append(f"  replies over the reply cap of {eval_runs.CAPS['usability'].reply} "
+                     f"characters: {in_words(result.long_replies)}")
     edited = "none"
     if result.edited_cells:
         edited = in_words([f"{name} {count}" for name, count in result.edited_cells.items()])
