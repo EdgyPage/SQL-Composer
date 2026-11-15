@@ -37,7 +37,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import decisions
-from .project_files import table_stem
+from .project_files import SCHEDULED_RUN, table_stem
+from .run_values import hivevar
 from .shared import escaped_literal, in_words, split_table_name
 from .unchecked import SENT, hive_settings
 from .upgrades import MARK_LINE, marks_in, project_version
@@ -1099,6 +1100,25 @@ def upgrade_the_project(inputs: dict[str, object]) -> ProjectReport:
     return project.upgrade()
 
 
+def every_run_made(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each Scheduled run NAME names has its notebook,
+    scheduled_runs/<name>/<name>.ipynb, as project.new_scheduled_run makes it."""
+    names = names_in(inputs, "NAME")
+    return bool(names) and all(
+        (SCHEDULED_RUN.path(root, name) / f"{name}.ipynb").is_file() for name in names)
+
+
+def make_the_runs(inputs: dict[str, object]) -> ProjectReport:
+    """project.new_scheduled_run for the Scheduled run NAME names, or each of a list of them."""
+    from . import project  # project.py imports this file
+
+    name = inputs.get("NAME")
+    # One name is given as it is, so the Admin log records the call as the cell would make it.
+    if isinstance(name, str):
+        return project.new_scheduled_run(name)
+    return project.new_scheduled_run(names_in(inputs, "NAME"))
+
+
 # --- The Workflows ---------------------------------------------------------------------------
 
 TABLES_INPUT = Input("TABLES", [], 'the tables, by their names in the warehouse, such as '
@@ -1622,7 +1642,37 @@ CHANGE_A_SAVED_TABLE = Workflow(
             "`project.check()` names no next step of this Workflow."),
 )
 
-WORKFLOWS = (CONVERT, PROMOTE, NEW_TABLE, REFERENCES, UPGRADE, CHANGE_A_SAVED_TABLE)
+# Make a Scheduled run's notebook: project.new_scheduled_run, moved here from
+# admin/scheduled_runs.ipynb (Toolbox 8.7), adding nothing to it.
+SCHEDULE = Workflow(
+    "schedule",
+    start_materials=("the Scheduled run's name",),
+    end_artifacts=("the Scheduled run's notebook",),
+    steps=(
+        Step("Make the Scheduled run's notebook", FILE_STEP,
+             ("the Scheduled run's name",), ("the Scheduled run's notebook",),
+             "project.new_scheduled_run(NAME)", every_run_made, make_the_runs,
+             goal="the notebook of the Scheduled run `NAME` names, "
+             "scheduled_runs/<name>/<name>.ipynb, made from admin/templates/scheduled_run.py "
+             "and registered",
+             action="run the cell below. It refuses a name already taken, or one Python "
+             "can't import. Once the run's notebook is there, this step is done, and running "
+             "the cell again is refused, as the name is taken. Then open the run's notebook "
+             "and fill in its `<...>`: its parameters, its connection and the Statements it "
+             "runs, as its own text cell says.",
+             done_when="scheduled_runs/<name>/<name>.ipynb is there"),
+    ),
+    inputs=(Input("NAME", "", 'the Scheduled run\'s name, a Python name such as "weekly", '
+                  "or a list of them", starts=True),),
+    about="Makes a Scheduled run, a notebook an outside scheduler runs top to bottom, from "
+    "admin/templates/scheduled_run.py: you fill in its cells in its own notebook, in "
+    "scheduled_runs/.",
+    run_with=(),
+    checks=("scheduled_runs/<name>/<name>.ipynb is there for each name in `NAME`.",
+            "`project.check()` names no next step of this Workflow."),
+)
+
+WORKFLOWS = (CONVERT, PROMOTE, NEW_TABLE, REFERENCES, UPGRADE, CHANGE_A_SAVED_TABLE, SCHEDULE)
 
 
 # --- Each Workflow's notebook -----------------------------------------------------------------
@@ -1745,6 +1795,9 @@ NOTEBOOK_TERMS = {
                "that last wrote them to the one copied in, one version at a time.",
     "UPGRADE mark": "a `# UPGRADE` comment the Upgrade puts at a line it leaves for you to "
                     "change.",
+    "Scheduled run": "a notebook in scheduled_runs/<name>/ that an outside scheduler, such as "
+                     "papermill, runs top to bottom: it writes the tables it needs, in order, "
+                     "and gives back what you asked for.",
 }
 
 
@@ -1997,15 +2050,31 @@ def _project_imports(root: Path, tree: ast.Module) -> dict[str, object]:
 
 def _value_of(node: ast.expr, imported: dict[str, object]) -> object:
     """A plain value a decisions cell writes, as ast.literal_eval reads one, but a name it
-    imported, which stands for what it imported."""
+    imported, which stands for what it imported, and a Script tag's answer hivevar(...),
+    whose default is either (Toolbox 8.7)."""
     if isinstance(node, ast.Name) and node.id in imported:
         return imported[node.id]
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (
+            node.func.id == "hivevar"):
+        return _hivevar_of(node, imported)
     if isinstance(node, ast.Dict):
         return {_value_of(key, imported): _value_of(value, imported)
                 for key, value in zip(node.keys, node.values, strict=True)}
     if isinstance(node, ast.List):
         return [_value_of(each, imported) for each in node.elts]
     return ast.literal_eval(node)
+
+
+def _hivevar_of(node: ast.Call, imported: dict[str, object]) -> object:
+    """The Hivevar a decisions cell's hivevar(...) makes, its NAME and default read as plain
+    values or imported names; ValueError, as for any value it can't read, when they aren't,
+    and when hivevar refuses them."""
+    arguments = [_value_of(each, imported) for each in node.args]
+    keywords = {each.arg: _value_of(each.value, imported) for each in node.keywords}
+    try:
+        return hivevar(*arguments, **keywords)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"hivevar(...) can't be read: {error}") from error
 
 
 def _plain_assignments(source: str, names: set[str]) -> dict[str, object]:
@@ -2057,20 +2126,23 @@ def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
         found = [*from_cell, *[each for each in found if each.get("NAME") not in named]]
     # Each instance reads the one decisions cell, which answers by table.
     answers = given_inputs(root, workflow).get(DECISIONS, {})
-    return [{**each, DECISIONS: answers} for each in found if not is_finished(root, each)]
+    return [{**each, DECISIONS: answers} for each in found
+            if not is_finished(root, workflow, each)]
 
 
-def is_finished(root: Path, inputs: dict[str, object]) -> bool:
+def is_finished(root: Path, workflow: Workflow, inputs: dict[str, object]) -> bool:
     """Whether the batch NAME names is finished: each table compared and passed, its folder
-    moved to finished/, so no step of it is left."""
+    moved to finished/, so no step of it is left. Only convert's batches finish: the schedule
+    Workflow's NAME, a Scheduled run's, is never one, whatever batch shares its name."""
     name = inputs.get("NAME")
-    return isinstance(name, str) and bool(name) and (root / BATCHES / FINISHED / name).is_dir()
+    return (workflow is CONVERT and isinstance(name, str) and bool(name)
+            and (root / BATCHES / FINISHED / name).is_dir())
 
 
-def is_compared_again(root: Path, inputs: dict[str, object]) -> bool:
+def is_compared_again(root: Path, workflow: Workflow, inputs: dict[str, object]) -> bool:
     """Whether project.run_workflow runs the compare step of the batch NAME names once more:
     it is finished, and PARTITIONS lists a Partition to compare."""
-    return is_finished(root, inputs) and bool(inputs.get("PARTITIONS"))
+    return is_finished(root, workflow, inputs) and bool(inputs.get("PARTITIONS"))
 
 
 def one_per_name(root: Path, inputs: dict[str, object]) -> list[dict[str, object]]:

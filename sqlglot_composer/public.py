@@ -5,7 +5,6 @@ The two constants, TOOLBOX_VERSION and VERSION, are __init__.py's own.
 
 from __future__ import annotations
 
-from . import example_database
 from .calculations import (
     Ordering,
     average_of,
@@ -107,7 +106,7 @@ from .unchecked import (
     unchecked_derived,
     unchecked_hive,
 )
-from .run_values import hive_date, latest_partition, run_value, tag_text
+from .run_values import hive_date, hivevar, latest_partition, run_value, tag_text
 from .script_tags import script_tag
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
@@ -244,6 +243,7 @@ __all__ = [
     "script_tag",
     # run_values.py
     "hive_date",
+    "hivevar",
     "latest_partition",
     "run_value",
     "tag_text",
@@ -256,6 +256,4 @@ __all__ = [
     "repair_partitions",
     "compute_statistics",
     "explain",
-    # example_database.py
-    "example_database",
 ]

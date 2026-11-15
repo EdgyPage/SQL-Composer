@@ -27,6 +27,7 @@ from . import kinds
 from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
+from .run_values import last_hivevar_values
 from .shared import HIVE_VARIABLE, in_words, python_literal
 from .tables import Column, Table, UncheckedSelect, literal, python_text, type_family
 from .trees import SIMPLE_NAME, Node
@@ -318,6 +319,9 @@ class UncheckedStatement:
 
     def __init__(self, text: str) -> None:
         self._text = text  # the Hive as written, without a last ;
+        # Each Hivevar's value as last worked out when it was made, tag_text's in its text
+        # among them (Toolbox 8.7): the values its SET hivevar lines send.
+        self._hivevar_values = last_hivevar_values()
 
     def __repr__(self) -> str:
         return "<Unchecked statement - show_hive(...) shows its Hive>"
@@ -377,7 +381,7 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     >>> text = show_hive(by_hand)
     -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
     SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;
-    >>> run_query(by_hand, example_database.query)
+    >>> run_query(by_hand, query)
        job_id      job_name
     0       1  nightly_load
     1       2  invoice_sync
@@ -408,7 +412,7 @@ def seed_copy(table: Table, original: str,
               limits: dict[str, object] | None = None) -> UncheckedStatement:
     """A converted table's Seed: its original's rows, copied in once, by Partition.
 
-    >>> runs = example_database.job_runs
+    >>> runs = job_runs
     >>> text = show_hive(seed_copy(runs, "mart.job_runs", {"dt": {"from": "2026-09-24"}}))
     -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
     INSERT OVERWRITE TABLE ops.job_runs PARTITION (dt) SELECT * FROM mart.job_runs WHERE dt >= '2026-09-24';
@@ -626,7 +630,7 @@ def unchecked_column(text: str, /, **columns: Column) -> Column:
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt = '2026-09-24'
-    >>> run_query(runs, example_database.query)
+    >>> run_query(runs, query)
        run_id  duration_mins  quarter_hours
     0     101             10              0
     1     102             20              1

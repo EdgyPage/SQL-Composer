@@ -23,25 +23,25 @@ import ast
 import contextlib
 import html
 import io
-import re
 import warnings
 from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
-from . import kinds, unchecked
+from . import html_page, kinds, unchecked
 from .clauses import Statement
-from .lineage import (lineage_footer, names_in_a_loop, scripts_commit, shortened, tables_read,
-                      tables_written, write_lineage)
+from .lineage import (changed_in_python, hive_of, lineage_footer, names_in_a_loop,
+                      run_values_of, scripts_commit, settings_lines, shortened, tables_read,
+                      tables_written, two_files, write_lineage)
 from .notebooks import PARAMETERS, SCHEDULED, first_line, read_cells
 from .project import PLACEHOLDER, load, one_line_message, run_logic, writes_of
 from .project_files import SCHEDULED_RUN, TABLE_FOLDER, Registry, table_notebook, table_stem
 from .python_steps import PythonStep
 from .refusals import refuse
-from .running import hive_file_header
-from .scheduled_runs import BuiltRun, lines_before_steps, step_texts
+from .running import hive_file_header, hivevar_values_of_each, write_hivevars_file
+from .scheduled_runs import BuiltRun, RunStep, lines_before_steps, step_texts
 from .shared import counted, in_words, singular_or_plural
-from .unchecked import UncheckedStatement
+from .unchecked import SessionSettings, UncheckedStatement, inline_code
 
 # The name the code built_run_of runs gives the built run, as the Build cell names it built.
 _BUILT = "built_from_its_notebook"
@@ -225,29 +225,36 @@ def _is_build_run(function: ast.expr) -> bool:
 class ProjectTables(NamedTuple):
     """The Project's Table folders: each one's writes, named by its table; why each Table
     folder whose logic doesn't load or whose write() doesn't build was passed over, by its
-    table; and the tables in a loop among the writes, [] when there is none."""
+    table; the tables in a loop among the writes, [] when there is none; and the Session
+    settings each Table folder's session_settings() gives, by its table, for those that have
+    one."""
 
     writes: list[NamedStatement]
     passed_over: dict[str, Exception]
     loop: list[str]
+    settings: dict[str, SessionSettings]
 
 
 def project_tables(registry: Registry, call: str) -> ProjectTables:
     """The writes of each Table folder `registry` lists, through project.load, as run_tables
-    gathers them, those passed over, and a loop among them. A Run value that fails, as one
-    reading the warehouse with no connection does, warns of nothing here: only the tables each
-    write reads count."""
+    gathers them, those passed over, a loop among them, and each one's Session settings. A
+    Run value that fails, as one reading the warehouse with no connection does, warns of
+    nothing here: only the tables each write reads count."""
     writes: list[NamedStatement] = []
     passed_over: dict[str, Exception] = {}
+    settings: dict[str, SessionSettings] = {}
     with _warnings_silenced():
         for table in registry.in_force(TABLE_FOLDER):
             try:
+                logic = load(table)
                 writes += [NamedStatement(write, table)
-                           for write in writes_of(table, load(table), call)]
+                           for write in writes_of(table, logic, call)]
+                if hasattr(logic, "session_settings"):
+                    settings[table] = logic.session_settings()
             # Whatever stops it, a <...> left, a refusal or a name spelt wrong, is reported.
             except Exception as error:  # noqa: BLE001
                 passed_over[table] = error
-    return ProjectTables(writes, passed_over, names_in_a_loop(writes))
+    return ProjectTables(writes, passed_over, names_in_a_loop(writes), settings)
 
 
 def loop_lines(tables: ProjectTables) -> list[str]:
@@ -318,12 +325,22 @@ class RunSection(NamedTuple):
     problem: Exception | None
 
 
+class TableWrite(NamedTuple):
+    """One Statement that writes a table, as the table's section shows it: what sends it, such
+    as "its Table folder" or "the Scheduled run weekly", each once; the Statement; and the
+    Session settings sent before it."""
+
+    by: list[str]
+    statement: Statement | UncheckedStatement | PythonStep
+    settings: list[SessionSettings]
+
+
 class ProjectLineage(NamedTuple):
     """What the page draws: every table, each a box, in name order; those with a Table folder;
     the tables each table a write of the Project writes reads, by the table written; each
     arrow, from a table to a table whose write reads it; each table a Scheduled run writes,
-    with the runs that write it; each table in a loop; each Scheduled run; and each Table
-    folder passed over, with why."""
+    with the runs that write it; each table in a loop; each Scheduled run; each Table folder
+    passed over, with why; and the Statements that write each table, by the table."""
 
     tables: list[str]
     table_folders: list[str]
@@ -333,6 +350,7 @@ class ProjectLineage(NamedTuple):
     loop: list[str]
     runs: list[RunSection]
     passed_over: dict[str, Exception]
+    writes: dict[str, list[TableWrite]]
 
 
 def project_lineage(root: Path, call: str) -> ProjectLineage:
@@ -341,6 +359,8 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
     registry = Registry(root)
     project = project_tables(registry, call)
     statements = list(project.writes)
+    writes = [TableWrite(["its Table folder"], statement, _settings_of(project.settings, table))
+              for statement, table in project.writes]
     runs: list[RunSection] = []
     writers: dict[str, list[str]] = {}
     for name in registry.in_force(SCHEDULED_RUN):
@@ -357,6 +377,8 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
         runs.append(RunSection(name, headings, None))
         for step in steps:
             statements.append(NamedStatement(step.statement, name))
+            writes.append(TableWrite([f"the Scheduled run {name}"], step.statement,
+                                     _run_settings(built, step)))
             for table in tables_written(step.statement):
                 writers[table] = list(dict.fromkeys([*writers.get(table, []), name]))
     reads = _reads_of_each_table(statements)
@@ -368,7 +390,48 @@ def project_lineage(root: Path, call: str) -> ProjectLineage:
     for table, _ in arrows:
         tables.add(table)
     return ProjectLineage(sorted(tables), table_folders, reads, arrows, writers, project.loop,
-                          runs, project.passed_over)
+                          runs, project.passed_over, _writes_of_each_table(writes))
+
+
+def _settings_of(settings: dict[str, SessionSettings], table: str) -> list[SessionSettings]:
+    """The Session settings sent before a write of `table`: its Table folder's, if it has
+    them."""
+    return [settings[table]] if table in settings else []
+
+
+def _run_settings(built: BuiltRun, step: RunStep) -> list[SessionSettings]:
+    """The Session settings a built run sends before one of its steps: the table's it writes,
+    as built.run sends them before its writes; none before a Python step's or a SELECT's."""
+    if step.is_python_step or step.table is None:
+        return []
+    return _settings_of(built.settings, step.table)
+
+
+def _writes_of_each_table(writes: list[TableWrite]) -> dict[str, list[TableWrite]]:
+    """The Statements that write each table, by the table, in the order met: two that say
+    the same, as a Table folder's write and a Scheduled run's step of it do, are one, sent by
+    both."""
+    found: dict[str, dict[tuple[str, ...], TableWrite]] = {}
+    for write in writes:
+        said = tuple(_write_lines(write))
+        for table in tables_written(write.statement):
+            same = found.setdefault(table, {})
+            if said in same:
+                same[said] = same[said]._replace(
+                    by=list(dict.fromkeys([*same[said].by, *write.by])))
+            else:
+                same[said] = write
+    return {table: list(same.values()) for table, same in found.items()}
+
+
+def _write_lines(write: TableWrite) -> list[str]:
+    """What a table's section says of a Statement that writes it, past what sends it: its
+    Run values and Session settings, then its Hive, or where a Python step lives."""
+    s = write.statement
+    lines = [*run_values_of(s), *settings_lines(s, write.settings)]
+    if kinds.kind(s) == kinds.PYTHON:
+        return [*lines, changed_in_python(s)]
+    return [*lines, hive_of(s)]
 
 
 def _loop_arrows(lineage: ProjectLineage) -> set[tuple[str, str]]:
@@ -444,62 +507,6 @@ def _error_text(error: Exception) -> str:
     return f"{type(error).__name__}: {str(error).strip()}"
 
 
-class TableRow(NamedTuple):
-    """One row of the Tables list both files show: the table, what it is, the tables that read
-    it, and the Scheduled runs that write it, ⚠ after them when more than one does; "-" for
-    none."""
-
-    table: str
-    kind: str
-    read_by: str
-    written_by: str
-
-
-def _table_rows(lineage: ProjectLineage) -> list[TableRow]:
-    """The Tables list both files show, a row for each table, in name order."""
-    rows = []
-    for table in lineage.tables:
-        readers = [written for read, written in lineage.arrows if read == table]
-        runs = lineage.writers.get(table, [])
-        mark = " ⚠" if len(runs) > 1 else ""
-        rows.append(TableRow(table, _kind_label(lineage, table), ", ".join(readers) or "-",
-                             f"{', '.join(runs) or '-'}{mark}"))
-    return rows
-
-
-class ReportPart(NamedTuple):
-    """One part of the report both files show after the Tables list: its heading, at its level,
-    2 or 3; a sentence under it, each `name` in it in backticks; a list; and a block of text,
-    as an error's; each "" or [] when it has none."""
-
-    level: int
-    heading: str
-    sentence: str
-    items: list[str]
-    block: str
-
-
-def _report_parts(lineage: ProjectLineage) -> list[ReportPart]:
-    """The report's parts after the Tables list: each Scheduled run, what it sends or why it
-    wasn't built, then each Table folder passed over, with why."""
-    none_yet = ""
-    if not lineage.runs:
-        none_yet = 'None yet: make one with `project.new_scheduled_run("<name>")`.'
-    parts = [ReportPart(2, "Scheduled runs", none_yet, [], "")]
-    for run in lineage.runs:
-        if run.problem is None:
-            parts.append(ReportPart(3, run.name, "What it sends, in order:", run.steps, ""))
-        else:
-            parts.append(ReportPart(3, run.name, "Not built, so nothing it writes is drawn:",
-                                    [], _error_text(run.problem)))
-    if lineage.passed_over:
-        parts.append(ReportPart(2, "Table folders passed over", "Each one's logic doesn't "
-                                "load, so what its write reads isn't drawn.", [], ""))
-    for table, error in lineage.passed_over.items():
-        parts.append(ReportPart(3, table, "", [], _error_text(error)))
-    return parts
-
-
 # --- The Markdown twin ------------------------------------------------------------------------
 
 # What both files say first, under the title.
@@ -518,54 +525,82 @@ def _loop_note(lineage: ProjectLineage) -> str:
             "reads them; project.check() names the logic cell to mend.")
 
 
+def table_key(lineage: ProjectLineage, table: str) -> str:
+    """The id of a table's box and of its Part on the page, by its place in name order."""
+    return f"table-{lineage.tables.index(table)}"
+
+
+def _table_part(lineage: ProjectLineage, table: str) -> html_page.Part:
+    """A table's section, as its panel shows it and the Markdown writes it: what it is, what
+    it reads, what reads it, the Scheduled runs that write it, a loop, its logic failing to
+    load, then each Statement that writes it, with its Run values, the Session settings sent
+    before it and its Hive."""
+    readers = [written for read, written in lineage.arrows if read == table]
+    runs = lineage.writers.get(table, [])
+    facts = [f"What it is: {_kind_label(lineage, table)}",
+             f"Reads: {', '.join(lineage.reads.get(table, [])) or 'no table'}",
+             f"Read by: {', '.join(readers) or 'no table'}",
+             f"Written by Scheduled runs: {in_words(runs) or 'none'}"
+             + (" ⚠" if len(runs) > 1 else "")]
+    if table in lineage.loop:
+        facts.append("In a loop among your tables, as the note at the top says")
+    pieces: list[html_page.Piece | html_page.Part] = [
+        html_page.Piece(html_page.ITEMS, facts)]
+    if table in lineage.passed_over:
+        pieces += [html_page.Piece(html_page.TEXT, ["Its logic doesn't load, so what its "
+                                                    "write reads isn't drawn:"]),
+                   html_page.Piece(html_page.BLOCK, [_error_text(lineage.passed_over[table])])]
+    for write in lineage.writes.get(table, []):
+        *lines, last = _write_lines(write)
+        by = in_words(write.by)
+        if kinds.kind(write.statement) == kinds.PYTHON:
+            pieces += [html_page.Piece(html_page.HEADING, [f"Changed in Python, by {by}"]),
+                       html_page.Piece(html_page.TEXT, [f"{last[0].upper()}{last[1:]}."])]
+        else:
+            pieces.append(html_page.Piece(html_page.HEADING, [f"Hive as submitted by {by}"]))
+        if lines:
+            pieces.append(html_page.Piece(html_page.ITEMS, lines))
+        if kinds.kind(write.statement) != kinds.PYTHON:
+            pieces.append(html_page.Piece(html_page.HIVE, [last]))
+    return html_page.Part(table_key(lineage, table), 2, inline_code(table), pieces)
+
+
+def _runs_part(lineage: ProjectLineage) -> html_page.Part:
+    """The Scheduled runs' section: what each sends, in order, or why it wasn't built."""
+    pieces: list[html_page.Piece | html_page.Part] = []
+    if not lineage.runs:
+        pieces.append(html_page.Piece(html_page.TEXT, [
+            'None yet: make one with `project.new_scheduled_run("<name>")`.']))
+    for number, run in enumerate(lineage.runs):
+        if run.problem is None:
+            said = [html_page.Piece(html_page.TEXT, ["What it sends, in order:"]),
+                    html_page.Piece(html_page.ITEMS, run.steps)]
+        else:
+            said = [html_page.Piece(html_page.TEXT,
+                                    ["Not built, so nothing it writes is drawn:"]),
+                    html_page.Piece(html_page.BLOCK, [_error_text(run.problem)])]
+        pieces.append(html_page.Part(f"run-{number}", 3, run.name, said))
+    return html_page.Part("runs", 2, "Scheduled runs", pieces)
+
+
+def _page_about() -> list[str]:
+    """What both files say under the title: ABOUT, then the two files, and what a click on the
+    page shows."""
+    return [ABOUT, two_files("the table's section, with the Hive that writes it")]
+
+
 def to_markdown(lineage: ProjectLineage, footer: str) -> str:
-    """The Markdown twin: its title, the loop, a Mermaid chart, the tables, each Scheduled
-    run, each Table folder passed over, then the footer."""
-    lines = ["# Lineage: the Project", "", ABOUT, ""]
+    """The Markdown twin, text alone: its title, what it shows, the loop, each table's
+    section, the Scheduled runs, then the footer. Its drawing is on the HTML page only."""
+    lines = ["# Lineage: the Project", ""]
+    for line in _page_about():
+        lines += [line, ""]
     if lineage.loop:
         lines += [f"> **{_loop_note(lineage)}**", ""]
-    lines += ["## Graph", "", *_mermaid_chart(lineage), "", "## Tables", "",
-              "| Table | What it is | Read by | Written by Scheduled runs |",
-              "| --- | --- | --- | --- |"]
-    for row in _table_rows(lineage):
-        lines.append(f"| `{row.table}` | {row.kind} | {row.read_by} | {row.written_by} |")
-    lines.append("")
-    for part in _report_parts(lineage):
-        lines += [f"{'#' * part.level} {part.heading}", ""]
-        if part.sentence:
-            lines += [part.sentence, ""]
-        if part.items:
-            lines += [*[f"- {item}" for item in part.items], ""]
-        if part.block:
-            lines += ["```text", part.block, "```", ""]
+    for table in lineage.tables:
+        lines += html_page.part_markdown(_table_part(lineage, table))
+    lines += html_page.part_markdown(_runs_part(lineage))
     return "\n".join(lines + ["---", "", footer, ""])
-
-
-def _mermaid_chart(lineage: ProjectLineage) -> list[str]:
-    """The Markdown's Mermaid chart, as lines: a box for each table, then the arrows, then the
-    colours: a loop's boxes and arrows red."""
-    ids = {table: f"n{number}" for number, table in enumerate(lineage.tables)}
-    lines = ["```mermaid", "flowchart LR"]
-    for table in lineage.tables:
-        first, *rest = _box_lines(lineage, table)
-        small = "".join(f"<br/><small>{line}</small>" for line in rest)
-        lines.append(f'  {ids[table]}["{first}{small}"]')
-    loop_arrows = _loop_arrows(lineage)
-    red: list[str] = []
-    for number, (read, written) in enumerate(lineage.arrows):
-        lines.append(f"  {ids[read]} --> {ids[written]}")
-        if (read, written) in loop_arrows:
-            red.append(str(number))
-    lines += ["  classDef folder fill:#eef4ff,stroke:#888",
-              "  classDef saved fill:#effaf0,stroke:#888",
-              "  classDef read fill:#f4f4f4,stroke:#888,stroke-dasharray:4 3",
-              "  classDef shared fill:#fff1e0,stroke:#d9822b,stroke-width:2px",
-              "  classDef loop stroke:#d33,stroke-width:2px"]
-    for table in lineage.tables:
-        lines.append(f"  class {ids[table]} {','.join(_box_classes(lineage, table))}")
-    if red:
-        lines.append(f"  linkStyle {','.join(red)} stroke:#d33,stroke-width:2px")
-    return lines + ["```"]
 
 
 # --- The HTML page ----------------------------------------------------------------------------
@@ -601,9 +636,18 @@ def _columns(lineage: ProjectLineage) -> dict[str, int]:
     return columns
 
 
-def _drawing(lineage: ProjectLineage) -> str:
+class Drawing(NamedTuple):
+    """The page's picture: its SVG, and the CSS line that sizes it, never shrunk below 80% of
+    its full size."""
+
+    svg: str
+    size_css: str
+
+
+def _drawing(lineage: ProjectLineage) -> Drawing:
     """The SVG picture: each table's box, in its column, and a curve for each arrow, from the
-    middle of a box's right side to the middle of the next one's left side."""
+    middle of a box's right side to the middle of the next one's left side, data-a and data-b
+    naming the boxes at its two ends, so a click lights up a path."""
     columns = _columns(lineage)
     places: dict[str, tuple[int, int]] = {}
     heights: dict[str, int] = {}
@@ -619,20 +663,24 @@ def _drawing(lineage: ProjectLineage) -> str:
         start, end = (x + BOX_WIDTH, y + heights[read] // 2), (x2, y2 + heights[written] // 2)
         middle = (start[0] + end[0]) // 2
         kind = "e loop" if (read, written) in loop_arrows else "e"
-        parts.append(f'<path class="{kind}" d="M{start[0]},{start[1]} C{middle},{start[1]} '
+        parts.append(f'<path class="{kind}" data-a="box-{table_key(lineage, read)}" '
+                     f'data-b="box-{table_key(lineage, written)}" '
+                     f'd="M{start[0]},{start[1]} C{middle},{start[1]} '
                      f'{middle},{end[1]} {end[0]},{end[1]}"/>')
     for table in lineage.tables:
         parts.append(_box_svg(lineage, table, places[table], heights[table]))
     width = len(tops) * (BOX_WIDTH + COLUMN_GAP) - COLUMN_GAP
     height = max(tops, default=0)
-    return (f'<svg viewBox="-10 -10 {width + 20} {height + 20}" style="min-width:'
-            f'{round(width * 0.8)}px;aspect-ratio:{width + 20}/{height + 20}">'
-            f"{''.join(parts)}</svg>")
+    # A 10-pixel margin all round.
+    return Drawing(f'<svg viewBox="-10 -10 {width + 20} {height + 20}">{"".join(parts)}</svg>',
+                   f".wrap svg{{min-width:{round(width * 0.8)}px;"
+                   f"aspect-ratio:{width + 20}/{height + 20}}}")
 
 
 def _box_svg(lineage: ProjectLineage, table: str, place: tuple[int, int], height: int) -> str:
     """The SVG for one table's box: its rectangle, its lines of text, the first in bold, and a
-    tooltip holding every line whole."""
+    tooltip holding every line whole. Tab reaches it, and it opens its table's Part, whose id
+    is its own with "box-" in front."""
     lines = _box_lines(lineage, table)
     texts: list[str] = []
     for number, line in enumerate(lines):
@@ -640,55 +688,43 @@ def _box_svg(lineage: ProjectLineage, table: str, place: tuple[int, int], height
         text = html.escape(shortened(line, 34 if number == 0 else 38))
         texts.append(f'<text x="8" y="{17 + number * LINE_HEIGHT}"{bold}>{text}</text>')
     classes = " ".join(["n", *_box_classes(lineage, table)])
-    return (f'<g class="{classes}" transform="translate({place[0]},{place[1]})">'
+    key = table_key(lineage, table)
+    return (f'<g class="{classes}" id="box-{key}" tabindex="0" role="button" '
+            f'data-parts="{key}" transform="translate({place[0]},{place[1]})">'
             f'<rect width="{BOX_WIDTH}" height="{height}" rx="4"/>{"".join(texts)}'
             f"<title>{html.escape(chr(10).join(lines))}</title></g>")
 
 
-def _report_html(lineage: ProjectLineage) -> str:
-    """The page's report, under the drawing: the tables, each Scheduled run, and each Table
-    folder passed over."""
-    rows: list[str] = []
-    for row in _table_rows(lineage):
-        rows.append(f"<tr><td><code>{html.escape(row.table)}</code></td>"
-                    f"<td>{html.escape(row.kind)}</td><td>{html.escape(row.read_by)}</td>"
-                    f"<td>{html.escape(row.written_by)}</td></tr>")
-    parts = ["<h2>Tables</h2><table><tr><th>Table</th><th>What it is</th><th>Read by</th>"
-             f"<th>Written by Scheduled runs</th></tr>{''.join(rows)}</table>"]
-    for part in _report_parts(lineage):
-        shown = f"<h{part.level}>{html.escape(part.heading)}</h{part.level}>"
-        if part.sentence:
-            shown += f"<p>{_html_with_code(part.sentence)}</p>"
-        if part.items:
-            items = [f"<li>{html.escape(item)}</li>" for item in part.items]
-            shown += f"<ul>{''.join(items)}</ul>"
-        if part.block:
-            shown += f"<pre>{html.escape(part.block)}</pre>"
-        parts.append(shown)
-    return "\n".join(parts)
-
-
-def _html_with_code(text: str) -> str:
-    """Text as the page shows it: escaped, each `name` in backticks as <code>name</code>."""
-    return re.sub(r"`([^`]*)`", r"<code>\1</code>", html.escape(text))
-
-
-def to_html(lineage: ProjectLineage, markdown_name: str, footer: str) -> str:
-    """The HTML page: PAGE with its markers filled in. It runs no script, so it draws the same
-    with scripts off."""
+def to_html(lineage: ProjectLineage, footer: str) -> str:
+    """The HTML page, built from the page module: the title, what the page shows and its
+    legend, the Scheduled runs, the loop, the drawing, the side panel holding each table's
+    section, the footer. The drawing is in the page, so it draws the same with scripts off,
+    each table's section under it; with scripts on, it zooms, pans and lights up a path, and
+    a box opens its panel."""
     loop = ""
     if lineage.loop:
         loop = f'<p class="loopnote">{html.escape(_loop_note(lineage))}</p>'
-    filled = {"ABOUT": _html_with_code(ABOUT), "LOOP": loop,
-              "MD": html.escape(markdown_name), "DRAWING": _drawing(lineage),
-              "REPORT": _report_html(lineage), "FOOTER": html.escape(footer)}
-
-    def filling(marker: re.Match[str]) -> str:
-        """The text a __NAME__ marker is filled in with."""
-        return filled[marker[1]]
-
-    # One pass, so text that happens to look like a marker is never filled in itself.
-    return re.sub(r"__(ABOUT|LOOP|MD|DRAWING|REPORT|FOOTER)__", filling, PAGE)
+    drawing = _drawing(lineage)
+    intro = "".join(f"<p>{html_page.inline_html(line)}</p>"
+                    for line in _page_about())
+    runs = html_page.part_html(_runs_part(lineage))
+    body = (f"<header><h1>Lineage: the Project</h1>{intro}{html_page.legend(LEGEND)}"
+            f'<details class="runs"><summary>What each Scheduled run sends</summary>{runs}'
+            f"</details></header>\n{loop}\n<main>\n"
+            f'<div class="wrap">{drawing.svg}</div>\n'
+            + html_page.panel([_table_part(lineage, table) for table in lineage.tables])
+            + f"\n</main>\n<footer>{html.escape(footer)}</footer>")
+    # What the module's drawing script lights a path through: each box, its own group, and
+    # each arrow.
+    visible = {"boxes": [{"id": f"box-{table_key(lineage, table)}",
+                          "group": table_key(lineage, table)} for table in lineage.tables],
+               "arrows": [[f"box-{table_key(lineage, read)}",
+                           f"box-{table_key(lineage, written)}", "value"]
+                          for read, written in lineage.arrows]}
+    script = SCRIPT.replace("__DATA__", html_page.script_json(visible), 1)
+    return html_page.page("Lineage: the Project", body,
+                          [CSS, drawing.size_css, html_page.DRAWING_CSS, html_page.PANEL_CSS],
+                          [html_page.DRAWING_SCRIPT, html_page.PANEL_SCRIPT, script])
 
 
 # --- Writing the files ------------------------------------------------------------------------
@@ -709,7 +745,7 @@ def write_project_lineage(root: Path, call: str) -> list[str]:
     html_path, markdown_path = folder / f"{stem}.html", folder / f"{stem}.md"
     folder.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(to_markdown(lineage, footer), encoding="utf-8")
-    html_path.write_text(to_html(lineage, markdown_path.name, footer), encoding="utf-8")
+    html_path.write_text(to_html(lineage, footer), encoding="utf-8")
     lines = [f"Wrote {html_path.relative_to(root).as_posix()} and its Markdown twin, "
              f"{markdown_path.name}: {counted(len(lineage.tables), 'table')} and "
              f"{counted(len(lineage.runs), 'Scheduled run')}."]
@@ -749,8 +785,8 @@ def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
     project.export_run_lineage says it did, a line each."""
     built, _ = built_run_of(root, name, call)
     steps = built.passed_over + built.steps
-    drawn = [(step.statement, step.name) for step in steps
-             if kinds.kind(step.statement) in _DRAWN]
+    drawn_steps = [step for step in steps if kinds.kind(step.statement) in _DRAWN]
+    drawn = [(step.statement, step.name) for step in drawn_steps]
     left_out = [f"{step.name}, {kinds.WORDS[kinds.kind(step.statement)]}" for step in steps
                 if kinds.kind(step.statement) not in _DRAWN]
     if not drawn:
@@ -767,8 +803,9 @@ def write_run_lineage(root: Path, name: str, call: str) -> list[str]:
                             made_by=call)
     stem = f"{when.strftime(unchecked.TIME_IN_A_NAME)}-{name}"
     html_path = root / SCHEDULED_RUN.folder / name / "lineage" / f"{stem}.html"
-    html_path, markdown_path = write_lineage(drawn, f"the Scheduled run {name}", html_path,
-                                             footer, made_by=call)
+    html_path, markdown_path = write_lineage(
+        drawn, f"the Scheduled run {name}", html_path, footer,
+        [_run_settings(built, step) for step in drawn_steps], made_by=call)
     names = [shown for _, shown in drawn]
     lines = [f"Wrote {html_path.relative_to(root).as_posix()} and its Markdown twin, "
              f"{markdown_path.name}: the lineage of {counted(len(drawn), 'Statement')}, "
@@ -784,8 +821,12 @@ def write_run_hive(root: Path, name: str, call: str) -> list[str]:
     """Write the Hive of the Scheduled run `name`, built as its notebook's Build cell builds
     it, into scheduled_runs/<name>/<name>.hql: a header saying what it is, what the build
     prints before its first Statement, as comment lines, then each Statement as the build
-    prints it. What project.export_run_hive says it did, a line each."""
+    prints it, less each SET hivevar line; and <name>.hivevars beside it, the value the run
+    sends for each Hivevar, to read, or none. What project.export_run_hive says it did, a line
+    each."""
     built, _ = built_run_of(root, name, call)
+    # Worked out first: a NAME given two values is refused before any file is written.
+    values = hivevar_values_of_each([step.statement for step in built.steps], call)
     count = counted(len(built.steps), "Statement")
     header = (f"The Hive of the Scheduled run {name}, generated by {call} from {name}.ipynb, "
               f"beside this file, {_built_as('it')}. It is to read, never to edit or to send: "
@@ -793,55 +834,59 @@ def write_run_hive(root: Path, name: str, call: str) -> list[str]:
               "then, so this file is never what is sent. To change it, edit the notebook, save "
               f"it and call {call} again. It holds {count}.")
     build_lines = [f"-- {line}".rstrip() for line in lines_before_steps(built)]
-    texts = [f"{hive_file_header(header)}\n--\n" + "\n".join(build_lines), *step_texts(built)]
+    texts = [f"{hive_file_header(header)}\n--\n" + "\n".join(build_lines),
+             *step_texts(built, with_hivevars=False)]
     path = root / SCHEDULED_RUN.folder / name / f"{name}.hql"
     # \n line endings on every computer, so a file written again matches the one committed.
     path.write_text("\n\n".join(texts) + "\n", encoding="utf-8", newline="\n")
     it = singular_or_plural(len(built.steps), "it", "them")
+    use = ("The value the run sends for each, in a SET hivevar line before each Statement that "
+           f"holds it, as worked out when this file was written; {path.name} leaves those SET "
+           "lines out. Each time the run runs, its notebook works them out again, so this file "
+           f"is to read, as {path.name} is, never to edit or to send. To change a value, edit "
+           f"the notebook, save it and call {call} again.")
     return [f"Wrote {path.relative_to(root).as_posix()}: the Hive of {count}, in the order the "
             f"run sends {it}, {_built_as(it)}. It is to read, never to edit: the notebook "
-            "builds its Hive again each time it runs."]
+            "builds its Hive again each time it runs.",
+            *write_hivevars_file(path, values, call, use=use,
+                                 said="which the run sends in its SET hivevar lines: to read, "
+                                 "as the .hql is.")]
 
 
-# The HTML page, in the look of a Statement's lineage page. to_html fills in each __NAME__
-# marker; it holds no script, and nothing it shows is fetched.
-PAGE = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Lineage: the Project</title><style>
-body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
-header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
+# The HTML page, in the look of a Statement's lineage page, built by to_html from the page
+# module, html_page.py, with these pieces of its own.
+
+# The page's own CSS, after the page module's: what the page shows under its title, the
+# Scheduled runs, the note at the top of a loop, a loop's arrows, and an error's text wrapped.
+# A colour is named only by its token, as var(--name).
+CSS = """\
 header p{margin:0 0 8px;max-width:72em}
-.key span{display:inline-block;margin-right:14px}
-.sw{display:inline-block;width:12px;height:12px;border:1px solid #888;vertical-align:-1px;\
-margin-right:4px}
-.loopnote{margin:8px 16px;padding:8px 12px;border:2px solid #d33;color:#a11;font-weight:600}
-main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
-svg{width:100%;height:auto;display:block}
-.n rect{fill:#fff;stroke:#888} .folder rect{fill:#eef4ff} .saved rect{fill:#effaf0}
-.read rect{fill:#f4f4f4;stroke-dasharray:4 3}
-.shared rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2} .loop rect{stroke:#d33;stroke-width:2}
-.n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace}\
- .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.loop{stroke:#d33;stroke-width:2}
-pre{background:#f7f7f7;padding:8px;overflow:auto;white-space:pre-wrap}
-table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
-footer{padding:8px 16px 24px;color:#777;font-size:12px}
-</style></head><body>
-<header><h1>Lineage: the Project</h1><p>__ABOUT__</p><div class="key">
-<span><i class="sw" style="background:#eef4ff"></i>table with a Table folder</span>
-<span><i class="sw" style="background:#effaf0"></i>Saved table with no Table folder</span>
-<span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>read, not written \
-here</span>
-<span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; written by \
-more than one Scheduled run</span>
-<span><i class="sw" style="border-color:#d33;border-width:2px"></i>in a loop</span>
-<span>arrow: from a table to each table that reads it</span>
-</div></header>
-__LOOP__
-<main>
-<div class="wrap">__DRAWING__</div>
-<p>The same lineage is in <code>__MD__</code>, written beside this file.</p>
-<section id="report">__REPORT__</section>
-</main>
-<footer>__FOOTER__</footer>
-</body></html>
-"""
+.runs{margin-top:8px} .runs summary{cursor:pointer}
+.loopnote{margin:8px 16px;padding:8px 12px;border:2px solid var(--loop);color:var(--loop-text);\
+font-weight:600}
+.e.loop{stroke:var(--loop);stroke-width:2}
+pre{white-space:pre-wrap}"""
+
+# The legend under the title: each kind of box, by its class in html_page.KINDS, as
+# _box_classes gives them, then what an arrow means and what the mouse and keyboard do.
+LEGEND = [
+    ("folder", "table with a Table folder"),
+    ("saved", SAVED_ALONE),
+    ("read", READ_ONLY),
+    ("shared", "⚠ written by more than one Scheduled run"),
+    ("loop", "in a loop"),
+    (None, "arrow: from a table to each table that reads it · click a box, or Tab to it and "
+           "press Enter, to light up what feeds it and what it feeds and open its panel · "
+           "Escape closes it · scroll zooms, drag pans"),
+]
+
+# The page's own script, after html_page.DRAWING_SCRIPT and html_page.PANEL_SCRIPT, whose
+# functions it calls. The picture is in the page already; to_html fills in its one marker,
+# __DATA__, with the boxes and arrows to light up.
+SCRIPT = """\
+// The Project page's own script: the picture is in the page already, so this only makes it
+// zoom, pan and light up a path, and its boxes open the panel. It is plain JavaScript that
+// any browser runs, with nothing to install or download.
+const drawing = document.querySelector('.wrap');
+addMouseHandlers(drawing.querySelector('svg'), __DATA__);
+addPanelHandlers(drawing);"""

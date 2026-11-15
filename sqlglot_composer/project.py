@@ -93,9 +93,10 @@ entry to admin/admin_log.md, the log that also keeps every Admin statement run i
 Project. The rest add no entry of their own: check and load
 change no file, nor does describe_logic; export_project_lineage writes only its two files
 in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
-export_run_hive only <name>.hql; refresh_reference_sheet writes the Reference sheet and the
-Database modules, and no other file; run_tables writes only your tables in the warehouse,
-though an Admin or Unchecked statement it sends is logged, as run_execute logs one anywhere.
+export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
+Hivevar; refresh_reference_sheet writes the Reference sheet and the Database modules, and no
+other file; run_tables writes only your tables in the warehouse, though an Admin or
+Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -156,6 +157,7 @@ from .python_steps import PythonStep
 from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
+from .run_values import Hivevar
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
 from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
@@ -217,10 +219,9 @@ Each notebook runs on its own, so each gives its connection at its top, in its s
 connect(your_connection), before it calls query or execute; until it does, they refuse. Your
 connection is an object whose query(sql) runs Hive that gives back rows and gives them back as
 a pandas DataFrame, and whose execute(sql) runs Hive that changes something: whatever it gives
-back, execute drops. The Example projects and the how-tos connect to the Example database:
-connect(example_database). You pick which of query and execute sends each Statement, by
-calling run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s,
-execute) for what changes something, as a write does; a Scheduled run's Run cell,
+back, execute drops. You pick which of query and execute sends each Statement, by calling
+run_query(s, query) for what gives back rows, as a SELECT does, or run_execute(s, execute)
+for what changes something, as a write does; a Scheduled run's Run cell,
 built.run(query, execute), picks for each of its Statements the same way. You edit nothing
 here, unless your connection names its two calls another way: then change the calls query and
 execute make below, and the names connect checks for, ("query", "execute"), to yours. Let your
@@ -239,8 +240,8 @@ _connection = None
 
 
 def connect(connection: object) -> None:
-    """Set the connection query and execute pass each Hive string to, such as
-    connect(example_database): an object with a query(sql) and an execute(sql)."""
+    """Set the connection query and execute pass each Hive string to, such as connect(conn),
+    where conn is your team's connection: an object with a query(sql) and an execute(sql)."""
     global _connection
     missing = [call for call in ("query", "execute")
                if not callable(getattr(connection, call, None))]
@@ -253,7 +254,7 @@ def connect(connection: object) -> None:
             "query(sql), and execute each one that changes something to its execute(sql), "
             "so your connection needs both.",
             fix="Pass connect(...) the connection itself, the object with both, such as "
-            "connect(example_database) in the Example projects. If yours names them another "
+            "connect(conn), where conn is your team's connection. If yours names them another "
             "way, change the functions in your Project's warehouse.py: the names connect "
             "checks for, (\"query\", \"execute\"), and the calls query and execute make.",
             error=TypeError,
@@ -283,8 +284,8 @@ def _check_connected(call: str) -> None:
             "its top: a connection given in another notebook, or before this one's kernel "
             "restarted, isn't this one's.",
             fix="In this notebook's setup cell, at its top, fill in the line connect(...) "
-            "under its from warehouse import line with your connection, such as "
-            "connect(example_database) in the Example projects, then run that cell again.",
+            "under its from warehouse import line with your connection, such as connect(conn), "
+            "where conn is your team's connection, then run that cell again.",
             error=RuntimeError,
         )
 
@@ -456,9 +457,8 @@ ADMIN_NOTEBOOKS = {
     "scheduled_runs": (
         "# Scheduled runs, by hand\n\nWhat no Scheduled run does each time it runs, since it "
         "would be work for nothing each time: run these cells by hand, when you want them. "
-        "Name each Scheduled run to make in `NEW_RUNS`, such as `[\"weekly\"]`: "
-        "`project.new_scheduled_run(NEW_RUNS)` makes `scheduled_runs/<name>/<name>.ipynb` "
-        "from the Template, for you to fill in its `<...>`. `project.check()` reports a loop "
+        "To make a Scheduled run, use the schedule Workflow, "
+        "`workflows/schedule/schedule.ipynb`. `project.check()` reports a loop "
         "among your tables, two or more each waiting on another so that none can be written "
         "first, naming the logic cell to mend, and changes nothing. "
         "`project.export_project_lineage()` writes `lineage/<time>-project.html` and its "
@@ -474,8 +474,6 @@ ADMIN_NOTEBOOKS = {
         "Project's path connects to the warehouse: a Run value that reads the warehouse needs "
         "it even to build.",
         [f"from warehouse import connect\n{CONNECT_LINES}",
-         'NEW_RUNS = []  # Scheduled runs to make, such as ["weekly"]\n'
-         "if NEW_RUNS:\n    print(project.new_scheduled_run(NEW_RUNS))",
          "project.check()  # a loop among your tables, and what else needs you",
          "project.export_project_lineage()  # every Saved table, and the runs that write each",
          'RUNS = []  # Scheduled runs, for each one\'s lineage and Hive, such as ["weekly"]\n'
@@ -1390,12 +1388,12 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     '''Write a Run value: a function giving a table's latest Partition.
 
     >>> from pathlib import Path
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> _ = project.add_references(["ops.job_runs"], query=query)
     >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
     Wrote period_end into building_blocks/run_values.py: the latest Partition of
     ops.job_runs, by dt.
@@ -1666,12 +1664,12 @@ def add_references(names: str | list[str],
                    **removed: object) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     ops.jobs: its Key proposed, (job_id), checked with check_key:
       ops.jobs: the key (job_id) holds.
@@ -2221,7 +2219,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
                  change: Statement | None = None) -> ProjectReport:
     """Run every step left of a Workflow, up to the first only you can do.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -2233,8 +2231,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     ...     "TABLES = []", "TABLES = ['ops.job_events']").replace(
     ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': 'proposed'}}"),
     ...     encoding="utf-8")
-    >>> project.run_workflow("references", query=example_database.query,
-    ...                      execute=example_database.execute)
+    >>> project.run_workflow("references", query=query, execute=execute)
       references: 1. Write the Table references from DESCRIBE
         Wrote references/ops__job_events.py: fill in its TODO lines.
         ops.job_events: its Key proposed, (event_id), checked with check_key:
@@ -2316,8 +2313,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     # batch is run only to compare it again, on the Partitions PARTITIONS lists.
     instances = [workflows.read_again(root, found, each)
                  for each in workflows.one_per_name(root, started)
-                 if not workflows.is_finished(root, each)
-                 or workflows.is_compared_again(root, each)]
+                 if not workflows.is_finished(root, found, each)
+                 or workflows.is_compared_again(root, found, each)]
     if not instances:
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
@@ -2338,7 +2335,7 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
             ran.append(again)
         return ProjectReport([*lines, *ran])
     for inputs, its_calls in zip(instances, calls, strict=True):
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, found, inputs):
             ran, stopped = _compare_again(root, found, inputs, its_calls)
         else:
             ran, stopped = _run_steps(root, found, inputs, its_calls)
@@ -2500,7 +2497,7 @@ def _batch_state_lines(root: Path, workflow: workflows.Workflow,
         inputs = workflows.read_again(root, workflow, inputs)
         step = workflows.next_step(root, workflow, inputs)
         state = "every step is done"
-        if workflows.is_finished(root, inputs):
+        if workflows.is_finished(root, workflow, inputs):
             state = (f"finished, every step done: its folder is "
                      f"{(BATCHES / FINISHED / str(inputs['NAME'])).as_posix()}/")
         elif step is not None:
@@ -2627,7 +2624,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.6.
+    Upgraded the Project from 7.1 to 8.7.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2637,9 +2634,11 @@ def upgrade() -> ProjectReport:
     8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
     8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
+    8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-        admin/upgrade_8.4.md, admin/upgrade_8.5.md and admin/upgrade_8.6.md.
+        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md and
+        admin/upgrade_8.7.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -2868,7 +2867,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
             overwrite: bool = False, staging: dict[str, str] | None = None) -> ProjectReport:
     """Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -2881,7 +2880,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     ...     SELECT r.run_id, r.status
     ...     FROM ops.job_runs r
     ...     WHERE r.dt = '2026-09-24' AND r.status = 'FAILED' ''',
-    ...     query=example_database.query, database="ops"))
+    ...     query=query, database="ops"))
     Converted failed_runs: 1 script, 1 statement, into 1 Saved table in mart_dev:
     mart_dev.failed_runs.
     Added Table references, from DESCRIBE: references/ops__job_runs.py.
@@ -4369,7 +4368,7 @@ def _scan_report_text(name: str, lines: list[str]) -> str:
 def batch_tables(name: str, seeded: bool = False) -> list[str]:
     """The Saved tables a batch made in your Dev Database, in the order they run.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -4380,7 +4379,7 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
+    ...                     query=query, database="ops")
     >>> project.batch_tables("spare")
     ['mart_dev.spare']
 
@@ -4422,7 +4421,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
                   **removed: object) -> ProjectReport:
     """Compare each Saved table a batch made in dev with the table it copies.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -4433,8 +4432,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
-    >>> print(project.compare_batch("spare", query=example_database.query))
+    ...                     query=query, database="ops")
+    >>> print(project.compare_batch("spare", query=query))
     mart_dev.spare: failed, couldn't compare: The Example database couldn't run this Hive: it
     has no table mart_dev.spare.
 
@@ -4545,12 +4544,12 @@ def write_decisions(answers: dict[str, dict[str, object]],
                     tables: str | list[str] | None = None) -> ProjectReport:
     """Write each answer of a decisions cell into its table's Table reference.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references("ops.team_notes", query=example_database.query)
+    >>> _ = project.add_references("ops.team_notes", query=query)
     >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
     Wrote 1 answer into references/ops__team_notes.py.
     ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits on
@@ -4770,6 +4769,13 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
         logic = "\n".join(text for _, text in read_cells(notebook))
     notes = []
     for name, value in tags.items():
+        if isinstance(value, Hivevar):
+            notes.append(f"{table}: tags: {name} is the Hivevar {value.name}: the Toolbox "
+                         f"sends SET hivevar:{value.name}=<value> before each Statement that "
+                         "holds it. <value> is its default unless a Scheduled run's "
+                         "hivevars= gives another. export_hive() writes it into a .hivevars "
+                         "file beside the .hql.")
+            continue
         for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
             said = f"{table}: tags: {name} is {value}"
             # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
@@ -4780,7 +4786,9 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
             else:
                 notes.append(f"{said}: written, but no SET line of its scripts sets "
                              f"hivevar:{variable}, so the write would send it as it is: "
-                             "answer again with the value itself, such as \"'2026-10-31'\".")
+                             "answer again with the value itself, such as \"'2026-10-31'\", "
+                             f"or with hivevar(\"{variable}\", default=\"'2026-10-31'\"), "
+                             "which sends its own SET line.")
     return notes
 
 
@@ -6209,7 +6217,7 @@ def _prod_blocks_edited_lines(root: Path, blocks: dict[str, str]) -> list[str]:
 def remove_conversion(name: str | list[str]) -> ProjectReport:
     """Archive a batch's folder you no longer want, into admin/removed/.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -6220,7 +6228,7 @@ def remove_conversion(name: str | list[str]) -> ProjectReport:
     ...                                                        '"mart_dev"'))
     >>> _ = project.convert("spare",
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
-    ...                     query=example_database.query, database="ops")
+    ...                     query=query, database="ops")
     >>> project.remove_conversion("spare")
     Moved admin/workflows/convert/spare/ to admin/removed/...-spare/.
 
@@ -6393,12 +6401,12 @@ def _what_happened(refusal: str) -> str:
 def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> project.add_references(["ops.run_alerts"], query=example_database.query)
+    >>> project.add_references(["ops.run_alerts"], query=query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
       ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23',
@@ -6876,12 +6884,12 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     """Write a Saved table's Table reference from its logic.
 
     >>> from pathlib import Path
-    >>> from sqlglot_composer import example_database, project
+    >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
     Next: at the top of each notebook, fill in connect(...) with your connection.
-    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> _ = project.add_references(["ops.job_runs"], query=query)
     >>> _ = project.new_table("mart_dev.daily_runs")
     >>> # Only to stand in for writing its logic in its notebook, and saving it:
     >>> notebook = Path("tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb")
@@ -7335,12 +7343,12 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
 
 def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
               run_values: dict[str, object] | None = None,
-              leave_out: list[str] | None = None) -> BuiltRun:
+              leave_out: list[str] | None = None,
+              hivevars: dict[str, object] | None = None) -> BuiltRun:
     """Build a Scheduled run's Statements in order and print their Hive, sending none.
 
     >>> import os
     >>> from sqlglot_composer import FROM, SELECT, WHERE, equals, project, statement
-    >>> from sqlglot_composer.example_database import job_runs
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/, scheduled_runs/ and warehouse.py.
@@ -7391,6 +7399,14 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
        RUN_DATE's text, "2026-11-01", is a datetime.date where period_end gives one; a
        function with no hint takes it as it is.
        A value that can't be read, and a name no Statement's Run value has, are refused.
+       hivevars={"PERIOD_END": RUN_DATE} gives each Hivevar named PERIOD_END, a Script tag
+       answered hivevar("PERIOD_END", default=...) (help(hivevar)), that value for this
+       build, in place of its default: a datetime.date, a number, or Hive text written as
+       the default is. A date as text, such as "2026-11-01" as a scheduler passes it, is that
+       date. A parameter left empty is None, or "", which sends the default. Each Statement
+       holding it is printed after its SET hivevar line: built.run sends that line first
+       before a write, and writes the value in its place in a SELECT. A name no Statement's
+       Hivevar has is refused, naming those they have.
     3. The tables they read: each table of this Project with a Table folder that a Statement
        reads, and each its writes read, all the way up, has its Table notebook's write()
        added, through project.load, before what reads it; a table outside the Project is only
@@ -7419,7 +7435,7 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     It prints each heading, such as -- 3 of 7: mart.team_days (read by week_totals), and its
     Hive, and gives back the built run, which built.run(query, execute) sends.
     """
-    call = _build_run_call(statements, run_values, leave_out)
+    call = _build_run_call(statements, run_values, leave_out, hivevars)
     if not callable(statements) or _arguments_needed(statements):
         refuse(
             what=f"{call} was given {statements!r}, where the function statements goes.",
@@ -7432,18 +7448,20 @@ def build_run(statements: Callable[[], dict[str, object] | list[object]], *,
     # scheduled_runs imports this file, so it is read here, when a run is built.
     from .scheduled_runs import build_scheduled_run
 
-    return build_scheduled_run(statements, run_values or {}, leave_out or [], callers_frame(),
-                               call)
+    return build_scheduled_run(statements, run_values or {}, hivevars or {}, leave_out or [],
+                               callers_frame(), call)
 
 
 def _build_run_call(statements: object, run_values: dict[str, object] | None,
-                    leave_out: list[str] | None) -> str:
+                    leave_out: list[str] | None, hivevars: dict[str, object] | None) -> str:
     """build_run's call as the Build cell writes it, its keywords shown when given."""
     shown = getattr(statements, "__name__", "statements")
     if run_values:
         shown += ", run_values={...}"
     if leave_out:
         shown += f", leave_out={leave_out!r}"
+    if hivevars:
+        shown += ", hivevars={...}"
     return f"project.build_run({shown})"
 
 
@@ -7522,7 +7540,7 @@ def export_run_lineage(name: str | list[str]) -> ProjectReport:
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\n# logic\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n"
-    ...     "from sqlglot_composer.example_database import jobs\n"
+    ...     "jobs = Table('ops.jobs', columns={'job_id': 'bigint', 'team': 'string'})\n"
     ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\n"
     ...     "              location='/data/your_team/mart.db/job_teams')\n"
     ...     "def write():\n"
@@ -7595,7 +7613,7 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     >>> _ = Path("admin/templates/short.py").write_text(
     ...     "# %%\n# logic\n"
     ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n"
-    ...     "from sqlglot_composer.example_database import jobs\n"
+    ...     "jobs = Table('ops.jobs', columns={'job_id': 'bigint', 'team': 'string'})\n"
     ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\n"
     ...     "              location='/data/your_team/mart.db/job_teams')\n"
     ...     "def write():\n"
@@ -7642,14 +7660,18 @@ def export_run_hive(name: str | list[str]) -> ProjectReport:
     parameter as used and the Run values run_values= gave; then each Statement in the order
     the run sends it, headed as the build prints it, such as -- 3 of 7: mart.team_days (read
     by week_totals), a table's session_settings() before its first write, and its Hive, as
-    show_hive shows it. The file is to read and to commit, never to edit or to send: the run
-    builds its Hive fresh each time, from its logic, so a Run value is worked out as it runs.
-    A Run value is worked out here too, as the file is written, so one that reads the
-    warehouse needs connect(...) first, as admin/scheduled_runs.ipynb's first cell has it.
-    Written again, it is the same text when nothing changed. It changes no other file and
-    adds no Admin log entry, as export_hive adds none. A run whose build is refused is
-    refused as the build refuses it; a name with no Scheduled run is refused, naming the
-    close ones. `name` may be a list of the runs' names, each written in turn.
+    show_hive shows it, less each SET hivevar line. The file is to read and to commit, never
+    to edit or to send: the run builds its Hive fresh each time, from its logic, so a Run
+    value is worked out as it runs. A Run value is worked out here too, as the file is
+    written, so one that reads the warehouse needs connect(...) first, as
+    admin/scheduled_runs.ipynb's first cell has it. Written again, it is the same text when
+    nothing changed. When the run's Hive holds a Hivevar (help(hivevar)), it also writes
+    <name>.hivevars beside the .hql: the value the run sends for each, in its SET hivevar
+    lines, as worked out now, to read as the .hql is; when it holds none, it deletes one an
+    export before wrote. It changes no other file and adds no Admin log entry, as export_hive
+    adds none. A run whose build is refused is refused as the build refuses it; a name with no
+    Scheduled run is refused, naming the close ones. `name` may be a list of the runs' names,
+    each written in turn.
 
     Here a short Template stands in for a Table notebook of yours, and the Scheduled run's
     one Statement is its write().

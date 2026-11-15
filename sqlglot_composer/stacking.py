@@ -62,7 +62,6 @@ def UNION_ALL(*statements: Statement | list[Statement],
               returns_all_rows: bool = False) -> Statement:
     """Stack the rows of Statements one after another, keeping every row.
 
-    >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -85,7 +84,7 @@ def UNION_ALL(*statements: Statement | list[Statement],
     FROM ops.run_alerts AS run_alerts
     WHERE
       run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
-    >>> run_query(UNION_ALL(failed, alerted), example_database.query)
+    >>> run_query(UNION_ALL(failed, alerted), query)
        run_id
     0     101
     1     102
@@ -108,7 +107,6 @@ def UNION(*statements: Statement | list[Statement],
           returns_all_rows: bool = False) -> Statement:
     """Stack the rows of Statements, each different row once.
 
-    >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -119,7 +117,7 @@ def UNION(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run_query(UNION(failed, alerted), example_database.query)
+    >>> run_query(UNION(failed, alerted), query)
        run_id
     0     101
     1     102
@@ -135,7 +133,6 @@ def INTERSECT(*statements: Statement | list[Statement],
               returns_all_rows: bool = False) -> Statement:
     """Keep the rows every Statement returns, each different row once.
 
-    >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -146,7 +143,7 @@ def INTERSECT(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run_query(INTERSECT(failed, alerted), example_database.query)
+    >>> run_query(INTERSECT(failed, alerted), query)
        run_id
     0     102
 
@@ -165,7 +162,6 @@ def EXCEPT(*statements: Statement | list[Statement],
            returns_all_rows: bool = False) -> Statement:
     """Keep the first Statement's rows that no other Statement returns, each once.
 
-    >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -188,7 +184,7 @@ def EXCEPT(*statements: Statement | list[Statement],
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
-    >>> run_query(EXCEPT(alerted, failed), example_database.query)
+    >>> run_query(EXCEPT(alerted, failed), query)
        run_id
     0     101
 

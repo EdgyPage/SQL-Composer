@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 8.6, exported 2026-11-10 07:18 - generated from dev, do not edit -->
+<!-- sqlglot Composer 8.7, exported 2026-11-14 22:27 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 8.6, exported 2026-11-10 07:18.
+This is version 8.7, exported 2026-11-14 22:27.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. **It refuses a Statement that would silently
@@ -14,11 +14,17 @@ give a wrong number, or read or return too much, and says what to change.**
   of your own, follow their Lineage, keep the Project in order, and convert someone else's Hive
   into your own code. Do them in order: each closes with what to check before the next.
 - Each step is a short summary of the Getting started how-to of the same name, which walks
-  through it in full on `sqlglot_composer/how_to.html`, a page in the download to open in your
-  browser.
-- Every example here runs on the Example database, so you can follow the page before you
-  connect your own warehouse.
-- The Starter Example project shows a Project much like the one the story leaves, filled in.
+  through it in full on `docs/how_to.html`, a page in the download to open in your browser.
+  The download's `docs` folder holds every page: the how-tos, the Example gallery, the
+  Workflows overview and the Example projects.
+- The steps are to read, not to run here: each shows its code and what it gave, run by the
+  Toolbox's makers on the Example database. The examples' tables, such as `ops.job_runs`, which
+  a docstring's example calls `job_runs`, are that Example warehouse's, which the download
+  doesn't hold, not tables of your warehouse at work: each how-to shows
+  the tables it reads, their columns, types and first rows. Run the same steps in your own
+  Project, on your own warehouse and tables.
+- The Starter Example project, on `docs/example_projects.html`, shows a Project much like the
+  one the story leaves, filled in.
 - The sections after step 9 are reference: the Workflows, Scheduled runs, the how-tos, the
   Example gallery, the Example projects, the Templates, Copilot, updating, the license and the
   cheat sheet.
@@ -32,8 +38,9 @@ Each word below is the Toolbox's own; the steps define the rest where they first
   it into each Project.
 - **Warehouse**: where your tables are and your Hive runs at work. The Toolbox reaches it only
   through two functions of yours, `query` and `execute`, in `warehouse.py`.
-- **Example database**: nine made-up tables that ship inside the Toolbox and stand in for your
-  warehouse in every example.
+- **Example database**: nine made-up tables that stand in for your warehouse in every example.
+  They don't ship with the Toolbox: each example shows what it gave when run on them, and each
+  how-to shows the tables it reads.
 - **Statement**: one query, built from clause functions, that the Toolbox checks and writes as
   one Hive string.
 - **Project**: your folder at work holding the Toolbox and your own files in one fixed layout.
@@ -97,16 +104,17 @@ Next: at the top of each notebook, fill in connect(...) with your connection.
    notebook runs on its own, so each gives `warehouse.py` your connection at its top, with
    `connect(...)`: each notebook the Project actions write that reaches the warehouse has the
    line `# connect(your_connection)` in its first code cells, for you to fill in, as below.
-   This page connects to the Example database, `connect(example_database)`. Done when each
-   notebook you run connects, or connects to the Example database while you follow this page;
-   then go on to section 2, "Add your tables' references".
+   This page's steps write `connect(conn)`, where `conn` is your team's connection: when the
+   Toolbox's makers ran them, it was the Example database's. Done when each notebook you run
+   connects; then go on to section 2, "Add your tables' references".
 
 ```python
 import my_api  # your team's library
 from warehouse import connect  # the setup cell imports it already
 
-# Your connection: its query(sql) gives back a DataFrame, its execute(sql) runs a change.
-connect(my_api.connect())
+# Your connection, conn: its query(sql) gives back a DataFrame, its execute(sql) runs a change.
+conn = my_api.connect()
+connect(conn)
 ```
 
 If your team keeps its connection in a file outside the Project, such as a file
@@ -195,7 +203,7 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     read from a file read where it is, never copied, and Hive pasted as text kept in its
     scripts/. Made by
     `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as
-    [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
+    [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_hive)
     shows; it makes each table the Hive writes a Saved table in your Dev Database. You fill in
     each table's Decisions, in the notebook's decisions cell.
   - an Upgrade's checklist in admin/, named for the version it upgraded to, such as
@@ -243,7 +251,9 @@ missing or made by hand. Each line below names a path, what makes it, and what y
   - scheduled_runs/, a folder per Scheduled run: made by `project.start()`; you fill in
     nothing.
   - `scheduled_runs/<name>/<name>.ipynb`, a Scheduled run, a notebook an outside scheduler
-    runs top to bottom: made by `project.new_scheduled_run("<name>")`; you fill in its `<...>`
+    runs top to bottom: made by the schedule Workflow, whose
+    `admin/workflows/schedule/schedule.ipynb` runs `project.new_scheduled_run(NAME)` with
+    `NAME = "<name>"`; you fill in its `<...>`
     lines: its parameters, its connection and the Statements it runs.
   - `scheduled_runs/<name>/<name>.hql`, the run's built Hive, in order, to read and to commit:
     made by `project.export_run_hive("<name>")`, run by hand from `admin/scheduled_runs.ipynb`;
@@ -260,7 +270,7 @@ missing or made by hand. Each line below names a path, what makes it, and what y
   - `lineage/`, beside the notebook you run it from, the Lineage of a Statement exported outside
     a Table notebook: made by `export_lineage(...)`; you fill in nothing.
 
-How-to: [Start a Project](../sqlglot_composer/how_to.html#start_a_project), with what to do when
+How-to: [Start a Project](../docs/how_to.html#start_a_project), with what to do when
 your API gives rows without their column names, and the lines a notebook deeper in the Project
 starts with.
 
@@ -279,7 +289,10 @@ the table's columns and their types, its **Partitions** (the columns it is store
 day or a region) and its **Key** (the columns that name one row), where it has them. Each
 **Database**, the first part of a table's name (`ops` in `ops.jobs`), has a **Database module**,
 such as `references/ops.py`, that gives each of its tables at a dot. The references Workflow,
-`admin/workflows/references/references.ipynb`, takes you through it.
+`admin/workflows/references/references.ipynb`, takes you through it: the Starter Example
+project's, on the
+[Example projects page](../docs/example_projects.html#starter/admin/workflows/references/references.ipynb),
+shows its cells. The code below calls the functions its cells call, to show what each gives.
 
 1. **Name the tables.** Goal: the Workflow knows which tables to read. Action: name the tables
    in the references Workflow's names cell, and save the notebook. Done when the names cell
@@ -292,9 +305,8 @@ such as `references/ops.py`, that gives each of its tables at a dot. The referen
    file it wrote; then step 3.
 
 ```python
->>> from sqlglot_composer import example_database
 >>> from warehouse import connect, query, execute
->>> connect(example_database)
+>>> connect(conn)
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 ops.jobs: its Key proposed, (job_id), checked with check_key:
@@ -342,7 +354,9 @@ DECISIONS = {
    its Key, and `does_not_add_up=`, the columns the Toolbox refuses to add up, proposed from
    names such as `avg_*` and `*_ratio`. Keep each, taking off its `# proposed` comment, or
    change it. Below it, you may add **Aliases**, your own names for its columns and
-   conditions. Done when you have read each; then step 5.
+   conditions. Once you have changed a Table reference by hand, run
+   `project.refresh_reference_sheet()`, so the Reference sheet holds what it now says;
+   `project.check()` names each one changed since. Done when you have read each; then step 5.
 5. **Import the Database.** Goal: every table of the Database from one import. Action: run
    `from references import ops`; each column is at a dot after its table, as below. Done when
    `ops.job_runs.status` shows `job_runs.status`; then step 6.
@@ -363,7 +377,7 @@ job_runs.status
    checks on every table, each partitioned one on its latest Partition. Done when each check's
    `ok` is true; then go on to section 3, "Build and run a first statement".
 
-How-to: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references).
+How-to: [Add your tables' references](../docs/how_to.html#add_your_tables_references).
 
 Before you go on, check:
 
@@ -423,29 +437,24 @@ WHERE
 `show_hive(failed)` prints the same Hive with a `;` at the end, ready to paste into Hue,
 Beeline or DBeaver.
 
-4. **Run a Worked example.** Goal: any function's example in your own notebook. Action: find
-   it, `help(to_hive)` shows the one for `to_hive`, then run the lines below first and paste
-   the example after them. Done when the example shows the rows its docstring shows; then go
-   on to section 4, "Count, join and stay safe".
-
-```python
-from sqlglot_composer import *
-jobs, job_runs = example_database.jobs, example_database.job_runs
-```
+4. **Read a Worked example.** Goal: any function's example. Action: find it, `help(to_hive)`
+   shows the one for `to_hive`, and read the call and what it gives. To try it in your own
+   notebook, name your own tables in the place of the Example database's. Done when you can
+   say what the example gives; then go on to section 4, "Count, join and stay safe".
 
 What the Worked examples hold:
 
 - Every function and class in the cheat sheet has a Worked example in its docstring.
-- The examples use every Toolbox name and the Example database's `jobs` and `job_runs`: its own
-  Table references of `ops.jobs` and `ops.job_runs`, the same tables as your Project's
-  `ops.jobs` and `ops.job_runs`, which ship inside the Toolbox so an example runs with no
-  Project.
+- The examples use every Toolbox name and the Example database's tables by name, such as
+  `jobs` and `job_runs`, the same tables as the story's Project's `ops.jobs` and `ops.job_runs`,
+  and
+  its `query` and `execute`, standing in for yours.
 - The examples take today as 2026-09-25, the day after the Example database's last day.
 - If a pasted example uses `last_n_days(...)`, which counts back from your own today, write
   `between(...)` with the days the example's Hive shows in its place, such as
   `between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
 
-How-to: [Build and run a first statement](../sqlglot_composer/how_to.html#build_and_run_a_first_statement),
+How-to: [Build and run a first statement](../docs/how_to.html#build_and_run_a_first_statement),
 with every Condition `WHERE` takes, `AS`, `all_columns` and `first_look`.
 
 Before you go on, check:
@@ -499,7 +508,7 @@ when you truly mean it:
 - If the usual fix gives what you want, make it.
 - If you truly mean what it refused, pass its opt-out.
 
-How-to: [Count, join and stay safe](../sqlglot_composer/how_to.html#count_join_and_stay_safe),
+How-to: [Count, join and stay safe](../docs/how_to.html#count_join_and_stay_safe),
 with `HAVING`, the top N, Derived tables, the rows with no match, and when each opt-out is
 right.
 
@@ -527,11 +536,12 @@ fill in its <...> and TODO lines.
 ```
 
 2. **Fill it in.** Goal: the piece's logic. Action: fill in its `<...>` and TODO lines. The
-   Starter Example project's `building_blocks/runs_per_job.py` is this file filled in: each
+   Starter Example project's `building_blocks/runs_per_job.py`, on the Example projects page,
+   is this file filled in: each
    job's runs, failed runs and minutes, for the rows a Condition it is given picks. Done when
    no `<...>` or TODO line is left; then go on to section 6, "Save a table".
 
-How-to: [Share Building blocks](../sqlglot_composer/how_to.html#share_building_blocks).
+How-to: [Share Building blocks](../docs/how_to.html#share_building_blocks).
 
 Before you go on, check:
 
@@ -615,7 +625,7 @@ Which `.hql` file is which:
   yours: save it in `admin/workflows/new_table/` for the new_table Workflow's `QUERIES`, or in
   `admin/workflows/convert/` for the convert Workflow's `FILES`, never in a Table folder.
 
-How-to: [Save a table](../sqlglot_composer/how_to.html#save_a_table), with the Starter Example
+How-to: [Save a table](../docs/how_to.html#save_a_table), with the Starter Example
 project's `mart.alerts_per_severity` notebook filled in beside its Table reference.
 
 Before you go on, check:
@@ -632,8 +642,12 @@ Goal: each output column followed back to the table columns it reads.
    that follow each output column back to the table columns it reads, and list every condition
    that decides which rows count. Action: run `export_lineage(...)`; from a Table notebook, run
    its lineage cell, which writes them into its Table folder's `lineage/`, named by the time
-   and the table, so each export joins the table's history. Done when the new pages are in
-   `lineage/`; then step 2.
+   and the table, so each export joins the table's history. Open the HTML page: click a box,
+   or Tab to it and press Enter, to light up what feeds it and what it feeds, and to open a
+   panel on the right, with its Statement's Hive, whole, and a Copy button; the tables it reads and writes; its
+   Run values and the Session settings sent before it; and, for a calculated column, how it
+   is worked out and the rows that count. Escape closes it. The Markdown twin is the same
+   text, with no drawing. Done when the new pages are in `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
    column; then go on to section 8, "Keep the Project in order".
@@ -643,7 +657,7 @@ Goal: each output column followed back to the table columns it reads.
    - If a change is made in pandas, declare it with `python_step`, a **Python step**, so the
      Lineage doesn't stop at it.
 
-How-to: [Follow lineage](../sqlglot_composer/how_to.html#follow_lineage).
+How-to: [Follow lineage](../docs/how_to.html#follow_lineage).
 
 Before you go on, check:
 
@@ -694,7 +708,7 @@ How a Project stays in order:
 - `project.check()` also names the next step of each Workflow you have started, and
   `project.do_next()` runs the steps it can for you, up to the first it can't.
 
-How-to: [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order).
+How-to: [Keep the Project in order](../docs/how_to.html#keep_the_project_in_order).
 
 Before you go on, check:
 
@@ -777,6 +791,23 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      building_blocks/run_values.py by hand, then register the file once:
      `project.check()` names it as made by hand, with the call to run in the
      `project.register(...)` cell of `admin/check_project.ipynb`.
+   - If the write() steps of the table's exported `.hql` will run outside the Toolbox, and
+     whatever runs them, such as a scheduler, should give the tag's value each time, answer
+     it with a **Hivevar**. A Run value is worked out when the Statement is built and
+     written into the Hive; a Hivevar leaves `${hivevar:NAME}` in the Hive, for whatever
+     runs it to fill in. Write `from sqlglot_composer import hivevar` at the top of the
+     decisions cell, then
+     `{"tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-10-31'")}}`. The default
+     is written as the answers above are, text or a Run value's function, such as
+     `default=period_end`. The Hive holds `'${hivevar:PERIOD_END}'` where the tag stood, and
+     the Toolbox sends `SET hivevar:PERIOD_END=2026-10-31` before each write holding it.
+     `export_hive()` writes no SET line, since Hive lets a SET in a script beat a value given
+     on its command line (`hive --hivevar ...`): it writes the default into a `.hivevars`
+     file beside the `.hql`, as `--hivevar PERIOD_END=2026-10-31`, for your scheduler to pass
+     when it runs the `.hql`'s write() steps. It never runs the file whole, nor its create()
+     or seed(), which a Workflow sends, a seed() once. If your scheduler runs a Scheduled
+     run's notebook instead, give the value with `hivevars=` in its Build cell (Scheduled
+     runs, step 6).
    - If several tables share an answer, give it once under `"all_tables"`, and a table's own
      answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
      period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
@@ -786,7 +817,9 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      leave it unanswered: `"key": "proposed"` only takes off the mark, and a `"key"` of your
      own replaces it. This differs from the references Workflow, whose Key, proposed from the
      table's rows, stays open until you accept it. A table with no Key proposed, such as one
-     that reads itself, waits on its `"key"`: give its columns, or `None`.
+     that reads itself, waits on its `"key"`: give its columns, or `None`. Its Key is the
+     columns that make each row its own: for a script that keeps repeats out with
+     `NOT IN (SELECT run_id FROM ...)`, the column the `NOT IN` reads, `{"key": ["run_id"]}`.
    - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
      or answer `"location"` for that table.
    - If a table reads itself, its seed copies every Partition of its original unless you
@@ -802,8 +835,11 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    original being the table the script writes, so its first write doesn't start from
    nothing, each Partition or those its `"seed"` answer names), writes each, and compares each
    with the table it copies, `project.compare_batch`. A partitioned table is compared on the
-   latest Partition both tables hold. If you want another Partition compared too, once your
-   dev table holds it, then list it in `PARTITIONS` in the names cell, such as
+   latest Partition both tables hold; `compare.md` says how many other Partitions both hold
+   were not compared. To see which they are, run `query("SHOW PARTITIONS mart.team_fails")`
+   and the same for your dev table, in a cell under the setup cell. If you want another
+   Partition compared too, once your dev table holds it, then list it in `PARTITIONS` in the
+   names cell, such as
    `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch too:
    its `conversion/compare.md` keeps each Partition's result. Done when every result of each
    table has passed; then step 6.
@@ -826,7 +862,7 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 
 Dev stays the source: to change a promoted table, change it in dev and promote it again.
 
-How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive).
+How-to: [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_hive).
 
 Before you go on, check:
 
@@ -841,13 +877,18 @@ Decision such as its Key, you answer in its decisions cell,
 `DECISIONS = {"mart_dev.weekly": {"key": ["job_id"]}}`, and a step writes each answer in for
 you.
 
+For every Workflow at a glance, open the
+[Workflows overview](../docs/workflows.html), `docs/workflows.html`, in
+your browser: one drawing of the Workflows and the Excel path, with an arrow where one hands
+off to the next. Click a box for its steps and its common tripping points, in short.
+
 **Run a Workflow notebook's cells one at a time, never all at once (Run All), since a step after
 a decision would write before you make it.**
 
 The convert, promote, new_table and references notebooks read top to bottom, in four cells:
 
-1. **Name what it works on.** Action: fill in the names cell, the first, and save the
-   notebook. Done when it is saved; then step 2.
+1. **Name what it works on.** Action: fill in the names cell, the code cell under the setup
+   cell, and save the notebook. Done when it is saved; then step 2.
 2. **Run up to your Decisions.** Action: run the cell under it, "Run up to your Decisions",
    `project.run_workflow(...)`: it runs every step, the calls to the warehouse too, up to the
    first only you can do, and prints the `DECISIONS` to paste, each answer not given yet
@@ -873,9 +914,10 @@ How the rest of a notebook runs, by the rules below:
 - If you want to run one step on purpose, or run it again, run its own cell, under
   "Step by step", below the four cells; a decision step's `project.check()` cell, under it,
   prints what to paste.
-- If the Workflow is upgrade or change_a_saved_table, run each step's cell in turn, making
-  each decision where its step says, such as the step's own cell for change_a_saved_table's
-  change; the notebook's last cell, `project.run_workflow(...)`, runs every step left.
+- If the Workflow is upgrade, change_a_saved_table or schedule, run each step's cell in turn,
+  making any decision where its step says, such as the step's own cell for
+  change_a_saved_table's change; the notebook's last cell, `project.run_workflow(...)`, runs
+  every step left.
 - If you want to see what it would send first, give `run_workflow` `dry_run=True`: it sends
   nothing through your execute and says the Hive each step would send.
 
@@ -1324,6 +1366,30 @@ flowchart TD
 
 <!-- /chart -->
 
+### schedule
+
+Makes a Scheduled run's notebook, which the Scheduled runs section below walks through. Its
+names cell holds `NAME`, the run's name, such as `NAME = "weekly"`, or a list of names.
+
+<!-- chart: schedule -->
+```mermaid
+flowchart TD
+    s0["1. Make the Scheduled run's notebook"]:::files_only
+    t0("the Scheduled run's name"):::thing
+    t1("the Scheduled run's notebook"):::thing
+    t0 --> s0
+    s0 --> t1
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Make the Scheduled run's notebook (it changes only files, so project.do_next() runs it for
+   you).
+
+       project.new_scheduled_run(NAME)
+
+<!-- /chart -->
+
 ## Scheduled runs
 
 A **Scheduled run** is a notebook in `scheduled_runs/<name>/` that an outside scheduler, such
@@ -1347,14 +1413,14 @@ Its cells, top to bottom:
 
 To make one:
 
-1. **Make the notebook.** Goal: the run's notebook, registered. Action: in
-   `admin/scheduled_runs.ipynb`, name it in `NEW_RUNS = ["weekly"]` and run that cell, which
-   calls `project.new_scheduled_run(NEW_RUNS)`: it makes `scheduled_runs/weekly/weekly.ipynb`
-   from the `scheduled_run` Template. Done when the notebook is there; then step 2.
-2. **Find what to call.** Goal: the Table notebooks' functions the run uses. Action: in the
-   same notebook, name the tables in `TABLES = ["mart.team_days"]` and run the cell of
-   `project.describe_logic(TABLES)`: it
-   lists each function of that table's logic cell, with what it takes and the first sentence
+1. **Make the notebook.** Goal: the run's notebook, registered. Action: in the schedule
+   Workflow's notebook, `admin/workflows/schedule/schedule.ipynb`, name it in its names cell,
+   `NAME = "weekly"`, save the notebook, and run its cells down to the one under step 1,
+   `project.new_scheduled_run(NAME)`, which makes `scheduled_runs/weekly/weekly.ipynb` from the
+   `scheduled_run` Template. Done when the notebook is there; then step 2.
+2. **Find what to call.** Goal: the Table notebooks' functions the run uses. Action: in
+   `admin/scheduled_runs.ipynb`, name the tables in `TABLES = ["mart.team_days"]` and run the
+   cell of `project.describe_logic(TABLES)`: it lists each function of that table's logic cell, with what it takes and the first sentence
    of its docstring, and runs nothing. Paste what it prints into a Copilot chat, after Copilot
    file 18, to have Copilot fill in the run. Done when you know each function the run calls; then step 3.
 3. **Name the parameters.** Goal: each value the scheduler passes in. Action: write each in the
@@ -1381,6 +1447,15 @@ To make one:
    - If a value is worked out each time the run is built, such as the latest Partition a
      table holds, write a function for it in the cell, import `run_value` from
      `sqlglot_composer`, and pass `run_value(function)`, a Run value of the run's own.
+   - If a value comes from a parameter alone, such as the Monday of `WEEK`'s week, work it
+     out in `statements()` itself and pass the plain value: the parameters are read before
+     `statements()` is called. A `run_value(...)` is a stand-in until the Hive is written, so
+     a logic function that works on the value's text, such as one that calls `.replace` on
+     a day, refuses it: give that function `str(...)` of the plain value.
+   - If a table should be written for days of your own, such as a week, name its write in
+     `statements()`, from the function its Table notebook's logic gives for it, such as
+     `project.load("mart.team_days").write_days(first_day, last_day)`. A write named there
+     takes the place of the one the build would add for that table (step 6).
    - A parameter reaches only what `statements()` passes it to. Each value goes in one of
      three ways: as an argument to a logic function you call, as above; through a Run value
      of the run's own, `run_value(function)`, whose function reads the parameters; or, for a
@@ -1403,6 +1478,16 @@ To make one:
      whose function is named `period_end`, in place of calling it, wherever it is used: in
      a write the build adds, too, whose `write()` takes no arguments to give it a day. This
      is how a parameter reaches a write you don't call yourself. The build names each it gave.
+   - `hivevars={"PERIOD_END": RUN_DATE}` gives RUN_DATE, for this run, to every Hivevar
+     named `PERIOD_END`, a Script tag answered `hivevar("PERIOD_END", default=...)`, in place
+     of its default; a date as text, `"2026-11-01"`, is that date, and a parameter left
+     empty sends the default. The build prints each Statement holding it after its
+     `SET hivevar:PERIOD_END=...` line, which the run sends first before a write; a SELECT
+     has the value written in its place. A name no Statement holds is refused, naming those
+     they hold. If your scheduler runs a table's write() steps from the `.hql` its
+     `export_hive()` writes, it passes that `.hivevars` file's lines instead (section 9, step
+     4). The `.hivevars` file `project.export_run_hive` writes beside the run's `.hql` is the
+     value the run sends for each Hivevar: to read, as that `.hql` is, never to send.
    - It builds the Hive fresh each time, so each Run value is worked out as it builds: one
      that reads the warehouse needs `connect(...)` first.
    - A loop among the tables, each waiting on another, is refused, naming its tables.
@@ -1442,15 +1527,16 @@ Guard.
 
 By hand, never on a schedule, since each would be work for nothing every time a run runs:
 the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list a cell names,
-`NEW_RUNS`, `RUNS` or `TABLES`, left `[]` is passed over.
+`RUNS` or `TABLES`, left `[]` is passed over.
 
-- `NEW_RUNS = ["weekly"]` makes each run named, as in step 1.
 - `project.check()` reports a loop among your tables, naming the logic cell to mend, and each
   Table folder whose logic fails to load, with what stops it.
 - `project.export_project_lineage()` writes `admin/lineage/<time>-project.html` and its
   Markdown twin: every Saved table, what reads it and which Scheduled runs write it, a table
   more than one run writes marked, and a loop drawn red. Two runs may write the same table:
-  it is shown, never refused.
+  it is shown, never refused. Click a table's box on the page to open its panel: what it
+  reads, what reads it, the Scheduled runs that write it, and the Hive that writes it, with
+  its Run values and Session settings.
 - `RUNS = ["weekly"]`: `project.export_run_hive(RUNS)` writes
   `scheduled_runs/weekly/weekly.hql`, the run's Hive as its Build cell builds it, with its
   parameters' defaults, to read and commit, and `project.export_run_lineage(RUNS)` its
@@ -1464,10 +1550,10 @@ the cells of `admin/scheduled_runs.ipynb`, each run when you want it. Each list 
 `project.remove_scheduled_run("weekly")` archives a run in admin/removed/, deleting nothing,
 as `admin/remove.ipynb`'s `SCHEDULED_RUNS = []` does.
 
-The intermediate Example project's `scheduled_runs/weekly_team/` is one filled in, with its
-built Hive and Lineage.
+The intermediate Example project's `scheduled_runs/weekly_team/`, on the Example projects page,
+is one filled in, with its built Hive and Lineage.
 
-How-to: [Schedule a run](../sqlglot_composer/how_to.html#schedule_a_run).
+How-to: [Schedule a run](../docs/how_to.html#schedule_a_run).
 
 Before you go on, check:
 
@@ -1476,9 +1562,12 @@ Before you go on, check:
 
 ## The how-tos
 
-Every how-to walks through one job from start to finish, in steps you paste into one notebook,
-in order. Each holds:
+Every how-to, on [`docs/how_to.html`](../docs/how_to.html), walks through one job from start
+to finish, in steps to read in order, then repeat in one notebook on your own tables. Each
+holds:
 
+- under its title, each of the Example database's tables it reads: its columns, their types
+  and its first rows;
 - its goal;
 - its steps, each run on the Example database with what it shows;
 - how to check it worked;
@@ -1495,44 +1584,44 @@ The how-tos come in two groups:
 
 Getting started, how-tos 1 to 9:
 
-1. [Start a Project](../sqlglot_composer/how_to.html#start_a_project)
-2. [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references)
-3. [Build and run a first statement](../sqlglot_composer/how_to.html#build_and_run_a_first_statement)
-4. [Count, join and stay safe](../sqlglot_composer/how_to.html#count_join_and_stay_safe)
-5. [Share Building blocks](../sqlglot_composer/how_to.html#share_building_blocks)
-6. [Save a table](../sqlglot_composer/how_to.html#save_a_table)
-7. [Follow lineage](../sqlglot_composer/how_to.html#follow_lineage)
-8. [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order)
-9. [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
+1. [Start a Project](../docs/how_to.html#start_a_project)
+2. [Add your tables' references](../docs/how_to.html#add_your_tables_references)
+3. [Build and run a first statement](../docs/how_to.html#build_and_run_a_first_statement)
+4. [Count, join and stay safe](../docs/how_to.html#count_join_and_stay_safe)
+5. [Share Building blocks](../docs/how_to.html#share_building_blocks)
+6. [Save a table](../docs/how_to.html#save_a_table)
+7. [Follow lineage](../docs/how_to.html#follow_lineage)
+8. [Keep the Project in order](../docs/how_to.html#keep_the_project_in_order)
+9. [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_hive)
 
 Intermediate, how-tos 10 to 31:
 
-10. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
-11. [The latest row of each group, and the top N](../sqlglot_composer/how_to.html#latest_row_of_each_group)
-12. [Generate Statements and Table references in a loop](../sqlglot_composer/how_to.html#generate_statements_and_references)
-13. [Rewrite some partitions](../sqlglot_composer/how_to.html#rewrite_some_partitions)
-14. [Look things up as of a day](../sqlglot_composer/how_to.html#look_things_up_as_of_a_day)
-15. [Rollups and subtotals](../sqlglot_composer/how_to.html#rollups_and_subtotals)
-16. [Check data quality with Statements](../sqlglot_composer/how_to.html#check_data_quality)
-17. [Call other Hive functions](../sqlglot_composer/how_to.html#call_other_hive_functions)
-18. [Look across rows, then finish in pandas](../sqlglot_composer/how_to.html#look_across_rows)
-19. [Review and test a change](../sqlglot_composer/how_to.html#review_and_test_a_change)
-20. [Choose how a Saved table is stored](../sqlglot_composer/how_to.html#choose_how_a_saved_table_is_stored)
-21. [Keys, checked before each write](../sqlglot_composer/how_to.html#keys)
-22. [Semi-, anti- and full joins](../sqlglot_composer/how_to.html#semi_anti_and_full_joins)
-23. [Move a Saved table to its own folder](../sqlglot_composer/how_to.html#move_a_saved_table_to_its_own_folder)
-24. [Reconcile two tables](../sqlglot_composer/how_to.html#reconcile_two_tables)
-25. [Keep reads and joins fast](../sqlglot_composer/how_to.html#keep_reads_and_joins_fast)
-26. [Declare a change made in Python](../sqlglot_composer/how_to.html#declare_a_change_made_in_python)
-27. [Hand-written Hive with your Table references](../sqlglot_composer/how_to.html#hand_written_hive_with_your_table_references)
-28. [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version)
-29. [Follow a Workflow](../sqlglot_composer/how_to.html#follow_a_workflow)
-30. [Set your Database settings](../sqlglot_composer/how_to.html#set_your_database_settings)
-31. [Schedule a run](../sqlglot_composer/how_to.html#schedule_a_run)
+10. [Describe a table by hand](../docs/how_to.html#describe_a_table_by_hand)
+11. [The latest row of each group, and the top N](../docs/how_to.html#latest_row_of_each_group)
+12. [Generate Statements and Table references in a loop](../docs/how_to.html#generate_statements_and_references)
+13. [Rewrite some partitions](../docs/how_to.html#rewrite_some_partitions)
+14. [Look things up as of a day](../docs/how_to.html#look_things_up_as_of_a_day)
+15. [Rollups and subtotals](../docs/how_to.html#rollups_and_subtotals)
+16. [Check data quality with Statements](../docs/how_to.html#check_data_quality)
+17. [Call other Hive functions](../docs/how_to.html#call_other_hive_functions)
+18. [Look across rows, then finish in pandas](../docs/how_to.html#look_across_rows)
+19. [Review and test a change](../docs/how_to.html#review_and_test_a_change)
+20. [Choose how a Saved table is stored](../docs/how_to.html#choose_how_a_saved_table_is_stored)
+21. [Keys, checked before each write](../docs/how_to.html#keys)
+22. [Semi-, anti- and full joins](../docs/how_to.html#semi_anti_and_full_joins)
+23. [Move a Saved table to its own folder](../docs/how_to.html#move_a_saved_table_to_its_own_folder)
+24. [Reconcile two tables](../docs/how_to.html#reconcile_two_tables)
+25. [Keep reads and joins fast](../docs/how_to.html#keep_reads_and_joins_fast)
+26. [Declare a change made in Python](../docs/how_to.html#declare_a_change_made_in_python)
+27. [Hand-written Hive with your Table references](../docs/how_to.html#hand_written_hive_with_your_table_references)
+28. [Upgrade your Project to a new Toolbox version](../docs/how_to.html#upgrade_your_project_to_a_new_toolbox_version)
+29. [Follow a Workflow](../docs/how_to.html#follow_a_workflow)
+30. [Set your Database settings](../docs/how_to.html#set_your_database_settings)
+31. [Schedule a run](../docs/how_to.html#schedule_a_run)
 
 ## The Example gallery
 
-The [Example gallery](../sqlglot_composer/examples.html), `sqlglot_composer/examples.html`,
+The [Example gallery](../docs/examples.html), `docs/examples.html`,
 holds every Worked example on one page: its Python and, for each Statement it builds, the Hive
 and any result. Open it in your browser.
 
@@ -1547,13 +1636,15 @@ and any result. Open it in your browser.
 ## Example projects
 
 An Example project is a Project made for the Example database's tables, laid out as yours is:
-made by the `project` module's Project actions, then filled in by hand. `example_projects/`
-holds two, and each one's `README.md` shows the file map of step 1 filled in, how each file was
-made, and how to run it:
+made by the `project` module's Project actions, then filled in by hand. The
+[Example projects](../docs/example_projects.html) page, `docs/example_projects.html`, shows
+two, each with its own note, the file map of step 1 filled in and how each file was made; its
+folders; each file; each notebook's cells with what each gave when run top to bottom; and a
+link to each table's Lineage page:
 
-- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: four Saved tables, each
-  made from the `saved_table` Template. `mart.alerts_per_severity` is the Template filled in
-  and nothing else; `mart.daily_job_runs` takes its rows from the Building block
+- the starter Example project, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: four Saved
+  tables, each made from the `saved_table` Template. `mart.alerts_per_severity` is the Template
+  filled in and nothing else; `mart.daily_job_runs` takes its rows from the Building block
   `runs_per_job`; `mart.alerts_per_job` joins each alert to its run; and `mart.team_day` adds
   up each team's day from `mart.daily_job_runs` alone among the Saved tables, with each job's
   team from `ops.jobs`, so it is written after it. It is much like the Project the Getting
@@ -1562,25 +1653,22 @@ made, and how to run it:
   of `ops.region_budgets` and `ops.team_notes`, from Count, join and stay safe,
   `mart.run_speed`, from Follow lineage, `ops.scheduler_runs`, from Keep the Project in order,
   and the four Saved tables of the ops_reports batch, from Convert someone else's Hive.
-- `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
-  `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: seven Saved tables, among them
+- the intermediate Example project, where the Intermediate how-tos start, on
+  `ops.job_events`, `ops.job_owners`, `ops.region_costs`, `ops.region_budgets` and
+  `ops.team_notes`: seven Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the
   `quality_checks` Template, a table partitioned by region and written a region at a time, one
   with no partitions and no Key, a finished Conversion, with the Hive it replaced, and a
   Scheduled run, `weekly_team`, which adds up a week of `mart.team_days`.
 
-To open one:
+The Example database can be read but not written, so on the page a Table notebook prints each
+write's Hive and runs only what reads the ops tables, and `admin/run_tables.ipynb`, with no
+execute, prints every write in order, writers first, and sends nothing (a dry run). A Workflow's
+notebook starts with its names cell empty, so run as it is, it stops at the first step that
+needs a name: the how-tos run each Workflow with names filled in.
 
-1. **Copy the Toolbox in.** Action: copy the `sqlglot_composer` folder into the project's
-   folder first, as a Project holds it. Done when the folder holds `sqlglot_composer`; then
-   step 2.
-2. **Open its notebooks.** Action: open them and run their cells. The Example database can be
-   read but not written, so a Table notebook prints each write's Hive and runs only what reads
-   the ops tables, and `admin/run_tables.ipynb`, with no execute, prints every write in order,
-   writers first, and sends nothing (a dry run). Done when its cells have run.
-
-To start a Project of your own, start it with `project.start()` rather than copying one: an
-Example project is for reading, and copying it would bring its tables and its Admin log.
+The Example projects are for reading: the download holds them as this page, not as folders.
+Start a Project of your own with `project.start()`, as step 1 does.
 
 ## Templates
 
@@ -1622,23 +1710,27 @@ Statement, a Table reference, a Table notebook's logic cell or a Conversion, or 
 job's steps: `copilot/13_workflows.txt` and `copilot/16_workflows_promote.txt` list convert's
 and promote's, and file 14 the other Workflows', from the steps each notebook runs.
 `copilot/18_scheduled_runs.txt` fills in a Scheduled run's cells from what
-`project.describe_logic([...])` prints.
+`project.describe_logic([...])` prints. `copilot/19_metric_request.txt` writes no code: it asks
+you about a new metric a question at a time and ends with a Metric request, plain text for a
+chatbot that knows your databases to define the columns from.
 
 1. **Pick the file.** Action: read `copilot/00_start_here.txt`, which says which file fits what
    you want to do. Done when you have its name; then step 2.
 2. **Give it to Copilot.** Action: open a new chat, and paste the one file for what you want to
    do as your first message. Done when it is sent; then step 3.
 3. **Ask.** Action: ask in plain words, giving the import line and columns of each table to
-   read. Done when Copilot answers; then step 4.
+   read; with file 19, paste your tables' column definitions, say the metric you want, and
+   answer its questions one at a time. Done when Copilot answers; then step 4.
 4. **Run its answer.** Action: run what Copilot gives you as you would your own code: the
-   Toolbox still refuses what would give a wrong number. Done when it runs.
+   Toolbox still refuses what would give a wrong number. Done when it runs. With file 19 there
+   is nothing to run: give the Metric request to the chatbot that knows your databases.
 
 About the files:
 
-- Each file fits the 8,000 characters Copilot takes at once, spaces and line breaks included;
+- Each file is at most 9,000 characters, spaces and line breaks included, one message to Copilot;
   `copilot/count_characters.py` counts a copy you edit.
 - `copilot/all_in_one/all_copilot_files.txt` holds every file in one document, for reading or
-  searching them together, not for Copilot: it is many times the 8,000 characters, so in
+  searching them together, not for Copilot: it is many times the 9,000 characters, so in
   Copilot paste or attach the separate files.
 
 The path from a workbook to prod:
@@ -1661,8 +1753,9 @@ flowchart TD
 2. Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as Hive, a query
    for each final Table.
 3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
-   final Table, and convert them as one batch in the convert Workflow, DEV filled in: each
-   becomes a Saved table named for its file, or, when the batch is one file, for the batch.
+   final Table, and convert them as one batch in the convert Workflow, with DEV filled in, in
+   admin/databases.py: each becomes a Saved table named for its file, or, when the batch is one
+   file, for the batch.
 
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 
@@ -1753,6 +1846,9 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      imports `project` already. Then work through the boxes in each checklist it writes in
      admin/, one for each version it upgraded through, named for the version, such as
      upgrade_8.4.md: the upgrade's report ends by naming each, in order.
+   - An Upgrade never moves, renames or deletes a file under `scheduled_runs/`, so a
+     scheduler that finds each Scheduled run by its path keeps working; it may change lines
+     inside them, each marked `# UPGRADE <version>:`.
    - If you skipped versions, copy in the newest and upgrade once: it runs each version's step
      in turn. From 8.3 on, the Toolbox's tests upgrade each version's Example projects straight
      to the newest.
@@ -1774,13 +1870,22 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      `scheduled_run` Template and `admin/scheduled_runs.ipynb`. A notebook of your own that
      imports from warehouse, and one of the Toolbox's whose import it can't connect, such as
      one inside a `try`, is marked at that import for you to connect by hand. If `conn` was
-     still the Example database, each of the Toolbox's notebooks is connected to it,
-     `connect(example_database)`, as `conn` was, and each line of yours that imports `conn`
-     from warehouse, or reads `warehouse.conn`, is marked: the new `warehouse.py` has no
-     `conn`, so use `example_database` in its place, or `query` and `execute`. If `conn` is
+     still the Example database, as only a copy of an Example project's was, each of the
+     Toolbox's notebooks is connected to it, as `conn` was (8.7's Upgrade then marks each of
+     those lines, as below), and each line of yours that imports
+     `conn` from warehouse, or reads `warehouse.conn`, is marked: the new `warehouse.py` has no
+     `conn`, so use `query` and `execute` in its place. If `conn` is
      your own, its lines stay in `warehouse.py`, marked for you to move into each notebook's
      `connect(...)` line: fill each in with your connection, since until a notebook connects,
      its `query` and `execute` refuse.
+   - If your Project was at 8.6, the 8.7 Upgrade carries it to 8.7: it makes the schedule
+     Workflow's notebook, `admin/workflows/schedule/schedule.ipynb`, and takes `NEW_RUNS` out
+     of `admin/scheduled_runs.ipynb`, keeping your other cells. The Example database left the
+     Toolbox in 8.7, so each line of yours that imported it from `sqlglot_composer`, as only a
+     copy of an Example project or a how-to did, is rewritten and marked: your download holds
+     no Example database, so delete the marked import, and write your team's connection in the
+     `connect(...)` under it. A copy of an Example project can't run on 8.7: read it on the
+     Example projects page instead.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
@@ -1798,7 +1903,7 @@ What an Upgrade does:
 - It never touches the warehouse.
 
 How-to:
-[Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version).
+[Upgrade your Project to a new Toolbox version](../docs/how_to.html#upgrade_your_project_to_a_new_toolbox_version).
 
 When it is imported, the folder checks itself against its `version.txt`, the one file that
 names its version and lists each of its files:
@@ -1835,8 +1940,8 @@ lives in.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'8.6'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 8.6, exported 2026-11-10 07:18'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'8.7'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 8.7, exported 2026-11-14 22:27'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -2008,6 +2113,7 @@ Script tags: a <PARM="NAME"/> in Hive someone else wrote, which the program that
 Run values: what a Python function gives each time a Statement is built, traced for its
 
 - `hive_date` - A date as Hive writes one, in quotes, for Hive text you write by hand.
+- `hivevar` - An answer to a Script tag that the warehouse fills in each time the Hive runs.
 - `latest_partition` - The newest value of a partition column, from the warehouse's SHOW PARTITIONS.
 - `run_value` - What a function gives, worked out each time the Statement is built, and traced.
 - `tag_text` - The text a Script tag stands for, as its place in a string.
@@ -2065,10 +2171,6 @@ Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 - `repair_partitions` - The MSCK REPAIR TABLE Statement, which finds a Saved table's Partitions.
 - `compute_statistics` - The ANALYZE TABLE Statement, which counts a Saved table's rows again.
 - `explain` - The EXPLAIN Statement: Hive's plan for running a Statement, without running it.
-
-### `example_database.py`
-
-- `example_database` - The Example database: nine made-up tables, and a query and execute to try them.
 
 ### `admin.py`
 

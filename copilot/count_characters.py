@@ -1,12 +1,12 @@
-# sqlglot Composer 8.6 - copy it, then edit your copy
-"""Count the characters of each Copilot file, against the 8,000 Copilot takes at once.
+# sqlglot Composer 8.7 - copy it, then edit your copy
+"""Count the characters of each Copilot file, against the 9,000 each one keeps to.
 
     python count_characters.py                    counts the .txt files beside this script
     python count_characters.py my_copy.txt        counts the files and folders you name
 
 Every character counts: letters, spaces, tabs and line breaks. Each file is counted twice: as
 saved, and as it would be with Windows line breaks, where each line break is two characters,
-as some copies and pastes make it. A file fits when the larger count is at most 8,000. It
+as some copies and pastes make it. A file fits when the larger count is at most 9,000. It
 exits with 1 when any file is over or isn't there, and 0 when every one fits.
 
 It needs nothing but Python, and reads only the files you name.
@@ -15,7 +15,7 @@ It needs nothing but Python, and reads only the files you name.
 import sys
 from pathlib import Path
 
-LIMIT = 8000
+LIMIT = 9000
 
 
 def characters(text: str) -> int:

@@ -1,114 +1,130 @@
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.6)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.7)
 
-**Use this file as reference while you follow file 15's steps: it says what each formula of
-an attached workbook becomes in Hive.**
+**Use this file as reference while you follow file 15's steps: find each formula of an
+attached workbook in Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
 file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
+## Patterns: when the formula has X, look up Y
+
+| ID | The formula has | Rules |
+|---|---|---|
+| P1 | `+ - * / ^ &`, AND, OR, NOT, IF, IFS, IFERROR | F1 to F4 |
+| P2 | text: LEFT, MID, FIND, SUBSTITUTE | F5 |
+| P3 | dates: DATE, TODAY, DATEDIF, EOMONTH | F6, F7 |
+| P4 | XLOOKUP, VLOOKUP, INDEX/MATCH | F8 |
+| P5 | SUMIFS, COUNTIFS, the -IF forms, RANK | F9, F10, I1 to I6 |
+| P6 | a value typed over a formula | V1, V2 |
+| P7 | a blank, a text date, a repeated key | M1 to M5 |
+| P8 | INDIRECT, OFFSET, MEDIAN, ROW() | X1 |
+
 ## Terms
 
-- **Formula column**: a Table column whose cells hold a formula, such as `=[@duration_mins]/60`.
+- **Formula column**: a column whose cells hold a formula, `=[@duration_mins]/60`.
 - `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
   row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map.
 - **Refused**: a formula with no Hive here: `NULL AS` its header, named in the map with why.
 
-## Names in the Hive
+## Rules: names in the Hive
 
-- Write the database as `<database>`.
-- Keep a Table name or header that is a plain name (letters, digits, `_`) as it is.
-- Write any other in snake case in brackets: header `Unit Price` is `<unit_price>`, Table
-  `Sales Data` is `<database>.<sales_data>`, each a `<...>` for the user to fill in.
+- **N1** Write the database as `<database>`. Keep a Table name or header that is a plain
+  name (letters, digits, `_`) as it is.
+- **N2** Write any other in snake case in brackets: header `Unit Price` is `<unit_price>`,
+  Table `Sales Data` is `<database>.<sales_data>`, each a `<...>` for the user to fill in.
 
-## Formulas
+## Rules: formulas
 
-- `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE as they are.
-- AND(a, b, c): `a AND b AND c`; OR(a, b): `(a OR b)`, bracketed, as AND joins before OR;
-  NOT(x): `NOT x`. Hive has no AND() or OR() function: IF(AND(a, b), 1, 0) is
-  IF(a AND b, 1, 0).
-- IF as it is. IFS(c1, v1, c2, v2): `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 END`.
+- **F1** `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE kept.
+- **F2** AND(a, b, c): `a AND b AND c`; OR(a, b): `(a OR b)`, bracketed, as AND joins before
+  OR; NOT(x): `NOT x`. Hive has no AND() or OR(): IF(AND(a, b), 1, 0) is IF(a AND b, 1, 0).
+- **F3** IF as it is. IFS(c1, v1, c2, v2): `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 END`.
   SWITCH(x, "a", 1, 0): `CASE x WHEN 'a' THEN 1 ELSE 0 END`.
-- IFERROR(a / b, 0): COALESCE(a / b, 0), as a divide by 0 is NULL; IFNA(x, v) and
-  XLOOKUP's fourth argument, v: COALESCE(x, v). ISBLANK(x): x IS NULL.
-- ROUND, ABS, POWER, SQRT as they are; MOD(a, b): PMOD(a, b); INT: FLOOR; MIN(a, b) and
-  MAX(a, b) of one row's cells: LEAST and GREATEST.
-- LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); MID(x, s, n): SUBSTR(x, s, n);
-  LEN: LENGTH; FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a));
+- **F4** IFERROR(a / b, 0): COALESCE(a / b, 0), as a divide by 0 is NULL; IFNA(x, v) and
+  XLOOKUP's fourth argument, v: COALESCE(x, v). ISBLANK(x): x IS NULL. ROUND, ABS, POWER,
+  SQRT as they are; MOD(a, b): PMOD(a, b); INT: FLOOR; MIN(a, b) and MAX(a, b) of one row's
+  cells: LEAST and GREATEST.
+- **F5** LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); MID(x, s, n): SUBSTR(x, s,
+  n); LEN: LENGTH; FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a));
   ISNUMBER(FIND(..)): INSTR(..) > 0; SUBSTITUTE: REPLACE; PROPER: INITCAP; CONCATENATE:
   CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE);
   UPPER, LOWER, TRIM as they are.
-- YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE;
-  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
-  DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
-  EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
-  one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
-- The first of d's month, DATE(YEAR(d), MONTH(d), 1) or EOMONTH(d, -1)+1:
+- **F6** YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE;
+  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); a date minus a date, b - a: DATEDIFF(b, a);
+  DATEDIF(a, b, "d"): DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y":
+  FLOOR(MONTHS_BETWEEN(b, a) / 12); EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d,
+  n), marked: a month's end stays one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"):
+  DATE_FORMAT(d, 'yyyy-MM').
+- **F7** The first of d's month, DATE(YEAR(d), MONTH(d), 1) or EOMONTH(d, -1)+1:
   `CAST(TRUNC(d, 'MM') AS STRING)`. The Monday of d's week, d-WEEKDAY(d,2)+1:
   `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1), 'MO') AS STRING)`.
-- XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
+- **F8** XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b. XLOOKUP("rate", Parameters[name], Parameters[value]):
-  its value, written into the Hive. Say so in the map: change it in Parameters and the
-  table won't follow, so the Hive needs the new value too.
-- A summary's groups, written into the Hive (file 15): say so in the map, as a later day or
-  team won't be in the table.
-- SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
-  END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
+  its value, written into the Hive, and said in the map: change it in Parameters and the
+  table won't follow. A summary's groups, written in (file 15): said in the map too.
+- **F9** SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN
+  v END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
   FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
   nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
   AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]):
   the -IFS form, one match.
-- RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third argument, ASC.
+- **F10** RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third
+  argument, ASC.
 
-## Conditions in an -IF(S) form
+## Rules: conditions in an -IF(S) form
 
-- "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS NULL)`,
-  as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against this row's d.
-- Every condition of one -IFS form holds at once: join them with AND, two on one column too
-  (">10" and "<=30": `v > 10 AND v <= 30`). If two -IFS forms are added that differ in one
-  value only, then that value is an OR: write one, with `s IN ('x', 'y')`.
-- SUMPRODUCT over conditions: `*` between them is AND; `+` is OR where both can't hold at
-  once, such as two values of one column, or written `((..)+(..)>0)`.
-  SUMPRODUCT((t[s]="x")*(t[v]>5)*t[v]): `SUM(CASE WHEN s = 'x' AND v > 5 THEN v ELSE 0
-  END)`; with no column to add, as `(..)*1`: `COUNT(CASE WHEN .. THEN 1 END)`. If it reads
-  its own Table, then add OVER (), as each row shows the same total.
-- A wildcard, "*ail*" or "f*": `LOWER(s) LIKE '%ail%'`, `'f%'`, as Excel ignores case.
-- `t[d], "<="&[@d]` over its own Table is a running total, ties included as Excel's: `SUM(v)
+- **I1** "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS
+  NULL)`, as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against
+  this row's d.
+- **I2** Every condition of one -IFS form holds at once: join them with AND, two on one
+  column too (">10" and "<=30": `v > 10 AND v <= 30`). Two -IFS forms added that differ in
+  one value only: one form, `s IN ('x', 'y')`.
+- **I3** SUMPRODUCT over conditions: `*` is AND; `+` is OR where both can't hold at once, or
+  written `((..)+(..)>0)`. SUMPRODUCT((t[s]="x")*(t[v]>5)*t[v]): `SUM(CASE WHEN s = 'x' AND
+  v > 5 THEN v ELSE 0 END)`; with no column to add, as `(..)*1`: `COUNT(CASE WHEN .. THEN 1
+  END)`. Over its own Table, each row shows the same total: `SUM(...) OVER ()`.
+- **I4** A wildcard, "*ail*" or "f*": `LOWER(s) LIKE '%ail%'`, `'f%'`, as Excel ignores case.
+- **I5** `t[d], "<="&[@d]` over its own Table is a running total, ties included: `SUM(v)
   OVER (PARTITION BY a ORDER BY d RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
   COUNTIFS the same with COUNT(*). COUNTIFS(t[a], [@a], t[v], ">"&[@v])+1: `RANK() OVER
   (PARTITION BY a ORDER BY v DESC)`; with "<", ASC.
+- **I6** A window's ORDER BY and PARTITION BY read the source's columns, as `ORDER BY dt`,
+  never a name the same SELECT makes with AS.
 
-## A value typed over a formula
+## Rules: a value typed over a formula
 
-- Write it as a CASE on its row: `CASE WHEN run_id = 103 THEN 9 ELSE duration_mins / 60 END`,
+- **V1** A CASE on its row: `CASE WHEN run_id = 103 THEN 9 ELSE duration_mins / 60 END`,
   matching the row on the columns its Keys row names.
-- If no Keys row names that Table, match every typed column of the row, and say there is no
-  Keys row.
+- **V2** No Keys row for it: match every typed column of the row, and say so.
 
-## Marks: convert, and name
+## Rules: marks, converted and named
 
-- A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank in a
-  column a formula reads, write COALESCE(x, 0) or COALESCE(x, ''), and name the mark
-  "blank". Inside an -IF(S) form or ISBLANK, write the column as it is: they skip a blank,
-  as SUM, AVG, MIN and MAX skip NULL.
-- VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
-- A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
-  '-', SUBSTR(dt, 7, 2))`, and name it.
-- A defined name for a cell outside a Table: write its value, and say to move it into
-  Parameters.
+- **M1** A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank
+  in a column a formula reads, COALESCE(x, 0) or COALESCE(x, ''), mark "blank". Inside an
+  -IF(S) form or ISBLANK, the column as it is: they skip a blank, as SUM and AVG skip NULL.
+- **M2** VLOOKUP or MATCH with TRUE or 1: the exact match; mark "approximate".
+- **M3** A date held as text, such as 20260911, that a formula makes or reads as a date
+  (DATE(LEFT(..), MID(..), RIGHT(..)), YEAR, DATEDIF, a date plus days, TEXT):
+  `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-',
+  SUBSTR(dt, 7, 2))` inside that formula's Hive; mark "text date". **A column no formula
+  reads as a date stays as it is**: shown, compared in -IFS or ordered on, `dt` is `dt`.
+- **M4** A lookup whose key repeats in the looked-up Table's sample: Excel takes the first
+  match, a LEFT JOIN every one. Write the LEFT JOIN, mark "repeated key".
+- **M5** A defined name for a cell outside a Table: its value; say to move it to Parameters.
 
-## Refused: NULL in its place, and named
+## Rules: refused, NULL in its place, and named
 
-INDIRECT, OFFSET, RAND, RANDBETWEEN; a reference to a cell outside a Table that isn't a
-defined name, named by its address, such as C2; a LAMBDA, or a defined name holding a formula;
-a formula reading its own column (circular); ROW(), the row before, and anything else that
-hangs on the order of a sheet's rows; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays;
-NETWORKDAYS; any formula files 11 and 12 don't list.
+- **X1** INDIRECT, OFFSET, RAND, RANDBETWEEN; a cell outside a Table that isn't a defined
+  name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
+  reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
+  row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
+  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
 
-Left alone, and named: charts, PivotTables, and cells outside a Table.
+## Worked patterns
 
-## Example
+### W1: a formula column typed over in one row
 
 Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
 as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
@@ -122,7 +138,8 @@ FROM <database>.job_runs
 
 ## Self-check
 
-- Each formula column is in its final's SELECT, by this file, or `NULL AS` its header.
-- Each value typed over a formula is a CASE matched on its Keys row's columns.
-- Each COALESCE this file asks for is there, and each mark is named.
-- No AND(, OR( or NOT( is left in the Hive: each is written `a AND b`, `(a OR b)`, `NOT x`.
+- [ ] **C1** Each formula column is in its final's SELECT, or `NULL AS` its header.
+- [ ] **C2** Each value typed over a formula is a CASE matched on its Keys row's columns.
+- [ ] **C3** Each COALESCE this file asks for is there, and each mark is named.
+- [ ] **C4** A text date is converted only inside a formula that reads it as a date.
+- [ ] **C5** No AND(, OR( or NOT( is left: `a AND b`, `(a OR b)`, `NOT x`.

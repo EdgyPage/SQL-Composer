@@ -2,6 +2,152 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.7
+
+8.7 takes the Example database out of the Toolbox, so the folder holds nothing but what your
+Projects run, and moves the pages you read into the download's `docs` folder: the how-tos, the
+Example gallery, a new Workflows overview and a new Example projects page. The lineage pages
+gain bold colours and a side panel, a new schedule Workflow makes a Scheduled run, a Script
+tag can be answered with a Hivevar, and Copilot file 19 turns a vague metric into a Metric
+request.
+
+### To update from 8.6
+
+- **Copy in 8.7's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.7.md`. A Project 8.3, 8.4 or 8.5 last wrote upgrades straight to
+  8.7 the same way, each step in turn.
+- **Your Scheduled runs keep their paths.** The Upgrade moves, renames and deletes nothing under
+  `scheduled_runs/`, so a scheduler that runs each one by its path needs no change. It changes a
+  line inside one only to rewrite an import of the Example database, marked `# UPGRADE 8.7:`; a
+  Scheduled run connected to your own warehouse comes through as it was.
+- **The pages are in the download's `docs` folder now**, not in `sqlglot_composer`:
+  `docs/how_to.html`, `docs/examples.html`, `docs/workflows.html` and
+  `docs/example_projects.html`. Nothing in your Project changes; open them from there.
+- **If you kept a copy of an Example project**, or pasted a how-to's notebook into a Project,
+  it can't run on 8.7: your download has no Example database. Read the Example projects on
+  `docs/example_projects.html` instead, or delete the copy. A Project of your own that never
+  used the Example database has nothing to do for the next two bullets.
+- **The Example database has left the Toolbox**, so `from sqlglot_composer import
+  example_database` no longer imports, and `from sqlglot_composer import *` no longer brings
+  `example_database`. The Upgrade rewrites each line of yours that imported it, in a notebook
+  or a `.py` file, as `import example_database`, which only the Toolbox's development copy
+  has, so in your download the line fails until you take it out:
+  - `from sqlglot_composer import example_database` becomes `import example_database`, and
+    one naming it among other names keeps the others on their own line;
+  - `from sqlglot_composer.example_database import jobs` becomes `from example_database import
+    jobs`;
+  - a use through the package, `sqlglot_composer.example_database.query`, becomes
+    `example_database.query`, and a file using the name the star import brought gains
+    `import example_database`.
+
+  Each line it rewrote is marked `# UPGRADE 8.7:`, and a line in code Python can't read is
+  marked, not rewritten.
+- **What you do by hand, for each `# UPGRADE 8.7:` mark on an import of the Example
+  database:** delete the import, and in the `connect(...)` line under it write your team's
+  connection, such as `connect(conn)`, with `conn` imported as the comment above that line
+  shows; read its tables through your own Table references.
+- **warehouse.py's words are 8.7's**: its docstring and its two refusals no longer name the
+  Example database, but say `connect(conn)`, where conn is your team's connection. They are
+  rewritten even in a warehouse.py you changed; a line of yours still naming
+  `connect(example_database)` is marked.
+- **8.6's marks that offered the Example database now offer your own connection.** Where 8.6
+  found `conn` was the Example database, its marks said to import it, or to connect to it;
+  each such mark still in your files, and its line in `admin/upgrade_8.6.md`, now says to use
+  your team's connection, or warehouse's `query` and `execute`.
+- **The schedule Workflow's notebook is made**, `admin/workflows/schedule/schedule.ipynb`,
+  its `connect(...)` line filled in as your other Workflow notebooks' are.
+  `admin/scheduled_runs.ipynb` loses its `NEW_RUNS` cell, every other cell of yours kept, and
+  its text is 8.7's. If `NEW_RUNS` named a run whose notebook isn't made, the schedule
+  notebook's `NAME` line is marked with its name; a cell of yours that uses `NEW_RUNS` is
+  marked to move it there.
+- **A Copilot file may be 9,000 characters now**, not 8,000. If you keep an edited copy of
+  one, `copilot/count_characters.py` counts it against 9,000.
+- **A table converted before 8.7 keeps any `SORT_ARRAY(..., TRUE)`** it was written with:
+  only a Conversion run from now on leaves the TRUE out.
+
+### What's new
+
+- **The Example database is the Toolbox's makers' alone.** The Toolbox no longer holds
+  `example_database`, the made-up tables the how-tos and examples run on, and no public name
+  is it. Each docstring's example uses the tables by name, such as `job_runs`, and `query` and
+  `execute` alone, as a Project's notebook does; `help(sqlglot_composer)` says once that these
+  are made-up tables, standing in for yours. warehouse.py's refusals, such as "No connection:
+  call connect(...) first", say `connect(conn)`, where conn is your team's connection.
+- **The pages, in the download's `docs` folder.** The download holds `docs/` beside
+  `sqlglot_composer/`, with the how-tos, the Example gallery, the Workflows overview and the
+  Example projects page, and each Example project's lineage pages. It holds no
+  `example_projects/` folder: the Example projects page shows each one, its files, its
+  notebooks' cells and what each printed when run, with a link to each table's lineage page.
+  Each how-to shows, under its title, the tables it reads: their columns and types, and their
+  first five rows. A how-to's step that needs a connection writes `connect(conn)`, and one
+  that needs an Example project copies it with `example_project("intermediate")`, a line
+  shown on the page only: the download has no such function. The README's tutorial is read, not run: each step shows its code and what it
+  gave.
+- **The Workflows overview, `docs/workflows.html`.** One drawing of every Workflow and the
+  Excel path, with an arrow for each hand-off, such as a converted table going on to promote.
+  Click a box, or Tab to it and press Enter, to see what it does, its notebook and names cell,
+  its steps by name, its common tripping points, its hand-offs and the how-to that walks
+  through it. `workflows.html#convert` opens on convert's part.
+- **The schedule Workflow.** `admin/workflows/schedule/schedule.ipynb` makes a Scheduled run:
+  type its name in `NAME`, one or a list, then run the notebook, whose one step is
+  `project.new_scheduled_run(NAME)`. `project.start()` writes it with the other Workflow
+  notebooks. `admin/scheduled_runs.ipynb` keeps its lineage, Hive and `describe_logic` cells,
+  and `project.new_scheduled_run` stays, for code.
+- **Hivevars.** A Script tag's Decision takes one more kind of answer,
+  `hivevar("PERIOD_END", default="'2026-10-31'")`, after `from sqlglot_composer import
+  hivevar`; `default=` takes text or a Run value's function, the text written as the Hive
+  reads it, quotes and all. The Hive holds `'${hivevar:PERIOD_END}'` where the tag stood, the
+  quotes kept there, so the value sent goes without them. `run_execute`, `run_tables` and a Scheduled
+  run send `SET hivevar:PERIOD_END=2026-10-31` first; `run_query` writes the value in its
+  place; `show_hive` prints the SET lines above the Statement. A Scheduled run's Build cell
+  gives a run's own value with `hivevars={"PERIOD_END": ...}`. `export_hive` and
+  `export_run_hive` write no SET line into the `.hql`, since a script's own SET beats one
+  given on the command line, but a `<name>.hivevars` file beside it, each default as
+  `--hivevar PERIOD_END=2026-10-31`, for your scheduler to pass or change. Script tags are
+  otherwise read as before.
+- **The lineage pages' look.** All three exports, `export_lineage`, `export_run_lineage` and
+  `export_project_lineage`, draw in bold colours, chosen to stay apart for colour-blind
+  readers, each box's text dark on every fill; red is the loops' alone, and a lit path is
+  black.
+- **The side panel.** Clicking a box, or Tab then Enter, lights up its path and opens a panel
+  on the right: the Statement's Hive, whole, its long lines wrapped, with a Copy button; what
+  it reads and writes; its Run values and Hivevars; the Session settings sent before it; and,
+  on the Project's page, the Scheduled runs that write the table. Escape, the Close button or
+  a click on empty space closes it. The report below the drawing is gone. The Project's page
+  now lights paths, zooms and pans as the others do. The Markdown twin is each section as
+  text, the Hive included, with no chart: everything it says is on the HTML page too.
+- **SORT_ARRAY's TRUE.** A Conversion reading `SORT_ARRAY(x, TRUE)` writes `SORT_ARRAY(x)`,
+  since ascending is Hive's own order, with a `changed` finding. Any other second argument,
+  such as `FALSE`, is kept, with a finding of a new kind, `kept`: your Hive may refuse it, so
+  if it does and ascending will do, take the second argument out.
+- **Copilot file 19, `copilot/19_metric_request.txt`,** takes a vague ask for a metric to a
+  Metric request: text for your chatbot that knows your databases, not SQL and no sums. Paste
+  your column definitions with the ask. It asks one question at a time, each with a
+  recommended answer, asks "one column or two?" of a column that could be two numbers, pushes
+  back once and lets your answer stand. The request names each quantity by its table and
+  column, the rows, the days counted, what is left out, the edge cases, how to check it and the
+  questions still open. Where your tables can't give the metric, or a column's definition is
+  too vague, it says what data is missing and what to ask or add, and invents nothing. The file
+  is written to be looked up: numbered rules with short ids, a "when you say this, it does
+  that" list, patterns to copy and a Self-check. `00_start_here.txt` names it.
+- **Copilot files keep to 9,000 characters**, one message to Copilot, not 8,000, and each uses
+  the room for what Copilot got wrong or the files left out. File 07 names `hivevar`, and
+  `count_distinct` and `fill_null` again; file 18 lists the schedule Workflow's step. File 06
+  teaches `write_days(first_day, last_day)`, and file 18 writes a Scheduled run's period with
+  it and passes `hivevars=`. A Script tag is answered with your value, and a Hivevar only when
+  you ask (files 07, 13 and 17); file 17 drops the advice for seeds before 8.4. File 00 says
+  where to take your chatbot's Hive, and files 04, 05 and 16 each gain an example. File 17
+  gives convert's other cells, through the compare, when you ask for them, and file 19's
+  request says which rows appear, such as only the jobs with a finished run.
+- **Copilot files 00 to 18 are written to be looked up.** Each opens on a Patterns table,
+  "when the user says X, do Y", its rules numbered with short ids (A1 to A10 for the rules
+  every code file holds, R1 and on for its own), worked patterns W1 and on to copy, and a
+  Self-check, C1 and on, to tick, under the same headings in every file. File 00 opens on an
+  Index of the words you'd type and the file each sends you to, with rules for when two lines
+  fit. Files 11 and 12 give each mark its name, such as "text date" or "pivot", and file 17
+  keeps `RENAME = {}` when you say the name convert gives.
+
 ## 8.6
 
 8.6 has each notebook give warehouse.py its own connection, so each picks the account it runs

@@ -21,13 +21,15 @@ import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import NamedTuple, NoReturn
 
 from .describe import printed_answer
 from .refusals import callers_frame, refuse, warn_run_value_failed
 from .script_tags import SCRIPT_TAG, check_tag_value
+from .shared import escaped_literal, with_article
 from .tables import Column, Table, literal, python_text
 from .trees import Node
-from .writing import hive_text
+from .writing import hive_text, tag_value_problem
 
 # The Partition SHOW PARTITIONS lists for the rows whose partition column is NULL: no value.
 HIVE_DEFAULT_PARTITION = "__HIVE_DEFAULT_PARTITION__"
@@ -145,7 +147,14 @@ def _traced_column(call: str, function: Callable[..., object], arguments: tuple[
         node = written(given, call, traced.function)
         node.meta.update(call=call, traced=traced, value=hive_text(node))
         return Column(node)
-    placeholder = f"`<{tag or function.__qualname__ + '()'} failed>`"
+    return _failed_column(call, traced, failed, tag or function.__qualname__ + "()")
+
+
+def _failed_column(call: str, traced: Traced, failed: str, shown: str) -> Column:
+    """The placeholder a traced call that failed leaves in its value's place, `shown` in it,
+    such as `<PERIOD_END failed>`: a dry run shows it, and run_query and run_execute refuse to
+    send it, with a Warning saying why."""
+    placeholder = f"`<{shown} failed>`"
     node = Node(SCRIPT_TAG, text=placeholder)
     node.meta.update(call=call, traced=traced, failed=failed)
     warn_run_value_failed(call, failed, placeholder, traced.function)
@@ -157,8 +166,7 @@ def run_value(function: Callable[..., object], *arguments: object,
     """What a function gives, worked out each time the Statement is built, and traced.
 
     >>> import datetime
-    >>> from sqlglot_composer import example_database
-    >>> runs = example_database.job_runs
+    >>> runs = job_runs
     >>> def days_before(day: datetime.date, days: int) -> datetime.date:
     ...     return day - datetime.timedelta(days=days)
     >>> print(to_hive(statement(
@@ -255,7 +263,7 @@ def _tag_value(given: object, call: str, function: str) -> Node:
     )
 
 
-def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
+def tag_text(value: str | Callable[[], object] | Hivevar, *, quoted: bool = True) -> str:
     """The text a Script tag stands for, as its place in a string.
 
     >>> TAGS = {"RUN_MONTH": "2026-09", "PERIOD_END": "'2026-09-24'"}
@@ -280,19 +288,40 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
     tag's place, as script_tag holds its answer to. A function that fails is refused, naming
     it. What it gives is text inside a string, so the
     Statement's lineage, which traces each value, doesn't draw it.
+
+    Given a Hivevar (help(hivevar)), it gives the Hivevar, whose value the Toolbox sends
+    before the Statement. For a tag inside quotes,
+    tag_text(hivevar("RUN_MONTH", default="2026-09")) gives ${hivevar:RUN_MONTH}, and the
+    original's quotes stay around it. For a bare tag,
+    tag_text(hivevar("PERIOD_END", default="'2026-09-24'"), quoted=False) gives
+    '${hivevar:PERIOD_END}'.
     """
+    if isinstance(value, Hivevar):
+        return _hivevar_text(value, quoted)
     if not callable(value):
         return value
     call = f"tag_text({value.__qualname__})"
     given, traced, failed = _traced_call(value, (), {})
     if failed is not None:
-        refuse(
-            what=f"{call}: {failed}.",
-            why="A Run value is worked out each time the Statement is built, and a tag in "
-            "text kept as it is has no place to show one that failed.",
-            fix=f"Fix {traced.function}, or what it reads, and build the Statement again.",
-            error=ValueError,
-        )
+        _refuse_failed_tag_text(call, traced, failed)
+    return _tag_text_written(given, call, traced.function, quoted=quoted)
+
+
+def _refuse_failed_tag_text(call: str, traced: Traced, failed: str) -> NoReturn:
+    """Refuse tag_text a Run value whose function failed: a string has no place to show it."""
+    refuse(
+        what=f"{call}: {failed}.",
+        why="A Run value is worked out each time the Statement is built, and a tag in "
+        "text kept as it is has no place to show one that failed.",
+        fix=f"Fix {traced.function}, or what it reads, and build the Statement again.",
+        error=ValueError,
+    )
+
+
+def _tag_text_written(given: object, call: str, function: str, *, quoted: bool) -> str:
+    """What a Run value's function, `function`, gave, as tag_text writes it: inside quotes, a
+    date as 2026-10-31, a number or text as it is; bare, a date as '2026-10-31', TRUE or
+    FALSE, and text held to what a Script tag's answer is."""
     if isinstance(given, datetime.date) and not quoted:
         return hive_date(given)
     if isinstance(given, datetime.date):
@@ -305,10 +334,10 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
     if isinstance(given, (int, float, str)) and not isinstance(given, bool):
         return str(given)
     refuse(
-        what=f"{call}: {traced.function}() gave {given!r}, a {type(given).__name__}.",
+        what=f"{call}: {function}() gave {given!r}, a {type(given).__name__}.",
         why="A tag in text kept as it is stands for one value: a date, a number or text, "
         "and, standing bare, TRUE or FALSE too.",
-        fix=f"Have {traced.function} give back a datetime.date, a number or text.",
+        fix=f"Have {function} give back a datetime.date, a number or text.",
         error=TypeError,
     )
 
@@ -329,6 +358,273 @@ def refuse_failed_run_values(tree: Node) -> None:
         )
 
 
+# --- Hivevars ------------------------------------------------------------------------------
+
+
+# A Hivevar's NAME: a letter or _, then letters, digits and _.
+_HIVEVAR_NAME = re.compile(r"[A-Za-z_]\w*")
+# A Hivevar as it stands in Hive text, its NAME in the group.
+HIVEVAR_IN_HIVE = re.compile(rf"\$\{{hivevar:({_HIVEVAR_NAME.pattern})\}}")
+
+
+@dataclass(frozen=True)
+class Hivevar:
+    """A Script tag's answer that leaves the tag's place for whatever runs the Hive to fill in:
+    its NAME, and its default, Hive text or a Run value's function. hivevar(...) makes one."""
+
+    name: str
+    default: str | Callable[[], object]
+
+    def __repr__(self) -> str:
+        """As a Table reference's TAGS writes it, such as
+        hivevar("PERIOD_END", default="'2026-10-31'")."""
+        default = _default_written(self.default)
+        return f"hivevar({escaped_literal(self.name)}, default={default})"
+
+
+def _default_written(default: str | Callable[[], object]) -> str:
+    """A Hivevar's default as a Table reference writes it: its text in quotes, or its
+    function's name."""
+    if callable(default):
+        return default.__qualname__
+    return escaped_literal(default)
+
+
+@dataclass
+class HivevarsGiven:
+    """The values project.build_run's hivevars= gives Hivevars while it builds, by NAME, and
+    the NAME of each Hivevar met, in order."""
+
+    given: dict[str, object]
+    met: list[str] = field(default_factory=list)
+
+
+class HivevarGiven(NamedTuple):
+    """What a Hivevar is worked out from as a Statement is built: the value; the trace of its
+    Run value's function, when one was called; why that function failed, or None; and what
+    gave the value, as a refusal names it: the function, hivevars=, or the Hivevar's NAME for
+    a text default."""
+
+    value: object
+    traced: Traced | None
+    failed: str | None
+    given_by: str
+
+
+# While project.build_run builds, the values its hivevars= gives; None at any other time.
+_HIVEVARS_GIVEN: HivevarsGiven | None = None
+# The value each Hivevar was last worked out as, by its NAME. A Statement keeps a copy of it
+# as it is made (last_hivevar_values), for the Hivevars tag_text wrote into its strings, which
+# keep no note of their value.
+_LAST_VALUE_BY_NAME: dict[str, str] = {}
+
+
+@contextmanager
+def hivevars_given(given: dict[str, object]) -> Iterator[HivevarsGiven]:
+    """While the block runs, each Hivevar whose NAME `given` holds, with a value that isn't
+    None, is worked out from that value in place of its default. What it gives holds the NAME
+    of each Hivevar met while the block runs, in order."""
+    global _HIVEVARS_GIVEN  # one build at a time; the one before, if any, comes back after
+    before = _HIVEVARS_GIVEN
+    _HIVEVARS_GIVEN = HivevarsGiven(dict(given))
+    try:
+        yield _HIVEVARS_GIVEN
+    finally:
+        _HIVEVARS_GIVEN = before
+
+
+def hivevar(name: str, *, default: str | Callable[[], object]) -> Hivevar:
+    """An answer to a Script tag that the warehouse fills in each time the Hive runs.
+
+    >>> runs = job_runs
+    >>> TAGS = {"PERIOD_END": hivevar("PERIOD_END", default="'2026-09-24'")}
+    >>> print(to_hive(statement(
+    ...     SELECT(runs.run_id),
+    ...     FROM(runs),
+    ...     WHERE(at_most(runs.dt, script_tag(TAGS["PERIOD_END"]))),
+    ... )))
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt <= '${hivevar:PERIOD_END}'
+
+    A Hivevar is a ${hivevar:NAME} in the Hive, which your warehouse fills in each time the
+    Hive runs, from the value it is given then. The Script tag stays as it is: you answer it
+    with hivevar(...) in place of the Hive text or the Run value's function, in the convert
+    notebook's decisions cell, as in
+    {"tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-09-24'")}}, and
+    project.write_decisions writes it into TAGS. Which to choose: a Run value is worked out
+    when the Statement is built and written into the Hive; a Hivevar leaves ${hivevar:NAME} in
+    the Hive, filled in by the Toolbox's SET line when the Toolbox sends it, and by your
+    scheduler when it runs the write() steps of the .hql export_hive writes, never the file
+    whole. Choose a Hivevar when those steps run outside the Toolbox.
+
+    `name` is the Hivevar's NAME: a letter or _, then letters, digits and _, often the tag's
+    own. `default=` is its value unless a Scheduled run's hivevars= gives another: the Hive
+    the program put where the tag stood, written as a text answer is, such as "'2026-09-24'"
+    with its quotes for a bare tag, or a Run value's function, called each time the Statement
+    is built. If the default has quotes, as "'2026-09-24'" does, the quotes go around the
+    Hivevar in the Hive, '${hivevar:PERIOD_END}', and the value sent is 2026-09-24, without
+    them. A number or TRUE has none, so the Hive holds ${hivevar:DAYS} bare.
+
+    The Toolbox sends the value before each Statement that holds it: run_execute(s, execute),
+    project.run_tables and a Scheduled run's built.run first send
+    SET hivevar:PERIOD_END=2026-09-24 through your execute, in a call of its own, and
+    show_hive prints that line above the Statement. run_query writes the value in the
+    Hivevar's place, since your query gives back rows and a SET line gives none. A Scheduled
+    run gives another value by NAME, such as its parameter RUN_DATE:
+    project.build_run(statements, hivevars={"PERIOD_END": RUN_DATE}).
+
+    export_hive writes no SET line into its .hql file, since Hive lets a SET in the script
+    beat a value given on its command line, as in hive --hivevar PERIOD_END=... -f daily.hql:
+    it writes each value into a .hivevars file beside it, as --hivevar PERIOD_END=2026-09-24,
+    for your scheduler to pass to Hive with the .hql, or, for a Table notebook's, with its
+    write() steps, never its create() or seed().
+
+    It refuses a NAME Hive can't read, and a default that is neither text, such as "5" for a
+    number, nor a function. A text default is checked when script_tag or tag_text writes it,
+    as a text answer is.
+    """
+    if not isinstance(name, str) or not _HIVEVAR_NAME.fullmatch(name):
+        refuse(
+            what=f"hivevar({name!r}, ...) was given {name!r}, which can't be a Hivevar's "
+            "NAME.",
+            why="Hive reads ${hivevar:NAME} where a NAME starts with a letter or _ and holds "
+            "only letters, digits and _.",
+            fix='Give it a name such as "PERIOD_END", often the Script tag\'s own.',
+            error=ValueError,
+        )
+    is_text = isinstance(default, str) and bool(default.strip())
+    if not is_text and not callable(default):
+        given = "empty text"
+        if not isinstance(default, str):
+            given = with_article(type(default).__name__)
+        refuse(
+            what=f"hivevar({name!r}, default={default!r}) was given {given} for its default.",
+            why="The default is the value the Toolbox sends unless a Scheduled run gives "
+            "another: the Hive text a Script tag's answer is, or a Run value's function.",
+            fix=f"Give default= the Hive text, such as hivevar({name!r}, "
+            "default=\"'2026-10-31'\") for a date, with its quotes, or default=\"5\" for a "
+            "number; or a Run value's function, with no brackets after its name.",
+            error=TypeError,
+        )
+    return Hivevar(name, default)
+
+
+def hivevar_column(answer: Hivevar) -> Column:
+    """The Column of a bare Script tag answered hivevar(...): the Hivevar, standing in quotes
+    when its value, worked out now, does, with a note of its NAME and value. A Run value's
+    function that fails leaves a placeholder, as for any Run value. script_tag gives it."""
+    call = f"script_tag({answer!r})"
+    given = _hivevar_given(answer, call, bare=True)
+    if given.failed is not None:
+        return _failed_column(call, given.traced, given.failed, answer.name)
+    hive = _tag_value(given.value, call, given.given_by).parts["text"]
+    written, value = _hivevar_in_place(answer.name, hive)
+    _keep_hivevar_value(call, answer.name, value)
+    node = Node(SCRIPT_TAG, text=written)
+    node.meta.update(call=call, hivevar=answer.name, hivevar_value=value,
+                     hivevar_default=_default_traced(answer, given.traced))
+    if given.traced is not None:
+        node.meta["traced"] = given.traced
+    return Column(node)
+
+
+def _hivevar_text(answer: Hivevar, quoted: bool) -> str:
+    """tag_text's text for a Script tag answered hivevar(...): ${hivevar:NAME} inside the
+    original's quotes; bare, the Hivevar in quotes when its value, worked out now, is."""
+    call = f"tag_text({answer!r})"
+    given = _hivevar_given(answer, call, bare=not quoted)
+    if given.failed is not None:
+        _refuse_failed_tag_text(call, given.traced, given.failed)
+    text = _tag_text_written(given.value, call, given.given_by, quoted=quoted)
+    if quoted:
+        written, value = f"${{hivevar:{answer.name}}}", text
+    else:
+        written, value = _hivevar_in_place(answer.name, text)
+    _keep_hivevar_value(call, answer.name, value)
+    return written
+
+
+def _hivevar_given(answer: Hivevar, call: str, *, bare: bool) -> HivevarGiven:
+    """What a Hivevar is worked out from now, where its tag stood bare or not: the value
+    project.build_run's hivevars= gives it, else its default, a Run value's function called,
+    traced."""
+    if _HIVEVARS_GIVEN is not None:
+        _HIVEVARS_GIVEN.met.append(answer.name)
+        given = _HIVEVARS_GIVEN.given.get(answer.name)
+        if given is not None:
+            _check_hivevar_given(answer.name, given, call, bare=bare)
+            return HivevarGiven(given, None, None, "hivevars=")
+    if callable(answer.default):
+        value, traced, failed = _traced_call(answer.default, (), {}, answer.name)
+        return HivevarGiven(value, traced, failed, traced.function)
+    return HivevarGiven(answer.default, None, None, answer.name)
+
+
+def _check_hivevar_given(name: str, given: object, call: str, *, bare: bool) -> None:
+    """Refuse a value hivevars= gives a Hivevar that a Script tag's place can't take: one of
+    another type, and text that can't stand where a bare tag stood."""
+    problem = None
+    if isinstance(given, str) and given.strip() and bare:
+        problem = tag_value_problem(given)
+    elif not isinstance(given, (datetime.date, int, float, str)) or given == "":
+        problem = f"{with_article(type(given).__name__)} is no value a Script tag stands for"
+    if problem is None:
+        return
+    refuse(
+        what=f"{call}: hivevars= gives {name} {python_text(given)}, which can't stand where "
+        f"its tag stood: {problem}.",
+        why="A Hivevar stands for one value where a Script tag stood: a date, a number, TRUE "
+        "or FALSE, or the Hive text, such as \"'2026-10-31'\" with its quotes.",
+        fix=f"In the Build cell's hivevars=, give {name} a datetime.date, such as "
+        "datetime.date(2026, 10, 31), a number or the Hive text, or None to send its default.",
+        error=TypeError,
+    )
+
+
+def _hivevar_in_place(name: str, hive: str) -> tuple[str, str]:
+    """A Hivevar where a bare tag stood, its value's Hive `hive`, and the value it is sent as:
+    in the value's own quotes, '${hivevar:NAME}' and the text inside them; else bare."""
+    for quote in ("'", '"'):
+        if len(hive) > 1 and hive.startswith(quote) and hive.endswith(quote):
+            return f"{quote}${{hivevar:{name}}}{quote}", hive[1:-1]
+    return f"${{hivevar:{name}}}", hive
+
+
+def _keep_hivevar_value(call: str, name: str, value: str) -> None:
+    """Keep the value a Hivevar was worked out as, by its NAME, once it is checked."""
+    _check_hivevar_value(call, name, value)
+    _LAST_VALUE_BY_NAME[name] = value
+
+
+def _check_hivevar_value(call: str, name: str, value: str) -> None:
+    """Refuse a Hivevar's value that a SET line can't hold: one with a ; or a line break."""
+    if ";" in value or "\n" in value or "\r" in value:
+        refuse(
+            what=f"{call}: the Hivevar {name}'s value, {value!r}, holds a ; or a line break.",
+            why=f"The Toolbox sends it as SET hivevar:{name}=<value>, one line, which a ; or a "
+            "line break would end early.",
+            fix="Give a value with neither.",
+            error=ValueError,
+        )
+
+
+def _default_traced(answer: Hivevar, traced: Traced | None) -> str:
+    """A Hivevar's default as its lineage box says it: its text, or its function's call."""
+    if traced is not None:
+        return f"{traced.function}()"
+    return _default_written(answer.default)
+
+
+def last_hivevar_values() -> dict[str, str]:
+    """The value each Hivevar was last worked out as, by its NAME: a copy, which a Statement
+    keeps as it is made, so the Hivevars tag_text wrote into its strings, worked out just
+    before, are sent with their own values."""
+    return dict(_LAST_VALUE_BY_NAME)
+
+
 # --- Helpers for a Run value's function -----------------------------------------------------
 
 
@@ -336,8 +632,7 @@ def latest_partition(column: Column,
                      query: Callable[[str], object] | None = None) -> datetime.date | int | str:
     """The newest value of a partition column, from the warehouse's SHOW PARTITIONS.
 
-    >>> from sqlglot_composer import example_database
-    >>> latest_partition(example_database.job_runs.dt, example_database.query)
+    >>> latest_partition(job_runs.dt, query)
     datetime.date(2026, 9, 24)
 
     It sends SHOW PARTITIONS for the column's table through your query, which lists each

@@ -48,6 +48,7 @@ from .refusals import (
     warning_unchecked_partition_filter,
     warning_unchecked_where_on_kept_rows,
 )
+from .run_values import last_hivevar_values
 from .tables import (
     Column,
     NamedPartitions,
@@ -236,6 +237,9 @@ class Statement:
         # (the function's name, the Statements it stacks). Its _outputs are then its columns,
         # and it has none of the clauses above.
         self._stack = None
+        # Each Hivevar's value as last worked out when it was made, tag_text's in its strings
+        # among them (Toolbox 8.7): the values its SET hivevar lines send.
+        self._hivevar_values = last_hivevar_values()
 
     def __repr__(self) -> str:
         if not kinds.is_a_query(self):
@@ -620,7 +624,6 @@ def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
               broadcast: bool = False) -> Clause:
     """Keep each row another table matches, once, adding none of that table's columns.
 
-    >>> run_alerts = example_database.run_alerts
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, job_runs.status),
     ...     FROM(job_runs),
@@ -693,7 +696,6 @@ def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
 
     >>> recorded = derived("recorded", statement(
     ...     SELECT(job_runs.run_id), FROM(job_runs), WHERE(last_n_days(job_runs.dt, 2))))
-    >>> scheduler_runs = example_database.scheduler_runs
     >>> started = derived("started", statement(
     ...     SELECT(scheduler_runs.run_id), FROM(scheduler_runs),
     ...     WHERE(last_n_days(scheduler_runs.dt, 2))))
@@ -1099,7 +1101,6 @@ def INSERT_INTO(
 ) -> Clause:
     """Add rows to a Saved table or its Partitions; sent twice, it adds twice.
 
-    >>> run_alerts = example_database.run_alerts
     >>> runs_to_review = Table("mart.runs_to_review", partitioned_by=["dt"], key=["run_id"],
     ...     columns={"run_id": "bigint", "dt": "string"},
     ...     location="/data/your_team/mart.db/runs_to_review")
