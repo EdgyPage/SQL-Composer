@@ -9,6 +9,10 @@ in the Formula workbook, then a fresh converter who turns it into tables. Each r
 against its scenario's answer key. A run that passes shows the docs were enough; each question
 asked shows a gap.
 
+A round runs only when the user asks for one: no ticket, commit or push runs it on its own
+(the user, 2026-11-14). A round gives each dev scenario one run, and each held-out scenario one
+run per Toolbox version, at its raise.
+
 These steps need no other context. Run each command from the repo's top, with dev's virtual
 environment (`.venv/Scripts/python`). Nothing a round makes is committed: its records are kept
 under `.eval-local/`, which git ignores, and a run's own folder is made outside the repo, in the
@@ -41,8 +45,8 @@ the memo, so its scenario isn't run again, run this once; running it again chang
        .venv/Scripts/python tools/usability_loop.py plan W1 W8
 
    It prints one line per scenario, then the round's estimate. `memoized` means every run the
-   round gives the scenario (three for a dev scenario, one for a held-out one) passed with the
-   inputs it has now, and none failed: give it to no agent, and name those runs in the round's
+   round gives the scenario (one) passed with the inputs it has now, or, for a held-out
+   scenario, at the Toolbox version dev is at, and none failed: give it to no agent, and name those runs in the round's
    notes. `run it` says why: no run recorded with these inputs, fewer passed than a round asks,
    or one failed. When no run was recorded with these inputs, it also names each input that
    changed since the scenario's last recorded run, such as `changed since its last run,
@@ -51,8 +55,8 @@ the memo, so its scenario isn't run again, run this once; running it again chang
    none yet), and the usability budget. A round over the budget is refused: to run it anyway,
    add `--over-budget`. `--fresh` plans every run again, though each passed.
 2. **Name each run.** A run is named `<date>-<scenario>-<n>`, `n` from 1 to the runs the round
-   gives the scenario: `2026-11-14-W1-1`, `2026-11-14-W1-2`, `2026-11-14-W1-3` for a dev
-   scenario. The number is the run's slot in its round, which the memo keeps it under.
+   gives the scenario, one: `2026-11-14-W1-1`. The number is the run's slot in its round,
+   which the memo keeps it under.
 3. **Prepare the run's folder.** For scenario `W1`, run 1:
 
        .venv/Scripts/python tools/usability_loop.py prepare W1 2026-11-14-W1-1
@@ -124,8 +128,8 @@ the memo, so its scenario isn't run again, run this once; running it again chang
 11. **Read the failures.** Fix only what a dev run showed, in what a user reads: the README, the
     how-tos, the Steps sheet, the notebooks' text, refusal messages and the Copilot files. A
     Toolbox bug a run finds is fixed too, test first. Then plan the round again, and run what
-    it says. The loop is done when every dev scenario passes three of three in two rounds
-    running. Every held-out scenario runs once per version of the docs.
+    it says. The loop is done when every dev scenario passes in two rounds running. Every
+    held-out scenario runs once per Toolbox version.
 12. **Report.** First write the commits file, which gives the report each commit's version and
     events:
 

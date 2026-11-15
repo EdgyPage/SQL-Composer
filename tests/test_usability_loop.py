@@ -634,6 +634,30 @@ def local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return folder
 
 
+@pytest.fixture
+def three_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Three runs a round for a dev scenario, as before 2026-11-14: the slots' rules hold for
+    any count, and these tests read them over several."""
+    monkeypatch.setattr(usability_loop, "ROUND_RUNS", {"dev": 3, "held_out": 1})
+
+
+def test_a_dev_scenario_runs_once_a_round_and_a_held_out_one_once_a_version(
+        chosen: usability_loop.Scenario, local: Path, monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path) -> None:
+    assert usability_loop.ROUND_RUNS == {"dev": 1, "held_out": 1}
+    assert usability_loop.slots_of(chosen) == ["T1-1"]
+    version = tmp_path / "version.txt"
+    version.write_text("8.7\n", encoding="utf-8")
+    monkeypatch.setattr(usability_loop, "VERSION_FILE", version)
+    held = dataclasses.replace(chosen, split="held_out")
+    _keep(held, "a" * 64, 1)
+    assert usability_loop.is_memoized(held, "b" * 64)
+    version.write_text("8.8\n", encoding="utf-8")
+    assert not usability_loop.is_memoized(held, "b" * 64)
+    _keep(chosen, "a" * 64, 1)
+    assert not usability_loop.is_memoized(chosen, "b" * 64)
+
+
 def _keep(chosen: usability_loop.Scenario, inputs: str, number: int,
           passed: bool = True) -> None:
     """The run `number` of T1 kept in the memo, as a scored run keeps it."""
@@ -650,6 +674,7 @@ def _keep(chosen: usability_loop.Scenario, inputs: str, number: int,
     pytest.param([], False, "T1: run it: no run recorded with these inputs", id="none"),
 ])
 def test_plan_says_whether_a_scenario_is_memoized_naming_its_runs(
+        three_runs: None,
         chosen: usability_loop.Scenario, local: Path, kept: list[tuple[int, bool]],
         memoized: bool, said: str) -> None:
     inputs = "ab" * 32
@@ -672,7 +697,7 @@ def test_a_held_out_scenario_is_memoized_by_one_run_that_passed(
 
 
 def test_fresh_plans_every_run_again_though_each_passed(
-        chosen: usability_loop.Scenario, local: Path) -> None:
+        three_runs: None, chosen: usability_loop.Scenario, local: Path) -> None:
     inputs = "ab" * 32
     for number in (1, 2, 3):
         _keep(chosen, inputs, number)
@@ -682,6 +707,7 @@ def test_fresh_plans_every_run_again_though_each_passed(
 
 
 def test_a_recorded_run_is_kept_locally_and_a_memoized_scenario_isnt_prepared_unless_fresh(
+        three_runs: None,
         chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
     for number in (1, 2, 3):
         run = usability_loop.prepare(chosen, tmp_path / f"2026-11-10-T1-{number}",
@@ -706,6 +732,7 @@ def test_a_recorded_run_is_kept_locally_and_a_memoized_scenario_isnt_prepared_un
 
 
 def test_a_run_whose_slot_already_passed_is_refused_but_the_next_slot_is_not(
+        three_runs: None,
         chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, local: Path) -> None:
     first = usability_loop.prepare(chosen, tmp_path / "2026-11-10-T1-1", main=main_tree,
                                    python=Path(sys.executable))
@@ -847,7 +874,7 @@ def test_usage_of_an_agent_the_loop_has_none_of_is_refused(local: Path, what: st
 
 
 def test_a_round_is_estimated_from_past_phase_rows_and_refused_over_its_budget(
-        chosen: usability_loop.Scenario, local: Path) -> None:
+        three_runs: None, chosen: usability_loop.Scenario, local: Path) -> None:
     plans = [usability_loop.slot_plan(chosen, "ab" * 32)]
     assert "No estimate" in usability_loop.estimate_line(plans, [chosen], over_budget=False)
     usability_loop.record_usage("r", "phase-1", tokens="10000", seconds="1", result="done",

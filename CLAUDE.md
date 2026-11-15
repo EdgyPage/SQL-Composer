@@ -118,7 +118,8 @@ that stuff." (the evaluation system, `.scratch/eval-system/map.md`).
   tools/eval_runs.py copy-records` copies in records an older checkout left under `.scratch/`.
 - A round is run by its numbered steps, with no orchestrating worker: `docs/copilot-eval.md`
   for the Copilot, Excel and Metric request evaluations, `docs/usability-loop.md` for the
-  usability loop. Run only what the plan says changed.
+  usability loop. Run only what the plan says changed. A usability round runs only when the
+  user asks for one: one run a dev scenario, and a held-out scenario once a Toolbox version.
 - No tracked file holds an absolute user path, the user's folder name, an AppData, Temp or
   scratchpad path, or an email. Write a path relative to the repo, or `<user folder>` and
   `<scratchpad>`. `tools/local_paths.py` is the one reader of this: `tests/repo/test_local_paths.py`

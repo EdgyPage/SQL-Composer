@@ -73,11 +73,12 @@ prepares may run at once: one waits for another's lock, then refuses, naming it.
 
 The memo is `eval_runs`' (`.eval-local/memo/`). A run is kept under the key of its slot, the
 run's number in its round: the scenario and the number, `W1-2`; the arm `run`; the model
-`haiku`; the hash of the scenario's text; and, as the text it loads, its `inputs_hash`. `plan`
-says of each scenario whether it is memoized: as many slots as a round gives it (three for a
-dev scenario, one held out) hold a run that passed with its inputs, and none holds one that
-failed. It estimates the round's tokens from the ledger's past phase agents, and refuses a
-round over the usability budget unless given `--over-budget`. `prepare` refuses a memoized
+`haiku`; the hash of the scenario's text; and, as the text it loads, its `inputs_hash`, or
+for a held-out scenario the Toolbox version, so it runs once a version. `plan` says of each
+scenario whether it is memoized: as many slots as a round gives it (one, `ROUND_RUNS`) hold a
+run that passed with its inputs, and none holds one that failed. It estimates the round's
+tokens from the ledger's past phase agents, and refuses a round over the usability budget
+unless given `--over-budget`. `prepare` refuses a memoized
 scenario, or a slot holding a run that passed, naming its runs, unless given `--fresh`.
 """
 
@@ -143,8 +144,13 @@ LOCK = "prepare.lock"
 LOCK_WAIT = 300.0
 LOCK_POLL = 0.5
 # The runs a round gives a scenario, by its split: memoized once that many passed with its
-# inputs and none failed.
-ROUND_RUNS = {"dev": 3, "held_out": 1}
+# inputs and none failed. One a dev scenario, not three: of 264 runs to 2026-11-14, 260 passed,
+# so a second and third run seldom showed anything (the user, 2026-11-14).
+ROUND_RUNS = {"dev": 1, "held_out": 1}
+# The Toolbox version, which keys a held-out scenario's runs in place of its inputs: a held-out
+# scenario runs once a version, at its raise, not each time an input changes (the user,
+# 2026-11-14).
+VERSION_FILE = ROOT / "sqlglot_composer" / "version.txt"
 # The export's stamp in main's version.txt and README, when it ran and from which commit: left
 # out of a file's hash, as it changes with every build.
 EXPORT_STAMP = re.compile(rb"exported \d{4}-\d\d-\d\d \d\d:\d\d(?: from dev commit [0-9a-f]+)?")
@@ -840,11 +846,24 @@ def task_text(chosen: Scenario) -> str:
                       *(f"{phase.role}: {phase.job}" for phase in chosen.phases)])
 
 
+def toolbox_version() -> str:
+    """The Toolbox version dev is at, as its one file says."""
+    return VERSION_FILE.read_text(encoding="utf-8").strip()
+
+
+def loaded_text(chosen: Scenario, inputs_hash: str) -> str:
+    """What a scenario's slot is keyed on as the text it loads: a dev scenario's inputs, and a
+    held-out scenario's Toolbox version, so it runs again only at the next raise."""
+    return inputs_hash if chosen.split == "dev" else f"Toolbox {toolbox_version()}"
+
+
 def key_of_slot(chosen: Scenario, inputs_hash: str) -> Callable[[str, str], eval_runs.Key]:
-    """The memo key of a slot of the scenario given the inputs `inputs_hash`: what the
-    scenario's agents read is the text it loads."""
+    """The memo key of a slot of the scenario given the inputs `inputs_hash`: for a dev
+    scenario what its agents read is the text it loads; a held-out one is keyed by the Toolbox
+    version (`loaded_text`)."""
     def key_of(slot: str, reply: str) -> eval_runs.Key:
-        return eval_runs.hashed_key(slot, task_text(chosen), MEMO_ARM, MODEL, inputs_hash)
+        return eval_runs.hashed_key(slot, task_text(chosen), MEMO_ARM, MODEL,
+                                    loaded_text(chosen, inputs_hash))
     return key_of
 
 
