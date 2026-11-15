@@ -230,6 +230,27 @@ def test_the_example_projects_of_each_version_since_8_3_upgrade_straight_into_th
     assert said[-1].endswith(f"{in_words(reports)}.")
 
 
+WITH_SCHEDULED_RUNS = [(version, name) for version, name in UPGRADED_TO_THIS_ONE
+                       if any((UPGRADE_FROM / version / name / "scheduled_runs").rglob("*.*"))]
+
+
+@pytest.mark.parametrize(("start_from", "name"), WITH_SCHEDULED_RUNS,
+                         ids=[f"{version}-{name}" for version, name in WITH_SCHEDULED_RUNS])
+def test_an_upgrade_keeps_every_scheduled_run_file_at_its_path(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, start_from: str,
+        name: str) -> None:
+    """A team's scheduler finds each Scheduled run by its path, scheduled_runs/<name>/, and
+    builds its container from the commit: an Upgrade may rewrite or mark a line inside a
+    Scheduled run's files, but never moves, renames or takes one out (the user, 2026-11-14)."""
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / start_from / name, copy)
+    before = sorted(path.relative_to(copy).as_posix()
+                    for path in (copy / "scheduled_runs").rglob("*") if path.is_file())
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert [path for path in before if not (copy / path).is_file()] == []
+
+
 # --- An upgrade from 7.1 ----------------------------------------------------------------------
 
 

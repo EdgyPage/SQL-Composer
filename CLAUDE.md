@@ -164,6 +164,10 @@ merge.
   one with nothing to change, and freezes the Example projects as the version before left them,
   without their Lineage pages, in `tests/upgrade_from/<that version>/`; `tests/test_upgrades.py`
   fails until both are there.
+- An Upgrade step never moves, renames or takes out a file in a Project's
+  `scheduled_runs/<name>/`: the user's scheduler builds each run's container from its path and
+  the commit (the user, 2026-11-14). It may only rewrite or mark lines inside them;
+  `test_an_upgrade_keeps_every_scheduled_run_file_at_its_path` holds it.
 - A hook (`.claude/hooks/drift_gate.py`) refuses `git push` from dev while a commit it sends
   has no review line or any item is open, and says what to run. For a small push of small
   commits, the user may skip the review: run `DRIFT_REVIEW=skip git push ...` only when the

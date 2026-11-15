@@ -18,6 +18,9 @@ line.
   old folder, copying in the new one and restarting the kernel, as the README's Update says.
 - If the Project was made by Toolbox 7.1 or later, `project.upgrade()` carries it: from 7.1 on,
   every Toolbox version ships the step that carries a Project to it from the version before.
+- An Upgrade never moves, renames or deletes a file under `scheduled_runs/`, so a scheduler
+  that finds each Scheduled run by its path keeps working; it may change lines inside them,
+  each marked `# UPGRADE <version>:`.
 - If you skipped versions, copy in the newest and upgrade once: `project.upgrade()` runs each
   version's step in turn, from the Project's version to the Toolbox's. If Toolbox 8.3 or a later
   version last wrote your Project, it upgrades straight to the newest, as each new Toolbox is

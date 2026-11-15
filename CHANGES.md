@@ -17,6 +17,10 @@ request.
   `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
   through `admin/upgrade_8.7.md`. A Project 8.3, 8.4 or 8.5 last wrote upgrades straight to
   8.7 the same way, each step in turn.
+- **Your Scheduled runs keep their paths.** The Upgrade moves, renames and deletes nothing under
+  `scheduled_runs/`, so a scheduler that runs each one by its path needs no change. It changes a
+  line inside one only to rewrite an import of the Example database, marked `# UPGRADE 8.7:`; a
+  Scheduled run connected to your own warehouse comes through as it was.
 - **The pages are in the download's `docs` folder now**, not in `sqlglot_composer`:
   `docs/how_to.html`, `docs/examples.html`, `docs/workflows.html` and
   `docs/example_projects.html`. Nothing in your Project changes; open them from there.

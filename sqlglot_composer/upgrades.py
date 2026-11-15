@@ -6,7 +6,9 @@ admin/project_version.txt holds, to the Toolbox's, which its version.txt holds. 
 the changes that need no judgement, copying each file it rewrites into admin/removed/ first, and
 marks each change that needs you: a `# UPGRADE <version>: <what to change>` comment at the
 line, and a box in admin/upgrade_<version>.md. project.check() lists every mark still in the
-Project. An Upgrade changes files only: it never sends anything to the warehouse.
+Project. An Upgrade changes files only: it never sends anything to the warehouse, and it never
+moves, renames or takes out a file under scheduled_runs/, since a scheduler may find each
+Scheduled run by its path; it only rewrites or marks lines inside them.
 
 Every Toolbox version ships the step from the one before, even one with nothing to change, and
 7.1 is the first version a Project can be upgraded from: a Project with no

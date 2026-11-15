@@ -1810,6 +1810,9 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      imports `project` already. Then work through the boxes in each checklist it writes in
      admin/, one for each version it upgraded through, named for the version, such as
      upgrade_8.4.md: the upgrade's report ends by naming each, in order.
+   - An Upgrade never moves, renames or deletes a file under `scheduled_runs/`, so a
+     scheduler that finds each Scheduled run by its path keeps working; it may change lines
+     inside them, each marked `# UPGRADE <version>:`.
    - If you skipped versions, copy in the newest and upgrade once: it runs each version's step
      in turn. From 8.3 on, the Toolbox's tests upgrade each version's Example projects straight
      to the newest.
