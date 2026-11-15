@@ -70,7 +70,9 @@ def own_names(here: Path = Path(__file__),
     person's (`runner` is also a word the docs use)."""
     if environ.get("GITHUB_ACTIONS") == "true":
         return ()
-    parts = here.resolve().parts
+    # A path written for another computer (a Windows path on Linux) is not absolute here,
+    # and is read as written: resolving it would put this folder in front of it.
+    parts = here.resolve().parts if here.is_absolute() else here.parts
     for position, part in enumerate(parts[:-1]):
         if part.lower() in ("users", "home") and len(parts[position + 1]) >= _SHORTEST_NAME:
             return (parts[position + 1],)

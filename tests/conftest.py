@@ -345,6 +345,19 @@ def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def folders_given_back() -> Iterator[None]:
+    """Each Saved table's folder a test took, given back afterwards: the Toolbox keeps every
+    folder taken in this Python, and a later test on the same worker may take the same one (a
+    Copilot evaluation's reference and usability scenario W6 both use
+    /data/team/mart_dev.db/daily_fails, and met on CI's fewer workers)."""
+    folders = toolbox_module("tables")._FOLDERS
+    taken = dict(folders)
+    yield
+    folders.clear()
+    folders.update(taken)
+
+
+@pytest.fixture(autouse=True)
 def no_load_limits() -> Iterator[None]:
     yield
     toolbox_module().set_load_limits()

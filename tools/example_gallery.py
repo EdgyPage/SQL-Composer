@@ -58,7 +58,7 @@ import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
 import example_database  # noqa: E402
-from sqlglot_composer import conditions, kinds  # noqa: E402
+from sqlglot_composer import conditions, kinds, tables  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
@@ -137,8 +137,11 @@ def _example_today() -> datetime.date:
 
 @contextlib.contextmanager
 def example_setting() -> Iterator[None]:
-    """Today is 2026-09-25, and a file an example writes goes to a folder deleted afterwards."""
+    """Today is 2026-09-25, and a file an example writes goes to a folder deleted afterwards;
+    each Saved table's folder an example takes is given back afterwards, since the Toolbox keeps
+    every folder taken in this Python and the next example, or test, may take the same one."""
     real_today, here = conditions.today, os.getcwd()
+    folders_taken = dict(tables._FOLDERS)
     with tempfile.TemporaryDirectory() as folder, warnings.catch_warnings():
         warnings.simplefilter("ignore")
         conditions.today = _example_today
@@ -150,6 +153,8 @@ def example_setting() -> Iterator[None]:
         finally:
             os.chdir(here)
             conditions.today = real_today
+            tables._FOLDERS.clear()
+            tables._FOLDERS.update(folders_taken)
             sqlglot_composer.set_load_limits()
             sqlglot_composer.set_admin_log()
 

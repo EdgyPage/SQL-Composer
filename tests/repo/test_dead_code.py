@@ -51,7 +51,7 @@ PRIVATE_SEAMS = {
                                   "database's executor names in its fix",
     ("running", "_self_check"): "swapped out by a test to show nothing unchecked is sent",
     ("tables", "_SET_IT"): "a fix text a test checks against the admin module",
-    ("tables", "_FOLDERS"): "the folders taken in one Python, which scenario tests give back",
+    ("tables", "_FOLDERS"): "the folders taken in one Python, which every test gives back",
     ("unchecked", "_ALTERED_BY"): "fix texts a test checks against the admin module",
     ("writing", "_REPLAY"): "the replay table a sqlglot check reads",
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",

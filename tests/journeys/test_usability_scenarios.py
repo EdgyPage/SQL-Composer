@@ -18,27 +18,15 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 
 import openpyxl
 import pytest
 import usability_loop
 import usability_scenario_files
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules
 
 SCENARIOS = sorted(usability_scenario_files.scenarios())
-
-
-@pytest.fixture(autouse=True)
-def folders_given_back() -> Iterator[None]:
-    """Each Saved table's folder a reference end took, given back afterwards: the Toolbox keeps
-    every folder taken in this Python, and a later test's Project may take the same one."""
-    folders = toolbox_module("tables")._FOLDERS
-    taken = dict(folders)
-    yield
-    folders.clear()
-    folders.update(taken)
 
 
 @pytest.fixture
