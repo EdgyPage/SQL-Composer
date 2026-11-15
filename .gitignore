@@ -229,3 +229,5 @@ __marimo__/
 .scratch/copilot-eval/runs/
 .scratch/copilot-eval/memo/
 .scratch/copilot-eval/results.md
+# Claude Code's lock while it runs scheduled tasks: the app's, not the repo's.
+.claude/scheduled_tasks.lock
