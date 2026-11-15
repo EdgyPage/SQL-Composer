@@ -1,6 +1,6 @@
 ---
 name: zero-context-user
-description: Plays a person with no context in the usability loop: a technical user, a non-technical Excel user, or a converter, as its phase message says. Spawn it on a small model with one run's phase message (.venv/Scripts/python tools/usability_loop.py prepare <scenario> <run>); it works only in that run's folder, from what main ships.
+description: Plays a person with no context in the usability loop - a technical user, a non-technical Excel user, or a converter, as its phase message says. Spawn it on a small model with one run's phase message (.venv/Scripts/python tools/usability_loop.py prepare <scenario> <run>); it works only in that run's folder, from what main ships.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: haiku
 ---
