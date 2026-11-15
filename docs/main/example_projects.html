@@ -2327,7 +2327,7 @@ GROUP BY
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>alerts</th><th>high_alerts</th><th>dt</th></tr><tr><td>1</td><td>4</td><td>1</td><td>2026-09-24</td></tr><tr><td>2</td><td>1</td><td>1</td><td>2026-09-24</td></tr><tr><td>3</td><td>2</td><td>0</td><td>2026-09-24</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__alerts_per_job.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__alerts_per_job.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -2485,7 +2485,7 @@ GROUP BY
 <p class="label">It gives</p><div class="scroll"><table><tr><th>severity</th><th>alerts</th><th>dt</th></tr><tr><td>high</td><td>2</td><td>2026-09-24</td></tr><tr><td>low</td><td>5</td><td>2026-09-24</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__alerts_per_severity.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -2657,7 +2657,7 @@ FROM runs_per_job;</pre>
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>runs</th><th>failed_runs</th><th>minutes</th><th>dt</th></tr><tr><td>1</td><td>2</td><td>0</td><td>50</td><td>2026-09-24</td></tr><tr><td>2</td><td>1</td><td>1</td><td>20</td><td>2026-09-24</td></tr><tr><td>3</td><td>1</td><td>0</td><td>30</td><td>2026-09-24</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__daily_job_runs.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -2847,7 +2847,7 @@ daily = project.load(&quot;mart.daily_job_runs&quot;)
 write_daily_job_runs = daily.write()
 write_team_day = write()
 export_lineage(write_daily_job_runs, write_team_day)</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_day/lineage/20260925-060000-mart__team_day.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_day/lineage/20260925-060000-mart__team_day.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_day/lineage/20260925-060000-mart__team_day.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_day/lineage/20260925-060000-mart__team_day.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__team_day.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -6204,7 +6204,7 @@ GROUP BY
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>budget_cents</th><th>days</th><th>days_over</th></tr><tr><td>1</td><td>150</td><td>14</td><td>1</td></tr><tr><td>2</td><td>200</td><td>10</td><td>2</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(*write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__budget_overruns.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__budget_overruns.hql beside its notebook, the Hive of 3 steps, in the order they are sent: create(), write()[0] and write()[1].</pre>
@@ -6384,7 +6384,7 @@ FROM costs_per_job;</pre>
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>cost_cents</th><th>dt</th></tr><tr><td>1</td><td>100.0</td><td>2026-09-22</td></tr><tr><td>1</td><td>100.0</td><td>2026-09-24</td></tr><tr><td>1</td><td>120.0</td><td>2026-09-23</td></tr><tr><td>2</td><td><i>NULL</i></td><td>2026-09-24</td></tr><tr><td>2</td><td>180.0</td><td>2026-09-22</td></tr><tr><td>2</td><td>180.0</td><td>2026-09-23</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__job_day_costs.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__job_day_costs.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -6579,7 +6579,7 @@ LEFT JOIN ops.job_owners AS job_owners
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>team</th><th>events</th><th>runs</th><th>minutes</th><th>dt</th></tr><tr><td>1</td><td>data</td><td>2</td><td>1</td><td>10</td><td>2026-09-22</td></tr><tr><td>1</td><td>data</td><td>2</td><td>1</td><td>10</td><td>2026-09-24</td></tr><tr><td>1</td><td>data</td><td>2</td><td>1</td><td>12</td><td>2026-09-23</td></tr><tr><td>2</td><td>finance</td><td>1</td><td>1</td><td>0</td><td>2026-09-24</td></tr><tr><td>2</td><td>finance</td><td>2</td><td>1</td><td>18</td><td>2026-09-22</td></tr><tr><td>2</td><td>finance</td><td>2</td><td>1</td><td>18</td><td>2026-09-23</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__job_day_facts.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__job_day_facts.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -6744,7 +6744,7 @@ GROUP BY
 <p class="label">It gives</p><div class="scroll"><table><tr><th>null_event_id</th><th>null_job_id</th><th>null_event_type</th><th>null_minutes</th><th>null_dt</th></tr><tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__job_events_checks.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__job_events_checks.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -6878,7 +6878,7 @@ JOIN ops.job_owners AS job_owners
 <p class="label">It gives</p><div class="scroll"><table><tr><th>job_id</th><th>team</th><th>note</th><th>written_on</th></tr><tr><td>1</td><td>data</td><td>ask ana before changing nightly_load</td><td>2026-09-18</td></tr><tr><td>1</td><td>data</td><td>nightly_load runs long at the end of a month</td><td>2026-09-15</td></tr><tr><td>2</td><td>finance</td><td>invoice_sync&#x27;s bill comes in a day late</td><td>2026-09-21</td></tr><tr><td>2</td><td>finance</td><td>report_build came over from data today</td><td>2026-09-18</td></tr><tr><td>3</td><td>data</td><td>nightly_load runs long at the end of a month</td><td>2026-09-15</td></tr><tr><td>3</td><td>finance</td><td>invoice_sync&#x27;s bill comes in a day late</td><td>2026-09-21</td></tr><tr><td>3</td><td>finance</td><td>report_build came over from data today</td><td>2026-09-18</td></tr><tr><td>4</td><td>web</td><td>cache_warm is paused until October</td><td>2026-09-11</td></tr></table></div>
 <p class="label">Code cell 4</p><pre># 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__job_notes.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__job_notes.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -7119,7 +7119,7 @@ GROUP BY
 costs = project.load(&quot;mart.job_day_costs&quot;)
 facts = project.load(&quot;mart.job_day_facts&quot;)
 export_lineage(costs.write(), facts.write(), write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_days/lineage/20260925-060000-mart__team_days.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_days/lineage/20260925-060000-mart__team_days.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># 5. Its Hive: mart__team_days.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__team_days.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
@@ -7427,7 +7427,7 @@ FROM per_team AS p;</pre>
 <p class="label">It gives</p><pre class="out">&#x27;-- 1 of 2\nCREATE EXTERNAL TABLE IF NOT EXISTS mart.team_failures (\n  team STRING,\n  team_name STRING,\n  events BIGINT,\n  fails BIGINT,\n  PRIMARY KEY (team, dt) DISABLE NOVALIDATE\n)\nPARTITIONED BY (\n  dt STRING\n)\nSTORED AS ORC\nLOCATION \&#x27;/data/mart.db/team_failures\&#x27;;\n\n-- 2 of 2\n-- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.\nSET hive.exec.dynamic.partition=true;\nSET hive.exec.dynamic.partition.mode=nonstrict;\nWITH ev AS (\n  SELECT\n    e.job_id,\n    e.dt,\n    e.event_type\n  FROM ops.job_events AS e\n  WHERE\n    e.dt BETWEEN \&#x27;2026-09-20\&#x27; AND \&#x27;2026-09-24\&#x27;\n    AND e.event_type IN (\&#x27;start\&#x27;, \&#x27;retry\&#x27;, \&#x27;fail\&#x27;, \&#x27;finish\&#x27;)\n), per_team AS (\n  SELECT\n    o.team,\n    ev.dt,\n    COUNT(*) AS events,\n    SUM(CASE WHEN ev.event_type = \&#x27;fail\&#x27; THEN 1 ELSE 0 END) AS fails\n  FROM ev\n  JOIN ops.job_owners AS o\n    ON o.job_id = ev.job_id AND o.dt = ev.dt\n  GROUP BY\n    o.team,\n    ev.dt\n)\nINSERT OVERWRITE TABLE mart.team_failures PARTITION(dt)\nSELECT\n  p.team,\n  CASE p.team WHEN \&#x27;data\&#x27; THEN \&#x27;Data platform\&#x27; WHEN \&#x27;web\&#x27; THEN \&#x27;Web\&#x27; ELSE \&#x27;Other\&#x27; END AS team_name,\n  p.events,\n  p.fails,\n  p.dt\nFROM per_team AS p;&#x27;</pre>
 <p class="label">Code cell 4</p><pre># Lineage: a new pair in lineage/, named by the time and this table
 export_lineage(write())</pre>
-<p class="label">It gives</p><pre class="out">(WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html&#x27;), WindowsPath(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md&#x27;))</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md&#x27;))</pre>
 <p class="label">Code cell 5</p><pre># Its Hive: mart__team_failures.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
 <p class="label">It gives</p><pre class="out">Wrote mart__team_failures.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>

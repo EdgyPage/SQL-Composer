@@ -183,7 +183,17 @@ def run_one(project: str, notebook: str) -> list[Ran]:
         forms = {str(copy), copy.as_posix(), str(copy.resolve()), copy.resolve().as_posix()}
         for form in sorted(forms, key=len, reverse=True):
             text = text.replace(json.dumps(form)[1:-1], PROJECT_FOLDER)
-    return [Ran(**cell) for cell in json.loads(text)]
+    return [Ran(**cell) for cell in json.loads(same_on_every_computer(text))]
+
+
+# The classes a path a cell gives is printed with, which name the computer it ran on: the page
+# is written on Windows, and CI writes it again on Linux.
+PATH_CLASSES = re.compile(r"\b(?:Windows|Posix)Path\(")
+
+
+def same_on_every_computer(text: str) -> str:
+    """`text` with each path a cell printed shown as `Path(...)`, on any computer."""
+    return PATH_CLASSES.sub("Path(", text)
 
 
 def project_files(project: str) -> list[str]:

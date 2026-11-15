@@ -23,9 +23,10 @@ that isn't UTF-8 (a workbook, an image) is not read. It reaches nothing and runs
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 # The files that name the patterns to check for them: this reader, and the tests of this reader
@@ -60,10 +61,15 @@ GITHUB_COMMITTER = "noreply@github.com"
 _SHORTEST_NAME = 3
 
 
-def own_names(here: Path = Path(__file__)) -> tuple[str, ...]:
+def own_names(here: Path = Path(__file__),
+              environ: Mapping[str, str] = os.environ) -> tuple[str, ...]:
     """The name of this computer's user, read at run time from where the repo lies (the folder
     after `Users` or `home` in `here`'s whole path), so no name is held in the repo. Nothing
-    when the repo isn't under a user's folder, or the name is too short to tell from words."""
+    when the repo isn't under a user's folder, the name is too short to tell from words, or
+    the repo is on a GitHub Actions machine, whose `/home/runner` is the CI account's and no
+    person's (`runner` is also a word the docs use)."""
+    if environ.get("GITHUB_ACTIONS") == "true":
+        return ()
     parts = here.resolve().parts
     for position, part in enumerate(parts[:-1]):
         if part.lower() in ("users", "home") and len(parts[position + 1]) >= _SHORTEST_NAME:

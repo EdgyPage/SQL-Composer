@@ -82,13 +82,13 @@ def test_every_finding_names_the_file_and_line() -> None:
     "/c/Users/zorbax/repo/.claude/worktrees/a/tools/local_paths.py",
 ])
 def test_the_name_is_read_at_run_time_from_where_the_repo_lies(here: str) -> None:
-    assert local_paths.own_names(Path(here)) == ("zorbax",)
+    assert local_paths.own_names(Path(here), {}) == ("zorbax",)
 
 
 def test_a_repo_outside_a_users_folder_or_under_a_short_name_gives_no_name() -> None:
-    assert local_paths.own_names(Path("/srv/ci/repo/tools/local_paths.py")) == ()
-    assert local_paths.own_names(Path("/home/jo/repo/tools/local_paths.py")) == ()
-    assert local_paths.own_names(Path("/home")) == ()
+    assert local_paths.own_names(Path("/srv/ci/repo/tools/local_paths.py"), {}) == ()
+    assert local_paths.own_names(Path("/home/jo/repo/tools/local_paths.py"), {}) == ()
+    assert local_paths.own_names(Path("/home"), {}) == ()
 
 
 def test_this_computers_user_is_looked_for_in_every_file_without_being_named_in_the_repo(
@@ -163,3 +163,11 @@ def test_no_tracked_file_holds_a_local_path_or_a_personal_detail() -> None:
 def test_the_local_folder_is_git_ignored() -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ".eval-local/" in ignored
+
+
+def test_a_ci_machine_s_account_is_no_one_s_name() -> None:
+    # GitHub's machines keep the repo under /home/runner: that folder is the CI account's,
+    # and "runner" is a word the docs use (a Workflow's runner).
+    here = Path("/home/runner/work/repo/repo/tools/local_paths.py")
+    assert local_paths.own_names(here, {"GITHUB_ACTIONS": "true"}) == ()
+    assert local_paths.own_names(here, {}) == ("runner",)

@@ -139,3 +139,16 @@ def test_a_cells_dev_connection_is_shown_as_yours() -> None:
     cell = "x = 1\nimport example_database\nconnect(example_database)\n"
     assert example_projects_page.shown_as_yours(cell) == (
         f"x = 1\n{example_projects_page.SHOWN_CONNECTION}\n")
+
+
+def test_a_path_a_cell_gives_reads_the_same_on_every_computer() -> None:
+    # A cell that gives a path, such as export_lineage(write())'s pair, prints it with the
+    # class of the computer it ran on; CI runs on Linux, the page is written on Windows.
+    given = "(WindowsPath('<the Project's folder>/a.html'), PosixPath('b.md'))"
+    assert example_projects_page.same_on_every_computer(given) == (
+        "(Path('<the Project's folder>/a.html'), Path('b.md'))")
+
+
+def test_the_committed_page_names_no_computer_s_path_class() -> None:
+    text = (docs_folder() / "example_projects.html").read_text(encoding="utf-8")
+    assert "WindowsPath(" not in text and "PosixPath(" not in text
