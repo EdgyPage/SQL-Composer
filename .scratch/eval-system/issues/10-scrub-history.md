@@ -32,6 +32,24 @@ past commits on GitHub still hold them.
 
 ## Answer
 
+**Run for real, 2026-11-14, at the user's word** ("do the scrub", then "Yes, you force-push"
+and "You have permissions to do it"), with answer (b), the emails kept. GitHub had refused a
+first push of dev by its email-privacy setting; the user changed it, and dev went up at
+936ff87f before the scrub. The procedure ran as written on a fresh mirror, after a verified
+bundle of every ref (19.7 MB, kept outside the repo under the user's folder):
+
+- the check: "No local path or personal detail in any commit"; `compare`: 0 files differing in
+  main or dev but for the scrubbed text; both tips' tree hashes unchanged; dev 1,433 commits and
+  main 33, none dropped; main's stamp names the new dev hash;
+- force-pushed dev (5219f0c2), main (08e2d701) and the tag; `dev-6863fb` deleted on GitHub;
+  `git ls-remote` shows those three refs and nothing else;
+- this checkout: the folder couldn't be moved while sessions ran in it, so its `.git` was
+  replaced by a fresh clone's (the old one kept beside the bundle), the working files left as
+  they were, their tree being the rewritten dev's; `git status` clean after refreshing the index
+  (`git add -u`, which staged nothing); the whole suite passed there, 8,885 passed, 3 skipped.
+- Left for the user: the old agent worktrees under `.claude/worktrees/` point at the old `.git`
+  and no longer work as git checkouts; delete them, the old `.git` and the bundle once sure.
+
 Every part of the Done-when an agent does is done; the force-push is the user's step, as the
 Done-when says, by the procedure and commands below. Planned and rehearsed 2026-11-14 on mirror
 clones in a session scratchpad; nothing was pushed, and no checkout or ref of the repo was
