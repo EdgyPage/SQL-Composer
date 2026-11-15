@@ -262,7 +262,6 @@ ALLOWED: tuple[Allowed, ...] = (
     # The dev hooks.
     Allowed(".claude/hooks/drift_list.py", "<module>", "process", "subprocess", IMPORTS_GIT),
     Allowed(".claude/hooks/drift_list.py", "git", "process", "subprocess.run", GIT),
-    Allowed(".claude/hooks/drift_list.py", "on_this_branch", "process", "subprocess.run", GIT),
     # The dev tools.
     Allowed("tools/example_gallery.py", "statement_scripts", "dynamic code",
             "importlib.import_module", LOCAL_MODULES),
@@ -367,14 +366,8 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/repo/test_hooks.py", "run", "process", "subprocess.run", GIT),
     Allowed("tests/repo/test_hooks.py", "a_clone_on_dev", "process", "subprocess.run",
             "git init and clone of a bare repository in the test's temporary folder"),
-    Allowed("tests/repo/test_hooks.py", "review_hook", "process", "subprocess.run",
+    Allowed("tests/repo/test_hooks.py", "gate_hook", "process", "subprocess.run",
             "runs this same Python on a hook in .claude/hooks/"),
-    Allowed("tests/repo/test_hooks.py",
-            "test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo", "process",
-            "subprocess.run", "runs this same Python on a hook in .claude/hooks/"),
-    Allowed("tests/repo/test_hooks.py",
-            "test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit", "process",
-            "subprocess.run", "runs this same Python on a hook in .claude/hooks/"),
     Allowed("tests/repo/test_hooks.py",
             "test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook", "process",
             "subprocess.run", "runs this same Python on a hook in .claude/hooks/"),

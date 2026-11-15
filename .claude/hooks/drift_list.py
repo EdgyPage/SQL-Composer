@@ -9,8 +9,7 @@ and a closed one has `[x]`. Its "Reviewed commits" section has one line per revi
     - 1a2b3c4: D3, D4
     - 5d6e7f8: clean
 
-Which session asked for which review is not tracked: it lives in a file inside the clone's
-`.git` folder, one `<commit> <session id>` line per request.
+A review runs before a push, over every commit the push sends (`drift_gate.py`).
 """
 
 from __future__ import annotations
@@ -25,10 +24,9 @@ REVIEWER_BRIEF = Path(".claude") / "hooks" / "drift-reviewer.md"
 # reported (eval-system ticket 08). `eval_runs record` is the ledger's one writer.
 RECORD_RUN = (
     '.venv/Scripts/python tools/eval_runs.py record --pipeline maintainer --role maintainer '
-    '--task drift-reviewer --round <commit> --commit <commit> --arm - --model opus '
+    '--task drift-reviewer --round <commit> --commit <commit> --arm - --model sonnet '
     '--tokens <tokens> --seconds <seconds> --result "<clean or opened D<n> ...>"'
 )
-REQUESTS_FILE = "sql-composer-drift-requests"
 
 WATCHED_FOLDERS = ("sqlglot_composer/", "worked_examples/", "example_projects/", "copilot/",
                    "docs/")
@@ -43,6 +41,11 @@ MAKES_A_COMMIT = re.compile(
     rf"(?<![\w.])git(\s+(-[Cc]|--git-dir|--work-tree|--namespace)\s+{_ARGUMENT}"
     rf"|\s+--?[\w-]+(={_ARGUMENT})?)*\s+"
     r"(commit|merge|pull|cherry-pick|revert|am|rebase)(?![\w-])"
+)
+# git, its own options, then `push`: what the drift gate waits on.
+PUSHES = re.compile(
+    rf"(?<![\w.])git(\s+(-[Cc]|--git-dir|--work-tree|--namespace)\s+{_ARGUMENT}"
+    rf"|\s+--?[\w-]+(={_ARGUMENT})?)*\s+push(?![\w-])"
 )
 OPEN_ITEM = re.compile(r"^- \[ \] (D\d+) \| ([0-9a-f]{7,40}) \|", re.MULTILINE)
 REVIEWED = re.compile(r"^- ([0-9a-f]{7,40}):", re.MULTILINE)
@@ -86,13 +89,6 @@ def changed_paths(repo: str | Path, commit: str) -> list[str]:
     return changed.splitlines()
 
 
-def on_this_branch(repo: str | Path, commit: str) -> bool:
-    """Whether the commit is still in HEAD's history, not dropped by a reset or a rebase."""
-    done = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", commit, "HEAD"],
-                          capture_output=True)
-    return done.returncode == 0
-
-
 def same_commit(a: str, b: str) -> bool:
     shorter = min(len(a), len(b))
     return shorter >= 7 and a[:shorter] == b[:shorter]
@@ -105,24 +101,3 @@ def open_items(drift_text: str) -> list[tuple[str, str]]:
 
 def reviewed_commits(drift_text: str) -> list[str]:
     return REVIEWED.findall(drift_text)
-
-
-def requests_path(repo: str | Path) -> Path | None:
-    common = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return Path(common) / REQUESTS_FILE if common else None
-
-
-def read_requests(repo: str | Path) -> list[tuple[str, str]]:
-    """Every review requested in this clone, as (commit, session id)."""
-    path = requests_path(repo)
-    if path is None or not path.exists():
-        return []
-    pairs = (line.split() for line in path.read_text(encoding="utf-8").splitlines())
-    return [(pair[0], pair[1]) for pair in pairs if len(pair) == 2]
-
-
-def add_request(repo: str | Path, commit: str, session_id: str) -> None:
-    path = requests_path(repo)
-    if path is not None:
-        with path.open("a", encoding="utf-8") as requests:
-            requests.write(f"{commit} {session_id}\n")

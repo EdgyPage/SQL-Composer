@@ -147,10 +147,12 @@ those cells export goes in admin/lineage/.
 
 ## Drift
 
-After a commit that touches the Toolbox's folder, `worked_examples/`, `example_projects/`,
-`copilot/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or `requirements-dev.txt`, the
-drift reviewer looks for anything the commit made untrue and adds one open item per finding to
-`.scratch/drift.md`. It edits nothing else.
+When a session's planned work is done, before it pushes dev, one drift review runs over every
+commit the push sends that touches the Toolbox's folder, `worked_examples/`,
+`example_projects/`, `copilot/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
+`requirements-dev.txt`: it looks for anything those commits made untrue and adds one open item
+per finding to `.scratch/drift.md`. It edits nothing else. No review runs after each commit or
+merge.
 
 - Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.
 - A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer
@@ -161,9 +163,11 @@ drift reviewer looks for anything the commit made untrue and adds one open item 
   one with nothing to change, and freezes the Example projects as the version before left them,
   without their Lineage pages, in `tests/upgrade_from/<that version>/`; `tests/test_upgrades.py`
   fails until both are there.
-- A stop hook blocks the first try to end a turn while your own commits have an unrun review or
-  an open item, then lets a second try through so you can ask the user. The export to `main`
-  refuses while any item is open.
+- A hook (`.claude/hooks/drift_gate.py`) refuses `git push` from dev while a commit it sends
+  has no review line or any item is open, and says what to run. For a small push of small
+  commits, the user may skip the review: run `DRIFT_REVIEW=skip git push ...` only when the
+  user says so; those commits stay unreviewed. The export to `main` refuses while any item is
+  open.
 
 ## Offline
 
@@ -208,8 +212,9 @@ A `task` ticket that changes code is done when:
   (`.claude/agents/`, `model: sonnet`).
 - **Beginner reader:** `.claude/agents/beginner-reader.md`, on the newest Opus. It only advises;
   the user decides what changes.
-- **Drift reviewer:** `.claude/hooks/drift-reviewer.md`, run as a subagent on the newest Opus
-  (model `opus`), as the drift hook's message says.
+- **Drift reviewer:** `.claude/hooks/drift-reviewer.md`, run as one subagent on Sonnet (model
+  `sonnet`) over all the commits a push sends, as the push gate's message says (the user,
+  2026-11-14: the Opus reviewer on every commit was most of the maintainers' cost).
 
 Record each run of these agents in the ledger when it finishes, from the tokens and seconds
 Claude Code reports for it (Evaluation system, ticket 08; running them is unchanged):

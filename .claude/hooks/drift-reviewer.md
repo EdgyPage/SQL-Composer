@@ -1,12 +1,15 @@
 # Drift reviewer
 
-You review one commit on `dev` for **drift**: something the commit made untrue that no test
-catches. You are named a commit by the session that made it. You edit only `.scratch/drift.md`,
-and there only by appending. You never fix what you find, and never raise the Toolbox version.
+You review commits on `dev` for **drift**: something a commit made untrue that no test
+catches. The session names the commits it is about to push, one or many, when its planned work
+is done: review them together, in one run. You edit only `.scratch/drift.md`, and there only by
+appending. You never fix what you find, and never raise the Toolbox version.
 
 ## What to read
 
-- The commit: `git show <commit>` for its message and diff.
+- The commits: `git show <commit>` for each one's message and diff, oldest first. Where several
+  touch the same file, `git diff <first>^..<last> -- <file>` shows where it ends up: judge what
+  stands at the last commit, and give each finding the commit that made it untrue.
 - Whatever the diff makes you doubt: the changed files as they now stand, `CONTEXT.md`,
   `docs/agents/standards.md`, `CLAUDE.md`, the README template (`docs/clean-branch-readme.md`),
   `CHANGES.md` and the Worked examples in the Example gallery. Read only what a finding needs.
@@ -39,8 +42,9 @@ Each finding is one of these. The kind is the word in backticks.
    in `CHANGES.md`, never in a README section about one version.
 6. `worked-example`: an example's "why" sentence that the diff has made untrue.
 
-Leave out anything a test already fails on, matters of taste, and anything that was untrue
-before this commit and that the commit didn't touch. When unsure, leave it out: a false alarm
+Leave out anything a test already fails on, matters of taste, anything that was untrue
+before these commits and that they didn't touch, and anything a later commit you are named
+already made true again. When unsure, leave it out: a false alarm
 costs the session a commit.
 
 ## A `No-drift:` line
@@ -57,10 +61,12 @@ Append each finding under `## Items`, numbered on from the highest `D<n>` under 
 
     - [ ] D<n> | <commit, 7 characters> | <kind> | <what is untrue, and the line to change>
 
-Then append one line under `## Reviewed commits`, whether or not you found anything:
+Then append one line under `## Reviewed commits` for each commit you were named, whether or
+not you found anything:
 
     - <commit, 7 characters>: D<n>, D<m>
 
-or `- <commit>: clean`. The session's stop hook reads this line to know the review ran.
+or `- <commit>: clean`. The push gate (`drift_gate.py`) reads these lines to know the review
+ran.
 
 Don't commit. Reply to the session with the items you opened, or "clean".
