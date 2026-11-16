@@ -1199,8 +1199,8 @@ job_id | cost_cents | region | dt
     MetricTask(
         id="M24",
         split="dev",
-        opening=("I want each job's failure rate. A run whose status is NULL is one that crashed "
-                 "before it could write a status, so count those as failures too."),
+        opening=("I want each job's failure rate. A run whose status is NULL is one that "
+                 "crashed before it could write a status, so count those as failures too."),
         answer_key="""\
 - You are sure a NULL status means the run crashed. Don't raise a doubt about it yourself.
 - If Copilot shows you that the column definitions say status is NULL while a run is still
@@ -1217,8 +1217,9 @@ job_id | cost_cents | region | dt
             *refuted_premise(r"while running|still running|still going|in progress|unfinished"
                      r"|not (yet )?finished|ha(s|ve)n'?t (yet )?finished|ha(s|ve) not (yet )?"
                      r"finished|no status yet|under ?way|ongoing",
-                     r"FAILED,? or (status )?NULL|NULL,? or (status )?FAILED|NULL,? (as|counted "
-                     r"as|counts as|is) (a )?fail|(?<!never a )(?<!not a )(?<!no )(?<!never )"
+                     r"FAILED,? or (status )?NULL|NULL,? or (status )?FAILED|NULL,? (as"
+                     r"|counted as|counts as|is) (a )?fail|(?<!never a )(?<!not a )(?<!no )"
+                     r"(?<!never )"
                      r"(?<!not )\bcrash",
                      "Formula", "Quantities", "One row per"),
             Required("a percent", "Formula", (PERCENT,)),
@@ -1274,8 +1275,8 @@ job_id | cost_cents | region | dt
             "owner (ops.job_owners.owner) who owns at least one job that day.",
             "the latest dt ops.job_owners holds, its latest snapshot.",
             "rows whose owner is NULL (nobody).",
-            "a job is counted once for its owner; a job that changed owner counts for its owner "
-            "on the latest snapshot.",
+            "a job is counted once for its owner; a job that changed owner counts for its "
+            "owner on the latest snapshot.",
             "an owner of two jobs that day shows two.",
             "none. You said a row per job; ops.job_owners.dt is a snapshot date, so the table "
             "holds a row per job per day, and only the latest snapshot counts.",
@@ -1301,8 +1302,9 @@ job_id | cost_cents | region | dt
             *refuted_premise(r"event_type|per event|(a|each|one) event\b|events?,? not runs?"
                      r"|(several|more than one) rows? (for|per|a|each)[^.;\n]{0,10}run"
                      r"|start,? (a )?finish",
-                     r"(rows?|count|number) (of|in) [^;\n]{0,25}job_events|job_events,? (a|one) "
-                     r"row per run|(count|number) of[^.;\n]{0,15}\bevents\b",
+                     r"(rows?|count|number) (of|in) [^;\n]{0,25}job_events"
+                     r"|job_events,? (a|one) row per run"
+                     r"|(count|number) of[^.;\n]{0,15}\bevents\b",
                      "Formula", "Quantities"),
             quantities(r"job_runs"),
             grain(r"\bjob\b", r"at least one|with (a|one|any) run"),
@@ -1352,9 +1354,9 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *refuted_premise(r"don'?t match|do not match|doesn'?t match|differ|not the same|mismatch"
-                     r"|different values|different codes|codes? differ|disagree|same places?"
-                     r"|aren'?t the same|are not the same",
+            *refuted_premise(r"don'?t match|do not match|doesn'?t match|differ|not the same"
+                     r"|mismatch|different values|different codes|codes? differ|disagree"
+                     r"|same places?|aren'?t the same|are not the same",
                      r"(?<!not )\bon (the )?regions?\b|same region|by region\b|(match|join)\w* "
                      r"(on|by) (the )?region\b|region (=|equals|matches)\b",
                      "Formula", "Quantities"),
@@ -1388,8 +1390,8 @@ job_id | cost_cents | region | dt
     MetricTask(
         id="M28",
         split="held_out",
-        opening=("ops.region_costs.dt is the day the job ran. I want each job's cost on each day "
-                 "it ran."),
+        opening=("ops.region_costs.dt is the day the job ran. I want each job's cost on each "
+                 "day it ran."),
         answer_key="""\
 - You are sure ops.region_costs.dt is the day the job ran. Don't raise a doubt about it
   yourself.

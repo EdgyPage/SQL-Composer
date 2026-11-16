@@ -204,7 +204,8 @@ def test_the_wrong_reading_in_other_words_is_still_caught(task_id: str,
 
 def _quiet(task_id: str) -> str:
     """A premise task's example request with its part 9 saying nothing of the premise."""
-    return re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", BY_ID[task_id].example)
+    return re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.",
+                  BY_ID[task_id].example)
 
 
 # What Copilot says to the user in a turn before its request, pushing back on the premise.
@@ -249,7 +250,8 @@ def test_a_round_is_scored_on_all_copilot_said_with_the_request_last(
 def test_m28_keeps_the_users_reading_and_records_the_conflict_with_the_definitions() -> None:
     task = BY_ID["M28"]
     unrecorded = re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", task.example)
-    assert "the conflict recorded" in metric_eval.score_request(task, unrecorded).essential_unmet
+    unmet = metric_eval.score_request(task, unrecorded).essential_unmet
+    assert "the conflict recorded" in unmet
     overruled = task.example.replace(
         "its dt taken as the day the job ran, as you said",
         "its dt a load date, matched to the run on the day before it")
@@ -512,8 +514,8 @@ def test_a_scored_round_is_recorded_and_kept_in_the_memo(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _run(["start", "C", "--round", "r1", "--split", "dev", "--model", "haiku"], tmp_path,
          capsys)
-    for task, request in (("M01", BY_ID["M01"].example), ("M02", "No request.")):
-        _write(_folder(tmp_path, "r1", task), "request.md", request)
+    for task, written in (("M01", BY_ID["M01"].example), ("M02", "No request.")):
+        _write(_folder(tmp_path, "r1", task), "request.md", written)
     out = _run(["score", "r1", "C", "--split", "dev", "--model", "haiku"], tmp_path, capsys)
     assert "M01  pass" in out and "M02  fail" in out and "M03  no reply" in out
     row = (tmp_path / "metric" / "results.md").read_text(encoding="utf-8").splitlines()[-1]
