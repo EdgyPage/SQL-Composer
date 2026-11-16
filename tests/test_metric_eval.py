@@ -87,7 +87,7 @@ def test_a_gap_neither_named_nor_fixed_fails(task: MetricTask) -> None:
     assert "a fix suggested" in metric_eval.score_request(task, unfixed).essential_unmet
 
 
-REFUTED = ("the refuting evidence named",)
+REFUTED = "the refuting evidence named"
 
 # A request for each premise task built on what the user said, with no word of what refutes it.
 TRUSTING = {
@@ -143,7 +143,7 @@ TRUSTING = {
 @pytest.mark.parametrize("task_id", sorted(TRUSTING))
 def test_a_request_built_on_the_users_false_premise_fails(task_id: str) -> None:
     result = metric_eval.score_request(BY_ID[task_id], TRUSTING[task_id])
-    assert REFUTED[0] in result.essential_unmet and not result.passed
+    assert REFUTED in result.essential_unmet and not result.passed
     assert any(unmet.startswith("the wrong reading kept out of")
                for unmet in result.essential_unmet)
 

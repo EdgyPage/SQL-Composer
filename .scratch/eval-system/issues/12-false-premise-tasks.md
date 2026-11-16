@@ -98,3 +98,82 @@ out, the days.
   task of its own.
 - **Any change to the Toolbox, its version, or what main ships:** `tools/` and `.scratch/`
   stay on dev.
+
+## Answer
+
+Built 2026-11-15, in e8d698d2 and the review fixes after it:
+- **The tasks:** M24 to M28 are in `tools/metric_eval_tasks.py`, with the `MetricTask.premise`
+  field and the `refuted_premise(evidence, wrong, *parts)` helper.
+- **The tests:** each example passes; each request trusting the premise fails on "the refuting
+  evidence named" and on its wrong reading; M28 fails when the conflict goes unrecorded or the
+  user's reading is overruled.
+- **The docs:** the counts in the module docstring and `docs/copilot-eval.md`, and a glossary
+  entry, **False premise**, in `CONTEXT.md`.
+
+The held-out tasks were committed before any round asked them.
+
+### The baseline, Haiku, file 19 as 8.7 shipped it
+
+Every round asked only M24 to M28. The other tasks in each results row came from the memo, at
+no cost.
+
+| Task | Split | A0: the form, no file, no one to ask | C: file 19, a stand-in user |
+|---|---|---|---|
+| M24 NULL as a crash | dev | fail: grain | **pass** |
+| M25 snapshots as a row per job | dev | **pass** | **pass** |
+| M26 events as a row per run | dev | fail: grain | fail: the refuting evidence named |
+| M27 regions that differ | held out | fail: matched on region | fail: the refuting evidence named |
+| M28 load date, insisted | held out | fail: overruled the user | fail: the conflict recorded |
+
+A0 passed 1 of 5 and C 2 of 5. What the C conversations did with each premise:
+- **M24, M26, M27:** Copilot raised the premise in its first turn, quoting the definition or
+  the rows.
+- **M25:** Copilot raised it in its second turn.
+- **M28:** Copilot questioned the load date. When the user insisted, its request took the user's
+  reading but left Open questions as "none", so the conflict went unrecorded. That is a real
+  miss: A3 says to write it as the user did, but not to record it.
+- **M26:** the request is built on ops.job_runs, as it should be, but never mentions
+  job_events.
+- **M27:** the request is built on job_id, as it should be. It names the gap as "the definitions
+  do not say whether they name the same places as LON and NYC", which the evidence pattern
+  doesn't read. The A0 request wrote "the region codes disagree", which the pattern misses too,
+  though that request fails anyway on matching by region.
+
+**Cost:** the A0 replies were 14k to 17k tokens each. The C conversations ran 4 to 11 turns:
+the agents' last reported figures were 26k to 33k for Copilot and 16k to 23k for the user. The
+ledger records each agent's last figure, as the 8.7 kept-agent rows do; summed over every
+turn, the C round came to about 1.2M.
+
+### The code review
+
+**Standards:** no hard violations. Fixed:
+- the helper renamed `refuted_premise`, away from the `premise` field;
+- `REFUTED` made a plain string;
+- the new word **False premise** added to the glossary, as the standards' "Glossary words"
+  asks.
+
+Answered, not changed:
+- the trusting requests stay written out whole, which is plain repetition and allowed in tests;
+- `premise` stays a sentence, which documents what each task asserts.
+
+**Spec:**
+- *M28 lacks "the refuting evidence named".* Answered: the spec swaps M28's second element for
+  "the conflict recorded", and its pattern, the load date named in part 9, is the evidence in
+  M28.
+- *"The rounds ran 15 and 13 tasks".* A false alarm: each round asked five, and the rest of
+  each row came from the memo.
+- *The patterns are narrow and reward keywords, for M24 to M28.* Confirmed by the baseline, in
+  M26 and M27 above. Left open for the user's decision: see the next section.
+
+### Open: what "the refuting evidence named" should demand
+
+As written, it is essential. So a request built on the true reading fails if it doesn't also
+repeat what refuted the premise (M26), or says it in words the pattern misses (M27). In M24
+and M25 the true reading's own words carry the evidence, so the bar is uneven.
+
+There are two ways forward, the user's to choose:
+- **Keep it essential and widen each pattern** to plain paraphrases. M26 stays a dev miss, and
+  ticket 13 runs.
+- **Make it helpful,** so the essential element is the wrong reading kept out, plus, in M28,
+  the conflict recorded. Then M26 and M27 pass, the only miss is M28, a held-out task, and by
+  its own rule ticket 13 doesn't run.

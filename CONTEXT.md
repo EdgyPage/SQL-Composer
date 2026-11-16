@@ -553,6 +553,13 @@ table keeps, or a column whose definition is too vague to decide. The request na
 unasked.
 _Avoid_: missing field, unknown
 
+**False premise**:
+What a user says as fact about their data that their own Column definitions or Sample rows
+refute, such as "a NULL status is a crash" where the definitions say NULL means still running.
+A Metric request names what refutes it and builds on what the data holds. If the user keeps
+their reading, the request builds on that and records the conflict among its open questions.
+_Avoid_: wrong assumption, user error
+
 **Quantity**:
 A number a Metric request's formula uses, such as "failed runs", said so exactly that a chatbot
 can't read it two ways: which rows count, by which column's values, and what is left out.

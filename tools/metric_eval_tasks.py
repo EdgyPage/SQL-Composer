@@ -191,7 +191,7 @@ def gap(pattern: str) -> tuple[Required, Required]:
             Required("a fix suggested", "", (r"\bFix:[ \t]*\S",), essential=True))
 
 
-def premise(evidence: str, wrong: str, *parts: str) -> tuple[Required, ...]:
+def refuted_premise(evidence: str, wrong: str, *parts: str) -> tuple[Required, ...]:
     """Where the user states as fact what their definitions or rows refute: the evidence
     named in the request, and the user's wrong reading kept out of each part that builds the
     column."""
@@ -1208,7 +1208,7 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *premise(r"while running|still running|still going|in progress|unfinished"
+            *refuted_premise(r"while running|still running|still going|in progress|unfinished"
                      r"|not (yet )?finished",
                      r"FAILED,? or NULL|NULL,? or FAILED|NULL,? (as|counted as|counts as|is) "
                      r"(a )?fail|crash",
@@ -1249,7 +1249,7 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *premise(r"snapshot|per job per (day|dt|snapshot)|repeat", EVERY_DAY,
+            *refuted_premise(r"snapshot|per job per (day|dt|snapshot)|repeat", EVERY_DAY,
                      "Days counted"),
             Required("the latest snapshot day", "Days counted",
                      (r"latest|last|most recent|newest",), essential=True),
@@ -1289,7 +1289,7 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *premise(r"event_type|per event|(a|each|one) event\b|events?,? not runs?",
+            *refuted_premise(r"event_type|per event|(a|each|one) event\b|events?,? not runs?",
                      r"job_events|\bevents?\b", "Formula", "Quantities"),
             quantities(r"job_runs"),
             grain(r"\bjob\b", r"at least one|with (a|one|any) run"),
@@ -1339,7 +1339,7 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *premise(r"don'?t match|do not match|doesn'?t match|differ|not the same|mismatch"
+            *refuted_premise(r"don'?t match|do not match|doesn'?t match|differ|not the same|mismatch"
                      r"|different values",
                      r"\bon (the )?region\b|same region|by region\b", "Formula", "Quantities"),
             quantities(r"cost_cents"),
