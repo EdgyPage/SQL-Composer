@@ -93,7 +93,7 @@ Toolbox version raise.
 - [09 The cost report](issues/09-cost-report.md)
 - [10 Scrub the git history](issues/10-scrub-history.md)
 - [11 The docs and a first measured round](issues/11-docs-and-a-measured-round.md)
-- [12 The Metric suite tests false premises](issues/12-false-premise-tasks.md): added 2026-11-15
+- [12 The Metric suite tests false premises](issues/12-false-premise-tasks.md): resolved 2026-11-15; on Haiku A0 passed 1 of 5 premise tasks, C 3 of 5; M26 the dev miss
 - [13 File 19 holds false premises, and 8.7 is exported again](issues/13-file-19-holds-false-premises.md):
   added 2026-11-15, after 12, and only if 12's baseline finds a dev miss
 

@@ -1,7 +1,7 @@
 # The Metric suite tests false premises
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 Size: M
 
@@ -163,17 +163,47 @@ Answered, not changed:
 - *"The rounds ran 15 and 13 tasks".* A false alarm: each round asked five, and the rest of
   each row came from the memo.
 - *The patterns are narrow and reward keywords, for M24 to M28.* Confirmed by the baseline, in
-  M26 and M27 above. Left open for the user's decision: see the next section.
+  M26 and M27 above, and fixed as the next section says.
 
-### Open: what "the refuting evidence named" should demand
+### The decision: keep the evidence essential, widen the patterns
 
-As written, it is essential. So a request built on the true reading fails if it doesn't also
-repeat what refuted the premise (M26), or says it in words the pattern misses (M27). In M24
-and M25 the true reading's own words carry the evidence, so the bar is uneven.
+As first written, "the refuting evidence named" was essential, and the bar was uneven. A
+request built on the true reading failed if it didn't also repeat what refuted the premise
+(M26), or said it in words the pattern missed (M27). In M24 and M25 the true reading's own
+words carry the evidence. There were two ways forward: keep it essential and widen each
+pattern, or make it helpful.
 
-There are two ways forward, the user's to choose:
-- **Keep it essential and widen each pattern** to plain paraphrases. M26 stays a dev miss, and
-  ticket 13 runs.
-- **Make it helpful,** so the essential element is the wrong reading kept out, plus, in M28,
-  the conflict recorded. Then M26 and M27 pass, the only miss is M28, a held-out task, and by
-  its own rule ticket 13 doesn't run.
+The user (2026-11-15): "Keep it, widen patterns." So a request must still say what refuted the
+premise, and the patterns now read it in plain paraphrases:
+- **M24:** "no status yet", "hasn't finished". The wrong reading is caught as "FAILED or status
+  NULL", and "never a crash" no longer counts as building on it.
+- **M25:** "a history by date", "for each day", and "current" for the latest day.
+- **M26:** "several rows for each run", "start, finish". The wrong reading is now counting rows
+  of ops.job_events, so a request may name the table it rejects.
+- **M27:** "different codes", "disagree", "the same places". "Not on the region" no longer counts
+  as matching on region, and "matched by region" does.
+- **M28:** the user's reading as "as the user holds it", and the conflict as the definitions'
+  call.
+
+Each paraphrase, each rejection named and each wrong reading in other words is a test in
+`tests/test_metric_eval.py`. Two of M27's paraphrases come from this baseline's own held-out
+requests. They widen the scorer, not file 19, so no fix has seen them.
+
+### The baseline, rescored on the widened patterns
+
+| Task | Split | A0 | C |
+|---|---|---|---|
+| M24 | dev | fail: grain | **pass** |
+| M25 | dev | **pass** | **pass** |
+| M26 | dev | fail: grain | fail: the refuting evidence named |
+| M27 | held out | fail: matched on region | **pass** |
+| M28 | held out | fail: overruled the user | fail: the conflict recorded |
+
+A0 passed 1 of 5, C 3 of 5.
+- **M26:** the dev miss. The C request builds on ops.job_runs but never says why it left
+  job_events.
+- **M28:** the held-out miss. The user's reading is kept, but the conflict with the load date
+  isn't recorded.
+
+So by its own rule, [ticket 13](13-file-19-holds-false-premises.md) runs, fixing file 19 from
+M26 alone and scoring M27 and M28 once on the fixed file.

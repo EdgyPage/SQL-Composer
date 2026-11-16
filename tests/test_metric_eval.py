@@ -148,6 +148,60 @@ def test_a_request_built_on_the_users_false_premise_fails(task_id: str) -> None:
                for unmet in result.essential_unmet)
 
 
+# What refutes each premise, said in other plain words a request might use. M27's last two are
+# from the baseline's own requests (ticket 12): arm A0's and arm C's held-out replies.
+PARAPHRASED = {
+    "M24": ("a NULL status means the run has no status yet",
+            "a run that hasn't finished is left out"),
+    "M25": ("the table keeps a history of owners by date",
+            "ops.job_owners holds one row per job for each day"),
+    "M26": ("ops.job_events has several rows for each run: a start, a finish, a retry",
+            "it holds a row per event, not a row per run"),
+    "M27": ("the two tables use different codes for a region",
+            "the region codes disagree",
+            "the definitions do not say whether eu and us name the same places as LON and NYC"),
+}
+
+
+@pytest.mark.parametrize(("task_id", "words"),
+                         [(task, words) for task, all_words in PARAPHRASED.items()
+                          for words in all_words])
+def test_the_refuting_evidence_reads_in_other_plain_words(task_id: str, words: str) -> None:
+    evidence = next(one for one in BY_ID[task_id].required if one.what == REFUTED)
+    assert metric_eval.meets(words, evidence)
+
+
+@pytest.mark.parametrize(("task_id", "rejected"), [
+    ("M24", ("whose status is SUCCESS or FAILED.",
+             "whose status is SUCCESS or FAILED; a NULL is never a crash.")),
+    ("M26", ("a row per run, whose status is not TEST.",
+             "a row per run, whose status is not TEST, not from ops.job_events, which has a "
+             "row per event.")),
+    ("M27", ("matched to its job by job_id,",
+             "matched to its job by job_id, not on the region,")),
+])
+def test_a_request_may_name_the_reading_it_rejects(task_id: str,
+                                                   rejected: tuple[str, str]) -> None:
+    task = BY_ID[task_id]
+    result = metric_eval.score_request(task, task.example.replace(*rejected))
+    assert result.passed, metric_eval.score_line(result)
+
+
+@pytest.mark.parametrize(("task_id", "trusted"), [
+    ("M24", ("rows of ops.job_runs whose status is FAILED;",
+             "rows of ops.job_runs whose status is FAILED or status NULL;")),
+    ("M26", ("runs: rows of ops.job_runs, a row per run,",
+             "runs: the number of rows in ops.job_events for the job,")),
+    ("M27", ("matched to its job by job_id,", "matched by region to the job,")),
+])
+def test_the_wrong_reading_in_other_words_is_still_caught(task_id: str,
+                                                          trusted: tuple[str, str]) -> None:
+    task = BY_ID[task_id]
+    result = metric_eval.score_request(task, task.example.replace(*trusted))
+    assert any(unmet.startswith("the wrong reading kept out of")
+               for unmet in result.essential_unmet), metric_eval.score_line(result)
+
+
 def test_m28_keeps_the_users_reading_and_records_the_conflict_with_the_definitions() -> None:
     task = BY_ID["M28"]
     unrecorded = re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", task.example)

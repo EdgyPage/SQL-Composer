@@ -1209,9 +1209,11 @@ job_id | cost_cents | region | dt
         columns=1,
         required=(
             *refuted_premise(r"while running|still running|still going|in progress|unfinished"
-                     r"|not (yet )?finished",
-                     r"FAILED,? or NULL|NULL,? or FAILED|NULL,? (as|counted as|counts as|is) "
-                     r"(a )?fail|crash",
+                     r"|not (yet )?finished|ha(s|ve)n'?t (yet )?finished|ha(s|ve) not (yet )?"
+                     r"finished|no status yet|under ?way|ongoing",
+                     r"FAILED,? or (status )?NULL|NULL,? or (status )?FAILED|NULL,? (as|counted "
+                     r"as|counts as|is) (a )?fail|(?<!never a )(?<!not a )(?<!no )(?<!never )"
+                     r"(?<!not )\bcrash",
                      "Formula", "Quantities", "One row per"),
             Required("a percent", "Formula", (PERCENT,)),
             quantities(r"\bstatus\b"),
@@ -1249,10 +1251,11 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *refuted_premise(r"snapshot|per job per (day|dt|snapshot)|repeat", EVERY_DAY,
+            *refuted_premise(r"snapshot|per job per (day|dt|snapshot)|repeat|histor|by date"
+                     r"|for each (day|date|dt)\b|per (day|date)\b", EVERY_DAY,
                      "Days counted"),
             Required("the latest snapshot day", "Days counted",
-                     (r"latest|last|most recent|newest",), essential=True),
+                     (r"latest|last|most recent|newest|current",), essential=True),
             quantities(r"\bowner\b", r"job_id"),
             grain(r"owner", r"at least one|with (a|one|any) job|owns?"),
             Required("a NULL owner left out", "", (r"NULL|nobody|no owner",)),
@@ -1289,8 +1292,12 @@ job_id | cost_cents | region | dt
 """,
         columns=1,
         required=(
-            *refuted_premise(r"event_type|per event|(a|each|one) event\b|events?,? not runs?",
-                     r"job_events|\bevents?\b", "Formula", "Quantities"),
+            *refuted_premise(r"event_type|per event|(a|each|one) event\b|events?,? not runs?"
+                     r"|(several|more than one) rows? (for|per|a|each)[^.;\n]{0,10}run"
+                     r"|start,? (a )?finish",
+                     r"(rows?|count|number) (of|in) [^;\n]{0,25}job_events|job_events,? (a|one) "
+                     r"row per run|(count|number) of[^.;\n]{0,15}\bevents\b",
+                     "Formula", "Quantities"),
             quantities(r"job_runs"),
             grain(r"\bjob\b", r"at least one|with (a|one|any) run"),
             TEST_OUT, EVERY_DAY_COUNTED,
@@ -1340,8 +1347,11 @@ job_id | cost_cents | region | dt
         columns=1,
         required=(
             *refuted_premise(r"don'?t match|do not match|doesn'?t match|differ|not the same|mismatch"
-                     r"|different values",
-                     r"\bon (the )?region\b|same region|by region\b", "Formula", "Quantities"),
+                     r"|different values|different codes|codes? differ|disagree|same places?"
+                     r"|aren'?t the same|are not the same",
+                     r"(?<!not )\bon (the )?regions?\b|same region|by region\b|(match|join)\w* "
+                     r"(on|by) (the )?region\b|region (=|equals|matches)\b",
+                     "Formula", "Quantities"),
             quantities(r"cost_cents"),
             grain(r"region|location", r"billed|cost|at least one"),
             Required("the job joins them", "", (r"job_id|same job|by job",)),
@@ -1388,9 +1398,10 @@ job_id | cost_cents | region | dt
         columns=1,
         required=(
             Required("the user's reading kept", "Quantities",
-                     (r"day (the job|it) ran|same day",), essential=True),
-            Required("the conflict recorded", "Open questions", (r"load date",),
-                     essential=True),
+                     (r"day (the job|it) ran|same day|as (you|the user) (said|say|says|hold"
+                      r"|holds|gave|give)",), essential=True),
+            Required("the conflict recorded", "Open questions", (
+                r"load date|loaded|definitions? (call|calls|say|says)",), essential=True),
             quantities(r"cost_cents"),
             grain(r"\bjob\b", r"day|\bdt\b"),
             Required("the job joins them", "", (r"job_id|same job|by job",)),
