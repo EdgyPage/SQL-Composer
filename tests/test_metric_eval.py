@@ -15,12 +15,12 @@ from pathlib import Path
 import eval_runs
 import metric_eval
 import pytest
-from metric_eval_tasks import BY_ID, TASKS, MetricTask, Required
+from metric_eval_tasks import BY_ID, TASKS, MetricTask, Required, request
 
 
-def test_there_are_twenty_three_tasks_twelve_dev_and_eleven_held_out() -> None:
-    assert [task.id for task in TASKS] == [f"M{number:02}" for number in range(1, 24)]
-    assert sorted(task.split for task in TASKS) == ["dev"] * 12 + ["held_out"] * 11
+def test_there_are_twenty_eight_tasks_fifteen_dev_and_thirteen_held_out() -> None:
+    assert [task.id for task in TASKS] == [f"M{number:02}" for number in range(1, 29)]
+    assert sorted(task.split for task in TASKS) == ["dev"] * 15 + ["held_out"] * 13
 
 
 def test_the_six_newest_held_out_tasks_vary_and_two_ask_for_missing_data() -> None:
@@ -85,6 +85,85 @@ def test_a_gap_neither_named_nor_fixed_fails(task: MetricTask) -> None:
     assert "the missing data named" in metric_eval.score_request(task, unnamed).essential_unmet
     unfixed = task.example.replace("Fix:", "And")
     assert "a fix suggested" in metric_eval.score_request(task, unfixed).essential_unmet
+
+
+REFUTED = ("the refuting evidence named",)
+
+# A request for each premise task built on what the user said, with no word of what refutes it.
+TRUSTING = {
+    "M24": request("job failure rate", ("failure_rate_pct", (
+        "the share of a job's finished runs that failed, as a percent.",
+        "failure_rate_pct = 100 x failed runs / finished runs",
+        "failed runs: rows of ops.job_runs whose status is FAILED or NULL, a NULL being a run "
+        "that crashed; finished runs: rows whose status is SUCCESS, FAILED or NULL.",
+        "job (job_id) with at least one finished run.",
+        "every day ops.job_runs holds, as one total.",
+        "TEST runs.",
+        "a job whose runs are all TEST has no row.",
+        "a run with status NULL counts as failed.",
+        "none. Not rounded.",
+    ))),
+    "M25": request("jobs per owner", ("owned_jobs", (
+        "how many jobs an owner looks after.",
+        "owned_jobs = count of the owner's rows in ops.job_owners",
+        "owner and job_id of ops.job_owners, a row per job.",
+        "owner (ops.job_owners.owner) who owns at least one job.",
+        "every day ops.job_owners holds.",
+        "rows whose owner is NULL (nobody).",
+        "a job counts once for its owner.",
+        "an owner of two jobs shows two.",
+        "none.",
+    ))),
+    "M26": request("runs per job", ("run_count", (
+        "how many runs a job has had.",
+        "run_count = count of the job's rows in ops.job_events",
+        "runs: rows of ops.job_events, a row per run.",
+        "job (job_id) with at least one run.",
+        "every day ops.job_events holds, as one total.",
+        "TEST runs.",
+        "a job with no rows has no row.",
+        "a job with three rows shows three.",
+        "none.",
+    ))),
+    "M27": request("cost per job location", ("location_cost_cents", (
+        "the billed cost of the jobs at each job location, in cents.",
+        "location_cost_cents = sum of cost_cents matched to the location on region",
+        "cost_cents of ops.region_costs, matched to ops.jobs on region, every region added "
+        "up.",
+        "location (ops.jobs.region) with at least one billed cost.",
+        "every day ops.region_costs holds.",
+        "costs whose cost_cents is NULL, not billed yet.",
+        "a job billed in its region adds its cost to the location; job_id is not needed.",
+        "job 1, at LON, takes the LON costs.",
+        "none.",
+    ))),
+}
+
+
+@pytest.mark.parametrize("task_id", sorted(TRUSTING))
+def test_a_request_built_on_the_users_false_premise_fails(task_id: str) -> None:
+    result = metric_eval.score_request(BY_ID[task_id], TRUSTING[task_id])
+    assert REFUTED[0] in result.essential_unmet and not result.passed
+    assert any(unmet.startswith("the wrong reading kept out of")
+               for unmet in result.essential_unmet)
+
+
+def test_m28_keeps_the_users_reading_and_records_the_conflict_with_the_definitions() -> None:
+    task = BY_ID["M28"]
+    unrecorded = re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", task.example)
+    assert "the conflict recorded" in metric_eval.score_request(task, unrecorded).essential_unmet
+    overruled = task.example.replace(
+        "its dt taken as the day the job ran, as you said",
+        "its dt a load date, matched to the run on the day before it")
+    result = metric_eval.score_request(task, overruled)
+    assert "the user's reading kept" in result.essential_unmet and not result.passed
+
+
+def test_five_tasks_state_a_premise_their_definitions_or_rows_refute() -> None:
+    premised = [task for task in TASKS if task.premise]
+    assert [task.id for task in premised] == ["M24", "M25", "M26", "M27", "M28"]
+    assert [task.split for task in premised] == ["dev"] * 3 + ["held_out"] * 2
+    assert BY_ID["M27"].sample_rows
 
 
 def test_a_request_mostly_right_passes_and_one_mostly_wrong_fails() -> None:

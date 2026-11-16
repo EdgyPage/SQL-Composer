@@ -236,12 +236,15 @@ still has it scored apart.
 
 File 19 writes no code and works out no numbers: it asks the user about a new metric and ends
 with a Metric request, the business requirements a chatbot that knows the user's databases
-writes the columns from. It is measured on twenty-three tasks (`tools/metric_eval_tasks.py`),
-twelve dev and eleven held out, each a vague goal, the answer key the user keeps to themselves,
-and a requirements key. Seven ask for what the data can't give, or gives only in part: a
-column no table has, a grain the tables don't hold, a column with no definition, a date too
-vague to decide. Held-out tasks M18 to M23 were written after file 19 was tuned, before any
-was run. Two agents a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
+writes the columns from. It is measured on twenty-eight tasks (`tools/metric_eval_tasks.py`),
+fifteen dev and thirteen held out, each a vague goal, the answer key the user keeps to
+themselves, and a requirements key. Seven ask for what the data can't give, or gives only in
+part: a column no table has, a grain the tables don't hold, a column with no definition, a
+date too vague to decide. Five state a false premise, as fact, that the user's own definitions
+or pasted rows refute; they pass on a request that names what refutes it and builds on the
+true reading, or, where the user keeps their reading (M28), records the conflict. Held-out
+tasks M18 to M23 were written after file 19 was tuned, before any was run, as were M27 and
+M28. Two agents a task, each a `metric-proxy` agent (`.claude/agents/metric-proxy.md`) on
 the round's model, are both given the same messy column definitions (`COLUMN_DEFINITIONS`),
 part of the memo key:
 
