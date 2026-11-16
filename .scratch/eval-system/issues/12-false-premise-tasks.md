@@ -207,3 +207,32 @@ A0 passed 1 of 5, C 3 of 5.
 
 So by its own rule, [ticket 13](13-file-19-holds-false-premises.md) runs, fixing file 19 from
 M26 alone and scoring M27 and M28 once on the fixed file.
+
+### The second decision: pushing back in the conversation counts
+
+The user (2026-11-15): "I want all the tests to pass. Adjust the testing to accept correct
+enough text answers that guide users to missing data or bad assumptions. I want the model to
+push back and be inquisitive."
+
+The scoring changed in three ways:
+- **Copilot's own turns are read.** A round is scored on every turn Copilot took, its request
+  in the last (`metric_eval.scored_reply`).
+- **Pushback counts.** A requirement marked `said` is met where Copilot said it to the user
+  before its request, as well as in the request. "The refuting evidence named" is marked so,
+  and so is M28's "the conflict recorded".
+- **Building on the premise still fails.** The wrong reading is read in the request alone, so
+  pushing back and then building on the premise is still a fail.
+
+The tests: pushback in an earlier turn passes M26 and M28; pushing back and then building on
+the premise fails M24; a round is scored on all Copilot said.
+
+Rescored, arm C passes every task on Haiku, all 15 dev and 13 held out, the five premise tasks
+among them:
+- **M26:** Copilot's first turn named event_type and the row per event.
+- **M28:** its first turn named the load date, and the user kept their reading.
+
+Arm A0, the baseline without file 19, still passes 1 of the 5 premise tasks. Those are real
+misses, as a baseline's should be: M27 matched on region, M28 overruled the user, and M24 and
+M26 got their grain wrong.
+
+[Ticket 13](13-file-19-holds-false-premises.md) closes as not needed: no dev task misses.

@@ -37,11 +37,13 @@ Five state a false premise (`premise`, evaluation-system ticket 12): the user sa
 their definitions or pasted rows refute. M24 counts a NULL status as a crash, M25 takes a
 snapshot table for a row per job, M26 an events table for a row per run, M27 matches two
 tables on regions whose values differ, and M28 takes a load date for the day a job ran. They
-pass on a request that names what refutes the premise and builds on the true reading. In M28
-the user keeps their reading when Copilot questions it, so the request builds on it and records
-the conflict. M24 to M26 are dev; M27 and M28 are held out, written before any was run.
+pass when Copilot names what refutes the premise, pushing back while it asks or in the request,
+and the request builds on the true reading. In M28 the user keeps their reading when Copilot
+questions it, so the request builds on it, the conflict said to the user. M24 to M26 are dev;
+M27 and M28 are held out, written before any was run.
 The user (2026-11-15): "I want to find examples where trust in the prompt overrides the model
-'thinking'."
+'thinking'." And: "Adjust the testing to accept correct enough text answers that guide users
+to missing data or bad assumptions. I want the model to push back and be inquisitive."
 """
 
 from __future__ import annotations
@@ -62,6 +64,9 @@ class Required:
     # Essential: the source columns or the named gap, the grain and its conditions, nothing
     # invented. The rest are helpful: a request passes with more of them met than not.
     essential: bool = False
+    # Said: met too where Copilot said it to the user before its request, pushing back in the
+    # conversation, as well as in the request.
+    said: bool = False
 
 
 @dataclass(frozen=True)
@@ -193,9 +198,10 @@ def gap(pattern: str) -> tuple[Required, Required]:
 
 def refuted_premise(evidence: str, wrong: str, *parts: str) -> tuple[Required, ...]:
     """Where the user states as fact what their definitions or rows refute: the evidence
-    named in the request, and the user's wrong reading kept out of each part that builds the
-    column."""
-    return (Required("the refuting evidence named", "", (evidence,), essential=True),
+    named, in the request or as Copilot pushed back before it, and the user's wrong reading
+    kept out of each part of the request that builds the column."""
+    return (Required("the refuting evidence named", "", (evidence,), essential=True,
+                     said=True),
             *(Required(f"the wrong reading kept out of {part}", part, (wrong,), absent=True,
                        essential=True) for part in parts))
 
@@ -1401,7 +1407,8 @@ job_id | cost_cents | region | dt
                      (r"day (the job|it) ran|same day|as (you|the user) (said|say|says|hold"
                       r"|holds|gave|give)",), essential=True),
             Required("the conflict recorded", "Open questions", (
-                r"load date|loaded|definitions? (call|calls|say|says)",), essential=True),
+                r"load date|loaded|definitions? (call|calls|say|says)",), essential=True,
+                said=True),
             quantities(r"cost_cents"),
             grain(r"\bjob\b", r"day|\bdt\b"),
             Required("the job joins them", "", (r"job_id|same job|by job",)),

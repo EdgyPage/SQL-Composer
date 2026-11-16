@@ -1,7 +1,7 @@
 # File 19 holds false premises, and 8.7 is exported again
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12
 Size: M
 
@@ -73,3 +73,10 @@ File 19 is part of every Metric task's loaded text, so a change to it re-asks ev
   main is pushed when the user says.
 - **Or, if ticket 12 found no dev miss:** this ticket is resolved as not needed, naming the
   round.
+
+## Answer
+
+Not needed (2026-11-15). Ticket 12's baseline, rescored once pushing back in the conversation
+counted, has no dev miss: arm C passes M24, M25 and M26, and every other task of both splits,
+in rounds premise-c-dev and premise-c-held. So file 19 is unchanged, and 8.7 is not exported
+again.

@@ -169,10 +169,20 @@ def text_of(request: str, part: str) -> str:
     return "\n".join(parts_of(body).get(part, "") for _, body in sections(request))
 
 
-def meets(request: str, required: Required) -> bool:
+def said_before(reply: str) -> str:
+    """What Copilot said in a reply before its Metric request: the turns it pushed back or
+    asked in, or the whole reply where it holds no request."""
+    found = REQUEST_START.search(reply)
+    return reply if found is None else reply[:found.start()]
+
+
+def meets(request: str, required: Required, said: str = "") -> bool:
     """Whether a request holds a requirement: each pattern found in its part, or, where the
-    requirement is `absent`, none."""
+    requirement is `absent`, none. A requirement that may be `said` is read in what Copilot
+    said before the request too."""
     text = text_of(request, required.part)
+    if required.said:
+        text += "\n" + said
     found = [re.search(pattern, text, re.IGNORECASE) is not None
              for pattern in required.patterns]
     return not any(found) if required.absent else all(found)
@@ -218,16 +228,17 @@ class Score:
 
 
 def score_request(task: MetricTask, reply: str) -> Score:
-    """Score the Metric request in a reply against its task's requirements key."""
+    """Score the Metric request in a reply against its task's requirements key. The reply may
+    hold what Copilot said before the request, which a requirement that may be `said` reads."""
     result = Score(task.id)
-    request = request_in(reply)
+    request, said = request_in(reply), said_before(reply)
     result.request_missing = not request
     result.sql_in_request = holds_sql(request)
     result.parts_missing = missing_parts(request)
     result.invented = invented_names(request)
     result.worked = worked_numbers(request)
     checks = [(column_count(task), len(sections(request)) == task.columns)]
-    checks += [(required, meets(request, required)) for required in task.required]
+    checks += [(required, meets(request, required, said)) for required in task.required]
     result.helpful_total = sum(not required.essential for required, _ in checks)
     for required, met in checks:
         if request and met:
@@ -411,6 +422,15 @@ def write_request(folder: Path) -> None:
     (folder / "request.md").write_text(request, encoding="utf-8")
 
 
+def scored_reply(folder: Path) -> str:
+    """What a task's round is scored on: every turn Copilot took, its request in the last, or,
+    with no turn files, the folder's request.md alone."""
+    copilots = [path for speaker, path in _turns(folder) if speaker == "Copilot"]
+    if not copilots:
+        return (folder / "request.md").read_text(encoding="utf-8")
+    return "\n\n".join(path.read_text(encoding="utf-8").strip() for path in copilots) + "\n"
+
+
 def _shown(path: Path) -> str:
     """A path as the session is told it: from the repo's root where it is under it."""
     return (path.relative_to(ROOT) if path.is_relative_to(ROOT) else path).as_posix()
@@ -585,7 +605,7 @@ def score_round(given: argparse.Namespace) -> str:
         folder = task_folder(given.round, task, given.local)
         path = folder / "request.md"
         if path.exists():
-            reply = path.read_text(encoding="utf-8")
+            reply = scored_reply(folder)
             result = score_request(BY_ID[task], reply)
             new_sources.append(source_row_of(given, task, result.passed, folder))
             line = score_line(result) + cap_flags(path.parent)

@@ -202,6 +202,50 @@ def test_the_wrong_reading_in_other_words_is_still_caught(task_id: str,
                for unmet in result.essential_unmet), metric_eval.score_line(result)
 
 
+def _quiet(task_id: str) -> str:
+    """A premise task's example request with its part 9 saying nothing of the premise."""
+    return re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", BY_ID[task_id].example)
+
+
+# What Copilot says to the user in a turn before its request, pushing back on the premise.
+PUSHBACK = {
+    "M26": "ops.job_events has several rows per run, by its event_type (start, finish, retry, "
+           "fail); ops.job_runs has one row per run. Count from ops.job_runs?",
+    "M28": "Your column definitions call ops.region_costs.dt a load date, which may not be the "
+           "day the job ran. Which is it?",
+}
+
+
+@pytest.mark.parametrize("task_id", sorted(PUSHBACK))
+def test_pushing_back_in_the_conversation_names_what_refutes_the_premise(task_id: str) -> None:
+    task, quiet = BY_ID[task_id], _quiet(task_id)
+    assert not metric_eval.score_request(task, quiet).passed
+    reply = PUSHBACK[task_id] + "\n\nCopilot:\n\n" + quiet
+    result = metric_eval.score_request(task, reply)
+    assert result.passed, metric_eval.score_line(result)
+
+
+def test_pushing_back_and_then_building_on_the_premise_still_fails() -> None:
+    reply = ("Your column definitions say status is NULL while a run is still running.\n\n"
+             + TRUSTING["M24"])
+    result = metric_eval.score_request(BY_ID["M24"], reply)
+    assert REFUTED not in result.essential_unmet and not result.passed
+
+
+def test_a_round_is_scored_on_all_copilot_said_with_the_request_last(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _run(["start", "C", "--round", "r1", "--split", "dev", "--model", "haiku", "--only",
+          "M26"], tmp_path, capsys)
+    folder = _folder(tmp_path, "r1", "M26")
+    _write(folder, "turn-01-copilot.md", PUSHBACK["M26"])
+    _write(folder, "turn-01-user.md", "Yes, count from ops.job_runs.")
+    _write(folder, "turn-02-copilot.md", "Here it is.\n\n" + _quiet("M26"))
+    _run(["next", str(folder)], tmp_path, capsys)
+    out = _run(["score", "r1", "C", "--split", "dev", "--model", "haiku", "--only", "M26"],
+               tmp_path, capsys)
+    assert "M26  pass" in out
+
+
 def test_m28_keeps_the_users_reading_and_records_the_conflict_with_the_definitions() -> None:
     task = BY_ID["M28"]
     unrecorded = re.sub(r"9\. Open questions:[^\n]*", "9. Open questions: none.", task.example)

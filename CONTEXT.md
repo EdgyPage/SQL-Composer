@@ -556,8 +556,8 @@ _Avoid_: missing field, unknown
 **False premise**:
 What a user says as fact about their data that their own Column definitions or Sample rows
 refute, such as "a NULL status is a crash" where the definitions say NULL means still running.
-A Metric request names what refutes it and builds on what the data holds. If the user keeps
-their reading, the request builds on that and records the conflict among its open questions.
+Copilot names what refutes it, pushing back while it asks or in the request, and the request
+builds on what the data holds. If the user keeps their reading, the request builds on that.
 _Avoid_: wrong assumption, user error
 
 **Quantity**:

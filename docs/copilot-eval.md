@@ -261,6 +261,9 @@ condition on its rows; the column count where the user muddled it; anything a ta
 **helpful** (what is left out, the days, rounding, the edges). A request passes with every
 essential element, more helpful elements met than not, no column name the definitions don't
 give, no worked-out number ("= 50") and no SQL. An invented column or number always fails.
+What refutes a false premise, and in M28 the conflict the user kept, counts wherever Copilot
+said it to the user: pushing back while it asks, or in the request. The wrong reading is read
+in the request alone, so pushing back and then building on the premise still fails.
 Arm A0, the baseline, is Copilot given file 19's request form, the definitions and the vague
 goal, with no file and no one to ask.
 

@@ -93,9 +93,9 @@ Toolbox version raise.
 - [09 The cost report](issues/09-cost-report.md)
 - [10 Scrub the git history](issues/10-scrub-history.md)
 - [11 The docs and a first measured round](issues/11-docs-and-a-measured-round.md)
-- [12 The Metric suite tests false premises](issues/12-false-premise-tasks.md): resolved 2026-11-15; on Haiku A0 passed 1 of 5 premise tasks, C 3 of 5; M26 the dev miss
+- [12 The Metric suite tests false premises](issues/12-false-premise-tasks.md): resolved 2026-11-15; pushback in the conversation counts; on Haiku arm C passes every task, A0 1 of 5 premise tasks
 - [13 File 19 holds false premises, and 8.7 is exported again](issues/13-file-19-holds-false-premises.md):
-  added 2026-11-15, after 12, and only if 12's baseline finds a dev miss
+  resolved 2026-11-15 as not needed: no dev miss
 
 01 first; 02 next, since every later ticket writes to `.eval-local/`. 03 to 08 can run in
 parallel after 01 and 02. 09 after 03 to 08. 10 after 02, and it ends with a force-push the user
