@@ -22,7 +22,8 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
-    │   ├── lineage/         the Project's lineage, which export_project_lineage writes
+    │   ├── lineage/         the Project's lineage, which export_project_lineage writes, and
+    │   │                    lineage_state.csv, which record_lineage_state adds to
     │   ├── templates/       the Templates new_table, new_block and new_scheduled_run make
     │   │                    files from: yours to edit
     │   └── removed/         what remove_table, remove_reference, remove_block,
@@ -65,7 +66,9 @@ Statements it names with the writes of each table they read, in that order, and 
 Hive; export_project_lineage, run by hand from admin/scheduled_runs.ipynb, draws every Saved
 table, what reads it and which Scheduled runs write it, export_run_lineage and export_run_hive
 write one run's lineage and its built Hive into its folder, and describe_logic lists a table's
-logic functions, to paste into Copilot. upgrade carries the Project's files
+logic functions, to paste into Copilot. record_lineage_state adds to
+admin/lineage/lineage_state.csv a row for each column whose logic, or Effective logic, changed
+since it last ran. upgrade carries the Project's files
 to a newer Toolbox you copied in, marking with `# UPGRADE` what it leaves you to change.
 scan_hive reads Hive someone else wrote and says what a Conversion would make; convert makes
 each table the Hive writes a Saved table in your Dev Database, its Table folder and Table
@@ -88,9 +91,9 @@ send nothing, and read the warehouse only through a Run value's function that re
 as a table's latest Partition, worked out as they build each write, through the connection of
 the notebook they run in; the rest never touch the warehouse. start, new_table, new_block,
 new_run_value, new_scheduled_run, remove_table, remove_reference, remove_block,
-remove_scheduled_run, register, add_references and upgrade, the Project actions, each add an
-entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
-Project. The rest add no entry of their own: check and load
+remove_scheduled_run, register, add_references, upgrade and record_lineage_state, the Project
+actions, each add an entry to admin/admin_log.md, the log that also keeps every Admin
+statement run inside the Project. The rest add no entry of their own: check and load
 change no file, nor does describe_logic; export_project_lineage writes only its two files
 in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
 export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
@@ -125,7 +128,8 @@ from typing import TYPE_CHECKING, NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
+from . import (converting, decisions, describe, effective_logic, keys, kinds, lineage_state,
+               unchecked, upgrades, workflows)
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
@@ -186,7 +190,8 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
            "reference_from_logic", "new_run_value", "new_scheduled_run",
            "remove_scheduled_run", "build_run", "export_project_lineage",
-           "export_run_lineage", "export_run_hive", "describe_logic"]
+           "export_run_lineage", "export_run_hive", "describe_logic",
+           "record_lineage_state"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -7535,6 +7540,53 @@ def export_project_lineage() -> ProjectReport:
     from .project_lineage import write_project_lineage
 
     return ProjectReport(write_project_lineage(root, call))
+
+
+# --- record_lineage_state ---------------------------------------------------------------------
+
+
+def record_lineage_state() -> ProjectReport:
+    """Record what each column of the Project holds, to find a change to it later.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.record_lineage_state()  # a Project just started: nothing to record yet
+    Lineage state: the first recording, 0 columns of 0 tables, in
+    admin/lineage/lineage_state.csv.
+
+    It works out the Effective logic of every column: each Saved table's write(), each
+    Scheduled run's Statements and each Table reference's columns for a table the Project
+    doesn't write, each column followed through every Saved table it reads. It adds a row to
+    admin/lineage/lineage_state.csv for each column that changed since the last recording,
+    and none for one that didn't, so it may run as often as you like. The first recording
+    writes a row for every column, marked first. After it, a row says what changed: own (its
+    own logic or the rows that count for it), inherited (only something it reads, up its
+    chain, changed, named in its because column), retyped, added, removed, or opaque (an
+    Unchecked statement, Unchecked derived table or Python step that writes it). An own
+    change that came with a change to a Building block its table imports names the block.
+
+    A table whose logic doesn't load, or a Scheduled run with a <...> left, isn't recorded:
+    its rows from before stand, and the report names it, with why. Only a table or run the
+    registry marks removed, as remove_table and remove_scheduled_run mark them, is recorded
+    as removed.
+
+    It reads only the Project's files: each Statement is built with each Run value standing
+    in for its value, never called, so it needs no connect(...) and sends nothing. It writes
+    only admin/lineage/lineage_state.csv, and logs itself in the Admin log. Open the file in
+    Excel, or read it with pandas.read_csv, to look at what changed and when.
+    """
+    frame = callers_frame()
+    call = "project.record_lineage_state()"
+    root = _project_root(call)
+    lines = lineage_state.record(root, effective_logic.project_logic(root), call)
+    files = [f"added to {lineage_state.STATE_FILE.as_posix()}"]
+    if lines[0] == lineage_state.NO_CHANGE:
+        files = []
+    _log(root, call, [], files, frame)
+    return ProjectReport(lines)
 
 
 # --- export_run_lineage and export_run_hive ---------------------------------------------------
