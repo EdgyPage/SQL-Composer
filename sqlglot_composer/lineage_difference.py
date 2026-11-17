@@ -216,6 +216,9 @@ def _compared_from_a_commit(rows: list[dict[str, str]], commit: str, call: str) 
         nearest = f"The nearest a recording was made at is {close[0]}."
     elif commits:
         nearest = f"Recordings were made at {in_words(commits)}."
+    if commit.isdigit():
+        nearest += (" If you meant a day, write it with dashes, such as "
+                    f"\"{commit[:4]}-{commit[4:6]}-{commit[6:8]}\".")
     refuse(what=f"{call}: no recording of the Lineage state was made at commit {commit}.",
            why="since= given a commit starts the difference from the last recording made at "
            f"it. {nearest}",
@@ -500,7 +503,8 @@ KIND_WORDS = {SAVED_TABLE: "Saved table", SCHEDULED_RUN: "a Scheduled run's Stat
 def counts_line(found: Difference) -> str:
     """How much changed, in one sentence: the tables, then the columns by change."""
     if found.end is None:
-        return (f"Nothing to compare yet: no recording was made {found.since}. Record again "
+        return (f"Nothing to compare yet: the recording {found.since} starts from, of "
+                f"{found.start}, is the newest. Record again "
                 "once something has changed.")
     if not found.tables and not found.toolbox:
         return f"No column changed, {found.since}."

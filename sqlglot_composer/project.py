@@ -506,23 +506,25 @@ ADMIN_NOTEBOOKS = {
     ),
     "lineage": (
         "# The Lineage state and the Lineage difference\n\n"
-        "`lineage/lineage_state.csv`, the Lineage state, records what each column of your "
-        "Project holds: its own logic and the rows that count for it, and its Effective logic, "
-        "the same traced through every Saved table it reads, down to the tables the Project "
-        "doesn't write. A row is added each time one changes, saying when, at which commit and "
-        "from which call. Each Project action that changes a table or a Table reference "
-        "records it already, and so does each Table notebook's cell 5, `export_hive()`: run "
-        "the first cell below after a change made any other way, such as a Table reference "
-        "edited by hand. `project.check()` says when the state is behind.\n\n"
-        "The second cell writes the Lineage difference, `lineage/<time>-difference.html` and "
-        "its Markdown twin: each column with an Own change, its own logic changed, and each "
-        "with an Inherited change, its own logic the same but something it reads, up its "
-        "chain, changed, with that chain down to the change it comes from, and when "
-        "`sent.csv` shows each changed table was next written. `SINCE` takes a time, such as "
-        '`"2026-11-20"`, or a commit, such as `"1a2b3c4"`: left `None`, it compares the newest '
-        'recording with the one before. `TABLES` takes a table\'s name, such as '
-        '`"mart.team_days"`, or a list of them, to show only those and the chains that reach '
-        "them. Neither cell reaches the warehouse, so this notebook needs no `connect(...)`.",
+        "`admin/lineage/lineage_state.csv`, the Lineage state, records what each column of "
+        "your Project holds: its own logic and the rows that count for it, and its Effective "
+        "logic, the same traced through every Saved table it reads, down to the tables the "
+        "Project doesn't write. A row is added each time one changes, saying when, at which "
+        "commit and from which call. Each Project action that changes a table or a Table "
+        "reference records it already, and so does each Table notebook's cell 5, "
+        "`export_hive()`: run the record cell below, `project.record_lineage_state()`, after a "
+        "change made any other way, such as a Table reference edited by hand. "
+        "`project.check()` says when the state is behind.\n\n"
+        "The difference cell after it writes the Lineage difference, "
+        "`admin/lineage/<time>-difference.html`, and its Markdown twin: each column with an "
+        "Own change, its own logic changed, and each with an Inherited change, its own logic "
+        "the same but something it reads, up its chain, changed, with that chain down to the "
+        "change it comes from, and when `admin/sent.csv` shows each changed table was next "
+        "written. `SINCE` takes a time, such as `\"2026-11-20\"`, or a commit, such as "
+        "`\"1a2b3c4\"`: left `None`, it compares the newest recording with the one before. "
+        "`TABLES` takes a table's name, such as `\"mart.team_days\"`, or a list of them, to "
+        "show only those and the chains that reach them. Neither cell reaches the warehouse, "
+        "so this notebook needs no `connect(...)`.",
         ["project.record_lineage_state()  # after a change no Project action or cell 5 made",
          "SINCE = None  # a time or a commit, such as \"2026-11-20\"; None: the last change\n"
          "TABLES = None  # a table's name or a list, such as \"mart.team_days\"; None: all\n"
@@ -2072,12 +2074,10 @@ def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
     columns = singular_or_plural(len(changes), "column's", "columns'")
     behind = (f"The Lineage state is behind: {len(changes)} {columns} logic differs from its "
               f"last recording, in {in_words(tables)}.")
-    # A Table reference changed by hand has no cell 5: only the record cell records it.
-    if all(key in logic.columns and logic.columns[key].kind == effective_logic.REFERENCE
-           for key in changes):
-        return [f"{behind} Record it with {record_cell}."]
-    return [f"{behind} Record it: run cell 5, export_hive(), of the Table notebook you "
-            f"changed, or {record_cell}."]
+    # Any Table notebook's cell 5 records the whole Project, whatever was changed by hand,
+    # a Table reference among them, so the record cell comes first, cell 5 beside it.
+    return [f"{behind} Record it with {record_cell}; a Table notebook's cell 5, "
+            "export_hive(), records the whole Project too."]
 
 
 def _proposed_line_lines(root: Path) -> list[str]:
@@ -7717,9 +7717,11 @@ def export_lineage_difference(since: str | None = None,
 
     It works out every table's logic, as project.record_lineage_state() does, only to name
     each table or Scheduled run that isn't recorded now, with why; it needs no connect(...)
-    and sends nothing. A time before the first recording, a commit no recording was made at,
-    or a table the state holds nothing of is refused, naming the nearest. It logs itself in
-    the Admin log.
+    and sends nothing. A time before the first recording starts from the first recording,
+    and the page says so: a table made since then shows as added, its columns' later changes
+    within that, so give a time after the tables you ask about were made. A commit no
+    recording was made at, or a table the state holds nothing of, is refused, naming the
+    nearest. It logs itself in the Admin log.
     """
     frame = callers_frame()
     call = "project.export_lineage_difference()"

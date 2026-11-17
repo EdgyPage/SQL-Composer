@@ -192,7 +192,8 @@ the call that mends it:
 Not registered, made by hand. Adopt each with the call beside it:
   references/ops__scheduler_runs.py: project.register("ops.scheduler_runs")
 The Lineage state is behind: 3 columns' logic differs from its last recording, in
-    ops.scheduler_runs. Record it with project.record_lineage_state(), in admin/lineage.ipynb.
+    ops.scheduler_runs. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a
+    Table notebook's cell 5, export_hive(), records the whole Project too.
 >>> project.register("ops.scheduler_runs")
 Registered references/ops__scheduler_runs.py.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.

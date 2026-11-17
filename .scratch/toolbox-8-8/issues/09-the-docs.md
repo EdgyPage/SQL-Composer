@@ -62,3 +62,10 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07), beside tickets 08 and 
   "Beside the Workflows" and its new tripping point (`docs/main/workflows.html`), and the
   docstrings of `project.record_lineage_state` and `project.export_lineage_difference`.
 
+## Comments
+
+**Beginner reader, 2026-11-17** (Definition of done, 4): its report is
+[reports/beginner-reader-2026-11-17.md](../reports/beginner-reader-2026-11-17.md), 27 stops.
+The six that said something untrue or sent the reader the wrong way are fixed (since= before
+the first recording, check()'s cell 5 advice, "two notebooks", the notebook's "first cell",
+a day without dashes, "Nothing to compare yet"); the rest, wording, are left for the user.

@@ -81,9 +81,9 @@ def test_check_names_the_tables_changed_since_the_last_recording_and_records_not
     assert lines[0].startswith("The Lineage state is behind: ")
     assert "logic differs from its last recording, in mart.job_day_facts, " in lines[0]
     assert "mart.team_days" in lines[0]
-    assert lines[0].endswith("Record it: run cell 5, export_hive(), of the Table notebook you "
-                             "changed, or project.record_lineage_state(), in "
-                             "admin/lineage.ipynb.")
+    assert lines[0].endswith("Record it with project.record_lineage_state(), in "
+                             "admin/lineage.ipynb; a Table notebook's cell 5, export_hive(), "
+                             "records the whole Project too.")
     assert state_of(intermediate) == before
     project.record_lineage_state()
     forget_the_projects_modules()

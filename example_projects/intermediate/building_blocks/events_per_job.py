@@ -4,7 +4,7 @@ Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks
 them too, and writing them once here means the two always count them the same way.
 
 A run is counted at its start, and at a restart, the event the scheduler sends from 2026-09-26
-on when someone starts a job again by hand: changed the day after the Project was made, so the
+on when someone starts a job again by hand: changed an hour after the Project was made, so the
 Lineage difference in admin/lineage/ shows what it changed (Toolbox 8.8).
 
 A run's minutes are the minutes since it started, on the event that ends it: finish or fail,

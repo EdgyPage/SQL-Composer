@@ -106,9 +106,9 @@ recorded it yet:
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
 The Lineage state is behind: 3 columns' logic differs from its last recording, in
-    mart.job_day_facts, mart.team_days and weekly_team.week_totals. Record it: run cell 5,
-    export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in
-    admin/lineage.ipynb.
+    mart.job_day_facts, mart.team_days and weekly_team.week_totals. Record it with
+    project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook's cell 5,
+    export_hive(), records the whole Project too.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
@@ -147,12 +147,14 @@ Done when admin/sent.csv's last row names mart.job_day_facts. Then step 5.
 
 Goal: where and when mart.team_days changed. `tables=` keeps the page to that table and every
 chain that reaches it. Left out, `since=` compares the newest recording with the one before;
-give it a time, such as "2026-09-20", or a commit, to see every change since:
+give it a time or a commit to see every change since. Give a time after the tables you ask
+about were made: a table made since that time shows only as added, its columns' later changes
+inside that.
 
 >>> print(project.export_lineage_difference(tables="mart.team_days"))  # doctest: +ELLIPSIS
 Wrote admin/lineage/20260925-090000-difference.html and its Markdown twin,
     20260925-090000-difference.md: 2 tables changed, since ..., to the newest, of 2026-09-25
-    09:00:00: 2 columns (1 own change, 1 inherited change).
+    09:00:00: 2 columns (1 own, 1 inherited).
 
 Open the HTML page: each table is a box, one with an Own change in one colour, one with only an
 Inherited change in another, and a click on a box opens its columns beside the drawing. Its

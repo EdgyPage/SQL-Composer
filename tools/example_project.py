@@ -36,7 +36,7 @@ For each project, in a Python of its own, started in an empty folder, it:
   write(), then its Hive, beside its notebook, as the notebook's Hive cell does;
 - exports each Scheduled run's Hive and lineage into its folder, as the cells of
   admin/scheduled_runs.ipynb do, connected to the Example database;
-- for a project LATER_CHANGES names, the next day, changes one Building block to its source in
+- for a project LATER_CHANGES names, an hour later, changes one Building block to its source in
   `changed/building_blocks/`, runs the Table notebook's cell 5 that records the change, writes
   that table once, and runs admin/lineage.ipynb's cells, which write the Lineage difference.
 
@@ -71,10 +71,11 @@ SOURCES = ROOT / "tools" / "example_project_sources"
 # The time every Project action and lineage is made at, and the commit it names.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
 PINNED_COMMIT = "nogit"  # what scripts_commit gives for a folder that isn't in git
-# When the later change is made, the day after, and when the table it changes is next written.
-CHANGED_TIME = PINNED_TIME + datetime.timedelta(days=1)
+# When the later change is made, an hour after, and when the table it changes is next written:
+# both before 09:00, the time the how-tos are pinned to, which copy this project as it ends.
+CHANGED_TIME = PINNED_TIME + datetime.timedelta(hours=1)
 WRITTEN_TIME = CHANGED_TIME + datetime.timedelta(hours=1)
-# For each Example project made with one, the Building block changed the next day, from
+# For each Example project made with one, the Building block changed an hour later, from
 # `changed/building_blocks/` in its sources, and the Saved table whose notebook's cell 5
 # records it and which is written once after (Toolbox 8.8, ticket 08).
 LATER_CHANGES = {"intermediate": ("events_per_job", "mart.job_day_facts")}
@@ -541,7 +542,7 @@ def _export_scheduled_runs(name: str) -> None:
 
 
 def _change_later(name: str, folder: Path) -> None:
-    """The next day, change the Building block LATER_CHANGES names to its changed source, run
+    """An hour later, change the Building block LATER_CHANGES names to its changed source, run
     its table's cell 5, export_hive(), which records the change in the Lineage state, write
     that table once, and run admin/lineage.ipynb's cells, as a user runs them, so the Lineage
     difference shows the change, what it reached and when it was written."""

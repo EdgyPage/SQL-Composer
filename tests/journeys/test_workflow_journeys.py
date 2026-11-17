@@ -1555,7 +1555,7 @@ def test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_fail
 # --- the Lineage difference -------------------------------------------------------------------
 
 # The intermediate Example project's later change (Toolbox 8.8, ticket 08): its Building block,
-# changed the day after the Project was made, and the Saved table whose cell 5 records it.
+# changed an hour after the Project was made, and the Saved table whose cell 5 records it.
 LATER_BLOCK, LATER_TABLE = example_project.LATER_CHANGES["intermediate"]
 # The code cells of a Table notebook its journey runs: the Project and the connection, and
 # cell 5, export_hive(), which records the Lineage state.
@@ -1661,7 +1661,7 @@ def test_a_building_block_changed_then_found_in_the_lineage_difference(
     assert "## `mart.team_days`: inherited change only" in markdown
     assert "`mart.team_days.runs` ← `mart.job_day_facts.runs`" in markdown
     assert f"It came with a change to the Building block `{LATER_BLOCK}`." in markdown
-    assert "First written with this logic: 2026-09-26 " in markdown
+    assert "First written with this logic: 2026-09-25 08:00:00 " in markdown
     # The same change the Example project records, at its CHANGED_TIME.
     changed_at = example_project.CHANGED_TIME.strftime("%Y-%m-%d %H:%M:%S")
     assert _state_changes_of(root, changed_at) == _state_changes_of(

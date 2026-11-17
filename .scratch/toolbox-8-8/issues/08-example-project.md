@@ -90,3 +90,11 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07).
   block, whose "after" text, written whole, now differs in `runs` too. Their expected output
   needs writing again, and 19's "after" text should keep the restart, so its diff stays about
   `minutes`.
+
+## Comments
+
+**Moved, 2026-11-17, after merging:** the later change is made an hour after the Project, at
+2026-09-25 07:00, its write at 08:00, not the next day: every how-to is pinned to 2026-09-25
+09:00 and copies the intermediate project as it ends, so a history running past that time put
+how-to 32's own recording before the Example's write. The difference is now
+`admin/lineage/20260925-080000-difference.html` and `.md`.

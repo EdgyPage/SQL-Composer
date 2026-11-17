@@ -669,7 +669,8 @@ Goal: each output column followed back to the table columns it reads.
    table was next written. Done when the page names the change each column you asked about
    comes from; then go on to section 8, "Keep the Project in order".
    - If you changed a file by hand, `project.check()` says the Lineage state is behind: run
-     `project.record_lineage_state()` in `admin/lineage.ipynb`, or the Table notebook's cell 5.
+     `project.record_lineage_state()` in `admin/lineage.ipynb`, or any Table notebook's cell 5,
+     which records the whole Project.
    - A Scheduled run never records: its runs only build and send.
 
 How-tos: [Follow lineage](../docs/how_to.html#follow_lineage) and
