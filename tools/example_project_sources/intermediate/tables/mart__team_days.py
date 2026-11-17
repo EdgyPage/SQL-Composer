@@ -157,7 +157,8 @@ facts = project.load("mart.job_day_facts")
 export_lineage(costs.write(), facts.write(), write())
 
 # %%
-# 5. Its Hive: mart__team_days.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__team_days.hql beside this notebook, from the logic as last saved, then the
+#    Project's Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%

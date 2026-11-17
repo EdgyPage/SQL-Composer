@@ -114,7 +114,8 @@ run_query(null_counts(), query)
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__job_events_checks.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__job_events_checks.hql beside this notebook, from the logic as last saved, then the
+#    Project's Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%

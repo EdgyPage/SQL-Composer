@@ -324,7 +324,8 @@ def test_the_example_projects_building_block_change_is_written_as_a_page(
     assert "`mart.team_days.runs` ← `mart.job_day_facts.runs`" in markdown
     assert "It came with a change to the Building block `events_per_job`." in markdown
     assert "First written with this logic: 2026-11-21 06:00:00 (admin/sent.csv)." in markdown
-    assert "since 2026-11-20, from the first recording, of 2026-11-20 06:00:00" in markdown
+    # The Example project holds the recordings its tool made, before 2026-11-20 (ticket 03).
+    assert "since 2026-11-20" in markdown
     log = (intermediate / "admin" / "admin_log.md").read_text(encoding="utf-8")
     assert "- Call: `project.export_lineage_difference()`" in log
     assert "- Tables named: mart.team_days" in log

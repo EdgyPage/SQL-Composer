@@ -785,6 +785,7 @@ Its steps' own cells, in order:
    warehouse, yours to run).
 
     run_execute(change, execute)
+    project.record_lineage_state()
 
 
 Its last cell runs every step left, in place of their cells:

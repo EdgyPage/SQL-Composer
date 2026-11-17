@@ -366,7 +366,8 @@ def table_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pa
 
 def test_a_table_notebooks_hivevars_are_passed_with_its_write_steps_only(
         table_folder: Path) -> None:
-    report = repr(export_hive())
+    # What it wrote, before the Lineage state it records after it (8.8, ticket 03).
+    report = repr(export_hive()).split("\nLineage state")[0]
     assert lines_passed(table_folder / "mart__recent_runs.hivevars") == [
         "--hivevar PERIOD_END=2026-09-24"]
     header = header_of(table_folder / "mart__recent_runs.hivevars")

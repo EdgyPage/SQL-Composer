@@ -1362,6 +1362,7 @@ flowchart TD
    warehouse, yours to run).
 
        run_execute(change, execute)
+       project.record_lineage_state()
 
 <!-- /chart -->
 

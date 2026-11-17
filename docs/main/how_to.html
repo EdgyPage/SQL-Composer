@@ -668,6 +668,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Its &quot;fill in their TODO lines.&quot; means the lines it proposed nothing for: here only each <code>key=None, # TODO: proposed [...]</code> line, which step 5 accepts in the decisions cell, since a Key proposed from a table&#x27;s rows stays open until you do. A table it proposed no Key for has one more, its first line, what one row is. Every other line it proposed is marked <code># proposed</code>, and blocks nothing.</p>
 <p>Its &quot;To accept every proposed Key&quot; line is one line of the decisions cell. Run from the references Workflow&#x27;s &quot;Run up to your Decisions&quot;, the run then stops at the Decisions and prints the whole DECISIONS to paste over the cell&#x27;s <code>DECISIONS = {}</code> line, that line inside it, its comments shortened here:</p>
@@ -1282,6 +1283,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Every notebook of the Project starts with three imports: every Toolbox name, your query and execute, and the tables of the Database ops. A Database is a named group of tables, the first part of a table&#x27;s name, <code>ops</code> in <code>ops.jobs</code>:</p>
 <pre class="python">from references import ops</pre>
@@ -1843,6 +1845,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="label">The file <code>references/ops__job_runs.py</code>, after you fill it in</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - one row per run of a job, on the day it ran.&quot;&quot;&quot;
@@ -2075,6 +2078,7 @@ team_notes = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(team_notes.team, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>A job has one budget in each region it is billed in, so the Key of ops.region_budgets is the job and the region together:</p>
 <p class="label">The file <code>references/ops__region_budgets.py</code>, after you fill it in</p>
@@ -2833,6 +2837,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="label">The file <code>references/ops__job_runs.py</code>, after you fill it in</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - one row per run of a job, on the day it ran.&quot;&quot;&quot;
@@ -3417,6 +3422,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Done when <code>project.add_references</code> says it wrote the three Table references. Then step 2.</p>
 <h5>2. Make its Table folder</h5>
@@ -3674,7 +3680,8 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved, then the
+#    Project&#x27;s Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%
@@ -3787,7 +3794,8 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved, then the
+#    Project&#x27;s Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%
@@ -3922,6 +3930,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <p>Done when it says it wrote references/mart.py. Then step 6.</p>
 <h5>6. Import it from references</h5>
@@ -3983,7 +3992,8 @@ GROUP BY
 from pathlib import Path
 os.chdir(&quot;tables/mart__alerts_per_severity&quot;)
 export_hive()</pre>
-<p class="label">Python shows</p><pre class="output">Wrote mart__alerts_per_severity.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().</pre>
+<p class="label">Python shows</p><pre class="output">Wrote mart__alerts_per_severity.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().
+Lineage state: no change since the last recording.</pre>
 <p class="note">It writes <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.hql</code> too.</p>
 <pre class="python">print(Path(&quot;mart__alerts_per_severity.hql&quot;).read_text())</pre>
 <p class="label">Python prints</p><pre class="output">-- The Hive of mart.alerts_per_severity, generated by export_hive() from the logic cell
@@ -4350,6 +4360,7 @@ jobs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(jobs.job_name, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -4688,6 +4699,7 @@ daily_job_runs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(daily_job_runs.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__daily_job_runs/mart__daily_job_runs.ipynb</code> too.</p>
 <p class="label">The file <code>references/mart__daily_job_runs.py</code>, after you fill it in</p>
@@ -4781,7 +4793,8 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved, then the
+#    Project&#x27;s Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%
@@ -5029,6 +5042,7 @@ team_day = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(team_day.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__team_day/mart__team_day.ipynb</code> too.</p>
 <p class="label">The file <code>references/mart__team_day.py</code>, after you fill it in</p>
@@ -5133,7 +5147,8 @@ write_team_day = write()
 export_lineage(write_daily_job_runs, write_team_day)
 
 # %%
-# 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved, then the
+#    Project&#x27;s Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%
@@ -5512,6 +5527,7 @@ run_speed = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_speed.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__run_speed/mart__run_speed.ipynb</code> too.</p>
 <p class="label">The file <code>references/mart__run_speed.py</code>, after you fill it in</p>
@@ -5616,7 +5632,8 @@ changed
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved, then the
+#    Project&#x27;s Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%
@@ -6066,6 +6083,7 @@ run_alerts = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -6226,6 +6244,7 @@ alerts_per_severity = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb</code> too.</p>
 <p class="label">The file <code>references/ops__jobs.py</code>, after you fill it in</p>
@@ -6459,6 +6478,7 @@ def __dir__() -&gt; list[str]:
 <p>Goal: references/reference_sheet.csv, written from your Table references. <code>project.refresh_reference_sheet()</code>, from admin/refresh_reference_sheet.ipynb, writes references/reference_sheet.csv from the Table references in references/, never from the warehouse, so it says what your files say:</p>
 <pre class="python">project.refresh_reference_sheet()</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 20 rows, 5 tables.</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <p>Done when it says it wrote 20 rows, 5 tables. Then step 7.</p>
 <h5>7. Read the Reference sheet</h5>
@@ -6988,12 +7008,13 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p>Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. Work in your own Project. This page uses a copy of the Starter Example project, which the download&#x27;s Example projects page shows file by file, made in the folder the page runs in by <code>example_project(&quot;starter&quot;)</code>, a line you leave out in your own Project. It is much like the one the how-tos before this one build, and its Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;starter&quot;)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 54 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -7119,8 +7140,9 @@ DECISIONS = {
         &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # a list, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when no columns name one row
     },
 }</pre>
-<p class="label">It writes 23 files</p>
+<p class="label">It writes 24 files</p>
 <pre class="file">admin/admin_log.md
+admin/lineage/lineage_state.csv
 admin/registry.csv
 admin/workflows/convert/ops_reports/batch.md
 admin/workflows/convert/ops_reports/written.json
@@ -8065,12 +8087,13 @@ except ValueError as refused:
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -8568,12 +8591,13 @@ run_query(wrong_day, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -9056,12 +9080,13 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -9719,12 +9744,13 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -10151,12 +10177,13 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, with the snapshot table&#x27;s Table reference, the file that describes the table, already written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -10521,12 +10548,13 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, its Table references and Building blocks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -11042,12 +11070,13 @@ statement(
 <p>Goal: a Project to work in, its Table references and Table notebooks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -11405,12 +11434,13 @@ len(per_day)</pre>
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -11744,12 +11774,13 @@ WHERE
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -12381,12 +12412,13 @@ Duplicates in right:
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -13278,12 +13310,13 @@ result.to_dict(&quot;records&quot;) == most_first.to_dict(&quot;records&quot;)</
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -13624,6 +13657,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <pre class="python">from references import mart, ops
 job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -&gt; Table, Table</pre>
@@ -14095,12 +14129,13 @@ Problems:
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -14443,6 +14478,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <pre class="python">from references import mart
 job_day_events = mart.job_day_events  # -&gt; Table</pre>
@@ -14874,12 +14910,13 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -15216,6 +15253,7 @@ scheduler_runs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(scheduler_runs.run_id, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Done when references/ holds ops__job_runs.py and ops__scheduler_runs.py. Then step 3.</p>
 <h5>3. Fill in their TODO lines</h5>
@@ -15561,12 +15599,13 @@ with_one + without</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -15901,12 +15940,13 @@ admin.move_to_own_folder(ops.job_events, query=query_at_work)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -16208,6 +16248,7 @@ jobs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(jobs.job_name, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <pre class="python">from references import ops
 jobs, job_owners = ops.jobs, ops.job_owners  # -&gt; Table, Table</pre>
@@ -16350,12 +16391,13 @@ rows_of(teams_today)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -16607,12 +16649,13 @@ print(to_hive(repair))</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to make the change in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -17133,6 +17176,7 @@ run_speed = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_speed.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__run_speed/mart__run_speed.ipynb</code> too.</p>
 <p class="label">The file <code>references/mart__run_speed.py</code>, after you fill it in</p>
@@ -17486,6 +17530,7 @@ slow_runs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(slow_runs.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__slow_runs/mart__slow_runs.ipynb</code> too.</p>
 <p class="label">The file <code>references/mart__slow_runs.py</code>, after you fill it in</p>
@@ -17795,12 +17840,13 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to write the Hive in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -18102,6 +18148,7 @@ jobs = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(jobs.job_name, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <pre class="python">from references import ops</pre>
 <p><code>query</code> and <code>execute</code> come from the Project&#x27;s warehouse.py, which in the Example project calls the Example database; yours calls your warehouse.</p>
@@ -18487,12 +18534,13 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <pre class="python">import shutil
 from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -19297,7 +19345,8 @@ change = admin.drop_partitions(table, where=...)  # or another: help(admin)</pre
 <pre class="python">show_hive(change)
 print(query(&quot;SHOW PARTITIONS &quot; + TABLE))</pre>
 <ol start="3"><li>Send it, then any check after it, such as admin.check_the_copy (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">run_execute(change, execute)</pre>
+<pre class="python">run_execute(change, execute)
+project.record_lineage_state()</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
@@ -19349,12 +19398,13 @@ project.run_workflow(&quot;schedule&quot;)</pre>
 <p>Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
@@ -19739,12 +19789,13 @@ except ValueError as refused:
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project with Saved tables for a run to write. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 85 files</p>
+<p class="label">It writes 86 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
+admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
 admin/refresh_reference_sheet.ipynb

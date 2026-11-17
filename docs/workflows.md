@@ -284,7 +284,8 @@ table = project.table_reference(TABLE)
 change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}:::your_decision
     s1[["2. Print its Hive, and run the check its Check first line names: show_hive(change)
 print(query(#quot;SHOW PARTITIONS #quot; + TABLE))"]]:::warehouse_call
-    s2[["3. Send it, then any check after it, such as admin.check_the_copy: run_execute(change, execute)"]]:::warehouse_call
+    s2[["3. Send it, then any check after it, such as admin.check_the_copy: run_execute(change, execute)
+project.record_lineage_state()"]]:::warehouse_call
     t0("a Saved table"):::thing
     t1("the change wanted"):::thing
     t2("an Admin statement"):::thing
