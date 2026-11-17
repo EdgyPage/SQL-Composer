@@ -1737,10 +1737,10 @@ flowchart TD
 1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is.
 2. Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as Hive, a query
    for each final Table.
-3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
-   final Table, and convert them as one batch in the convert Workflow, with DEV filled in, in
-   admin/databases.py: each becomes a Saved table named for its file, or, when the batch is one
-   file, for the batch.
+3. Fill in each name it writes in angle brackets, save each query as a .hql file named for the
+   table it becomes (its final Table's name, unless you want another), and convert them as one
+   batch in the convert Workflow, with DEV filled in, in admin/databases.py: each becomes a
+   Saved table named for its file, or, when the batch is one file, for the batch.
 
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 
@@ -1789,14 +1789,17 @@ To hand over an Excel workbook's calculations, one chat holds three Copilot file
 5. **Save the queries.** Goal: the convert Workflow can read them. Action: leave out each
    final no one needs kept as a table, such as a Total Row whose total no one needs. Save each
    other filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
-   `convert.ipynb`, named for its final Table, such as `by_job.hql`; a Total Row's query,
-   titled `by_job (Total Row)`, as `by_job_total.hql`. Done when each final you keep has its
-   file; then step 6.
+   `convert.ipynb`, named for the table it becomes: its final Table's name, such as
+   `by_job.hql`, unless you were asked for another name, such as `job_run_report.hql` for a
+   final `job_report`; a Total Row's query, titled `by_job (Total Row)`, as `by_job_total.hql`.
+   Done when each final you keep has its file; then step 6.
 6. **Convert them.** Goal: a Saved table in dev for each final. Action: in the convert
    notebook's names cell, name the batch and its files, such as `NAME = "sales_summary"` and
    `FILES = ["sales.hql", "regions.hql"]`, with DEV filled in, in `admin/databases.py`, then
    run its steps. Each query becomes a Saved table named for its file; with one file, the
-   table is named for the batch, so name the batch for its final Table. A query here writes no
+   table is named for the batch, so name the batch for the table you want: its final Table's
+   name, or the name you were asked for, such as `NAME = "job_run_report"` for a final
+   `job_report`. A query here writes no
    table of its own, so its compare step checks each Saved table's rows against the rows the
    query gives. Done when each table has passed its compare.
 
