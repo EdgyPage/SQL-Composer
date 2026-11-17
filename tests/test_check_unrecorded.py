@@ -70,7 +70,7 @@ def test_check_names_the_tables_changed_since_the_last_recording_and_records_not
     before = state_of(intermediate)
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
-        'is_in(job_events.event_type, ["start", "retry"])',
+        'is_in(job_events.event_type, ["start", "restart"])',
         'is_in(job_events.event_type, ["start"])'),
         encoding="utf-8")
     forget_the_projects_modules()

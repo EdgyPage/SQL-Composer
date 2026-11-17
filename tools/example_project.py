@@ -551,8 +551,14 @@ def _change_later(name: str, folder: Path) -> None:
     from sqlglot_composer import export_hive, project, run_execute, unchecked
     from warehouse import connect, execute
 
+    def changed_now() -> datetime.datetime:
+        return CHANGED_TIME
+
+    def written_now() -> datetime.datetime:
+        return WRITTEN_TIME
+
     block, table = LATER_CHANGES[name]
-    unchecked.now = lambda: CHANGED_TIME
+    unchecked.now = changed_now
     shutil.copyfile(SOURCES / name / "changed" / "building_blocks" / f"{block}.py",
                     folder / "building_blocks" / f"{block}.py")
     # The Building block was imported as it was: a new kernel imports it as it is now.
@@ -560,7 +566,7 @@ def _change_later(name: str, folder: Path) -> None:
         del sys.modules[module]
     os.chdir(folder / "tables" / project.table_stem(table))
     export_hive()
-    unchecked.now = lambda: WRITTEN_TIME
+    unchecked.now = written_now
     connect(example_database)
     run_execute(project.load(table).write(), execute)
     os.chdir(folder / "admin")

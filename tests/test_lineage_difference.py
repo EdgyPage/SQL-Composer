@@ -381,7 +381,7 @@ def test_the_example_projects_building_block_change_is_written_as_a_page(
     project.record_lineage_state()
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
-        'is_in(job_events.event_type, ["start", "retry"])',
+        'is_in(job_events.event_type, ["start", "restart"])',
         'is_in(job_events.event_type, ["start"])'),
         encoding="utf-8")
     for name in [name for name in sys.modules if name.split(".")[0] == "building_blocks"]:
@@ -395,8 +395,9 @@ def test_the_example_projects_building_block_change_is_written_as_a_page(
 
     assert report.lines[0].startswith("Wrote admin/lineage/")
     assert "-difference.html and its Markdown twin, " in report.lines[0]
-    markdown = next((intermediate / "admin" / "lineage").glob("*-difference.md")).read_text(
-        encoding="utf-8")
+    # The newest page: the Example project holds the one its later change wrote (ticket 08).
+    pages = sorted((intermediate / "admin" / "lineage").glob("*-difference.md"))
+    markdown = pages[-1].read_text(encoding="utf-8")
     assert "## `mart.job_day_facts`: own change" in markdown
     assert "## `mart.team_days`: inherited change only" in markdown
     assert "`mart.team_days.runs` ← `mart.job_day_facts.runs`" in markdown

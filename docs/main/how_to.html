@@ -9921,7 +9921,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12666,7 +12666,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12716,10 +12716,10 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 
 #### `events_per_job in facts_write.runs`
 
-Calculated in **events_per_job in facts_write** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END)`.
+Calculated in **events_per_job in facts_write** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END)`.
 
 ```text
-events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
+events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart&quot;]))
 └─ ops.job_events.event_type  (string)
 ```
 
@@ -12775,7 +12775,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12824,10 +12824,10 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 
 #### `events_per_job in team_day.runs`
 
-Calculated in **events_per_job in team_day** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END)`.
+Calculated in **events_per_job in team_day** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END)`.
 
 ```text
-events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
+events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart&quot;]))
 └─ ops.job_events.event_type  (string)
 ```
 
@@ -12874,7 +12874,7 @@ Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(event
 
 ```text
 team_day.runs = sum_of(events_per_job.runs)
-└─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
+└─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart&quot;]))
    └─ ops.job_events.event_type  (string)
 ```
 
@@ -13257,7 +13257,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
             print(line[:100])
 changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
 <p class="label">Python prints</p><pre class="output">In facts_write, Hive as submitted:
--     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+-     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
 +     COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
 -     COALESCE(
 -       SUM(
@@ -13269,7 +13269,7 @@ changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
 In facts_write, `events_per_job in facts_write.runs`:
 - Calculated in **events_per_job in facts_write** as `count_rows(where=is_in(job_events.event_type, 
 + Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type,
-- events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retr
+- events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;rest
 + events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In facts_write, `events_per_job in facts_write.minutes`:
 - Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_
@@ -13277,7 +13277,7 @@ In facts_write, `events_per_job in facts_write.minutes`:
 - events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
 + events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
 In team_day, Hive as submitted:
--     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+-     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
 +     COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
 -     COALESCE(
 -       SUM(
@@ -13289,7 +13289,7 @@ In team_day, Hive as submitted:
 In team_day, `events_per_job in team_day.runs`:
 - Calculated in **events_per_job in team_day** as `count_rows(where=is_in(job_events.event_type, [&quot;s
 + Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;s
-- events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]
+- events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;restart
 + events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In team_day, `events_per_job in team_day.minutes`:
 - Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=is_in(
@@ -13297,7 +13297,7 @@ In team_day, `events_per_job in team_day.minutes`:
 - events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.e
 + events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.
 In team_day, `runs`:
-- └─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retr
+- └─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;rest
 + └─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In team_day, `minutes`:
 - └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
@@ -20400,7 +20400,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -20466,7 +20466,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END

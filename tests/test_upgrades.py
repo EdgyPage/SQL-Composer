@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 from conftest import (awaiting_its_rewrite, forget_the_projects_modules, toolbox_folder,
                       toolbox_module)
+import example_project
 import notebook_runner
 
 import sqlglot_composer
@@ -75,6 +76,11 @@ GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
     # 8.7's ticket 08: the intermediate's schedule notebook names weekly_team, as the user
     # named it to make the run, which 8.7's step makes empty; and its README, which says so.
     "8.7": {"intermediate": ("admin/workflows/schedule/schedule.ipynb", "README.md")},
+    # 8.8's ticket 08: the intermediate's later change, made by hand the day after it was
+    # made: its Building block events_per_job, the Hive its table's cell 5 wrote again, and
+    # the write after it in sent.csv (its Lineage state and difference are lineage pages).
+    "8.8": {"intermediate": ("admin/sent.csv", "building_blocks/events_per_job.py",
+                             "tables/mart__job_day_facts/mart__job_day_facts.hql")},
 }
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
@@ -685,6 +691,12 @@ def test_an_upgraded_notebooks_hive_cell_writes_the_example_projects_hive(
     shutil.copytree(UPGRADE_FROM / "8.1" / name, copy)
     monkeypatch.chdir(copy)
     project.upgrade()
+    # The Example project's later change, a Building block changed by hand the day after
+    # (Toolbox 8.8, ticket 08), made in the copy as its user made it.
+    if name in example_project.LATER_CHANGES:
+        block = f"{example_project.LATER_CHANGES[name][0]}.py"
+        shutil.copyfile(ROOT / "example_projects" / name / "building_blocks" / block,
+                        copy / "building_blocks" / block)
     monkeypatch.setattr(sys, "path", list(sys.path))
     folder = copy / "tables" / stem
     notebook = folder / f"{stem}.ipynb"

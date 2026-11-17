@@ -51,7 +51,7 @@ def test_its_cells_record_and_write_the_difference_with_no_connection(
         intermediate: Path) -> None:
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
-        'is_in(job_events.event_type, ["start", "retry"])',
+        'is_in(job_events.event_type, ["start", "restart"])',
         'is_in(job_events.event_type, ["start"])'),
         encoding="utf-8")
     before = len(read_rows(intermediate))
@@ -62,5 +62,6 @@ def test_its_cells_record_and_write_the_difference_with_no_connection(
     assert {(row["table"], row["column"], row["change"]) for row in added} >= {
         ("mart.job_day_facts", "runs", "own"), ("mart.team_days", "runs", "inherited")}
     assert {row["recorded_by"] for row in added} == {"project.record_lineage_state()"}
-    page = next((intermediate / "admin" / "lineage").glob("*-difference.md"))
+    # The newest page: the Example project holds the one its later change wrote (ticket 08).
+    page = sorted((intermediate / "admin" / "lineage").glob("*-difference.md"))[-1]
     assert "## `mart.team_days`: inherited change only" in page.read_text(encoding="utf-8")
