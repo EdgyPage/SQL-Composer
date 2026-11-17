@@ -372,7 +372,8 @@ def test_a_building_block_changed_in_the_example_project_is_recorded_end_to_end(
     before = len(read_rows(intermediate))
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
-        'equals(job_events.event_type, "start")', 'equals(job_events.event_type, "retry")'),
+        'is_in(job_events.event_type, ["start", "restart"])',
+        'is_in(job_events.event_type, ["start"])'),
         encoding="utf-8")
     for name in [name for name in sys.modules if name.split(".")[0] == "building_blocks"]:
         monkeypatch.delitem(sys.modules, name)

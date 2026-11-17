@@ -123,3 +123,17 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
 - Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
+- Script: a notebook, at commit nogit
+- Result: worked

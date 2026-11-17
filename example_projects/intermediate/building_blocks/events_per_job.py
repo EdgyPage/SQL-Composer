@@ -3,14 +3,18 @@
 Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks a day from
 them too, and writing them once here means the two always count them the same way.
 
+A run is counted at its start, and at a restart, the event the scheduler sends from 2026-09-26
+on when someone starts a job again by hand: changed the day after the Project was made, so the
+Lineage difference in admin/lineage/ shows what it changed (Toolbox 8.8).
+
 A run's minutes are the minutes since it started, on the event that ends it: finish or fail,
 which ops.job_events' Alias ends_a_run names. A day with no run ending has 0 minutes, not
 NULL.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, equals,
-    fill_null, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, fill_null,
+    is_in, statement, sum_of,
 )
 from references.ops__job_events import ends_a_run, job_events  # ends_a_run: an Alias
 
@@ -30,7 +34,8 @@ def events_per_job(first_day: str, last_day: str) -> Table:
                 job_events.job_id,
                 job_events.dt,
                 AS(count_rows(), "events"),
-                AS(count_rows(where=equals(job_events.event_type, "start")), "runs"),
+                AS(count_rows(where=is_in(job_events.event_type, ["start", "restart"])),
+                   "runs"),
                 AS(fill_null(sum_of(job_events.minutes, where=ends_a_run), 0), "minutes"),
             ),
             FROM(job_events),

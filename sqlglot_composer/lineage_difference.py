@@ -40,6 +40,9 @@ TABLE_KINDS = {OWN: "own-change", INHERITED: "inherited-change"}
 # Each change in the words the pages use.
 CHANGE_WORDS = {OWN: "own change", OPAQUE: "own change, opaque", RETYPED: "retyped",
                 ADDED: "added", REMOVED: "removed", INHERITED: "inherited change"}
+# Each change counted in the counts line, as a recording's report counts them: "1 own".
+COUNT_WORDS = {OWN: "own", OPAQUE: "opaque", RETYPED: "retyped", ADDED: "added",
+               REMOVED: "removed", INHERITED: "inherited"}
 # The building_block: a Building block's cause starts with, in an own change's because.
 BLOCK_CAUSE = f"{BLOCK}:"
 
@@ -505,8 +508,8 @@ def counts_line(found: Difference) -> str:
     for table in found.tables:
         columns += table.columns
     changes = [column.change for column in columns]
-    counts = [f"{changes.count(change)} {CHANGE_WORDS[change]}"
-              for change in CHANGE_WORDS if change in changes]
+    counts = [f"{changes.count(change)} {COUNT_WORDS[change]}"
+              for change in COUNT_WORDS if change in changes]
     line = (f"{counted(len(found.tables), 'table')} changed, {found.since}: "
             f"{counted(len(columns), 'column')} ({', '.join(counts)}).")
     if not columns:

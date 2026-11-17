@@ -33,6 +33,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import csv
+import datetime
 import io
 import re
 import shutil
@@ -94,6 +95,9 @@ KNOWN_ACTIONS: dict[str, int] = {
     # path, the names cell and the run_workflow cell), where 8.6 counted one call in a cell of
     # the user's own, which no notebook asks for.
     "test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_failure": 12,
+    # Toolbox 8.8, ticket 08: a Building block changed, its table's cell 5 and one write run,
+    # then admin/lineage.ipynb's three cells.
+    "test_a_building_block_changed_then_found_in_the_lineage_difference": 10,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -1546,3 +1550,119 @@ def test_a_scheduled_run_made_filled_in_run_by_a_scheduler_and_rerun_from_a_fail
     assert [hive for hive in sent if "INSERT OVERWRITE TABLE mart.team_days" in hive], sent
     assert not [hive for hive in sent if "TABLE mart.job_day_" in hive], sent
     assert _week_totals_given_back(names) == _week_totals_of(intermediate.warehouse)
+
+
+# --- the Lineage difference -------------------------------------------------------------------
+
+# The intermediate Example project's later change (Toolbox 8.8, ticket 08): its Building block,
+# changed the day after the Project was made, and the Saved table whose cell 5 records it.
+LATER_BLOCK, LATER_TABLE = example_project.LATER_CHANGES["intermediate"]
+# The code cells of a Table notebook its journey runs: the Project and the connection, and
+# cell 5, export_hive(), which records the Lineage state.
+TABLE_SETUP_CELL, TABLE_HIVE_CELL = 1, 5
+
+
+@pytest.fixture
+def the_day_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                   request: pytest.FixtureRequest) -> Iterator[Started]:
+    """The intermediate Example project as it was the day before its later change: its
+    Building block as first written, its Lineage state's rows from before the change, no
+    difference written and nothing in sent.csv; its notebooks connected to the stand-in
+    warehouse, which holds the table the change reaches, and its clock a minute on at each
+    reading. At the end, the journey took the actions KNOWN_ACTIONS counts."""
+    forget_the_projects_modules()
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    root = tmp_path / "intermediate"
+    shutil.copytree(ROOT / "example_projects" / "intermediate", root)
+    sys.path.insert(0, str(root))
+    shutil.copyfile(
+        example_project.SOURCES / "intermediate" / "building_blocks" / f"{LATER_BLOCK}.py",
+        root / "building_blocks" / f"{LATER_BLOCK}.py")
+    lineage_state = toolbox_module("lineage_state")
+    changed_at = example_project.CHANGED_TIME.strftime("%Y-%m-%d %H:%M:%S")
+    before = [row for row in lineage_state.read_rows(root) if row["recorded_at"] < changed_at]
+    with open(root / lineage_state.STATE_FILE, "w", encoding="utf-8", newline="") as state:
+        writer = csv.DictWriter(state, lineage_state.STATE_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(before)
+    for page in (root / "admin" / "lineage").glob("*-difference.*"):
+        page.unlink()
+    sent = root / "admin" / "sent.csv"
+    sent.write_text(sent.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
+    warehouse = Warehouse(database="ops")
+    conn = types.ModuleType("journey_conn")
+    conn.conn = warehouse
+    monkeypatch.setitem(sys.modules, "journey_conn", conn)
+    for notebook in (_notebook(root, LATER_TABLE), root / "admin" / "run_tables.ipynb"):
+        _edit_notebook(notebook, lambda text: text.replace(example_project.EXAMPLE_CONNECTION,
+                                                           CONNECTED),
+                       example_project.EXAMPLE_CONNECTION)
+    monkeypatch.chdir(root)
+    warehouse.execute(to_hive(project.load(LATER_TABLE).create()))
+    times = iter(example_project.CHANGED_TIME + datetime.timedelta(minutes=minutes)
+                 for minutes in range(1000))
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: next(times))
+    journeyed = Started(root, monkeypatch, warehouse, {})
+    yield journeyed
+    forget_the_projects_modules()
+    _check_the_actions_taken(request.node.name, journeyed.actions)
+
+
+def _run_cells(started: Started, notebook: Path, numbers: list[int]) -> str:
+    """Run the code cells `numbers` of a notebook from its folder, in one namespace, as the
+    user runs them in Jupyter, each one an action: what they printed."""
+    started.monkeypatch.chdir(notebook.parent)
+    cells = notebook_runner.code_cells(notebook)
+    namespace: dict[str, object] = {"__name__": "__main__"}
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        for number in numbers:
+            started.actions.append(("lineage", "ran", f"{notebook.name} cell {number}"))
+            notebook_runner.run_cell(cells[number - 1], namespace)
+    return printed.getvalue()
+
+
+def _state_changes_of(root: Path, since: str) -> list[tuple[str, str, str, str]]:
+    """Each row of a Project's Lineage state recorded at or after `since`: its table,
+    column, change and because."""
+    rows = toolbox_module("lineage_state").read_rows(root)
+    return sorted((row["table"], row["column"], row["change"], row["because"])
+                  for row in rows if row["recorded_at"] >= since)
+
+
+def test_a_building_block_changed_then_found_in_the_lineage_difference(
+        the_day_before: Started) -> None:
+    # Toolbox 8.8, ticket 08: the intermediate Example project's later change, made as the
+    # user makes it: the Building block saved, its table's cell 5 run, the table written once
+    # through admin/run_tables.ipynb, then admin/lineage.ipynb run, whose difference names the
+    # change, the tables it reached and when its table was written.
+    root = the_day_before.root
+    the_day_before.actions.append(("lineage", "file", f"building_blocks/{LATER_BLOCK}.py"))
+    shutil.copyfile(
+        example_project.SOURCES / "intermediate" / "changed" / "building_blocks"
+        / f"{LATER_BLOCK}.py", root / "building_blocks" / f"{LATER_BLOCK}.py")
+    printed = _run_cells(the_day_before, _notebook(root, LATER_TABLE),
+                         [TABLE_SETUP_CELL, TABLE_HIVE_CELL])
+    assert "Lineage state: 3 columns changed (1 own, 2 inherited)" in printed, printed
+
+    run_tables = root / "admin" / "run_tables.ipynb"
+    the_day_before.actions.append(("lineage", "typed", "run_tables' last cell"))
+    last = len(notebook_runner.code_cells(run_tables))
+    notebooks.write_cell_text(run_tables, len(notebooks.read_cells(run_tables)),
+                              f"project.run_tables(tables=[{LATER_TABLE!r}], execute=execute)")
+    _run_cells(the_day_before, run_tables, [1, 2, last])
+    assert not the_day_before.warehouse.rows_of(LATER_TABLE).empty
+
+    printed = _run_cells(the_day_before, root / "admin" / "lineage.ipynb", [1, 2, 3])
+    assert "Lineage state: no change since the last recording." in printed, printed
+    markdown = next((root / "admin" / "lineage").glob("*-difference.md")).read_text(
+        encoding="utf-8")
+    assert f"## `{LATER_TABLE}`: own change" in markdown
+    assert "## `mart.team_days`: inherited change only" in markdown
+    assert "`mart.team_days.runs` ← `mart.job_day_facts.runs`" in markdown
+    assert f"It came with a change to the Building block `{LATER_BLOCK}`." in markdown
+    assert "First written with this logic: 2026-09-26 " in markdown
+    # The same change the Example project records, at its CHANGED_TIME.
+    changed_at = example_project.CHANGED_TIME.strftime("%Y-%m-%d %H:%M:%S")
+    assert _state_changes_of(root, changed_at) == _state_changes_of(
+        ROOT / "example_projects" / "intermediate", changed_at)
