@@ -6340,7 +6340,8 @@ scheduler_runs = Table(
 <p>No Project action made it, so the registry doesn&#x27;t list it, and <code>project.check()</code> says so, with the call that mends it:</p>
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p><pre class="output">Not registered, made by hand. Adopt each with the call beside it:
-  references/ops__scheduler_runs.py: project.register(&quot;ops.scheduler_runs&quot;)</pre>
+  references/ops__scheduler_runs.py: project.register(&quot;ops.scheduler_runs&quot;)
+The Lineage state is behind: 3 columns&#x27; logic differs from its last recording, in ops.scheduler_runs. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.</pre>
 <pre class="python">project.register(&quot;ops.scheduler_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/ops__scheduler_runs.py.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.
@@ -6864,6 +6865,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: tables/mart__alerts_per_severity/ wasn&#x27;t there: marked its registry row removed
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Archive with <code>project.remove_table</code> instead of deleting by hand: it keeps the notebook and its Lineage in admin/removed/, where you can find them again.</p>
 <h5>Deleting an admin notebook by mistake</h5>
@@ -8215,6 +8217,7 @@ job_day = Table(
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)
+The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
@@ -8489,6 +8492,7 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <p>At work, once <code>run_execute(create_table(job_day), execute)</code> has made the table, <code>check_table_reference(job_day, query=query)</code> compares it with your file, as above. And the Project knows the file:</p>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
+The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>Before you go on, check that:</p>
@@ -13657,7 +13661,6 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
-<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <pre class="python">from references import mart, ops
 job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -&gt; Table, Table</pre>
@@ -14478,7 +14481,6 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
-<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <pre class="python">from references import mart
 job_day_events = mart.job_day_events  # -&gt; Table</pre>
