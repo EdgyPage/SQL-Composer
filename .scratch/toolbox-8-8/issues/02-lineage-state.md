@@ -1,7 +1,7 @@
 # The Lineage state
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01
 Size: L
 
@@ -41,3 +41,64 @@ parsing HTML (Q5, Q7, Q11 to Q13, Q19, Q23, Q25).
 - It never reaches the warehouse (Q6); in `public.py` with a docstring and its example.
 - Tests: replaying the CSV to any recording gives that recording's columns; two recordings with
   nothing changed add no row; each `change` is shown arising.
+
+## Answer
+
+Built 2026-11-17, against ticket 01's interface (`effective_logic.ColumnLogic`,
+`ProjectLogic`, `project_logic`), built at the same time on another branch.
+
+- **`sqlglot_composer/lineage_state.py`**, in the registry, a pure core over a `ProjectLogic`:
+  - `record(root, logic, recorded_by, by_upgrade=False) -> list[str]` adds a row to
+    `admin/lineage/lineage_state.csv` for each column, and each Building block, that changed
+    since the last recording, writing the header when the file is new, never rewriting a row,
+    and gives back the lines a Project action prints;
+  - `read_rows(root) -> list[dict[str, str]]` reads the file, oldest first;
+  - `columns_at(rows, recorded_at=None) -> dict[tuple[str, str], dict[str, str]]` replays it
+    to any recording: each column's last row then, a removed one gone;
+  - `STATE_FILE`, `STATE_COLUMNS`, the change words and `NO_CHANGE`.
+- **The columns**, in order: `recorded_at, commit, recorded_by, toolbox_version, table,
+  column, kind, change, type, own_logic, reads, rows_that_count, own_hash, effective_hash,
+  because`. `reads` is `;`-separated; `commit` is `lineage.scripts_commit`'s, empty outside git
+  (its `nogit` and `nocommits`); `toolbox_version` is `TOOLBOX_VERSION`, from version.txt.
+- **The change rules**, in this order: a column not in the last recording is `added`; a Table
+  reference's column whose type changed is `retyped` (its logic is its type, so its type is
+  looked at first); an own hash changed is `own`, or `opaque` for an opaque column; a type
+  changed is `retyped`; an effective hash changed alone is `inherited`. The first recording,
+  one with no row before it, writes every column and block `first`.
+- **`because`:** an inherited change names, as `<db>.<table>.<column>` joined by `;`, every
+  column up its chain, nearest first, with an `own`, `opaque`, `retyped`, `added` or
+  `removed` change in the same recording; an own or opaque change names
+  `building_block:<name>` for each block its table imports (`blocks_of`) that changed in it.
+- **Removed:** a column gone from a table that still builds; and every column of a table, or
+  of a Scheduled run's Statement (`<run>.<result>`, by its run), the registry marks removed,
+  its Table folder, Table reference or Scheduled run. A table in `not_built`, or gone with no
+  registry removal, keeps its rows, and the report names it, with why or with the Project
+  action that marks it removed. A removed row repeats the column's last values.
+- **Building blocks (a change to the ticket):** each `building_blocks/*.py` file's hash is kept
+  as rows of kind `building_block` in the same CSV, its name in `table`, `column` empty, not in
+  a file beside it, so the one file replays whole. The hash reads `\r\n` as `\n`, so a
+  checkout on another computer hashes the same. `building_blocks/prod/` isn't read: a prod
+  copy's own change names no block yet.
+- **An Upgrade's recording** (`by_upgrade=True`) marks each change `toolbox`, its `because`
+  empty, but a removal, which the replay needs as it is; an Upgrade's first recording is
+  `first`, as ticket 10 wants.
+- **The report:** "Lineage state: the first recording, N columns of M tables, in
+  admin/lineage/lineage_state.csv."; "Lineage state: no change since the last recording.";
+  "Lineage state: 3 columns changed (1 own, 2 inherited): project.export_lineage_difference()
+  shows them.", counting own, inherited, retyped, opaque, added, removed and toolbox in that
+  order; "Building blocks changed: ..."; and a "Not recorded, its rows from before kept: ..."
+  line for each table or run not recorded.
+- **`project.record_lineage_state()`**, in `project.__all__` (the project module's names live
+  there, not in `public.py`, and `tests/repo/test_toolbox_checks.py`'s `PROJECT_NAMES` names
+  this ticket), works out `effective_logic.project_logic(root)`, records with `recorded_by`
+  `project.record_lineage_state()`, and logs itself in the Admin log, its Files line
+  "added to admin/lineage/lineage_state.csv", or none changed. Its docstring and example, a
+  Project just started, are in the Example gallery; the project module's docstring names it.
+- **Tests:** `tests/test_lineage_state.py`, 17, driving `record` with columns written out:
+  the first recording; no row when nothing changed; own upstream and inherited downstream;
+  a retyped root inherited by each reader; a root two tables up; opaque; added and removed;
+  a rename; a table and a Scheduled run removed by the registry; one not built and one gone
+  by hand kept; a Building block named; line endings; an Upgrade's `toolbox`; the replay to
+  each of three recordings; and the logged Project action, its `project_logic` patched. The
+  end-to-end test on the Example project waits for ticket 01's merge. The snapshot gained the
+  three report lines.
