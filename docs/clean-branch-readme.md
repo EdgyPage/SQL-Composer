@@ -170,13 +170,19 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     `query` and `execute` make, and the names its `connect` checks for, to yours.
 - **In admin/:**
   - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
-    run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for
-    your Scheduled runs: made by `project.start()`; you fill in the names some ask for in their
-    names cell, such as the tables to remove.
-  - admin/lineage/, the Project's lineage: every Saved table, what reads it and which
-    Scheduled runs write it, an HTML page and its Markdown twin. Made by
-    `project.export_project_lineage()`, run by hand from `admin/scheduled_runs.ipynb`; you fill
-    in nothing.
+    run_tables.ipynb, remove.ipynb, scheduled_runs.ipynb, whose cells you run by hand for your
+    Scheduled runs, and lineage.ipynb, which records the Lineage state and writes the Lineage
+    difference: made by `project.start()`; you fill in the names some ask for in their names
+    cell, such as the tables to remove.
+  - admin/lineage/, the Project's lineage and its Lineage state; you fill in nothing in it:
+    - the Project lineage: every Saved table, what reads it and which Scheduled runs write it,
+      an HTML page and its Markdown twin, made by `project.export_project_lineage()`, run by
+      hand from `admin/scheduled_runs.ipynb`;
+    - `lineage_state.csv`, the Lineage state, a row added each time a column's logic changes,
+      made by each Project action that changes a table or Table reference, each Table
+      notebook's cell 5 and `project.record_lineage_state()`;
+    - each Lineage difference, an HTML page and its Markdown twin, made by
+      `project.export_lineage_difference()`, run from `admin/lineage.ipynb`.
   - `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding
     its notebook: made by `project.start()`; you fill in what the Workflow works on, in its
     notebook's names cell, such as the tables, then save it. Then run its cells top to bottom,
