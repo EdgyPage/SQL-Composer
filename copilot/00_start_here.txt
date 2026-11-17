@@ -1,9 +1,9 @@
-# Copilot files for sqlglot Composer 8.7: start here
+# Copilot files for sqlglot Composer 8.8: start here
 
 **Find the words you would type in the Index, load the file it names into a new chat, then
 follow the steps below in order.**
 
-sqlglot Composer 8.7 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
+sqlglot Composer 8.8 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
 Clause functions, such as SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses
 one that would give a wrong number or read too much. These files teach Microsoft Copilot to
 write that Python, so you can ask it in plain words.

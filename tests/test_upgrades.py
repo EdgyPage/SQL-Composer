@@ -89,25 +89,8 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 }
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
-# 8.6's ticket 12 and 8.7's ticket 14 emptied it.
+# 8.6's ticket 12, 8.7's ticket 14 and 8.8's ticket 10 emptied it.
 AWAITING_ITS_STEP: tuple[str, ...] = (
-    # 8.8, ticket 03: the Lineage state recorded by check_references' refresh, by
-    # change_a_saved_table's last step and by each Table notebook's cell 5, whose comment says
-    # so, as the Templates write it; ticket 10's Upgrade step writes them.
-    "admin/check_references.ipynb",
-    "admin/templates/quality_checks.py",
-    "admin/templates/saved_table.py",
-    "admin/workflows/change_a_saved_table/",
-    "tables/mart__alerts_per_job/mart__alerts_per_job.ipynb",
-    "tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb",
-    "tables/mart__budget_overruns/mart__budget_overruns.ipynb",
-    "tables/mart__daily_job_runs/mart__daily_job_runs.ipynb",
-    "tables/mart__job_day_costs/mart__job_day_costs.ipynb",
-    "tables/mart__job_day_facts/mart__job_day_facts.ipynb",
-    "tables/mart__job_events_checks/mart__job_events_checks.ipynb",
-    "tables/mart__job_notes/mart__job_notes.ipynb",
-    "tables/mart__team_day/mart__team_day.ipynb",
-    "tables/mart__team_days/mart__team_days.ipynb",
 )
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
@@ -285,11 +268,13 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[6].startswith("8.4: ")
     assert said[7].startswith("8.5: ")
     assert said[8].startswith("8.6: ")
-    assert said[9].startswith(f"{VERSION}: ")
-    assert said[10] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+    assert said[9].startswith("8.7: ")
+    assert said[10].startswith(f"{VERSION}: ")
+    assert said[11] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
                         "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
                         "admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md, "
-                        f"admin/upgrade_8.6.md and admin/upgrade_{VERSION}.md.")
+                        "admin/upgrade_8.6.md, admin/upgrade_8.7.md and "
+                        f"admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -1635,6 +1620,10 @@ def test_8_7_loses_no_line_of_the_example_projects_but_the_imports_it_rewrites(
     copy = _copy_of_8_6(tmp_path, "intermediate")
     before = files_of(copy)
     monkeypatch.chdir(copy)
+    # 8.7's step alone: each later step writes its own lines (8.8's, a Table notebook's cell 5).
+    for later in [version for version in upgrades.STEPS
+                  if upgrades.is_older(STEP_8_7, than=version)]:
+        monkeypatch.delitem(upgrades.STEPS, later)
     project.upgrade()
     after = files_of(copy)
     for relative, text in before.items():
@@ -1644,3 +1633,84 @@ def test_8_7_loses_no_line_of_the_example_projects_but_the_imports_it_rewrites(
         written = text.replace(b"from sqlglot_composer import example_database",
                                b"import example_database")
         assert after[relative] == written, relative
+
+
+# --- 8.8: the Lineage state -------------------------------------------------------------------
+
+
+STEP_8_8 = "8.8"
+
+
+def _copy_of_8_7(tmp_path: Path, name: str = "starter") -> Path:
+    """An Example project as 8.7 left it, to upgrade."""
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / STEP_8_7 / name, copy)
+    return copy
+
+
+def _upgraded(copy: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Upgrade the Project at `copy`, forgetting the modules its recording imported after."""
+    monkeypatch.chdir(copy)
+    try:
+        project.upgrade()
+    finally:
+        forget_the_projects_modules()
+
+
+def test_8_8_makes_the_projects_first_lineage_state_as_the_upgrades(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    lineage_state = toolbox_module("lineage_state")
+    copy = _copy_of_8_7(tmp_path, "intermediate")
+    _upgraded(copy, monkeypatch)
+    rows = lineage_state.read_rows(copy)
+    assert rows
+    assert {row["change"] for row in rows} == {"first"}
+    assert {row["recorded_by"] for row in rows} == {upgrades.RECORDED_BY_8_8}
+    assert ("mart.team_days", "runs") in lineage_state.columns_at(rows)
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_8}.md").read_text(encoding="utf-8")
+    assert "- recorded the Lineage state: Lineage state: the first recording, " in checklist
+
+
+def test_8_8_writes_cell_5s_comment_as_8_7_wrote_it_and_leaves_one_you_changed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_7(tmp_path)
+    stems = sorted(path.parent.name for path in (copy / "tables").glob("*/*.ipynb"))
+    yours, as_written = stems[0], stems[1]
+    path = copy / "tables" / yours / f"{yours}.ipynb"
+    changed = [(kind, text.replace("from the logic as last saved\nexport_hive()",
+                                   "my own words\nexport_hive()"))
+               for kind, text in notebooks.read_cells(path)]
+    notebooks.write_notebook(path, changed)
+    _upgraded(copy, monkeypatch)
+    texts = [text for _, text in notebooks.read_cells(copy / "tables" / as_written
+                                                      / f"{as_written}.ipynb")]
+    assert upgrades.HIVE_CELL_8_8.format(stem=as_written) in texts
+    assert [text for _, text in notebooks.read_cells(path)] == [text for _, text in changed]
+
+
+def test_8_8_marks_a_table_notebook_with_no_export_hive_cell_never_above_its_logic(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_7(tmp_path)
+    stem = sorted(path.parent.name for path in (copy / "tables").glob("*/*.ipynb"))[0]
+    path = copy / "tables" / stem / f"{stem}.ipynb"
+    notebooks.write_notebook(path, [(kind, text) for kind, text in notebooks.read_cells(path)
+                                    if "export_hive(" not in text])
+    _upgraded(copy, monkeypatch)
+    texts = [text for _, text in notebooks.read_cells(path)]
+    marked = [text for text in texts
+              if f"# UPGRADE {STEP_8_8}: this notebook has no export_hive() cell" in text]
+    assert len(marked) == 1
+    assert [text for text in texts if text.startswith("# logic")]
+
+
+def test_8_8_writes_a_template_as_8_7_wrote_it_and_marks_one_you_changed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    templates = toolbox_module("project_templates").TEMPLATES
+    copy = _copy_of_8_7(tmp_path)
+    changed = copy / "admin" / "templates" / "quality_checks.py"
+    changed.write_text(changed.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    _upgraded(copy, monkeypatch)
+    written = (copy / "admin" / "templates" / "saved_table.py").read_text(encoding="utf-8")
+    assert written == templates["saved_table"]
+    assert changed.read_text(encoding="utf-8").startswith(
+        f"# UPGRADE {STEP_8_8}: {upgrades.TEMPLATE_MARK_8_8}")

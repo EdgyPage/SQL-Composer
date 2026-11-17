@@ -117,4 +117,4 @@ The columns that tell each step's rows apart, as the Toolbox works them out. A c
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.7.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.8.

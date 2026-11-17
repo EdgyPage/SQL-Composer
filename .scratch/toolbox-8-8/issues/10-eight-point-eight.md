@@ -23,3 +23,45 @@ The version the user named, and the Upgrade step every raise ships (Q17).
   Lineage pages, and `tests/test_upgrades.py` passes.
 - `sqlglot_composer/version.txt` reads 8.8.
 - **CHANGES.md's `## 8.8`** has "What's new" and "To update from 8.7".
+
+## Answer
+
+Partly built 2026-11-17, from dev's 973594c2 (tickets 01 to 06), beside ticket 07: all but
+`admin/lineage.ipynb`, which ticket 07 makes.
+
+- **`upgrades.to_8_8`, in `STEPS`:**
+  - each Table notebook's export_hive() cell still as 8.7's Templates wrote it
+    (`HIVE_CELL_8_7`) gets 8.8's comment (`HIVE_CELL_8_8`), written in its cell alone
+    (`rewrite_cells`); a comment you changed is left, as the cell records all the same; a Table
+    notebook with no export_hive() cell is marked (`NO_HIVE_CELL_8_8`) on its first code cell
+    that isn't its logic cell, never above `# logic`, by which project.load finds the logic;
+  - each Template still as 8.7 wrote it (`TEMPLATES_BEFORE_8_8`, `saved_table` and
+    `quality_checks` by hash) is written again, one you changed marked (`TEMPLATE_MARK_8_8`);
+  - `admin/check_references.ipynb`'s text cell is 8.8's, its code cells as they are;
+  - the `change_a_saved_table` Workflow's notebook is written again
+    (`_write_workflow_notebook_again`, `_write_workflow_notebooks_again` for one Workflow),
+    each name and step cell of yours kept, its last step recording;
+  - `upgrade.add_what_start_makes()`, which adds what project.start() makes that the Project
+    lacks, writing over nothing;
+  - the records of promote and convert rehashed, as 8.6 and 8.7 do;
+  - last, the first recording: `project.record_after_a_change(root, "project.upgrade() to 8.8",
+    by_upgrade=True)` (`RECORDED_BY_8_8`; `record_after_a_change` gains `by_upgrade=`), every
+    column `first`, its line in `admin/upgrade_8.8.md`'s "Done for you". A recording that fails
+    leaves the step done, its checklist saying so.
+  - Nothing under `scheduled_runs/<name>/` is touched; nothing is sent.
+- **`admin/lineage.ipynb` (ticket 07):** once `project.start()` writes it, as an admin notebook
+  in `ADMIN_NOTEBOOKS` or among what start() makes, `add_what_start_makes()` in `to_8_8` adds
+  it to an upgraded Project, leaving one you made alone; no line of `to_8_8` changes. If 07
+  makes it some other way, it goes in `to_8_8` before `_record_the_first_lineage_state`, as
+  `upgrade.add(...)`. Then this ticket resolves.
+- **The freeze:** `tests/upgrade_from/8.7/`, the Example projects at 3daf6b09 (8.7, before any
+  8.8 code), 114 files, without their lineage folders.
+- **`tests/test_upgrades.py`:** `AWAITING_ITS_STEP` is empty; the 7.1 test names 8.7's step;
+  the test that 8.7 loses no line runs 8.7's step alone, later steps taken out of `STEPS` for
+  it, since 8.8 writes lines of its own; and four new tests: the first recording as the
+  Upgrade's, cell 5's comment written where 8.7 wrote it and left where you changed it, a Table
+  notebook with no export_hive() marked never above its logic, a Template written again and
+  one you changed marked.
+- **The raise:** `version.txt` reads 8.8; CHANGES.md's `## 8.8` ("To update from 8.7" and
+  "What's new", `admin/lineage.ipynb` among it); the README's Update names 8.8's Upgrade; the
+  Example projects, the pages and the Copilot files written again at 8.8.

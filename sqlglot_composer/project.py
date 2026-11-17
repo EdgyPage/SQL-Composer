@@ -2707,7 +2707,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.7.
+    Upgraded the Project from 7.1 to 8.8.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2718,10 +2718,11 @@ def upgrade() -> ProjectReport:
     8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
     8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
+    8.8: nothing to change by hand. admin/upgrade_8.8.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md and
-        admin/upgrade_8.7.md.
+        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md,
+        admin/upgrade_8.7.md and admin/upgrade_8.8.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -7743,17 +7744,19 @@ def export_lineage_difference(since: str | None = None,
 NOT_RECORDED = "Lineage state not recorded"
 
 
-def record_after_a_change(root: Path, recorded_by: str) -> list[str]:
+def record_after_a_change(root: Path, recorded_by: str, by_upgrade: bool = False) -> list[str]:
     """Record the Lineage state of the Project at `root`, as `recorded_by`, at the end of
-    what changed a table or Table reference: the lines the recording gives. A recording that
-    fails, such as one whose admin/lineage/lineage_state.csv is open in Excel, never fails
-    what called it: it gives one line saying so, and which call records."""
+    what changed a table or Table reference: the lines the recording gives; `by_upgrade` marks
+    each change an Upgrade's recording finds the Toolbox's. A recording that fails, such as
+    one whose admin/lineage/lineage_state.csv is open in Excel, never fails what called it: it
+    gives one line saying so, and which call records."""
     # effective_logic reads this file's Table references, so both are imported here, when the
     # state is recorded, as export_project_lineage imports project_lineage.
     from . import effective_logic, lineage_state
 
     try:
-        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by)
+        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by,
+                                    by_upgrade=by_upgrade)
     # Whatever stops the recording, what called it is done, and stays done.
     except Exception as error:  # noqa: BLE001
         return [f"{NOT_RECORDED}: {type(error).__name__}: {one_line_message(error)}. Record "

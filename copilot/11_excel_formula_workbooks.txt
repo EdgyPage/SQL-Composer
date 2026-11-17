@@ -1,4 +1,4 @@
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.7)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
 
 **Use this file as reference while you follow file 15's steps: find each formula of an
 attached workbook in Patterns, then write the Hive its rule gives.**
