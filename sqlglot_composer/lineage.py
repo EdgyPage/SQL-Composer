@@ -23,7 +23,7 @@ import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import FrameType
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import html_page, kinds, unchecked
@@ -300,7 +300,8 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         _add_condition(graph, index, group, number, _badged(clause, tree), sql, formula, made,
                        itertools.chain((resolve(used) for used in tree.find_all("Column")),
                                        _run_value_boxes(graph, tree)),
-                       joined=joined, kept=kept, reads=_aliases_read(tree))
+                       joined=joined, kept=kept, reads=_aliases_read(tree),
+                       logic=ConditionLogic(clause, step, tree, then))
         if kept is not None:
             joined += [resolve(used) for used in tree.find_all("Column") if used.table == kept]
 
@@ -351,7 +352,8 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
             for _, name in s._outputs:
                 others.append(_box_key("derived", index, f"{prefix}[{number}].{name}"))
         _add_condition(graph, index, group, "stack", call, call, f"{call}(...) {what}", made,
-                       others, joined=[], kept=None, reads=set())
+                       others, joined=[], kept=None, reads=set(),
+                       logic=ConditionLogic(call, s, None, ""))
 
 
 def _output_box(index: int, kind: str, group: str, table: str | None,
@@ -365,18 +367,38 @@ def _output_box(index: int, kind: str, group: str, table: str | None,
 
 def _add_condition(graph: Graph, index: int, group: str, number: int | str, clause: str,
                    sql: str, formula: str, made: list[str], sources: Iterable[str | None], *,
-                   joined: list[str | None], kept: str | None, reads: set[str]) -> None:
+                   joined: list[str | None], kept: str | None, reads: set[str],
+                   logic: ConditionLogic) -> None:
     """A condition's box, "<clause> in <group>", with an arrow into it from each of the
     boxes `sources` gives, read once the box is added, then an arrow from it into each box in
-    `made`, whose rows it decides. `joined` and `kept` are as _add_step says."""
+    `made`, whose rows it decides. `joined` and `kept` are as _add_step says; `logic` is what
+    the Lineage state reads of it."""
     key = graph.add(_box_key("condition", index, group, number), kind="condition",
                     group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
                     type=None, sql=sql, formula=formula, calculated=False, statement=index,
-                    joined=joined, kept=kept, reads=reads)
+                    joined=joined, kept=kept, reads=reads, logic=logic)
     for source in sources:
         graph.arrow(source, key, "rows")
     for target in made:
         graph.arrow(key, target, "rows")
+
+
+class ConditionLogic(NamedTuple):
+    """What the Lineage state reads of a condition's box (Toolbox 8.8, ticket 01): its clause,
+    such as "WHERE" or "LEFT JOIN ON"; the step it is a condition of, whose tables its columns
+    name; its tree, or None for a Stack's own INTERSECT or EXCEPT, whose clause is its call;
+    and the text after its tree, a LIMIT's count."""
+
+    clause: str
+    step: Statement
+    tree: Node | None
+    then: str
+
+
+def deciding_boxes(graph: Graph, key: str) -> list[str]:
+    """Every box upstream of `key` whose value reaches it or that decides its rows, as the
+    report's "Rows that count" reads them, for the Lineage state (Toolbox 8.8, ticket 01)."""
+    return _deciding(graph, key)
 
 
 def _window_rows(tree: Node) -> list[dict[str, str]]:

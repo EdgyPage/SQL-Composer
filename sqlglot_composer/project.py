@@ -6538,6 +6538,18 @@ def _table_call(tree: ast.Module) -> tuple[str, ast.Call] | None:
     return None
 
 
+def reference_columns(path: Path) -> tuple[str, dict[str, str]] | None:
+    """A Table reference file's table, by its name, and its columns with their types, read
+    without running it, as the Reference sheet reads them: None for a file the sheet leaves
+    out, one that doesn't parse, has no Table(...), or whose columns are still new_table's
+    <COLUMNS>. The Lineage state reads it (Toolbox 8.8, ticket 01)."""
+    read = _read_reference(path)
+    if read is None or not decisions.has_columns_written(path.read_text(encoding="utf-8")):
+        return None
+    values = read[3]
+    return values["name"], {column: kind or "" for column, kind in values["columns"].items()}
+
+
 def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     """The Reference sheet's rows for one Table reference file, read without running it: its
     Table(...) call's name, columns, partition columns, Key and descriptions, and the Aliases

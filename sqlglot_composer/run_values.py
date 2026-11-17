@@ -94,6 +94,41 @@ def values_given(given: dict[str, object],
         _VALUES_GIVEN = before
 
 
+# While the block of stand_ins() runs, True: each Run value gives a stand-in, its function
+# never called, so a Project's Effective logic is worked out without the warehouse (Toolbox
+# 8.8, ticket 01; ADR 0015).
+_STANDING_IN = False
+
+# The stand-in a Run value gives while stand_ins() runs, by the name of the type its function
+# says it gives back; a date for any other, or none. "str" stands in quoted, so it is Hive text
+# too, as a Script tag's function gives.
+_STAND_INS = {"int": 0, "float": 0.0, "bool": False, "str": "'1970-01-01'"}
+_STAND_IN_DATE = datetime.date(1970, 1, 1)
+
+
+@contextmanager
+def stand_ins() -> Iterator[None]:
+    """While the block runs, no Run value's function is called: each gives a stand-in in its
+    place, by the type its function says it gives back. Lineage still traces the function and
+    what it was given, so the Statement is built and read as it would be, and nothing a
+    function would read, the warehouse among them, is read."""
+    global _STANDING_IN  # one build at a time; what was before comes back after
+    before = _STANDING_IN
+    _STANDING_IN = True
+    try:
+        yield
+    finally:
+        _STANDING_IN = before
+
+
+def stand_in_value(function: Callable[..., object]) -> object:
+    """What a Run value gives while stand_ins() runs, by the type its function says it gives
+    back, written as text when `from __future__ import annotations` keeps it so."""
+    hint = getattr(function, "__annotations__", {}).get("return")
+    written = hint if isinstance(hint, str) else getattr(hint, "__name__", "")
+    return _STAND_INS.get(written, _STAND_IN_DATE)
+
+
 def function_name(function: Callable[..., object]) -> str:
     """A function by its module and name, such as building_blocks.run_values.period_end, or
     its name alone when it has no module, as one made in a doctest has none."""
@@ -126,6 +161,8 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
         value = _VALUES_GIVEN.read(name, _VALUES_GIVEN.given[name], function)
         _VALUES_GIVEN.used.setdefault(name, value)
         return value, traced, None
+    if _STANDING_IN:
+        return stand_in_value(function), traced, None
     _TRACING.append(traced)
     try:
         return function(*arguments, **keywords), traced, None
