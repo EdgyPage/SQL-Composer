@@ -62,3 +62,30 @@ Built 2026-11-17, from dev's 67420e18 (tickets 01 and 02), beside tickets 03 and
   `conftest.forget_the_projects_modules()` after, as this ticket's does.
 - The whole suite passed, its snapshot written again; `docs/main/examples.html` regenerated
   for check()'s docstring.
+
+## Comments
+
+**Code review, 2026-11-17**, of tickets 01 to 06 together (3daf6b09..973594c2), its two axes
+on Sonnet, recorded in the ledger as round toolbox-8-8-01-06. Fixed in 3d4a9bac:
+- Standards: a whole-table read's expansion was written twice (`lineage_state._each_column`,
+  `lineage_difference._reads_of`), now `effective_logic.each_column` and `column_key`;
+  `CHANGES_AT_THE_COLUMN` repeated `ROOT_CHANGES`, now gone; `_recorded`, a vague name, is
+  `_unrecorded_lines` and `_report_once_recorded`, which builds the call the five actions on
+  names each built; a table's change words and box kind come from one map each.
+- Spec: `building_blocks/prod/` wasn't hashed, so a prod copy's own change named no block;
+  it is now, as `prod/<name>`.
+
+Answered, no change:
+- `because` names every changed column up the chain, nearest first, not only the farthest:
+  each is a column the inherited change comes from, which the difference's chains need.
+- "No Lineage state yet" waits for `admin/lineage.ipynb`: ticket 07 writes it.
+- Recordings in one second: `_recorded_at` gives every recording, `export_hive()`'s too, its
+  own second. A bumped time can be a few seconds after the clock, so a write in those seconds
+  reads as before the change: a few seconds' slack, kept.
+- An opaque step's readers show `inherited`: their own logic is unchanged, as Q3 and the
+  Inherited change's definition say.
+- `since=` before the first recording starting from it, and Building block rows in the one CSV,
+  are the ticket changes each Answer records.
+- The smells left: the `before` and `rows` pair (a `Recording` type), `record` returning
+  text that `record_lineage_state` compares, the Middle Men `deciding_boxes` and `_columns`, and
+  `difference(call=...)`'s default. Judgement calls, left for a refactor with no version raise.
