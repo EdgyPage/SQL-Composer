@@ -535,6 +535,7 @@ any item is open.
 - [x] D524 | 2568aed | docstring | `tools/eval_memo.py`'s module docstring still says "`tools/copilot_eval.py` and `tools/excel_eval.py` keep their replies here" (lines 4-5), that a held-out task in an arm that loads a Copilot file is keyed by the Copilot files' version (lines 12-14), and that "Each tool gives this module its own `memo_key(task_id, reply, arm, model, files)` ... the commands `plan`, `prompts`, `template`, `proxy` and `score` take their arguments here" (lines 22-27), and its `NOTHING_TO_ASK` comment (line 51) names `proxy`. This merge (eval-system ticket 03) moves both tools onto `tools/eval_runs.py` (`eval_runs.Pipeline`, `add_round_commands`, `round_replies`, `keep_round`), gives them a `memo_key` with no `files`, keys their held-out replies by the text they load alone, and replaces their `proxy` command with `batch` and `collect`; since 3a9cc1b no tool imports `eval_memo` at all, only `tests/test_eval_memo.py` and `tests/test_eval_runs.py`. Say what the module now is (e.g. "The files-version memo the Copilot, Excel and Metric request evaluations used before they moved onto `tools/eval_runs.py`; no tool uses it now"), or retire it with its tests - fixed in 67c8436a
 - [x] D525 | 88ca65f | docstring | `tools/copilot_eval.py`'s new `files_loaded` docstring (lines 372-373) says it gives "none in the arms that load no file of ids", and `docs/copilot-eval.md` line 106 says "Arms that load no file of ids (A0, A1, R) keep nothing"; but arm R loads `copilot/00_start_here.txt` (`shared_text`, `name = "00" if arm == "R"`), which defines ids by the very form `eval_sources.DEFINITIONS` reads, its Index rows `| P1 | ... | 01 |` to `| P8 | ...` (lines 15-22). R keeps nothing because its reply names the files to load and its message asks for no `Used:` line (`proxy_message` adds it only `if arm == "C"`), not because file 00 has no ids. Say e.g. "and none in the other arms: A0 and A1 load no Copilot file, and R's reply names files, so its message asks for no Used line" in the docstring, and "Arms A0 and A1, which load no Copilot file, and R, whose reply names files, keep nothing." at line 106 - fixed in 1ade6b74
 - [x] D526 | f9a7f2d | docstring | this commit has the report read each round's pass count from `.eval-local/rounds.csv` (`main` passes `eval_runs.read_rounds(given.local)` to `page_text`), so a round the memo answered whole, with no ledger row, now shows from that file alone; but the page's own note, in the `page_text` the commit changed (`tools/eval_report.py` lines 416-417), still says it is "Built from the ledger, the kept sources and the commits file", and the module docstring's first line (line 1) "one local HTML page from the ledger and the attribution records". Say e.g. "Built from the ledger, the kept sources, the rounds each score kept and the commits file" in the note, and "from the ledger, the rounds each score kept and the attribution records" in the docstring - fixed in fbf6a290
+- [x] D527 | 560c0aa | standing-docs | docs/clean-branch-readme.md's "In admin/" list (about line 177) says admin/lineage/ holds only the Project lineage, "Made by `project.export_project_lineage()`", and "you fill in nothing"; since 8.8 it also holds lineage_state.csv (written by Project actions, cell 5 and `record_lineage_state()`) and each Lineage difference page and its Markdown twin (`export_lineage_difference`), and `admin/lineage.ipynb` is a top-level admin notebook not named there. Say so in that bullet. - closed by c9c4ce1
 
 ## Reviewed commits
 
@@ -1187,3 +1188,26 @@ any item is open.
 - e8d698d: clean
 - c187c68: clean
 - 25874fc: clean
+- 3daf6b0: clean
+- 3e7b458: clean
+- fad1a4a: clean
+- 67420e1: clean
+- 560c0aa: D527
+- 7ecbbb9: clean
+- 6fcacfd: clean
+- 7175051: clean
+- d3685f7: clean
+- 973594c: clean
+- 3d4a9ba: clean
+- 16ac771: clean
+- 901bfa6: clean
+- 81297f7: clean
+- 3497f5e: clean
+- af2c671: clean
+- 810707a: clean
+- ba220b6: clean
+- 9276258: clean
+- b8dedcd: clean
+- 57aab11: clean
+- bd89b7e: clean
+- e2bd39b: clean
