@@ -516,7 +516,8 @@ def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
 def scenarios() -> dict[str, Built]:
     """Each scenario, by its id: the Workflow ones, then the Excel ones."""
     return {**workflow_scenarios(), **run_value_scenarios(), **hivevar_scenarios(),
-            **new_table_scenarios(), **scheduled_run_scenarios(), **excel_scenarios(),
+            **new_table_scenarios(), **scheduled_run_scenarios(), **lineage_scenarios(),
+            **excel_scenarios(),
             **held_out_workflow_scenarios()}
 
 
@@ -719,6 +720,33 @@ def scheduled_run_scenarios() -> dict[str, Built]:
             reads=path_reads(["6. Save a table", "The Workflows", "Scheduled runs"],
                              ["save_a_table", "follow_a_workflow", "schedule_a_run"],
                              ["17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt"])),
+    }
+
+
+# W10's answer (Toolbox 8.8, ticket 11): the file its user writes, and what it must name: the
+# Building block that changed, the table whose own change it is, and when that table was first
+# written with it, as the intermediate Example project's Lineage difference says.
+W10_ANSWER = "answer.md"
+W10_NAMES = ["events_per_job", "mart.job_day_facts", "2026-09-25 08:00"]
+
+
+def lineage_scenarios() -> dict[str, Built]:
+    """Each Lineage difference scenario (Toolbox 8.8, ticket 11), by its id."""
+    return {
+        "W10": Built({
+            "id": "W10", "split": "dev",
+            "title": "find what changed a column whose own notebook nobody changed",
+            "phases": [technical(
+                "Your team's Project, my_project, saves each team's numbers per day in "
+                "mart.team_days. Its runs column changed, though nobody touched "
+                "mart.team_days's notebook. Find out, with the Toolbox, what change it comes "
+                "from: which file of the Project changed, which table's own logic that "
+                "changed, and when that table was first written with its new logic. Write "
+                f"the three in a file of your own, my_project/{W10_ANSWER}.")],
+            "project": "example_projects/intermediate"},
+            key=lambda: {"files": [{"path": W10_ANSWER, "holds": W10_NAMES}]},
+            reads=path_reads(["7. Follow lineage"],
+                             ["find_what_changed_a_column", "follow_lineage"], [])),
     }
 
 
@@ -1077,6 +1105,18 @@ def reference_w8(root: Path, warehouse: SavedWarehouse) -> None:
     run_as_the_scheduler(notebook, WEEK=TEAM_WEEK)
 
 
+def reference_w10(root: Path, warehouse: SavedWarehouse) -> None:
+    """W10's end: the Lineage difference exported for mart.team_days, as admin/lineage.ipynb's
+    difference cell does with TABLES given, and its answer written from the page's twin."""
+    report = project.export_lineage_difference(tables="mart.team_days")
+    written = report.lines[0].split(" and its Markdown twin, ")[1].split(":")[0]
+    twin = (root / "admin" / "lineage" / written).read_text(encoding="utf-8")
+    first = next(line for line in twin.splitlines() if line.startswith("First written"))
+    (root / W10_ANSWER).write_text(
+        "The Building block events_per_job changed: an own change of mart.job_day_facts.runs, "
+        f"which mart.team_days.runs reads. {first}\n", encoding="utf-8")
+
+
 def run_as_the_scheduler(notebook: Path, **parameters: str) -> None:
     """Run a Scheduled run's notebook top to bottom with the runner a run holds, as its
     scheduler runs it, each parameter given as text; failing unless every cell ran. As in a
@@ -1147,7 +1187,7 @@ JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
     "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "W8": reference_w8,
-    "W9": reference_w9, "H1": reference_h1,
+    "W9": reference_w9, "W10": reference_w10, "H1": reference_h1,
     "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),

@@ -1,0 +1,13 @@
+{
+ "readme": [
+  "sqlglot Composer",
+  "7. Follow lineage"
+ ],
+ "how_tos": [
+  "find_what_changed_a_column",
+  "follow_lineage"
+ ],
+ "copilot": [
+  "00_start_here.txt"
+ ]
+}

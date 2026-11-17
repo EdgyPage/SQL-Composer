@@ -6,7 +6,8 @@ query's, so its end passing checks the Workflow: a conversion of CTEs, CREATE st
 staging table and a FROM with several INSERTs, its compare and promotion; Script tags answered
 with text, a Run value, or a Hivevar its scheduler gives, exported with its .hivevars file
 (W9, Toolbox 8.7); a new table from its Template or from a query; Table references; a change to
-a Saved table; a Scheduled run made through the schedule Workflow (W8, since 8.7); an upgrade.
+a Saved table; a Scheduled run made through the schedule Workflow (W8, since 8.7); a change
+found in the Lineage difference (W10, Toolbox 8.8); an upgrade.
 An Excel
 scenario's key is computed in Python from its workbook's raw rows, so its end passing checks the
 SQL its formulas map to: COUNTIFS and AVERAGEIFS as a GROUP BY, a VLOOKUP as a join, a Power

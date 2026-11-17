@@ -1,0 +1,12 @@
+{
+ "id": "W10",
+ "split": "dev",
+ "title": "find what changed a column whose own notebook nobody changed",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's Project, my_project, saves each team's numbers per day in mart.team_days. Its runs column changed, though nobody touched mart.team_days's notebook. Find out, with the Toolbox, what change it comes from: which file of the Project changed, which table's own logic that changed, and when that table was first written with its new logic. Write the three in a file of your own, my_project/answer.md."
+  }
+ ],
+ "project": "example_projects/intermediate"
+}
