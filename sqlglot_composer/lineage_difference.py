@@ -20,8 +20,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import html_page, unchecked
+from . import html_page, project_lineage, unchecked
 from .effective_logic import REFERENCE, SAVED_TABLE, SCHEDULED_RUN, WHOLE_TABLE
+from .lineage import shortened
 from .lineage_state import (ADDED, BLOCK, INHERITED, OPAQUE, OWN, REMOVED, RETYPED, STATE_FILE,
                             TOOLBOX, columns_at, read_rows)
 from .refusals import refuse
@@ -465,23 +466,39 @@ ABOUT = ("What changed in the Lineage state, admin/lineage/lineage_state.csv: ea
          "each with an inherited change, whose own logic stayed the same while a column it "
          "reads, up its chain, had an own change. Each changed Saved table says when it was "
          "next written, from admin/sent.csv.")
-# The page's own CSS, after the page module's: text wrapped, and the Upgrade's rewrites folded.
+# The page's own CSS, after the page module's: text wrapped, the Upgrade's rewrites folded, and
+# a table that didn't change drawn faded, unless a click lights its path; a dimmed one stays as
+# dim as the rest.
 CSS = """\
 header p{margin:0 0 8px;max-width:72em}
 pre{white-space:pre-wrap;overflow-wrap:anywhere}
-.part{max-width:72em}
-details.toolbox{margin:12px 0} details.toolbox summary{cursor:pointer}"""
-# The page's own script, after html_page.PANEL_SCRIPT, whose copyHive it calls: each Copy
-# button copies the Hive beside it.
+.part{max-width:72em} .after{padding:0 16px}
+details.toolbox{margin:12px 0} details.toolbox summary{cursor:pointer}
+.n.unchanged:not(.hit){opacity:.45} .n.unchanged.dim{opacity:.15}"""
+# The legend under the title: each kind of box, by its class in html_page.KINDS, then what an
+# arrow means and what the mouse and keyboard do.
+LEGEND = [
+    ("own-change", "a column of it changed at the table itself"),
+    ("inherited-change", "only inherited changes: something it reads changed"),
+    ("unchanged", "no column of it changed, drawn faded"),
+    (None, "arrow: from a table to each table that reads it · click a box, or Tab to it and "
+           "press Enter, to light up what feeds it and what it feeds and open what changed "
+           "of it · Escape closes it · scroll zooms, drag pans"),
+]
+# The page's own script, after html_page.DRAWING_SCRIPT and html_page.PANEL_SCRIPT, whose
+# functions it calls: the picture is in the page already; to_html fills in its one marker,
+# __DATA__, with the boxes and arrows to light up.
 SCRIPT = """\
-// The difference page's own script: a Copy button copies the logic beside it. It is plain
-// JavaScript that any browser runs, with nothing to install or download.
-document.addEventListener('click', event => {
-  const button = event.target.closest('.copy');
-  if (button) {
-    copyHive(button);
-  }
-});"""
+// The difference page's own script: the picture is in the page already, so this only makes it
+// zoom, pan and light up a path, and its boxes open the panel, whose Copy buttons copy the
+// logic beside them. It is plain JavaScript that any browser runs, with nothing to install or
+// download.
+const drawing = document.querySelector('.wrap');
+addMouseHandlers(drawing.querySelector('svg'), __DATA__);
+addPanelHandlers(drawing);"""
+# What a box says its table is, by its kind.
+KIND_WORDS = {SAVED_TABLE: "Saved table", SCHEDULED_RUN: "a Scheduled run's Statement",
+              REFERENCE: "read, not written here"}
 
 
 def counts_line(found: Difference) -> str:
@@ -638,20 +655,149 @@ def to_markdown(found: Difference, footer: str) -> str:
 
 
 def to_html(found: Difference, footer: str) -> str:
-    """The HTML page, built from the page module: the title, what it shows, each section, an
-    Upgrade's rewrite folded, then the footer."""
-    shown = []
+    """The HTML page, built from the page module: the title, what it shows, its legend and the
+    tables or runs not recorded; the drawing of the tables, by what changed of each, and the
+    side panel, holding each changed table's section and a line for each unchanged one; then
+    the Building blocks that changed and each Upgrade's rewrite, folded; then the footer. The
+    drawing is in the page, so it draws the same with scripts off, each section under it; with
+    scripts on, it zooms, pans and lights up a path, and a box opens its panel."""
+    changed = {table.table: table for table in found.tables}
+    header, panel, after = [], [], []
     for part in difference_parts(found):
-        if part.key.startswith("toolbox-"):
-            shown.append(f'<details class="toolbox"><summary>{html.escape(part.heading)}'
+        if part.key == "not-recorded":
+            header.append(html_page.part_html(part))
+        elif part.key.startswith("toolbox-"):
+            after.append(f'<details class="toolbox"><summary>{html.escape(part.heading)}'
                          f"</summary>{html_page.part_html(part)}</details>")
+        elif part.key == "blocks":
+            after.append(html_page.part_html(part))
         else:
-            shown.append(html_page.part_html(part))
+            panel.append(part)
+    panel += [_unchanged_part(found, table) for table in found.kinds if table not in changed]
+    drawing = _difference_drawing(found, changed)
     body = (f"<header><h1>Lineage difference</h1><p>{html_page.inline_html(ABOUT)}</p>"
-            f"<p>{html_page.inline_html(counts_line(found))}</p></header>\n<main>\n"
-            + "\n".join(shown) + f"\n</main>\n<footer>{html.escape(footer)}</footer>")
-    return html_page.page("Lineage difference", body, [html_page.PANEL_CSS, CSS],
-                          [html_page.PANEL_SCRIPT, SCRIPT])
+            f"<p>{html_page.inline_html(counts_line(found))}</p>"
+            f"{html_page.legend(LEGEND)}{''.join(header)}</header>\n<main>\n"
+            f'<div class="wrap">{drawing.svg}</div>\n{html_page.panel(panel)}\n</main>\n'
+            f'<div class="after">{"".join(after)}</div>\n'
+            f"<footer>{html.escape(footer)}</footer>")
+    tables = list(found.kinds)
+    # What the module's drawing script lights a path through: each box, its own group, and
+    # each arrow.
+    visible = {"boxes": [{"id": _box_id(table), "group": _box_id(table)} for table in tables],
+               "arrows": [[_box_id(read), _box_id(table), "value"]
+                          for read, table in _arrows(found)]}
+    script = SCRIPT.replace("__DATA__", html_page.script_json(visible), 1)
+    return html_page.page("Lineage difference", body,
+                          [CSS, drawing.size_css, html_page.DRAWING_CSS, html_page.PANEL_CSS],
+                          [html_page.DRAWING_SCRIPT, html_page.PANEL_SCRIPT, script])
+
+
+# --- The drawing ------------------------------------------------------------------------------
+
+# Sizes in the drawing, in pixels, as the Project lineage draws its boxes.
+BOX_WIDTH = project_lineage.BOX_WIDTH
+COLUMN_GAP = project_lineage.COLUMN_GAP
+BOX_GAP = project_lineage.BOX_GAP
+LINE_HEIGHT = project_lineage.LINE_HEIGHT
+
+
+def _box_id(table: str) -> str:
+    """The id of a table's box: its section's, with "box-" in front."""
+    return f"box-{part_key(table)}"
+
+
+def _arrows(found: Difference) -> list[tuple[str, str]]:
+    """Each arrow the drawing shows, as (the table read, the table reading it), both drawn."""
+    arrows = []
+    for table in found.kinds:
+        arrows += [(read, table) for read in _drawn_reads(found, table)]
+    return arrows
+
+
+def _drawn_reads(found: Difference, table: str) -> list[str]:
+    """The tables `table` reads that the drawing shows."""
+    return [read for read in found.reads.get(table, ()) if read in found.kinds]
+
+
+def _changed_box_lines(found: Difference, table: str, changed: dict[str, ChangedTable]
+                       ) -> list[str]:
+    """The lines a table's box shows: its name, what it is, and what changed of it."""
+    lines = [table, KIND_WORDS.get(found.kinds[table], found.kinds[table])]
+    if table not in changed:
+        return [*lines, "unchanged"]
+    columns = changed[table].columns
+    words = "own change" if changed[table].change == OWN else "inherited change only"
+    return [*lines, f"{words}: {counted(len(columns), 'column')}"]
+
+
+def _box_class(table: str, changed: dict[str, ChangedTable]) -> str:
+    """The kind a table's box is drawn as, as html_page.KINDS names it."""
+    if table not in changed:
+        return "unchanged"
+    return "own-change" if changed[table].change == OWN else "inherited-change"
+
+
+def _difference_drawing(found: Difference, changed: dict[str, ChangedTable]
+                        ) -> project_lineage.Drawing:
+    """The SVG picture: each table's box, in its column, left of each table that reads it, and
+    a curve for each arrow, data-a and data-b naming the boxes at its two ends, so a click
+    lights up a path."""
+    tables = list(found.kinds)
+    reads = {table: _drawn_reads(found, table) for table in tables}
+    columns = project_lineage.table_columns(tables, reads)
+    places: dict[str, tuple[int, int]] = {}
+    heights: dict[str, int] = {}
+    tops = [0] * (max(columns.values(), default=0) + 1)
+    for table in tables:
+        heights[table] = 10 + LINE_HEIGHT * len(_changed_box_lines(found, table, changed))
+        places[table] = (columns[table] * (BOX_WIDTH + COLUMN_GAP), tops[columns[table]])
+        tops[columns[table]] += heights[table] + BOX_GAP
+    parts: list[str] = []
+    for read, table in _arrows(found):
+        (x, y), (x2, y2) = places[read], places[table]
+        start, end = (x + BOX_WIDTH, y + heights[read] // 2), (x2, y2 + heights[table] // 2)
+        middle = (start[0] + end[0]) // 2
+        parts.append(f'<path class="e" data-a="{_box_id(read)}" data-b="{_box_id(table)}" '
+                     f'd="M{start[0]},{start[1]} C{middle},{start[1]} '
+                     f'{middle},{end[1]} {end[0]},{end[1]}"/>')
+    for table in tables:
+        parts.append(_changed_box_svg(found, table, changed, places[table], heights[table]))
+    width = len(tops) * (BOX_WIDTH + COLUMN_GAP) - COLUMN_GAP
+    height = max(tops, default=0)
+    # A 10-pixel margin all round.
+    return project_lineage.Drawing(
+        f'<svg viewBox="-10 -10 {width + 20} {height + 20}">{"".join(parts)}</svg>',
+        f".wrap svg{{min-width:{round(width * 0.8)}px;"
+        f"aspect-ratio:{width + 20}/{height + 20}}}")
+
+
+def _changed_box_svg(found: Difference, table: str, changed: dict[str, ChangedTable],
+             place: tuple[int, int], height: int) -> str:
+    """The SVG for one table's box: its rectangle, its lines of text, the first in bold, and a
+    tooltip holding every line whole. Tab reaches it, and it opens its table's section."""
+    lines = _changed_box_lines(found, table, changed)
+    texts: list[str] = []
+    for number, line in enumerate(lines):
+        bold = ' class="l"' if number == 0 else ""
+        text = html.escape(shortened(line, 34 if number == 0 else 38))
+        texts.append(f'<text x="8" y="{17 + number * LINE_HEIGHT}"{bold}>{text}</text>')
+    return (f'<g class="n {_box_class(table, changed)}" id="{_box_id(table)}" tabindex="0" '
+            f'role="button" data-parts="{part_key(table)}" '
+            f'transform="translate({place[0]},{place[1]})">'
+            f'<rect width="{BOX_WIDTH}" height="{height}" rx="4"/>{"".join(texts)}'
+            f"<title>{html.escape(chr(10).join(lines))}</title></g>")
+
+
+def _unchanged_part(found: Difference, table: str) -> html_page.Part:
+    """What the panel shows for a table no column of which changed: that, and what it reads.
+    Only the page holds it: the Markdown twin lists what changed."""
+    reads = [f"`{read}`" for read in found.reads.get(table, ())]
+    lines = [f"No column of it changed, {found.since}."]
+    if reads:
+        lines.append(f"It reads {in_words(reads)}.")
+    return html_page.Part(part_key(table), 2, f"`{table}`: unchanged",
+                          [html_page.Piece(html_page.TEXT, lines)])
 
 
 # --- Writing the files ------------------------------------------------------------------------

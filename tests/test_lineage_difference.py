@@ -13,6 +13,7 @@ export end to end on the Intermediate Example project.
 from __future__ import annotations
 
 import datetime
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -281,6 +282,82 @@ def test_every_line_of_the_markdown_is_on_the_page_which_comes_from_the_one_modu
     assert external_references(page) == []
     assert "`mart.broken`: its logic cell doesn't load" in markdown
     assert "`mart.team_report.fail_rate` ← `mart.team_failures.fails`" in markdown
+
+
+# --- The drawing: ticket 06 ------------------------------------------------------------------
+
+
+def drawn_boxes(page: str) -> dict[str, str]:
+    """Each box the page draws, by its table, as the kind it is drawn as."""
+    return {name: kind for kind, name in re.findall(
+        r'<g class="n ([\w-]+)" id="box-[^"]*"[^>]*>.*?<text x="8" y="17" class="l">([^<]*)<',
+        page)}
+
+
+def test_each_table_is_drawn_by_what_changed_of_it_and_opens_its_section(root: Path) -> None:
+    rows = changed_up_the_chain(root)
+    record(root, logic_of(*chain(up_own="up-2", up_effective="up-e2",
+                                 down_effective="down-e2").columns.values(),
+                          column("mart.other", "x")), "other added")
+    record(root, logic_of(*chain(up_own="up-2", up_effective="up-e2",
+                                 down_effective="down-e2").columns.values(),
+                          column("mart.other", "x")), "nothing changed")
+    rows = read_rows(root)
+
+    page = to_html(difference(rows, since="2026-11-20 06:00:00"), FOOTER)
+
+    assert drawn_boxes(page) == {"mart.team_failures": "own-change",
+                                 "mart.team_report": "inherited-change",
+                                 "ops.job_events": "unchanged", "mart.other": "own-change"}
+    for box in re.findall(r'<g class="n [^"]*"[^>]*>', page):
+        assert 'tabindex="0"' in box and 'role="button"' in box, box
+        part = re.search(r'data-parts="([^"]*)"', box)[1]
+        assert f'<div class="part" id="{part}">' in page, box
+    # An arrow from each table to each table that reads it.
+    arrows = re.findall(r'<path class="e" data-a="([^"]*)" data-b="([^"]*)"', page)
+    assert ("box-table-mart-team_failures", "box-table-mart-team_report") in arrows
+    assert ("box-table-ops-job_events", "box-table-mart-team_failures") in arrows
+    # The unchanged table's panel says so; the Markdown twin lists only what changed.
+    assert "<h2><code>ops.job_events</code>: unchanged</h2>" in page
+    assert "ops.job_events`: unchanged" not in to_markdown(difference(rows, since="2026-11-20 "
+                                                                      "06:00:00"), FOOTER)
+    legend = [kind for kind, _ in toolbox_module("lineage_difference").LEGEND if kind]
+    assert legend == ["own-change", "inherited-change", "unchanged"]
+
+
+def test_the_panel_holds_each_own_changes_logic_with_copy_and_each_chain(root: Path) -> None:
+    page = to_html(difference(changed_up_the_chain(root)), FOOTER)
+
+    panel = page.split('<aside id="panel"', 1)[1].split("</aside>", 1)[0]
+    fails = panel.split('id="table-mart-team_failures"', 1)[1]
+    fails = fails.split('<div class="part" id="table-mart-team_report"', 1)[0]
+    button = '<button type="button" class="copy">Copy</button>'
+    assert f'<div class="hive">{button}<pre>&lt;up-1&gt;</pre></div>' in fails
+    assert f'<div class="hive">{button}<pre>&lt;up-2&gt;</pre></div>' in fails
+    assert ("<li><code>mart.team_report.fail_rate</code> ← <code>mart.team_failures.fails"
+            "</code></li>") in panel
+    assert "Not written since the change (admin/sent.csv)." in panel
+
+
+def test_given_tables_only_those_and_their_chains_are_drawn(root: Path) -> None:
+    changed_up_the_chain(root)
+    record(root, logic_of(*chain(up_own="up-2", up_effective="up-e2",
+                                 down_effective="down-e2").columns.values(),
+                          column("mart.other", "x")), "other added")
+
+    page = to_html(difference(read_rows(root), since="2026-11-20 06:00:00",
+                              tables="mart.team_report"), FOOTER)
+
+    assert set(drawn_boxes(page)) == {"mart.team_report", "mart.team_failures"}
+
+
+def test_nothing_to_compare_still_draws_a_page(root: Path) -> None:
+    record(root, chain(), "first")
+
+    page = to_html(difference(read_rows(root)), FOOTER)
+
+    assert set(drawn_boxes(page).values()) == {"unchanged"}
+    assert '<aside id="panel"' in page
 
 
 # --- project.export_lineage_difference, end to end --------------------------------------------
