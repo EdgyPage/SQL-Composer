@@ -226,6 +226,16 @@ done. The real dependencies are in each ticket's `Blocked by:`.
 - [10 8.8](issues/10-eight-point-eight.md): `to_8_8` writes cell 5's comment where 8.7 wrote
   it, the two Templates and two admin notebooks again, adds `admin/lineage.ipynb` through
   `add_what_start_makes()` and makes the first recording; 8.7 frozen from 3daf6b09; version 8.8.
+- [08 The Example project's change](issues/08-example-project.md): `events_per_job` counts a
+  restart as a run (no row of the Example database changes), made at 07:00 and written at 08:00
+  on 2026-09-25, before the how-tos' pinned 09:00; its difference page is on the Example
+  projects page; a journey of 10 actions.
+- [09 The docs](issues/09-the-docs.md): how-to 32, "Find what changed a column", a README step
+  in section 7, the Workflows overview's "Beside the Workflows"; the beginner reader's six
+  errors fixed, its other stops left for the user.
+- [11 The usability round](issues/11-the-usability-round.md): W10, a change found in the
+  Lineage difference, passed its one run; the other scenarios and the held-out ones are a round
+  for the user to start.
 
 ## Not yet specified
 
