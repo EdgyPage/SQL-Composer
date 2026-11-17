@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import shutil
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import ROOT, forget_the_projects_modules
 
 from sqlglot_composer import notebooks, project, set_admin_log
 from sqlglot_composer.effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN,
@@ -100,14 +101,15 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """A copy of the Intermediate Example project, with no connection given."""
     shutil.copytree(ROOT / "example_projects" / "intermediate", tmp_path, dirs_exist_ok=True)
     monkeypatch.chdir(tmp_path)
     for name in [name for name in sys.modules
                  if name.split(".")[0] in ("references", "warehouse", "building_blocks")]:
         monkeypatch.delitem(sys.modules, name)
-    return tmp_path
+    yield tmp_path
+    forget_the_projects_modules()  # what the copy imported, so the next test imports its own
 
 
 def hashes(logic: ProjectLogic, table: str, column: str) -> tuple[str, str]:

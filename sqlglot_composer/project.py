@@ -198,6 +198,9 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
 # can't.
 FOLDERS = ("admin", "references", "building_blocks", "tables", "scheduled_runs")
 WAREHOUSE = "warehouse.py"
+# The admin notebook that records the Lineage state by hand and exports its difference
+# (Toolbox 8.8, ticket 07): check() asks for a first recording only where it is there.
+LINEAGE_NOTEBOOK = Path("admin") / "lineage.ipynb"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
 # A converted table's checklist.md's heading, before the table's name.
@@ -1959,8 +1962,11 @@ def check() -> ProjectReport:
     through the connection of the notebook check() runs in; each Table folder whose logic
     fails, passed over in looking for a loop, with what stops it, a typo Python can't read
     among them, though not one whose logic cell still holds a <...> from its Template, at the
-    line Python stops on; each
-    batch the convert Workflow finished, as done; and last, since they block nothing, each
+    line Python stops on; whether the Lineage state is behind, naming each table whose
+    columns' logic changed since its last recording, as a logic cell edited but not exported
+    with export_hive() leaves it, or, with admin/lineage.ipynb there, that it has no recording
+    yet, never recording one itself;
+    each batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
     each with its file and line. Where a decision step deciding Keys waits on two tables or
@@ -1999,8 +2005,36 @@ def check() -> ProjectReport:
         lines = ["Every Table folder, Table reference, Building block and Scheduled run is "
                  "registered, and each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
-    return ProjectReport([*lines, *_finished_batch_lines(root), *_proposed_line_lines(root),
+    return ProjectReport([*lines, *_lineage_state_lines(root, registry),
+                          *_finished_batch_lines(root), *_proposed_line_lines(root),
                           *_conversion_note_lines(root)])
+
+
+def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
+    """What check() says of the Lineage state: that the Project has none yet, where its
+    notebook, admin/lineage.ipynb, is there and it has a table or run to record, or which
+    tables' columns changed since its last recording, and the cell that records them. It
+    records nothing: a logic cell edited and written, but not exported, leaves the state
+    behind (Toolbox 8.8, ticket 04). A Project with no admin/lineage.ipynb is from before 8.8,
+    which the version check names."""
+    # effective_logic reads this file's Table references, so both are imported here, when
+    # check() runs, as record_lineage_state imports them.
+    from . import effective_logic, lineage_state
+
+    record_cell = f"project.record_lineage_state(), in {LINEAGE_NOTEBOOK.as_posix()}"
+    if not lineage_state.read_rows(root):
+        if not (root / LINEAGE_NOTEBOOK).is_file() or not any(
+                registry.in_force(kind) for kind in (TABLE_FOLDER, SCHEDULED_RUN, REFERENCE)):
+            return []
+        return [f"No Lineage state yet: record the first with {record_cell}."]
+    changes = lineage_state.unrecorded_changes(root, effective_logic.project_logic(root))
+    if not changes:
+        return []
+    tables = sorted({table for table, _ in changes})
+    columns = singular_or_plural(len(changes), "column's", "columns'")
+    return [f"The Lineage state is behind: {len(changes)} {columns} logic differs from its "
+            f"last recording, in {in_words(tables)}. Record it: run cell 5, export_hive(), of "
+            f"the Table notebook you changed, or {record_cell}."]
 
 
 def _proposed_line_lines(root: Path) -> list[str]:

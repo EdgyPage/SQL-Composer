@@ -100,9 +100,7 @@ def record(root: Path, logic: ProjectLogic, recorded_by: str, by_upgrade: bool =
                 f"{counted(len(logic.columns), 'column')} of {counted(len(tables), 'table')}, "
                 f"in {STATE_FILE.as_posix()}.", *_kept_lines(logic, [])]
     block_changes = _block_changes(before, blocks)
-    changes = _column_changes(before, logic)
-    removed, kept = _tables_gone(root, before, logic)
-    changes.update(dict.fromkeys(removed, REMOVED))
+    changes, kept = _changes_since(root, before, logic)
     new_rows = [_changed_row(stamp, key, change, before, logic, changes, block_changes)
                 for key, change in sorted(changes.items())]
     new_rows += _block_rows(stamp, before, blocks, block_changes)
@@ -110,6 +108,27 @@ def record(root: Path, logic: ProjectLogic, recorded_by: str, by_upgrade: bool =
         new_rows = [_as_toolbox(row) for row in new_rows]
     _write_rows(root, new_rows)
     return [*_summary_lines(new_rows), *_kept_lines(logic, kept)]
+
+
+def unrecorded_changes(root: Path, logic: ProjectLogic) -> dict[tuple[str, str], str]:
+    """What changed of each column since the last recording of the Project at `root`, as
+    `logic` holds them now, by (table, column): what record(...) would add a row for, but for
+    the Building blocks, writing nothing. None before the first recording."""
+    before = columns_at(read_rows(root))
+    if not before:
+        return {}
+    return _changes_since(root, before, logic)[0]
+
+
+def _changes_since(root: Path, before: dict[tuple[str, str], dict[str, str]],
+                   logic: ProjectLogic) -> tuple[dict[tuple[str, str], str], list[str]]:
+    """What changed of each column since the recording `before` replays, by (table, column),
+    the columns of a table the registry marks removed among them; and each table gone from
+    `logic` that isn't removed, nor not built, whose rows stand, by name."""
+    changes = _column_changes(before, logic)
+    removed, kept = _tables_gone(root, before, logic)
+    changes.update(dict.fromkeys(removed, REMOVED))
+    return changes, kept
 
 
 def _stamp(root: Path, recorded_by: str) -> dict[str, str]:

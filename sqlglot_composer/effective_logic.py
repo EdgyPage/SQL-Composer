@@ -130,7 +130,8 @@ def project_logic(root: Path) -> ProjectLogic:
         blocks_of = {table: _building_blocks_imported(root, table)
                      for table in registry.in_force(TABLE_FOLDER) if table not in not_built}
     for name, table_columns in references.items():
-        if name not in written:
+        # A Table folder that didn't build is neither written nor a root: its rows stand.
+        if name not in written and name not in not_built:
             _add_columns(columns, _reference_columns(name, table_columns))
     return ProjectLogic(_with_effective_hashes(columns), not_built, blocks_of)
 
