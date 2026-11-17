@@ -1884,7 +1884,8 @@ def register(name: str | list[str]) -> ProjectReport:
     >>> project.register("runs_per_job")
     Registered building_blocks/runs_per_job.py.
 
-    check() then stops reporting it.
+    check() then stops reporting it, and the Project's Lineage state is recorded, as a Project
+    action that makes a Table folder or Table reference records it.
 
     Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
     for references/ops__jobs.py, whichever is there and isn't registered yet. Given a name with
@@ -1898,8 +1899,9 @@ def register(name: str | list[str]) -> ProjectReport:
     how to run the rest.
     """
     frame = callers_frame()
-
-    return _run_for_each_name(name, "project.register", _register_one, frame)
+    report = _run_for_each_name(name, "project.register", _register_one, frame)
+    call = f"project.register({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _register_one(name: str, frame: FrameType) -> ProjectReport:
@@ -2037,14 +2039,20 @@ def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
                 registry.in_force(kind) for kind in (TABLE_FOLDER, SCHEDULED_RUN, REFERENCE)):
             return []
         return [f"No Lineage state yet: record the first with {record_cell}."]
-    changes = lineage_state.unrecorded_changes(root, effective_logic.project_logic(root))
+    logic = effective_logic.project_logic(root)
+    changes = lineage_state.unrecorded_changes(root, logic)
     if not changes:
         return []
     tables = sorted({table for table, _ in changes})
     columns = singular_or_plural(len(changes), "column's", "columns'")
-    return [f"The Lineage state is behind: {len(changes)} {columns} logic differs from its "
-            f"last recording, in {in_words(tables)}. Record it: run cell 5, export_hive(), of "
-            f"the Table notebook you changed, or {record_cell}."]
+    behind = (f"The Lineage state is behind: {len(changes)} {columns} logic differs from its "
+              f"last recording, in {in_words(tables)}.")
+    # A Table reference changed by hand has no cell 5: only the record cell records it.
+    if all(key in logic.columns and logic.columns[key].kind == effective_logic.REFERENCE
+           for key in changes):
+        return [f"{behind} Record it with {record_cell}."]
+    return [f"{behind} Record it: run cell 5, export_hive(), of the Table notebook you "
+            f"changed, or {record_cell}."]
 
 
 def _proposed_line_lines(root: Path) -> list[str]:

@@ -11,13 +11,13 @@ recording that fails never fails the action it ends; a Scheduled run never recor
 from __future__ import annotations
 
 import datetime
-import runpy
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
+from test_lineage import run_script
 
 import example_database
 from sqlglot_composer import export_hive, project, set_admin_log, workflows
@@ -179,13 +179,13 @@ def test_export_hive_in_a_table_notebook_records_and_prints_what_changed(
 def test_export_hive_given_a_statement_records_nothing(started: Path) -> None:
     new_tables("mart.team_jobs")
     before = (started / STATE_FILE).read_text(encoding="utf-8")
-    # A script of the Project's, so the .hql goes beside it, as beside a notebook of yours.
-    script = started / "a_report.py"
-    script.write_text("from sqlglot_composer import FROM, SELECT, export_hive, statement\n"
-                      "from example_database import jobs\n"
-                      "report = export_hive(statement(SELECT(jobs.job_id), FROM(jobs)))\n",
-                      encoding="utf-8")
-    report = runpy.run_path(str(script))["report"]
+    # A script of the Project's, so the .hql goes beside it, as beside a notebook of yours,
+    # run as test_lineage runs one: its run_script gives back what the script names files.
+    report = run_script(started, """
+        from sqlglot_composer import FROM, SELECT, export_hive, statement
+        from example_database import jobs
+        files = export_hive(statement(SELECT(jobs.job_id), FROM(jobs)))
+    """)
     assert report.lines == ["Wrote statement.hql, beside your notebook or script: the Hive you "
                             "passed, as show_hive shows it. It is in no variable, so the next "
                             "one in no variable is written over it."]

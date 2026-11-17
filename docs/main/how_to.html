@@ -6341,7 +6341,7 @@ scheduler_runs = Table(
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p><pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__scheduler_runs.py: project.register(&quot;ops.scheduler_runs&quot;)
-The Lineage state is behind: 3 columns&#x27; logic differs from its last recording, in ops.scheduler_runs. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.</pre>
+The Lineage state is behind: 3 columns&#x27; logic differs from its last recording, in ops.scheduler_runs. Record it with project.record_lineage_state(), in admin/lineage.ipynb.</pre>
 <pre class="python">project.register(&quot;ops.scheduler_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/ops__scheduler_runs.py.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.
@@ -6467,6 +6467,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p><code>project.register</code> takes a table&#x27;s name, with its database, for its Table folder or Table reference, and a Building block&#x27;s name, with no dot, such as <code>project.register(&quot;runs_per_job&quot;)</code>, for its file in building_blocks/. It also wrote the Database modules again, so <code>from references import ops</code> now gives <code>ops.scheduler_runs</code> too. A Database module, such as references/ops.py, is the one file that gives each table of a Database, the first part of a table&#x27;s name, <code>ops</code> in <code>ops.jobs</code>.</p>
 <p>Done when it says <code>Registered references/ops__scheduler_runs.py.</code> Then step 5.</p>
@@ -6479,7 +6480,6 @@ def __dir__() -&gt; list[str]:
 <p>Goal: references/reference_sheet.csv, written from your Table references. <code>project.refresh_reference_sheet()</code>, from admin/refresh_reference_sheet.ipynb, writes references/reference_sheet.csv from the Table references in references/, never from the warehouse, so it says what your files say:</p>
 <pre class="python">project.refresh_reference_sheet()</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 20 rows, 5 tables.</pre>
-<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>references/reference_sheet.csv</code> too.</p>
 <p>Done when it says it wrote 20 rows, 5 tables. Then step 7.</p>
 <h5>7. Read the Reference sheet</h5>
@@ -8217,7 +8217,7 @@ job_day = Table(
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)
-The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.
+The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it with project.record_lineage_state(), in admin/lineage.ipynb.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
@@ -8408,6 +8408,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Done when <code>project.register</code> prints <code>Registered references/mart__job_day.py.</code> Then step 6.</p>
 <h5>6. Import it from its Database</h5>
@@ -8492,7 +8493,6 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <p>At work, once <code>run_execute(create_table(job_day), execute)</code> has made the table, <code>check_table_reference(job_day, query=query)</code> compares it with your file, as above. And the Project knows the file:</p>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
-The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it: run cell 5, export_hive(), of the Table notebook you changed, or project.record_lineage_state(), in admin/lineage.ipynb.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>Before you go on, check that:</p>
@@ -12221,6 +12221,7 @@ def __getattr__(name: str) -&gt; NoReturn:
 def __dir__() -&gt; list[str]:
     &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
     return list(_TABLES)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <pre class="python">from references.mart__run_changes import run_changes</pre>
 <p>Done when <code>from references.mart__run_changes import run_changes</code> runs without an error. Then step 10.</p>

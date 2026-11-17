@@ -205,6 +205,21 @@ done. The real dependencies are in each ticket's `Blocked by:`.
   `building_block` in the same CSV; removed only by the registry; an Upgrade's changes
   `toolbox`. Merged 2026-11-17 with a lazy import (the two modules import each other's
   neighbours) and a whole-table read followed to each of its table's columns.
+- [03 Where it records](issues/03-where-it-records.md): `project.record_after_a_change` at the
+  end of new_table, remove_table, new_scheduled_run, remove_scheduled_run, add_references,
+  convert, promote and refresh_reference_sheet, and in a Table notebook's `export_hive()`; a
+  failed recording never fails its action; each recording a second after the last when the
+  clock hasn't moved; `change_a_saved_table`'s last step records.
+- [04 check()](issues/04-check-unrecorded.md): "The Lineage state is behind: ..." from
+  `lineage_state.unrecorded_changes`, sharing `_changes_since` with `record`; "No Lineage state
+  yet" only once `admin/lineage.ipynb` (`LINEAGE_NOTEBOOK`) is there.
+- [05 The Lineage difference](issues/05-lineage-difference.md): `lineage_difference.difference`
+  gives a `Difference` (changed tables, columns before and after, chains, blocks, Toolbox
+  rewrites apart, first written from sent.csv); `project.export_lineage_difference(since=,
+  tables=)` writes the page and its twin; a time before the first recording starts from it.
+- [06 The drawing](issues/06-difference-drawing.md): tokens `own-change` (orange) and
+  `inherited-change` (sky blue), `unchanged` faded; the side panel holds each changed table's
+  section; `project_lineage.table_columns` shared.
 
 ## Not yet specified
 

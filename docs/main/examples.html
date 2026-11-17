@@ -5024,7 +5024,7 @@ Next: at the top of each notebook, fill in connect(...) with your connection.</p
 <pre class="python">project.register(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Registered building_blocks/runs_per_job.py.</pre>
-<p>check() then stops reporting it.</p>
+<p>check() then stops reporting it, and the Project&#x27;s Lineage state is recorded, as a Project action that makes a Table folder or Table reference records it.</p>
 <p>Given a table&#x27;s name, such as &quot;ops.jobs&quot;, it adds a registry row for tables/ops__jobs/ and for references/ops__jobs.py, whichever is there and isn&#x27;t registered yet. Given a name with no dot, such as &quot;runs_per_job&quot; or &quot;weekly&quot;, it adds one for building_blocks/runs_per_job.py or scheduled_runs/weekly/, whichever is there: that is how a Building block written by hand before 7.0 joins the registry, since new_block refuses a name already taken. It logs what it adopted, and refuses when there is nothing to adopt.</p>
 <p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>

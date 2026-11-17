@@ -131,6 +131,8 @@ converted earlier is done, which needs nothing from you (how-to 29 says more):
 >>> project.check()  # -> a report, printed
 Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register("mart.job_day")
+The Lineage state is behind: 6 columns' logic differs from its last recording, in
+    mart.job_day. Record it with project.record_lineage_state(), in admin/lineage.ipynb.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
