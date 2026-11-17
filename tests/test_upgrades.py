@@ -1671,6 +1671,21 @@ def test_8_8_makes_the_projects_first_lineage_state_as_the_upgrades(
     assert "- recorded the Lineage state: Lineage state: the first recording, " in checklist
 
 
+def test_8_8_adds_admin_lineage_notebook_and_leaves_one_you_made(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # Ticket 07's admin/lineage.ipynb reaches an 8.7 Project through add_what_start_makes().
+    added = _copy_of_8_7(tmp_path / "added")
+    assert not (added / project.LINEAGE_NOTEBOOK).exists()
+    _upgraded(added, monkeypatch)
+    assert (notebooks.read_cells(added / project.LINEAGE_NOTEBOOK)
+            == project.admin_notebook_cells("lineage"))
+
+    yours = _copy_of_8_7(tmp_path / "yours")
+    notebooks.write_notebook(yours / project.LINEAGE_NOTEBOOK, [("code", "# my own")])
+    _upgraded(yours, monkeypatch)
+    assert notebooks.read_cells(yours / project.LINEAGE_NOTEBOOK) == [("code", "# my own")]
+
+
 def test_8_8_writes_cell_5s_comment_as_8_7_wrote_it_and_leaves_one_you_changed(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
     copy = _copy_of_8_7(tmp_path)

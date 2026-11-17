@@ -1,7 +1,7 @@
 # 8.8: the Upgrade step and the raise
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09
 Size: M
 
@@ -65,3 +65,8 @@ Partly built 2026-11-17, from dev's 973594c2 (tickets 01 to 06), beside ticket 0
 - **The raise:** `version.txt` reads 8.8; CHANGES.md's `## 8.8` ("To update from 8.7" and
   "What's new", `admin/lineage.ipynb` among it); the README's Update names 8.8's Upgrade; the
   Example projects, the pages and the Copilot files written again at 8.8.
+- **Resolved 2026-11-17**, once merged with ticket 07: `admin/lineage.ipynb` is one of
+  `ADMIN_NOTEBOOKS`, so `add_what_start_makes()` adds it to an upgraded Project, as this
+  Answer foresaw, with no line of `to_8_8` changed;
+  `test_8_8_adds_admin_lineage_notebook_and_leaves_one_you_made` holds it, and that one the user
+  made is left.

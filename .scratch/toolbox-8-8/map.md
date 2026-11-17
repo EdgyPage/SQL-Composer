@@ -220,6 +220,12 @@ done. The real dependencies are in each ticket's `Blocked by:`.
 - [06 The drawing](issues/06-difference-drawing.md): tokens `own-change` (orange) and
   `inherited-change` (sky blue), `unchanged` faded; the side panel holds each changed table's
   section; `project_lineage.table_columns` shared.
+- [07 admin/lineage.ipynb](issues/07-lineage-notebook.md): one of `ADMIN_NOTEBOOKS`,
+  `project.start()` writing it; check() asks for a first recording only when there is a column
+  to record.
+- [10 8.8](issues/10-eight-point-eight.md): `to_8_8` writes cell 5's comment where 8.7 wrote
+  it, the two Templates and two admin notebooks again, adds `admin/lineage.ipynb` through
+  `add_what_start_makes()` and makes the first recording; 8.7 frozen from 3daf6b09; version 8.8.
 
 ## Not yet specified
 
