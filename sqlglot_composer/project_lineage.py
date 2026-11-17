@@ -132,7 +132,10 @@ def _build_source(cells: list[tuple[str, str]], shown: str, call: str
     """The code built_run_of runs, from a Scheduled run's cells: the parameters cell, the
     imports of each other code cell above the # scheduled cell, that cell, then the Build
     cell's call, its built run named _BUILT; and each name those other cells define but for
-    their imports, which isn't run."""
+    their imports, which isn't run. An import that fails is passed over, as one of a
+    connection module the cell's own lines put on Python's path, such as team_connection,
+    whose sys.path.append isn't run: the build needs no connection, and a name the
+    # scheduled cell does need is then refused by name, as one those lines define is."""
     numbered = [(number, text) for number, (kind, text) in enumerate(cells, start=1)
                 if kind == "code"]
     scheduled = [place for place, (_, text) in enumerate(numbered)
@@ -153,13 +156,20 @@ def _build_source(cells: list[tuple[str, str]], shown: str, call: str
             cell_texts.append(text)
             continue
         imports = [node for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))]
-        cell_texts += [ast.get_source_segment(text, node) for node in imports]
+        cell_texts += [_tried(ast.get_source_segment(text, node) or "") for node in imports]
         not_run.update(_names_defined([node for node in tree.body if node not in imports]))
     number, text = numbered[scheduled[0]]
     _parsed(number, text, shown, call)
     cell_texts.append(text)
     cell_texts.append(f"{_BUILT} = {_build_call(numbered[scheduled[0] + 1:], shown, call)}")
     return "\n\n".join(cell_texts) + "\n", not_run
+
+
+def _tried(line: str) -> str:
+    """An import line of a cell above the # scheduled cell, written so that, should it fail,
+    the build goes on without it."""
+    indented = "\n".join(f"    {part}" for part in line.split("\n"))
+    return f"try:\n{indented}\nexcept ImportError:\n    pass"
 
 
 def _names_defined(nodes: list[ast.stmt]) -> set[str]:

@@ -347,6 +347,18 @@ def test_only_the_imports_of_the_cells_above_are_run(started: Path) -> None:
     assert built.steps[-1].name == "busiest"
 
 
+def test_an_import_above_the_scheduled_cell_that_fails_is_passed_over(started: Path) -> None:
+    # As a setup cell connects through team_connection, the folder it is in put on Python's
+    # path by a line of the cell, which isn't run: the build needs no connection.
+    notebook = new_run(started, "weekly")
+    cells = notebooks.read_cells(notebook)
+    setup = (cells[2][1] + '\nimport sys\nsys.path.append("a folder that isn\'t there")\n'
+             "from no_such_connection_module import conn\n")
+    notebooks.write_cell_text(notebook, 3, setup)
+    built, _ = toolbox_module("project_lineage").built_run_of(started, "weekly", "the test")
+    assert built.steps[-1].name == "busiest"
+
+
 def test_a_name_defined_above_the_scheduled_cell_is_refused_saying_to_move_it(
         started: Path) -> None:
     notebook = new_run(started, "weekly", scheduled='''# scheduled
