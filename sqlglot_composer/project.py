@@ -503,8 +503,9 @@ ADMIN_NOTEBOOKS = {
         "the line to change. Then it checks the Key of each table that has one: that no two "
         "rows share it. It changes nothing in the warehouse; its first cell refreshes the "
         "Reference sheet, so it writes `references/reference_sheet.csv` and the Database "
-        "modules again, and no other file. A Saved table you haven't created yet reports "
-        "that DESCRIBE failed, as each of the Example projects' does: that is expected. It "
+        "modules again and records the Project's Lineage state, and no other file. A Saved "
+        "table you haven't created yet reports that DESCRIBE failed, as each of the Example "
+        "projects' does: that is expected. It "
         "reads each table from the Reference sheet: its columns, "
         "their types, its partition columns and its Key. A partitioned table's Key is checked "
         "on its latest Partition, the last SHOW PARTITIONS lists, since checking every one "
@@ -733,8 +734,10 @@ def new_table(name: str | list[str], template: str = "saved_table",
     queries = queries or {}
     _refuse_queries_it_cant_make(name, queries)
     more = _template_shown(template) + (", queries=..." if queries else "")
-    return _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
-                              queries, more=more)
+    report = _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
+                                queries, more=more)
+    call = f"project.new_table({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> None:
@@ -988,7 +991,9 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
+    report = _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
+    call = f"project.remove_table({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _remove_table_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1273,8 +1278,10 @@ def new_scheduled_run(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
-                              frame)
+    report = _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
+                                frame)
+    call = f"project.new_scheduled_run({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _new_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1360,8 +1367,10 @@ def remove_scheduled_run(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.remove_scheduled_run",
-                              _remove_scheduled_run_one, frame)
+    report = _run_for_each_name(name, "project.remove_scheduled_run",
+                                _remove_scheduled_run_one, frame)
+    call = f"project.remove_scheduled_run({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _remove_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1726,13 +1735,14 @@ def add_references(names: str | list[str],
     changed, databases = _write_databases(root)
     _log(root, call, [str(name) for name in names],
          [f"created {file}" for file in files] + changed, frame, skipped, result)
+    recorded = _recorded(ProjectReport([]), root, call).lines
     if skipped:
         _refuse_skipped_tables(skipped, files, len(names))
     if len(files) > 1:
         wrote = f"Wrote {in_words(files)}: fill in their TODO lines."
     else:
         wrote = f"Wrote {files[0]}: fill in its TODO lines."
-    return ProjectReport([wrote, *proposed, *databases])
+    return ProjectReport([wrote, *proposed, *databases, *recorded])
 
 
 def _write_proposals(root: Path, tables: list[str],
@@ -3242,7 +3252,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
                            files, dev)
     # After its first line, which says what it converted: each staging table, and its choice.
     report[1:1] = _staging_lines(staging_found, folded, unfoldable)
-    return ProjectReport(report)
+    return _recorded(ProjectReport(report), root, call)
 
 
 def _staging_lines(found: dict[str, str], folded: list[str],
@@ -5580,7 +5590,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
     lines.append(_promote_next_line(root, list(names.values())))
-    return ProjectReport(lines)
+    return _recorded(ProjectReport(lines), root, call)
 
 
 def _promote_next_line(root: Path, prods: list[str]) -> str:
@@ -6430,13 +6440,20 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     <...> still to fill in, is left out (or, given its name, keeps its rows from before), and
     the report says so. It also writes each Database module again, such as references/ops.py,
     which from references import ops reads, so run it once a Table reference is filled in.
-    It changes no other file, and isn't logged: its exported_at column says when it was
-    written. `name` may be a list of tables' names too, each replaced in turn.
+    Then it records the Project's Lineage state (help(project.record_lineage_state)), as
+    every Project action that changes a table or Table reference does. It changes no other
+    file, and isn't logged: its exported_at column says when it was written. `name` may be a
+    list of tables' names too, each replaced in turn.
     """
     if name is None or isinstance(name, str):
-        return _refresh_reference_sheet_one(name)
-    return _run_for_each_name(name, "project.refresh_reference_sheet",
-                              _refresh_reference_sheet_one)
+        report = _refresh_reference_sheet_one(name)
+    else:
+        report = _run_for_each_name(name, "project.refresh_reference_sheet",
+                                    _refresh_reference_sheet_one)
+    call = "project.refresh_reference_sheet()"
+    if name is not None:
+        call = f"project.refresh_reference_sheet({_names_as_written(name)})"
+    return _recorded(report, _project_root(call), call)
 
 
 def _refresh_reference_sheet_one(name: str | None) -> ProjectReport:
@@ -7590,6 +7607,36 @@ def record_lineage_state() -> ProjectReport:
         files = []
     _log(root, call, [], files, frame)
     return ProjectReport(lines)
+
+
+# The first words of the line a Project action adds when its recording of the Lineage state
+# failed, which no other line it prints starts with.
+NOT_RECORDED = "Lineage state not recorded"
+
+
+def record_after_a_change(root: Path, recorded_by: str) -> list[str]:
+    """Record the Lineage state of the Project at `root`, as `recorded_by`, at the end of
+    what changed a table or Table reference: the lines the recording gives. A recording that
+    fails, such as one whose admin/lineage/lineage_state.csv is open in Excel, never fails
+    what called it: it gives one line saying so, and which call records."""
+    # effective_logic reads this file's Table references, so both are imported here, when the
+    # state is recorded, as export_project_lineage imports project_lineage.
+    from . import effective_logic, lineage_state
+
+    try:
+        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by)
+    # Whatever stops the recording, what called it is done, and stays done.
+    except Exception as error:  # noqa: BLE001
+        return [f"{NOT_RECORDED}: {type(error).__name__}: {one_line_message(error)}. Record "
+                "it with project.record_lineage_state(), in admin/lineage.ipynb."]
+
+
+def _recorded(report: ProjectReport, root: Path, recorded_by: str) -> ProjectReport:
+    """`report`, a Project action's, once the Lineage state is recorded at its end: as it was,
+    or with a line saying the recording failed."""
+    failed = [line for line in record_after_a_change(root, recorded_by)
+              if line.startswith(NOT_RECORDED)]
+    return ProjectReport([*report.lines, *failed])
 
 
 # --- export_run_lineage and export_run_hive ---------------------------------------------------

@@ -186,7 +186,8 @@ def test_a_table_notebooks_hive_goes_beside_it_create_then_write(
         capsys: pytest.CaptureFixture[str]) -> None:
     folder = saved_table_made(started)
     monkeypatch.chdir(folder)  # where Jupyter runs a notebook
-    report = repr(export_hive())
+    # What it wrote, before the Lineage state it records after it (8.8, ticket 03).
+    report = repr(export_hive()).split("\nLineage state")[0]
     path = folder / "mart__daily_runs.hql"
     assert report == ("Wrote mart__daily_runs.hql beside its notebook, the Hive of 2 steps, in "
                       "the order they are sent: create() and write().")
@@ -207,7 +208,8 @@ def test_its_steps_come_in_the_order_they_are_sent(
         capsys: pytest.CaptureFixture[str]) -> None:
     folder = made_from(started, "mart.run_copy", EVERY_STEP)
     monkeypatch.chdir(folder)
-    report = repr(export_hive())
+    # What it wrote, before the Lineage state it records after it (8.8, ticket 03).
+    report = repr(export_hive()).split("\nLineage state")[0]
     assert report == ("Wrote mart__run_copy.hql beside its notebook, the Hive of 5 steps, in "
                       'the order they are sent: create(), hive_settings("dynamic_partitions"), '
                       "seed(), session_settings() and write().")
@@ -260,7 +262,8 @@ def test_a_write_that_gives_several_is_each_headed_by_its_place(
         started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     folder = made_from(started, "mart.run_copy", TWO_WRITES)
     monkeypatch.chdir(folder)
-    report = repr(export_hive())
+    # What it wrote, before the Lineage state it records after it (8.8, ticket 03).
+    report = repr(export_hive()).split("\nLineage state")[0]
     assert report == ("Wrote mart__run_copy.hql beside its notebook, the Hive of 2 steps, in "
                       "the order they are sent: write()[0] and write()[1].")
     text = (folder / "mart__run_copy.hql").read_text(encoding="utf-8")

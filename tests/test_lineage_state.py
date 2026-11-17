@@ -349,7 +349,10 @@ def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def test_a_building_block_changed_in_the_example_project_is_recorded_end_to_end(
         intermediate: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    assert project.record_lineage_state().lines[0].startswith("Lineage state: the first ")
+    # The Example project holds the Lineage state its actions recorded as it was made (8.8,
+    # ticket 03): one recording more brings it to the project's files as they are.
+    project.record_lineage_state()
+    before = len(read_rows(intermediate))
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
         'equals(job_events.event_type, "start")', 'equals(job_events.event_type, "retry")'),
@@ -359,9 +362,7 @@ def test_a_building_block_changed_in_the_example_project_is_recorded_end_to_end(
 
     report = project.record_lineage_state()
 
-    first = read_rows(intermediate)[0]["recorded_at"]
-    rows = {(row["table"], row["column"]): row for row in read_rows(intermediate)
-            if row["recorded_at"] != first}
+    rows = {(row["table"], row["column"]): row for row in read_rows(intermediate)[before:]}
     assert rows[("mart.job_day_facts", "runs")]["change"] == "own"
     assert rows[("mart.job_day_facts", "runs")]["because"] == "building_block:events_per_job"
     assert rows[("mart.team_days", "runs")]["change"] == "inherited"

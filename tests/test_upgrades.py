@@ -90,7 +90,25 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
 # 8.6's ticket 12 and 8.7's ticket 14 emptied it.
-AWAITING_ITS_STEP: tuple[str, ...] = ()
+AWAITING_ITS_STEP: tuple[str, ...] = (
+    # 8.8, ticket 03: the Lineage state recorded by check_references' refresh, by
+    # change_a_saved_table's last step and by each Table notebook's cell 5, whose comment says
+    # so, as the Templates write it; ticket 10's Upgrade step writes them.
+    "admin/check_references.ipynb",
+    "admin/templates/quality_checks.py",
+    "admin/templates/saved_table.py",
+    "admin/workflows/change_a_saved_table/",
+    "tables/mart__alerts_per_job/mart__alerts_per_job.ipynb",
+    "tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb",
+    "tables/mart__budget_overruns/mart__budget_overruns.ipynb",
+    "tables/mart__daily_job_runs/mart__daily_job_runs.ipynb",
+    "tables/mart__job_day_costs/mart__job_day_costs.ipynb",
+    "tables/mart__job_day_facts/mart__job_day_facts.ipynb",
+    "tables/mart__job_events_checks/mart__job_events_checks.ipynb",
+    "tables/mart__job_notes/mart__job_notes.ipynb",
+    "tables/mart__team_day/mart__team_day.ipynb",
+    "tables/mart__team_days/mart__team_days.ipynb",
+)
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")

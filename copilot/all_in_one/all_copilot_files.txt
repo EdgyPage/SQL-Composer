@@ -2503,6 +2503,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
    warehouse, yours to run).
 
        run_execute(change, execute)
+       project.record_lineage_state()
 
 
 ## Worked patterns

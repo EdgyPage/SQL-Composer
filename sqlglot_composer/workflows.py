@@ -1622,11 +1622,13 @@ CHANGE_A_SAVED_TABLE = Workflow(
              done_when="that check shows the change reaches only what you mean it to"),
         Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
              ("its Hive, read and checked",),
-             ("the change sent", "the change logged"), "run_execute(change, execute)",
+             ("the change sent", "the change logged"),
+             "run_execute(change, execute)\nproject.record_lineage_state()",
              every_change_sent,
              goal="the change made in the warehouse, and logged",
-             action="run the cell below. It sends `change` through your execute. Then run any "
-             "check after it, such as `admin.check_the_copy`.",
+             action="run the cell below. It sends `change` through your execute, then records "
+             "the Project's Lineage state. Then run any check after it, such as "
+             "`admin.check_the_copy`.",
              done_when="admin/sent.csv records the Admin statement on `TABLE`, and "
              "admin/admin_log.md logs it"),
     ),

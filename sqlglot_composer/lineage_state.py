@@ -16,6 +16,7 @@ the warehouse: it reads only the Project's files.
 from __future__ import annotations
 
 import csv
+import datetime
 import hashlib
 from pathlib import Path
 
@@ -88,7 +89,7 @@ def record(root: Path, logic: ProjectLogic, recorded_by: str, by_upgrade: bool =
     Upgrade's recording finds `toolbox`."""
     rows = read_rows(root)
     before = columns_at(rows)
-    stamp = _stamp(root, recorded_by)
+    stamp = _stamp(root, recorded_by, rows)
     blocks = _block_hashes(root)
     if not rows:
         new_rows = [_column_row(stamp, logic.columns[key], FIRST)
@@ -112,16 +113,28 @@ def record(root: Path, logic: ProjectLogic, recorded_by: str, by_upgrade: bool =
     return [*_summary_lines(new_rows), *_kept_lines(logic, kept)]
 
 
-def _stamp(root: Path, recorded_by: str) -> dict[str, str]:
+def _stamp(root: Path, recorded_by: str, rows: list[dict[str, str]]) -> dict[str, str]:
     """What every row of one recording says of it: when, at which commit, by which call and
-    with which Toolbox version. The commit is empty outside git."""
+    with which Toolbox version, `rows` the file's rows before it. The commit is empty outside
+    git."""
     from . import TOOLBOX_VERSION  # __init__.py sets it before importing this module
 
     commit = scripts_commit(root)
     if commit in ("nogit", "nocommits"):
         commit = ""
-    return {"recorded_at": unchecked.now().strftime(unchecked.TIME_SHOWN), "commit": commit,
+    return {"recorded_at": _recorded_at(rows), "commit": commit,
             "recorded_by": recorded_by, "toolbox_version": TOOLBOX_VERSION}
+
+
+def _recorded_at(rows: list[dict[str, str]]) -> str:
+    """When a recording is made, `rows` the file's rows before it: now, or a second after the
+    last recording when now isn't later, as when two recordings come in one second, so each
+    recording's time is its own and the file's times only grow, as the replay reads them."""
+    now = unchecked.now()
+    if rows:
+        last = datetime.datetime.strptime(rows[-1]["recorded_at"], unchecked.TIME_SHOWN)
+        now = max(now, last + datetime.timedelta(seconds=1))
+    return now.strftime(unchecked.TIME_SHOWN)
 
 
 def _column_row(stamp: dict[str, str], column: ColumnLogic, change: str, because: str = ""

@@ -103,7 +103,8 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved, then the
+#    Project's Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%

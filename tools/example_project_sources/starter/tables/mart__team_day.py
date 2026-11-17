@@ -126,7 +126,8 @@ write_team_day = write()
 export_lineage(write_daily_job_runs, write_team_day)
 
 # %%
-# 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved, then the
+#    Project's Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%

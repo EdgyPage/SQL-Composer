@@ -428,7 +428,17 @@ def registry_reads() -> Iterator[list[str]]:
         yield reads
 
 
-def test_an_action_on_several_names_reads_the_registry_once(started: Path) -> None:
+def no_recording(_root: Path, _recorded_by: str) -> list[str]:
+    """In place of recording the Lineage state: nothing recorded, nothing said."""
+    return []
+
+
+def test_an_action_on_several_names_reads_the_registry_once(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Lineage state each action records at its end reads the registry on its own
+    # (8.8, ticket 03): here only what the actions themselves read is counted.
+    monkeypatch.setattr(toolbox_module("project"), "record_after_a_change",
+                        no_recording)
     with registry_reads() as reads:
         project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
                                query=example_database.query)

@@ -322,7 +322,8 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     export_lineage(write())
 
     # %%
-    # 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
+    # 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved, then the
+    #    Project's Lineage state recorded: run it after each change to the logic
     export_hive()
 
     # %%
@@ -479,7 +480,8 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     export_lineage(write_daily_job_runs, write_team_day)
 
     # %%
-    # 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
+    # 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved, then the
+    #    Project's Lineage state recorded: run it after each change to the logic
     export_hive()
 
     # %%
@@ -666,7 +668,8 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     export_lineage(write())
 
     # %%
-    # 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved
+    # 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved, then the
+    #    Project's Lineage state recorded: run it after each change to the logic
     export_hive()
 
     # %%
