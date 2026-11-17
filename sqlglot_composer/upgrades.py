@@ -858,17 +858,31 @@ def _write_workflow_notebooks_again(upgrade: Upgrade) -> None:
     """Write each Workflow notebook again as this version writes it, kept in admin/removed/
     first, each name its names cell gave and each step cell you wrote in kept, and the
     connection its setup cell gives in place of its line to fill in."""
+    from . import workflows  # workflows.py imports this file, so it is read here
+
+    for workflow in workflows.WORKFLOWS:
+        written = _workflow_notebook_now(upgrade, workflow)
+        if written is not None:
+            upgrade.rewrite_notebook(*written)
+
+
+def _workflow_notebook_now(upgrade: Upgrade, workflow: Workflow
+                           ) -> tuple[str, list[tuple[str, str]]] | None:
+    """The Workflow `workflow`'s notebook, as its path below the Project and its cells as this
+    version writes them, each name its names cell gave and each step cell you wrote in kept,
+    and the connection its setup cell gives in place of its line to fill in; None where the
+    Project has no such notebook."""
     # project.py and workflows.py import this file, so their names are read here, when it runs.
     from . import workflows
     from .project import WORKFLOW_PATH_LINES
 
-    for workflow in workflows.WORKFLOWS:
-        path = workflows.notebook_path(upgrade.root, workflow)
-        if path.is_file():
-            connection = _connection_given(path)
-            path_lines = _filled("\n".join(WORKFLOW_PATH_LINES), connection).split("\n")
-            cells = _workflow_cells_with_yours(upgrade.root, workflow, path_lines)
-            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+    path = workflows.notebook_path(upgrade.root, workflow)
+    if not path.is_file():
+        return None
+    connection = _connection_given(path)
+    path_lines = _filled("\n".join(WORKFLOW_PATH_LINES), connection).split("\n")
+    cells = _workflow_cells_with_yours(upgrade.root, workflow, path_lines)
+    return path.relative_to(upgrade.root).as_posix(), cells
 
 
 def _connection_given(path: Path) -> str | None:
@@ -2356,7 +2370,7 @@ def to_8_8(upgrade: Upgrade) -> None:
         _say_export_hive_records(upgrade, notebook.relative_to(upgrade.root).as_posix())
     _write_templates_again(upgrade, TEMPLATES_BEFORE_8_8, TEMPLATE_MARK_8_8)
     _write_check_references_text(upgrade)
-    _write_workflow_notebook_again(upgrade, "change_a_saved_table")
+    _write_one_workflow_notebook_again(upgrade, "change_a_saved_table")
     upgrade.add_what_start_makes()
     _rehash_records(upgrade, hashes)
     _record_the_first_lineage_state(upgrade)
@@ -2401,10 +2415,10 @@ def _say_export_hive_records(upgrade: Upgrade, relative: str) -> None:
     if any(kind == "code" and "export_hive(" in text for kind, text in cells):
         return
     # Never above a logic cell's first line, # logic, by which project.load finds it.
-    first = [number for number, (kind, text) in enumerate(cells, 1)
-             if kind == "code" and first_line(text) != LOGIC]
-    if first:
-        upgrade.mark(relative, 1, NO_HIVE_CELL_8_8, cell=first[0])
+    not_logic = [number for number, (kind, text) in enumerate(cells, 1)
+                 if kind == "code" and first_line(text) != LOGIC]
+    if not_logic:
+        upgrade.mark(relative, 1, NO_HIVE_CELL_8_8, cell=not_logic[0])
 
 
 def _write_check_references_text(upgrade: Upgrade) -> None:
@@ -2423,29 +2437,22 @@ def _write_check_references_text(upgrade: Upgrade) -> None:
                               "records the Project's Lineage state")
 
 
-def _write_workflow_notebook_again(upgrade: Upgrade, name: str) -> None:
+def _write_one_workflow_notebook_again(upgrade: Upgrade, name: str) -> None:
     """Write the Workflow `name`'s notebook again, as _write_workflow_notebooks_again writes
     each, where it isn't as this version writes it already."""
-    # project.py and workflows.py import this file, so their names are read here, when it runs.
-    from . import workflows
-    from .project import WORKFLOW_PATH_LINES
+    from . import workflows  # workflows.py imports this file, so it is read here
 
     for workflow in workflows.WORKFLOWS:
-        path = workflows.notebook_path(upgrade.root, workflow)
-        if workflow.name != name or not path.is_file():
-            continue
-        connection = _connection_given(path)
-        path_lines = _filled("\n".join(WORKFLOW_PATH_LINES), connection).split("\n")
-        cells = _workflow_cells_with_yours(upgrade.root, workflow, path_lines)
-        if cells != read_cells(path):
-            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+        written = _workflow_notebook_now(upgrade, workflow) if workflow.name == name else None
+        if written is not None and written[1] != read_cells(upgrade.root / written[0]):
+            upgrade.rewrite_notebook(*written)
 
 
 def _record_the_first_lineage_state(upgrade: Upgrade) -> None:
-    """Record the Project's Lineage state as the Upgrade's: the first, where the Project has
-    none, and from 8.9 on an Upgrade's, each change it finds marked the Toolbox's, never yours
-    (ADR 0015). A recording that fails leaves the rest of the step done, and says which call
-    records."""
+    """Record the Project's Lineage state as the Upgrade's: its first recording, every column
+    first, where the Project has none, as an 8.7 Project has; where it has one, each change it
+    finds marked the Toolbox's, never yours (ADR 0015). A recording that fails leaves the rest
+    of the step done, and says which call records."""
     from .project import record_after_a_change  # project.py imports this file
 
     lines = record_after_a_change(upgrade.root, RECORDED_BY_8_8, by_upgrade=True)

@@ -55,3 +55,19 @@ Built 2026-11-17, from dev's 973594c2 (tickets 01 to 06 and their merge fixes).
   Building block change and write the difference; `tests/test_check_unrecorded.py` gains a
   table still to fill in asking for no first recording; `tests/test_project.py`'s admin
   notebooks name it, and its registry-read count leaves out the Lineage state's own reads.
+
+## Comments
+
+**Code review, 2026-11-17**, of tickets 07 and 10 together (ed012145..de42dd88), its two axes
+on Sonnet, round toolbox-8-8-07-10 in the ledger. Spec: nothing missing or wrong; its scope
+notes (check()'s first-recording question waiting for a column, ticket 03's carried-forward
+files in `to_8_8`) are what each Answer records. Standards, no hard violation; fixed:
+- `_write_workflow_notebook_again` copied `_write_workflow_notebooks_again`'s body: both now
+  call `_workflow_notebook_now`, and the one for a single Workflow is
+  `_write_one_workflow_notebook_again`;
+- `first`, a list of every code cell but the logic cell, is `not_logic`;
+- `_record_the_first_lineage_state`'s docstring said "from 8.9 on" for what it does now.
+
+Left: `by_upgrade=` beside `recorded_by` (ADR 0015 keeps the Toolbox's rewrite apart from the
+call that records, so the flag stays), `upgrade.changed.append` in place of a method, the
+`[0]` text cell of `check_references`, and the tests' copy helpers, judgement calls.
