@@ -27,7 +27,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN ('start', 'retry') THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END

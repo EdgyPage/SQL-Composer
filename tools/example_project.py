@@ -35,14 +35,18 @@ For each project, in a Python of its own, started in an empty folder, it:
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write(), then its Hive, beside its notebook, as the notebook's Hive cell does;
 - exports each Scheduled run's Hive and lineage into its folder, as the cells of
-  admin/scheduled_runs.ipynb do, connected to the Example database.
+  admin/scheduled_runs.ipynb do, connected to the Example database;
+- for a project LATER_CHANGES names, the next day, changes one Building block to its source in
+  `changed/building_blocks/`, runs the Table notebook's cell 5 that records the change, writes
+  that table once, and runs admin/lineage.ipynb's cells, which write the Lineage difference.
 
 The time, the commit and the calling script are pinned, as if a notebook ran everything on
-PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
-version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
-until this is run again. It reads only what add_references sends through the Example
-database's query: DESCRIBE, SHOW PARTITIONS, and the count and check_key that propose each
-Key; and the SHOW PARTITIONS a Scheduled run's Run value sends as it is built.
+PINNED_TIME, and the later change at CHANGED_TIME, in a folder that isn't in git, so the files
+are the same on every computer. The version is the Toolbox's own, so raising TOOLBOX_VERSION
+makes the committed lineage stale until this is run again. It reads only what add_references
+sends through the Example database's query: DESCRIBE, SHOW PARTITIONS, and the count and
+check_key that propose each Key; the SHOW PARTITIONS a Scheduled run's Run value sends as it
+is built; and the later change's one write.
 """
 
 from __future__ import annotations
@@ -67,6 +71,13 @@ SOURCES = ROOT / "tools" / "example_project_sources"
 # The time every Project action and lineage is made at, and the commit it names.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
 PINNED_COMMIT = "nogit"  # what scripts_commit gives for a folder that isn't in git
+# When the later change is made, the day after, and when the table it changes is next written.
+CHANGED_TIME = PINNED_TIME + datetime.timedelta(days=1)
+WRITTEN_TIME = CHANGED_TIME + datetime.timedelta(hours=1)
+# For each Example project made with one, the Building block changed the next day, from
+# `changed/building_blocks/` in its sources, and the Saved table whose notebook's cell 5
+# records it and which is written once after (Toolbox 8.8, ticket 08).
+LATER_CHANGES = {"intermediate": ("events_per_job", "mart.job_day_facts")}
 
 # What a user fills in by hand after add_references: each table's one-line description, its
 # key, or None for a table with none, the columns that don't add up, with what each is, and
@@ -300,6 +311,7 @@ def write_here(name: str) -> None:
     _export_lineage(name, folder)
     _export_hive(name, folder)
     _export_scheduled_runs(name)
+    _change_later(name, folder)
     _tidy(folder)
 
 
@@ -526,6 +538,35 @@ def _export_scheduled_runs(name: str) -> None:
     connect(example_database)
     project.export_run_hive(runs)
     project.export_run_lineage(runs)
+
+
+def _change_later(name: str, folder: Path) -> None:
+    """The next day, change the Building block LATER_CHANGES names to its changed source, run
+    its table's cell 5, export_hive(), which records the change in the Lineage state, write
+    that table once, and run admin/lineage.ipynb's cells, as a user runs them, so the Lineage
+    difference shows the change, what it reached and when it was written."""
+    if name not in LATER_CHANGES:
+        return
+    import example_database
+    from sqlglot_composer import export_hive, project, run_execute, unchecked
+    from warehouse import connect, execute
+
+    block, table = LATER_CHANGES[name]
+    unchecked.now = lambda: CHANGED_TIME
+    shutil.copyfile(SOURCES / name / "changed" / "building_blocks" / f"{block}.py",
+                    folder / "building_blocks" / f"{block}.py")
+    # The Building block was imported as it was: a new kernel imports it as it is now.
+    for module in [module for module in sys.modules if module.startswith("building_blocks")]:
+        del sys.modules[module]
+    os.chdir(folder / "tables" / project.table_stem(table))
+    export_hive()
+    unchecked.now = lambda: WRITTEN_TIME
+    connect(example_database)
+    run_execute(project.load(table).write(), execute)
+    os.chdir(folder / "admin")
+    project.record_lineage_state()
+    project.export_lineage_difference(since=None, tables=None)
+    os.chdir(folder)
 
 
 def _tidy(folder: Path) -> None:

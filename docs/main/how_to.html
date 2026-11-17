@@ -8098,13 +8098,15 @@ except ValueError as refused:
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -8235,7 +8237,7 @@ Done: each convert batch below.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -8359,6 +8361,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -8605,13 +8621,15 @@ run_query(wrong_day, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -9095,13 +9113,15 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -9760,13 +9780,15 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -9899,7 +9921,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -10194,13 +10216,15 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, with the snapshot table&#x27;s Table reference, the file that describes the table, already written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -10566,13 +10590,15 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, its Table references and Building blocks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -11089,13 +11115,15 @@ statement(
 <p>Goal: a Project to work in, its Table references and Table notebooks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -11454,13 +11482,15 @@ len(per_day)</pre>
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -11795,13 +11825,15 @@ WHERE
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -12056,7 +12088,7 @@ run_changes = Table(
 )</pre>
 <pre class="python">_ = project.register(&quot;mart.run_changes&quot;)</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12180,6 +12212,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -12435,13 +12481,15 @@ Duplicates in right:
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -12618,7 +12666,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12668,10 +12716,10 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 
 #### `events_per_job in facts_write.runs`
 
-Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+Calculated in **events_per_job in facts_write** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END)`.
 
 ```text
-events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
 └─ ops.job_events.event_type  (string)
 ```
 
@@ -12727,7 +12775,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -12776,10 +12824,10 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 
 #### `events_per_job in team_day.runs`
 
-Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+Calculated in **events_per_job in team_day** as `count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))`, which is `COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END)`.
 
 ```text
-events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
 └─ ops.job_events.event_type  (string)
 ```
 
@@ -12826,7 +12874,7 @@ Calculated in **team_day** as `sum_of(events_per_job.runs)`, which is `SUM(event
 
 ```text
 team_day.runs = sum_of(events_per_job.runs)
-└─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]))
    └─ ops.job_events.event_type  (string)
 ```
 
@@ -13209,6 +13257,8 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
             print(line[:100])
 changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
 <p class="label">Python prints</p><pre class="output">In facts_write, Hive as submitted:
+-     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
++     COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -13216,12 +13266,19 @@ changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
 -       ),
 -       0
 -     ) AS minutes
+In facts_write, `events_per_job in facts_write.runs`:
+- Calculated in **events_per_job in facts_write** as `count_rows(where=is_in(job_events.event_type, 
++ Calculated in **events_per_job in facts_write** as `count_rows(where=equals(job_events.event_type,
+- events_per_job in facts_write.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retr
++ events_per_job in facts_write.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In facts_write, `events_per_job in facts_write.minutes`:
 - Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_
 + Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=equ
 - events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
 + events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
 In team_day, Hive as submitted:
+-     COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
++     COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -13229,11 +13286,19 @@ In team_day, Hive as submitted:
 -       ),
 -       0
 -     ) AS minutes
+In team_day, `events_per_job in team_day.runs`:
+- Calculated in **events_per_job in team_day** as `count_rows(where=is_in(job_events.event_type, [&quot;s
++ Calculated in **events_per_job in team_day** as `count_rows(where=equals(job_events.event_type, &quot;s
+- events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retry&quot;]
++ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In team_day, `events_per_job in team_day.minutes`:
 - Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=is_in(
 + Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=equals
 - events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.e
 + events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.
+In team_day, `runs`:
+- └─ events_per_job in team_day.runs = count_rows(where=is_in(job_events.event_type, [&quot;start&quot;, &quot;retr
++ └─ events_per_job in team_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
 In team_day, `minutes`:
 - └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
 + └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even</pre>
@@ -13334,13 +13399,15 @@ result.to_dict(&quot;records&quot;) == most_first.to_dict(&quot;records&quot;)</
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -13434,7 +13501,7 @@ project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13558,6 +13625,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13787,7 +13868,7 @@ GROUP BY
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 141 lines</summary>
+<details><summary>Show its 155 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13911,6 +13992,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14153,13 +14248,15 @@ Problems:
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -14263,7 +14360,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14387,6 +14484,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14934,13 +15045,15 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -15039,7 +15152,7 @@ To accept every proposed Key, write in the decisions cell: &quot;all_tables&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -15163,6 +15276,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15624,13 +15751,15 @@ with_one + without</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -15966,13 +16095,15 @@ admin.move_to_own_folder(ops.job_events, query=query_at_work)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -16069,7 +16200,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16193,6 +16324,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16418,13 +16563,15 @@ rows_of(teams_today)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -16677,13 +16824,15 @@ print(to_hive(repair))</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to make the change in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -16782,7 +16931,7 @@ job_events = ops.job_events  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 132 lines</summary>
+<details><summary>Show its 146 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16906,6 +17055,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17029,7 +17192,7 @@ changed</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 140 lines</summary>
+<details><summary>Show its 154 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17153,6 +17316,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17327,7 +17504,7 @@ Wrote references/mart__slow_runs.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 148 lines</summary>
+<details><summary>Show its 162 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17451,6 +17628,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17869,13 +18060,15 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to write the Hive in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -17972,7 +18165,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -18096,6 +18289,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -18564,13 +18771,15 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <pre class="python">import shutil
 from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -19430,13 +19639,15 @@ project.run_workflow(&quot;schedule&quot;)</pre>
 <p>Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -19555,7 +19766,7 @@ PROD = {&quot;database&quot;: &quot;mart_prod&quot;, &quot;location_root&quot;: 
 admin/templates/saved_table.py.
 Wrote references/mart__weekly_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 147 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -19679,6 +19890,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -19822,13 +20047,15 @@ except ValueError as refused:
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project with Saved tables for a run to write. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -19940,7 +20167,7 @@ def team_day_from_job_events(day: str) -&gt; Statement:
 <p class="label">Python prints</p><pre class="output">Made scheduled_runs/team_day/: team_day.ipynb, from admin/templates/scheduled_run.py.
 Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 132 lines</summary>
+<details><summary>Show its 146 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -20067,6 +20294,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_scheduled_run(&quot;team_day&quot;)`
@@ -20159,7 +20400,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
@@ -20225,7 +20466,7 @@ WITH events_per_job AS (
     job_events.job_id,
     job_events.dt,
     COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COUNT(CASE WHEN job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;) THEN 1 END) AS runs,
     COALESCE(
       SUM(
         CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END

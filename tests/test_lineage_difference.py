@@ -381,7 +381,8 @@ def test_the_example_projects_building_block_change_is_written_as_a_page(
     project.record_lineage_state()
     block = intermediate / "building_blocks" / "events_per_job.py"
     block.write_text(block.read_text(encoding="utf-8").replace(
-        'equals(job_events.event_type, "start")', 'equals(job_events.event_type, "retry")'),
+        'is_in(job_events.event_type, ["start", "retry"])',
+        'is_in(job_events.event_type, ["start"])'),
         encoding="utf-8")
     for name in [name for name in sys.modules if name.split(".")[0] == "building_blocks"]:
         monkeypatch.delitem(sys.modules, name)
