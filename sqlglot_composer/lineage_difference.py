@@ -385,9 +385,13 @@ def _changed_tables(changed: list[ChangedColumn], kinds: dict[str, str],
 
 
 def _first_written(table: str, changed_at: str, sent: list[dict[str, str]]) -> str | None:
-    """When admin/sent.csv says `table` was first written after `changed_at`, or None."""
+    """When admin/sent.csv says `table` was first written after `changed_at`, or None.
+
+    A write in the same second as the change counts: both keep their time to the second, and
+    a recording comes before the writes it is for, as cell 5 comes before a notebook's write.
+    """
     for row in sent:
-        if row["time"] > changed_at and table in row["tables"].split(";"):
+        if row["time"] >= changed_at and table in row["tables"].split(";"):
             return row["time"]
     return None
 

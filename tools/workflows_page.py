@@ -116,6 +116,10 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "started.",
         "In a script of your own, not a notebook, print a Project action's report, such as "
         "`print(project.check())`: a script shows nothing on its own.",
+        "Changed a table's logic, a Table reference or a Building block by hand? Run the "
+        "Table notebook's cell 5, or `project.record_lineage_state()` in "
+        "`admin/lineage.ipynb`: until you do, `project.check()` says the Lineage state is "
+        "behind.",
     ),
     "references": (
         "Run it before convert or new_table: the tables they read need their Table "
@@ -469,6 +473,12 @@ def every_part() -> str:
             "prints; <i>calls the warehouse</i> sends to the warehouse, when you run it; "
             "<i>your decision</i> waits on you.</p>"
             f"<h3>Words</h3>{bullets(WORDS)}"
+            "<h3>Beside the Workflows</h3>"
+            "<p>Two notebooks in <code>admin/</code> belong to no one Workflow: "
+            "<code>admin/check_project.ipynb</code>, which checks the Project and names the "
+            "next step of each Workflow you have started, and "
+            "<code>admin/lineage.ipynb</code>, which records the Lineage state and exports "
+            "the Lineage difference: what changed a column, and where up its chain.</p>"
             f"{tripping_points_html('every')}"
             f'<p>In full: the how-to <a href="how_to.html#follow_a_workflow">'
             f'{html.escape(how_to_title("follow_a_workflow"))}</a>.</p></section>')
