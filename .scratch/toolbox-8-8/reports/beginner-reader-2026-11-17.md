@@ -30,9 +30,11 @@ These said something untrue, or sent the reader the wrong way:
 6. **"Nothing to compare yet: no recording was made since commit X"** when X's recording is the
    newest: now "the recording since commit X starts from, of <time>, is the newest".
 
-## Left for the user
+## Then fixed, at the user's word
 
-The other stops, each a wording or a missing sentence, not an error:
+The user (2026-11-17): "Fix them first", before the usability round. Each stop below
+is fixed in b8dedcda, but the escaped quotes of a file shown in how-to 32's source, which the
+page shows plain:
 
 - **How-to 32:**
   - The Effective logic is defined by reference to itself, and "the rows that count" isn't

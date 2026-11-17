@@ -7717,9 +7717,10 @@ def export_lineage_difference(since: str | None = None,
     its own logic the same but a column it reads, up its chain, changed, with that chain down
     to the change it comes from; columns added, removed and retyped; and each column's
     Effective logic before and after, written out down to the tables the Project doesn't
-    write. A Saved table says when admin/sent.csv shows it was first written after the change,
-    or that it wasn't yet: the moment the numbers changed. What an Upgrade's recording found,
-    the Toolbox writing the same logic as other Hive, is shown apart, never as your change.
+    write. A Saved table says when admin/sent.csv shows it was first written with its new
+    logic, or that it wasn't yet: the moment the numbers changed. What an Upgrade's recording
+    found, the Toolbox writing the same logic as other Hive, is shown apart, never as your
+    change.
 
     It works out every table's logic, as project.record_lineage_state() does, only to name
     each table or Scheduled run that isn't recorded now, with why; it needs no connect(...)
