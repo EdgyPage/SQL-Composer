@@ -49,6 +49,7 @@ def state_of(root: Path) -> bytes:
 def test_check_says_to_make_the_first_recording_once_its_notebook_is_there(
         intermediate: Path) -> None:
     # A Project from before 8.8 has no admin/lineage.ipynb: the version check speaks for it.
+    (intermediate / "admin" / "lineage.ipynb").unlink(missing_ok=True)
     assert lineage_lines(intermediate) == []
     notebooks.write_notebook(intermediate / "admin" / "lineage.ipynb",
                              [("code", "project.record_lineage_state()")])
@@ -108,3 +109,14 @@ def test_a_project_with_nothing_to_record_says_nothing_of_it(
     monkeypatch.chdir(tmp_path)
     project.start()
     assert lineage_lines(tmp_path) == []
+
+
+def test_a_table_still_to_fill_in_asks_for_no_first_recording(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # new_table's Table notebook holds the Template's <...>, so nothing builds: a recording
+    # would find no column, and asking for one would ask again after it (ticket 07).
+    monkeypatch.chdir(tmp_path)
+    project.start()
+    project.new_table("mart.daily")
+    assert lineage_lines(tmp_path) == []
+    forget_the_projects_modules()

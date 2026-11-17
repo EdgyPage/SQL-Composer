@@ -144,11 +144,15 @@ Since 8.0, a Project's admin folder, as `example_projects/intermediate/admin/` s
 Workflow's notebook in workflows/<workflow>/, a convert batch's index beside it in
 workflows/convert/<name>/ (finished/<name>/ once compared), promotion's record in
 workflows/promote/promoted.json, the Dev and Prod Database settings in databases.py, and at its
-top only the notebooks no one Workflow owns, such as check_project.ipynb, remove.ipynb and
-scheduled_runs.ipynb, whose cells are run by hand for the Project's Scheduled runs (8.6): each
-of those is a notebook in the Project's `scheduled_runs/<name>/`, beside tables/, as
+top only the notebooks no one Workflow owns, such as check_project.ipynb, remove.ipynb,
+lineage.ipynb and scheduled_runs.ipynb. scheduled_runs.ipynb's cells are run by hand for the
+Project's Scheduled runs (8.6): each of those is a notebook in the Project's
+`scheduled_runs/<name>/`, beside tables/, as
 `example_projects/intermediate/scheduled_runs/weekly_team/` shows, and the Project lineage
-those cells export goes in admin/lineage/.
+those cells export goes in admin/lineage/. lineage.ipynb records the Lineage state by hand and
+writes the Lineage difference (8.8): the state is admin/lineage/lineage_state.csv, which each
+Project action that changes a table or Table reference, and each Table notebook's
+`export_hive()`, add to as well.
 
 ## Drift
 

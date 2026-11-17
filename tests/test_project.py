@@ -42,7 +42,8 @@ from sqlglot_composer import (
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
 # The notebooks start() writes in admin/: since Toolbox 8.0 (ticket 12) only those for no
 # Workflow in particular, each Workflow's own being in admin/workflows/<name>/.
-ADMIN_NOTEBOOKS = ["check_project", "check_references", "new_block", "refresh_reference_sheet",
+ADMIN_NOTEBOOKS = ["check_project", "check_references", "lineage", "new_block",
+                   "refresh_reference_sheet",
                    "remove", "run_tables", "scheduled_runs"]
 WORKFLOWS = toolbox_module("workflows").WORKFLOWS
 
@@ -436,9 +437,12 @@ def no_recording(_root: Path, _recorded_by: str) -> list[str]:
 def test_an_action_on_several_names_reads_the_registry_once(
         started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # The Lineage state each action records at its end reads the registry on its own
-    # (8.8, ticket 03): here only what the actions themselves read is counted.
+    # (8.8, ticket 03), as check() does to say whether one is due (ticket 07): here only what
+    # the actions and check() themselves read is counted.
     monkeypatch.setattr(toolbox_module("project"), "record_after_a_change",
                         no_recording)
+    monkeypatch.setattr(toolbox_module("effective_logic"), "project_logic",
+                        lambda _root: toolbox_module("effective_logic").ProjectLogic({}))
     with registry_reads() as reads:
         project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
                                query=example_database.query)
