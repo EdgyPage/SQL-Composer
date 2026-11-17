@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import csv
 import datetime
+import shutil
+import sys
 from pathlib import Path
 
 import pytest
-from conftest import toolbox_module
+from conftest import ROOT, toolbox_module
 
 from sqlglot_composer import project
 from sqlglot_composer.effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN,
@@ -314,3 +316,56 @@ def test_record_lineage_state_is_a_logged_project_action(
     assert log.count("record_lineage_state") + 1 == (
         (tmp_path / "admin" / "admin_log.md").read_text(encoding="utf-8")
         .count("record_lineage_state"))
+
+
+def test_a_whole_table_read_names_each_column_it_could_come_from(root: Path) -> None:
+    # An Unchecked statement's text names only its tables, so it reads <db>.<table>.*.
+    record(root, chain(), "first")
+    whole = column("mart.report", "n", own="opaque-1", effective="w-1", opaque=True,
+                   reads=("mart.team_failures.*",))
+    record(root, logic_of(*chain().columns.values(), whole), "added")
+    after = chain(up_own="up-2", up_effective="up-e2")
+    record(root, logic_of(*after.columns.values(),
+                          column("mart.report", "n", own="opaque-1", effective="w-2",
+                                 opaque=True, reads=("mart.team_failures.*",))), "changed")
+    rows = {(row["table"], row["column"]): row for row in read_rows(root)
+            if row["recorded_by"] == "changed"}
+    assert rows[("mart.report", "n")]["change"] == "inherited"
+    assert rows[("mart.report", "n")]["because"] == "mart.team_failures.fails"
+
+
+@pytest.fixture
+def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A copy of the Intermediate Example project, its clock a minute on at each reading."""
+    shutil.copytree(ROOT / "example_projects" / "intermediate", tmp_path, dirs_exist_ok=True)
+    for name in [name for name in sys.modules
+                 if name.split(".")[0] in ("references", "warehouse", "building_blocks")]:
+        monkeypatch.delitem(sys.modules, name)
+    times = iter(FIRST_TIME + datetime.timedelta(minutes=n) for n in range(1000))
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: next(times))
+    monkeypatch.chdir(tmp_path / "admin")
+    return tmp_path
+
+
+def test_a_building_block_changed_in_the_example_project_is_recorded_end_to_end(
+        intermediate: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert project.record_lineage_state().lines[0].startswith("Lineage state: the first ")
+    block = intermediate / "building_blocks" / "events_per_job.py"
+    block.write_text(block.read_text(encoding="utf-8").replace(
+        'equals(job_events.event_type, "start")', 'equals(job_events.event_type, "retry")'),
+        encoding="utf-8")
+    for name in [name for name in sys.modules if name.split(".")[0] == "building_blocks"]:
+        monkeypatch.delitem(sys.modules, name)
+
+    report = project.record_lineage_state()
+
+    first = read_rows(intermediate)[0]["recorded_at"]
+    rows = {(row["table"], row["column"]): row for row in read_rows(intermediate)
+            if row["recorded_at"] != first}
+    assert rows[("mart.job_day_facts", "runs")]["change"] == "own"
+    assert rows[("mart.job_day_facts", "runs")]["because"] == "building_block:events_per_job"
+    assert rows[("mart.team_days", "runs")]["change"] == "inherited"
+    assert rows[("mart.team_days", "runs")]["because"] == "mart.job_day_facts.runs"
+    assert rows[("events_per_job", "")]["change"] == "own"
+    assert ("mart.job_day_facts", "events") not in rows
+    assert "inherited" in report.lines[0]

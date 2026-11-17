@@ -14,9 +14,12 @@ projects page (Q18).
 
 - **`tools/example_project.py`**, building the intermediate Example project:
   1. records its first state;
-  2. makes one real change: `mart.team_failures`' filter counts `'retry'` too, so `fails` has
-     an Own change and each column downstream reading it an Inherited change;
-  3. runs that table's cell 5, which records again;
+  2. makes one real change: the Building block `events_per_job` counts a retry as a run too,
+     so `mart.job_day_facts.runs` has an Own change from that block and
+     `mart.team_days.runs`, which reads it, an Inherited change (2026-11-17: nothing in the
+     intermediate project reads `mart.team_failures`, the map's first choice, so its change
+     would show no Inherited change);
+  3. runs `mart.job_day_facts`' cell 5, which records again;
   4. writes one table's next write, so the difference shows "first written with this logic";
   5. exports the difference from `admin/lineage.ipynb`.
 - The change stays in the example, its Table notebook saying why in a line.

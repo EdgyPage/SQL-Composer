@@ -20,7 +20,8 @@ import hashlib
 from pathlib import Path
 
 from . import unchecked
-from .effective_logic import REFERENCE, SAVED_TABLE, SCHEDULED_RUN, ColumnLogic, ProjectLogic
+from .effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN, WHOLE_TABLE, ColumnLogic,
+                              ProjectLogic)
 from .lineage import scripts_commit
 from .project_files import BUILDING_BLOCK, REGISTRY, Registry
 from .shared import counted, in_words
@@ -266,7 +267,7 @@ def _roots(key: tuple[str, str], logic: ProjectLogic, changes: dict[tuple[str, s
     or removal in this recording its inherited change comes from, as <db>.<table>.<column>,
     nearest first."""
     roots, seen = [], set()
-    waiting = list(logic.columns[key].reads)
+    waiting = _each_column(logic.columns[key].reads, logic, changes)
     while waiting:
         read = waiting.pop(0)
         if read in seen:
@@ -276,8 +277,23 @@ def _roots(key: tuple[str, str], logic: ProjectLogic, changes: dict[tuple[str, s
         if changes.get((table, column)) in ROOT_CHANGES:
             roots.append(read)
         if (table, column) in logic.columns:
-            waiting += logic.columns[(table, column)].reads
+            waiting += _each_column(logic.columns[(table, column)].reads, logic, changes)
     return roots
+
+
+def _each_column(reads: tuple[str, ...], logic: ProjectLogic,
+                 changes: dict[tuple[str, str], str]) -> list[str]:
+    """`reads` with each whole-table read, <db>.<table>.*, which an Unchecked step's text
+    makes, given as every column of that table, those this recording removed among them."""
+    each = []
+    for read in reads:
+        table, column = read.rsplit(".", 1)
+        if column != WHOLE_TABLE:
+            each.append(read)
+            continue
+        each += sorted(f"{table}.{name}" for (of, name) in {*logic.columns, *changes}
+                       if of == table)
+    return each
 
 
 def _as_toolbox(row: dict[str, str]) -> dict[str, str]:

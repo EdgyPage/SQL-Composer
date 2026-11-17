@@ -128,8 +128,7 @@ from typing import TYPE_CHECKING, NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import (converting, decisions, describe, effective_logic, keys, kinds, lineage_state,
-               unchecked, upgrades, workflows)
+from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
@@ -7581,6 +7580,10 @@ def record_lineage_state() -> ProjectReport:
     frame = callers_frame()
     call = "project.record_lineage_state()"
     root = _project_root(call)
+    # effective_logic reads this file's Table references, so both are imported here, when the
+    # state is recorded, as export_project_lineage imports project_lineage.
+    from . import effective_logic, lineage_state
+
     lines = lineage_state.record(root, effective_logic.project_logic(root), call)
     files = [f"added to {lineage_state.STATE_FILE.as_posix()}"]
     if lines[0] == lineage_state.NO_CHANGE:

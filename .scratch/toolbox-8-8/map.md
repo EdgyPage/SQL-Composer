@@ -134,9 +134,10 @@ tables=...)`. `admin/scheduled_runs.ipynb` keeps its Project lineage cell.
 ### The Example project, docs and usability (Q18)
 
 - **The intermediate Example project**: `tools/example_project.py` records its first state,
-  then makes one real change, `mart.team_failures`' filter taking `'retry'` too, so `fails` has
-  an Own change and each column downstream reading it an Inherited change; it records again
-  and exports the difference, which the Example projects page shows. The change stays.
+  then makes one real change, the Building block `events_per_job` counting a retry as a run,
+  so `mart.job_day_facts.runs` has an Own change and `mart.team_days.runs` an Inherited one
+  (nothing reads `mart.team_failures`, the first choice); it records again and exports the
+  difference, which the Example projects page shows. The change stays.
 - **Docs**: a how-to, "Find what changed a column"; a README step; CHANGES.md's `## 8.8`; the
   Workflows overview naming `admin/lineage.ipynb`. No new Copilot file.
 - **Usability**: one new dev scenario, W10, a stand-in user told a number moved who finds why
@@ -194,6 +195,16 @@ done. The real dependencies are in each ticket's `Blocked by:`.
   folder" (07).
 
 ## Decisions so far
+
+- [01 Effective logic](issues/01-effective-logic.md): `effective_logic.project_logic(root)`,
+  each column's own logic in `<db>.<table>.<column>` terms with Derived tables written out,
+  Run values given stand-ins by `run_values.stand_ins()`, an Unchecked step reading
+  `<db>.<table>.*`, and an effective hash over every column upstream.
+- [02 The Lineage state](issues/02-lineage-state.md): `project.record_lineage_state()` and
+  `lineage_state.record`, `read_rows`, `columns_at`; Building block hashes as rows of kind
+  `building_block` in the same CSV; removed only by the registry; an Upgrade's changes
+  `toolbox`. Merged 2026-11-17 with a lazy import (the two modules import each other's
+  neighbours) and a whole-table read followed to each of its table's columns.
 
 ## Not yet specified
 
