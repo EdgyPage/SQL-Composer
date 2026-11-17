@@ -20617,13 +20617,15 @@ print(project.export_run_hive(&quot;team_day&quot;))</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project whose Saved tables read one another, with its Lineage state recorded. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 87 files</p>
+<p class="label">It writes 89 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
 admin/check_references.ipynb
 admin/databases.py
 admin/lineage.ipynb
+admin/lineage/20260926-070000-difference.html
+admin/lineage/20260926-070000-difference.md
 admin/lineage/lineage_state.csv
 admin/new_block.ipynb
 admin/project_version.txt
@@ -20768,7 +20770,7 @@ Done: each convert batch below.
 <pre class="python">print(project.record_lineage_state())</pre>
 <p class="label">Python prints</p><pre class="output">Lineage state: 3 columns changed (1 own, 2 inherited): project.export_lineage_difference() shows them.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 132 lines</summary>
+<details><summary>Show its 146 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -20892,6 +20894,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -20914,9 +20930,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <h5>5. Export the Lineage difference</h5>
 <p>Goal: where and when mart.team_days changed. <code>tables=</code> keeps the page to that table and every chain that reaches it. Left out, <code>since=</code> compares the newest recording with the one before; give it a time, such as &quot;2026-09-20&quot;, or a commit, to see every change since:</p>
 <pre class="python">print(project.export_lineage_difference(tables=&quot;mart.team_days&quot;))  # doctest: +ELLIPSIS</pre>
-<p class="label">Python prints</p><pre class="output">Wrote admin/lineage/20260925-090000-difference.html and its Markdown twin, 20260925-090000-difference.md: 2 tables changed, since the recording of 2026-09-25 06:00:09, to the newest, of 2026-09-25 09:00:00: 2 columns (1 own change, 1 inherited change).</pre>
+<p class="label">Python prints</p><pre class="output">Wrote admin/lineage/20260925-090000-difference.html and its Markdown twin, 20260925-090000-difference.md: 2 tables changed, since the recording of 2026-09-26 06:00:00, to the newest, of 2026-09-26 06:00:01: 2 columns (1 own, 1 inherited).</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 140 lines</summary>
+<details><summary>Show its 154 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -21040,6 +21056,20 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-26 07:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260926-070000-difference.html; wrote admin/lineage/20260926-070000-difference.md
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -21063,15 +21093,15 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 What changed in the Lineage state, admin/lineage/lineage_state.csv: each table whose columns changed, each column with an own change, its logic before and after, and each with an inherited change, whose own logic stayed the same while a column it reads, up its chain, had an own change. Each changed Saved table says when it was next written, from admin/sent.csv.
 
-2 tables changed, since the recording of 2026-09-25 06:00:09, to the newest, of 2026-09-25 09:00:00: 2 columns (1 own change, 1 inherited change).
+2 tables changed, since the recording of 2026-09-26 06:00:00, to the newest, of 2026-09-26 06:00:01: 2 columns (1 own, 1 inherited).
 
 ## `mart.job_day_facts`: own change
 
-First written with this logic: 2026-09-25 09:00:00 (admin/sent.csv).
+First written with this logic: 2026-09-26 07:00:00 (admin/sent.csv).
 
 ### `minutes`: own change
 
-Recorded 2026-09-25 09:00:00, at commit 1a2b3c4.
+Recorded 2026-09-26 06:00:01, at commit 1a2b3c4.
 
 Its own logic before:
 
@@ -21125,7 +21155,7 @@ Not written since the change (admin/sent.csv).
 
 ### `minutes`: inherited change
 
-Recorded 2026-09-25 09:00:00, at commit 1a2b3c4.
+Recorded 2026-09-26 06:00:01, at commit 1a2b3c4.
 
 - `mart.team_days.minutes` ← `mart.job_day_facts.minutes`
 
@@ -21177,7 +21207,7 @@ mart.team_days.minutes = SUM(mart.job_day_facts.minutes) GROUP BY mart.job_day_f
 
 ---
 
-Made by project.export_lineage_difference() on 2026-09-25 09:00, from admin/lineage/lineage_state.csv, with sqlglot Composer 8.7, not exported (dev).</pre>
+Made by project.export_lineage_difference() on 2026-09-25 09:00, from admin/lineage/lineage_state.csv, with sqlglot Composer 8.8, not exported (dev).</pre>
 <p class="note">It writes <code>admin/lineage/20260925-090000-difference.html</code> too, a page to open in your browser.</p>
 <p>Open the HTML page: each table is a box, one with an Own change in one colour, one with only an Inherited change in another, and a click on a box opens its columns beside the drawing. Its Markdown twin, the file the line names, holds the same sections; these lines of it answer the question:</p>
 <pre class="python">from pathlib import Path
@@ -21186,7 +21216,7 @@ for line in twin.splitlines():
     if line.startswith((&quot;## &quot;, &quot;- `&quot;, &quot;First written&quot;, &quot;Not written&quot;)):
         print(line.lstrip(&quot;# &quot;))</pre>
 <p class="label">Python prints</p><pre class="output">`mart.job_day_facts`: own change
-First written with this logic: 2026-09-25 09:00:00 (admin/sent.csv).
+First written with this logic: 2026-09-26 07:00:00 (admin/sent.csv).
 `mart.team_days`: inherited change only
 Not written since the change (admin/sent.csv).
 - `mart.team_days.minutes` ← `mart.job_day_facts.minutes`</pre>
