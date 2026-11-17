@@ -69,3 +69,10 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07), beside tickets 08 and 
 The six that said something untrue or sent the reader the wrong way are fixed (since= before
 the first recording, check()'s cell 5 advice, "two notebooks", the notebook's "first cell",
 a day without dashes, "Nothing to compare yet"); the rest, wording, are left for the user.
+
+**Code review, 2026-11-17**, of tickets 08 and 09 together, round toolbox-8-8-08-09. Fixed:
+"send", a word the glossary avoids, in how-to 32's new text and the two 8.8 docstrings, now
+"run" or "never reaches the warehouse"; a day hint only for 8 digits; `COUNT_WORDS` said to be
+`CHANGE_WORDS`'s short form. Left: `_change_later`'s length and its tuple, the production call
+through `lineage.scripts_commit` (the one way a pinned commit reaches it), and the notebook's
+text beside the how-to's, judgement calls.

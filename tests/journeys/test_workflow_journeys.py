@@ -1661,7 +1661,7 @@ def test_a_building_block_changed_then_found_in_the_lineage_difference(
     assert "## `mart.team_days`: inherited change only" in markdown
     assert "`mart.team_days.runs` ← `mart.job_day_facts.runs`" in markdown
     assert f"It came with a change to the Building block `{LATER_BLOCK}`." in markdown
-    assert "First written with this logic: 2026-09-25 08:00:00 " in markdown
+    assert "First written with this logic: 2026-09-25 " in markdown
     # The same change the Example project records, at its CHANGED_TIME.
     changed_at = example_project.CHANGED_TIME.strftime("%Y-%m-%d %H:%M:%S")
     assert _state_changes_of(root, changed_at) == _state_changes_of(

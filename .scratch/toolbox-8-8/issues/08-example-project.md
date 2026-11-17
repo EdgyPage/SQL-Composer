@@ -14,7 +14,8 @@ projects page (Q18).
 
 - **`tools/example_project.py`**, building the intermediate Example project:
   1. records its first state;
-  2. makes one real change: the Building block `events_per_job` counts a retry as a run too,
+  2. makes one real change: the Building block `events_per_job` counts a restart as a run too
+     (built as a restart, not the retry first named: see the Answer),
      so `mart.job_day_facts.runs` has an Own change from that block and
      `mart.team_days.runs`, which reads it, an Inherited change (2026-11-17: nothing in the
      intermediate project reads `mart.team_failures`, the map's first choice, so its change
@@ -22,7 +23,8 @@ projects page (Q18).
   3. runs `mart.job_day_facts`' cell 5, which records again;
   4. writes one table's next write, so the difference shows "first written with this logic";
   5. exports the difference from `admin/lineage.ipynb`.
-- The change stays in the example, its Table notebook saying why in a line.
+- The change stays in the example, saying why in a line (built: in the Building block's
+  docstring, where the change is, not the Table notebook's).
 - `lineage_state.csv` and the difference page are committed, regenerated whole on CI, and the
   Example projects page shows the difference page.
 - **A journey** in `tests/journeys/` does the same in a copy, counting its actions.
@@ -34,13 +36,13 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07).
 
 - **`tools/example_project.py`'s `_change_later`**, the last step before `_tidy`, for each
   project `LATER_CHANGES` names (the intermediate one: `events_per_job` and
-  `mart.job_day_facts`), on `CHANGED_TIME`, the day after `PINNED_TIME`:
+  `mart.job_day_facts`), on `CHANGED_TIME`, an hour after `PINNED_TIME` (moved from the day after: see Comments):
   1. copies the Building block's changed source,
      `tools/example_project_sources/intermediate/changed/building_blocks/events_per_job.py`:
      `runs` counts `is_in(job_events.event_type, ["start", "restart"])`, where it counted
      `equals(..., "start")`, and its docstring says why in three lines (a restart, the event
      the scheduler sends from 2026-09-26 on when someone starts a job again by hand; changed the
-     day after, so the difference shows it). The why is in the block, not the Table notebook,
+     hour after the Project was made, so the difference shows it). The why is in the block, not the Table notebook,
      since the block is what changed.
      **A change to the ticket:** a restart, not a retry. Counting the Example database's
      retries changed `runs` on 2026-09-14, so the Example project tests' worked numbers and
@@ -54,11 +56,11 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07).
   4. runs `admin/lineage.ipynb`'s cells by hand, as `_export_scheduled_runs` runs
      `scheduled_runs.ipynb`'s: `record_lineage_state()` ("no change") and
      `export_lineage_difference(since=None, tables=None)`.
-- **What the difference shows**, `admin/lineage/20260926-070000-difference.html` and `.md`:
+- **What the difference shows**, `admin/lineage/20260925-080000-difference.html` and `.md`:
   "3 tables changed, since the recording of 2026-09-25 06:00:09, to the newest, of
-  2026-09-26 06:00:00: 3 columns (1 own, 2 inherited)." `mart.job_day_facts.runs`, own change,
+  2026-09-25 07:00:00: 3 columns (1 own, 2 inherited)." `mart.job_day_facts.runs`, own change,
   "It came with a change to the Building block `events_per_job`", its logic before and after
-  (`= 'start'` to `IN ('start', 'restart')`), first written with this logic 2026-09-26 07:00:00;
+  (`= 'start'` to `IN ('start', 'restart')`), first written with this logic 2026-09-25 08:00:00;
   `mart.team_days.runs`, inherited, `mart.team_days.runs` ← `mart.job_day_facts.runs`; and the
   Scheduled run's `weekly_team.week_totals.runs`, inherited through `mart.team_days.runs`. The
   Example projects page shows the page, since `toolbox_registry.lineage_pages` globs
@@ -98,3 +100,8 @@ Built 2026-11-17, from dev's 16ac7719 (tickets 01 to 07).
 09:00 and copies the intermediate project as it ends, so a history running past that time put
 how-to 32's own recording before the Example's write. The difference is now
 `admin/lineage/20260925-080000-difference.html` and `.md`.
+
+**Code review, 2026-11-17**, of tickets 08 and 09 together (81297f79..ba220b6f), its two axes
+on Sonnet, round toolbox-8-8-08-09 in the ledger. Fixed after: the Done when names the restart
+and where the why is written, as built; the Answer's "the day after" and
+`20260926-070000-difference` read as the move above says, 07:00 and `20260925-080000`.

@@ -7660,7 +7660,8 @@ def record_lineage_state() -> ProjectReport:
     as removed.
 
     It reads only the Project's files: each Statement is built with each Run value standing
-    in for its value, never called, so it needs no connect(...) and sends nothing. It writes
+    in for its value, never called, so it needs no connect(...) and never reaches the
+    warehouse. It writes
     only admin/lineage/lineage_state.csv, and logs itself in the Admin log. Open the file in
     Excel, or read it with pandas.read_csv, to look at what changed and when.
     """
@@ -7717,11 +7718,11 @@ def export_lineage_difference(since: str | None = None,
 
     It works out every table's logic, as project.record_lineage_state() does, only to name
     each table or Scheduled run that isn't recorded now, with why; it needs no connect(...)
-    and sends nothing. A time before the first recording starts from the first recording,
-    and the page says so: a table made since then shows as added, its columns' later changes
-    within that, so give a time after the tables you ask about were made. A commit no
-    recording was made at, or a table the state holds nothing of, is refused, naming the
-    nearest. It logs itself in the Admin log.
+    and never reaches the warehouse. A time before the first recording starts from the first
+    recording, and the page says so: a table made since then shows as added, its columns'
+    later changes within that, so give a time after the tables you ask about were made. A
+    commit no recording was made at, or a table the state holds nothing of, is refused,
+    naming the nearest. It logs itself in the Admin log.
     """
     frame = callers_frame()
     call = "project.export_lineage_difference()"

@@ -40,7 +40,8 @@ TABLE_KINDS = {OWN: "own-change", INHERITED: "inherited-change"}
 # Each change in the words the pages use.
 CHANGE_WORDS = {OWN: "own change", OPAQUE: "own change, opaque", RETYPED: "retyped",
                 ADDED: "added", REMOVED: "removed", INHERITED: "inherited change"}
-# Each change counted in the counts line, as a recording's report counts them: "1 own".
+# Each change counted in the counts line, as a recording's report counts them: "1 own",
+# CHANGE_WORDS's short form, each key the same.
 COUNT_WORDS = {OWN: "own", OPAQUE: "opaque", RETYPED: "retyped", ADDED: "added",
                REMOVED: "removed", INHERITED: "inherited"}
 # The building_block: a Building block's cause starts with, in an own change's because.
@@ -216,7 +217,7 @@ def _compared_from_a_commit(rows: list[dict[str, str]], commit: str, call: str) 
         nearest = f"The nearest a recording was made at is {close[0]}."
     elif commits:
         nearest = f"Recordings were made at {in_words(commits)}."
-    if commit.isdigit():
+    if commit.isdigit() and len(commit) == 8:
         nearest += (" If you meant a day, write it with dashes, such as "
                     f"\"{commit[:4]}-{commit[4:6]}-{commit[6:8]}\".")
     refuse(what=f"{call}: no recording of the Lineage state was made at commit {commit}.",
@@ -502,9 +503,11 @@ KIND_WORDS = {SAVED_TABLE: "Saved table", SCHEDULED_RUN: "a Scheduled run's Stat
 
 def counts_line(found: Difference) -> str:
     """How much changed, in one sentence: the tables, then the columns by change."""
-    if found.end is None:
+    if found.end is None and found.start is not None:
         return (f"Nothing to compare yet: the recording {found.since} starts from, of "
-                f"{found.start}, is the newest. Record again "
+                f"{found.start}, is the newest. Record again once something has changed.")
+    if found.end is None:
+        return (f"Nothing to compare yet: no recording was made {found.since}. Record again "
                 "once something has changed.")
     if not found.tables and not found.toolbox:
         return f"No column changed, {found.since}."

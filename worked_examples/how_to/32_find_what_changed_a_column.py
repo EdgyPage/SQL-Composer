@@ -20,7 +20,7 @@ your table was next written.
 - If you changed a table, a Table reference or a Building block by hand, record the Lineage
   state, as step 3 does, or `project.check()` says it is behind.
 - If you want to know when the new numbers reached your table, read its "First written" line,
-  as step 5 shows: it comes from admin/sent.csv, which keeps each write your notebooks send.
+  as step 5 shows: it comes from admin/sent.csv, which keeps each write your notebooks run.
 - If you want the state itself, to filter in Excel or pandas, open
   admin/lineage/lineage_state.csv: one row per change, never rewritten.
 
@@ -127,8 +127,8 @@ Lineage state: 3 columns changed (1 own, 2 inherited): project.export_lineage_di
 
 One Own change, mart.job_day_facts.minutes, whose own logic now holds 'retry', and two
 Inherited changes, mart.team_days.minutes and the weekly_team run's minutes, whose own logic is
-the same. Recording needs no `connect(...)` and sends nothing: each Run value stands in for its
-value, never called.
+the same. Recording needs no `connect(...)` and never reaches the warehouse: each Run value
+stands in for its value, never called.
 
 Done when the line counts the changes, and `project.check()` no longer says the Lineage state
 is behind. Then step 4.
@@ -208,7 +208,7 @@ leaves the Lineage state behind, and the next difference would date the change l
 
 A Scheduled run records nothing when it runs, since recording is work each run need not do.
 Each Project action that changes a table or Table reference, and each Table notebook's cell 5,
-records; a run only builds and sends.
+records; a run only builds its Statements and runs them.
 
 ### Expecting a new day's value to show as a change
 
