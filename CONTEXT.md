@@ -450,6 +450,42 @@ drawn red: table by table, with no columns. Written by hand, by
 `project.export_project_lineage()` into `admin/lineage/`, never by a Scheduled run (2026-11-09).
 _Avoid_: dependency graph, DAG, data map
 
+**Effective logic**:
+What a column of a Saved table or of a Scheduled run's SELECT really holds: its own logic and
+the rows that count for it, with each Saved table's column it reads replaced by that column's
+Effective logic, all the way down to the tables the Project doesn't write. Its own Statement
+may stay the same while its Effective logic changes, when something it reads changes. A Run
+value counts as its function and what it was given, never the value it gave, and an Unchecked
+statement, Unchecked derived table or Python step counts as a whole (2026-11-17).
+_Avoid_: full lineage, resolved logic, deep lineage
+
+**Lineage state**:
+The Project's record of each column's own logic and Effective logic, each Table reference's
+columns and types among them, to which a row is added each time one changes, saying when, at
+which commit and from which call. Recorded by the Project actions that change a table or
+Table reference, a Table notebook's Hive export, an Upgrade, or by hand, never by a Scheduled
+run, and never reaching the warehouse. It is a record, not a drawing: neither a Statement's
+Lineage nor the Project lineage (2026-11-17).
+_Avoid_: snapshot, lineage table, lineage history
+
+**Lineage difference**:
+What changed in the Lineage state between two points, by table and column: each Own change and
+Inherited change, with the chain from each inherited one down to the change it comes from,
+and when each changed table was next written. A change only the Toolbox's new way of writing
+Hive made, recorded by an Upgrade, is shown apart, never as an Own change (2026-11-17).
+_Avoid_: diff, diff file, changelog
+
+**Own change**:
+A change to a column's own logic, or the rows that count for it, in its own Statement, or to a
+Table reference's column: added, removed or retyped. A change to a Building block the
+Statement uses is an Own change of each column it changes, named as coming from that block.
+_Avoid_: direct change
+
+**Inherited change**:
+A change to a column's Effective logic while its own logic stayed the same, because a column
+it reads, at some table up the chain, had an Own change.
+_Avoid_: induced change, indirect change, side effect
+
 **Partition**:
 A slice of a table: the rows that share one value of each column the table is partitioned by.
 Each table has its own partition columns, of any kind - a date, a region, a load - or none, and

@@ -73,7 +73,11 @@ lineage pages built from one page module, in bold colours, with a side panel; a 
 overview page; the schedule Workflow; Hivevars with defaults; Copilot file 19, the Metric
 request; and the Example database out of the library, to dev only, its examples read as pages
 in main's `docs/`) is charted through `.scratch/toolbox-8-7/map.md`; read its Notes before
-working one of its tickets. The evaluation system (dev-only, no version: the testing pipelines on
+working one of its tickets. Toolbox 8.8 (Effective logic, the Lineage state a Project records
+in `admin/lineage/lineage_state.csv` each time a table or Table reference changes, and the
+Lineage difference, which shows each Own and Inherited change and when it reached the data) is
+charted through `.scratch/toolbox-8-8/map.md`; read its Notes before working one of its
+tickets. The evaluation system (dev-only, no version: the testing pipelines on
 one module, `tools/eval_runs.py`, rounds run by script, a local token ledger and cost report,
 sources tied to doc ids, records kept out of git in `.eval-local/`, and the history scrubbed of
 local paths) is charted through `.scratch/eval-system/map.md`; read its Notes before working one
