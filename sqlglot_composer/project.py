@@ -22,6 +22,7 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
+    │   ├── lineage.ipynb    record the Lineage state by hand, and write what changed in it
     │   ├── lineage/         the Project's lineage, which export_project_lineage writes;
     │   │                    lineage_state.csv, which record_lineage_state adds to; and what
     │   │                    changed in it, which export_lineage_difference writes
@@ -69,7 +70,8 @@ table, what reads it and which Scheduled runs write it, export_run_lineage and e
 write one run's lineage and its built Hive into its folder, and describe_logic lists a table's
 logic functions, to paste into Copilot. record_lineage_state adds to
 admin/lineage/lineage_state.csv a row for each column whose logic, or Effective logic, changed
-since it last ran, and export_lineage_difference writes what changed in it as a page.
+since it last ran, and export_lineage_difference writes what changed in it as a page, both
+run by hand from admin/lineage.ipynb.
 upgrade carries the Project's files
 to a newer Toolbox you copied in, marking with `# UPGRADE` what it leaves you to change.
 scan_hive reads Hive someone else wrote and says what a Conversion would make; convert makes
@@ -501,6 +503,30 @@ ADMIN_NOTEBOOKS = {
         ["project.check()",
          "project.do_next()  # runs the next steps it can of each Workflow you have started",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
+    ),
+    "lineage": (
+        "# The Lineage state and the Lineage difference\n\n"
+        "`lineage/lineage_state.csv`, the Lineage state, records what each column of your "
+        "Project holds: its own logic and the rows that count for it, and its Effective logic, "
+        "the same traced through every Saved table it reads, down to the tables the Project "
+        "doesn't write. A row is added each time one changes, saying when, at which commit and "
+        "from which call. Each Project action that changes a table or a Table reference "
+        "records it already, and so does each Table notebook's cell 5, `export_hive()`: run "
+        "the first cell below after a change made any other way, such as a Table reference "
+        "edited by hand. `project.check()` says when the state is behind.\n\n"
+        "The second cell writes the Lineage difference, `lineage/<time>-difference.html` and "
+        "its Markdown twin: each column with an Own change, its own logic changed, and each "
+        "with an Inherited change, its own logic the same but something it reads, up its "
+        "chain, changed, with that chain down to the change it comes from, and when "
+        "`sent.csv` shows each changed table was next written. `SINCE` takes a time, such as "
+        '`"2026-11-20"`, or a commit, such as `"1a2b3c4"`: left `None`, it compares the newest '
+        'recording with the one before. `TABLES` takes a table\'s name, such as '
+        '`"mart.team_days"`, or a list of them, to show only those and the chains that reach '
+        "them. Neither cell reaches the warehouse, so this notebook needs no `connect(...)`.",
+        ["project.record_lineage_state()  # after a change no Project action or cell 5 made",
+         "SINCE = None  # a time or a commit, such as \"2026-11-20\"; None: the last change\n"
+         "TABLES = None  # a table's name or a list, such as \"mart.team_days\"; None: all\n"
+         "project.export_lineage_difference(since=SINCE, tables=TABLES)"],
     ),
     "check_references": (
         "# Check the Table references\n\nCompares every Table reference in `references/` "
@@ -2037,6 +2063,10 @@ def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
     if not lineage_state.read_rows(root):
         if not (root / LINEAGE_NOTEBOOK).is_file() or not any(
                 registry.in_force(kind) for kind in (TABLE_FOLDER, SCHEDULED_RUN, REFERENCE)):
+            return []
+        # A table whose logic holds a <...> still, as new_table writes it, has no column to
+        # record: asking for a recording that would find none would ask again each time.
+        if not effective_logic.project_logic(root).columns:
             return []
         return [f"No Lineage state yet: record the first with {record_cell}."]
     logic = effective_logic.project_logic(root)
