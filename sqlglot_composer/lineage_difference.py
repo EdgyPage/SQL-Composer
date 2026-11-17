@@ -21,10 +21,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import html_page, project_lineage, unchecked
-from .effective_logic import REFERENCE, SAVED_TABLE, SCHEDULED_RUN, WHOLE_TABLE
+from .effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN, WHOLE_TABLE, column_key,
+                              each_column)
 from .lineage import shortened
-from .lineage_state import (ADDED, BLOCK, INHERITED, OPAQUE, OWN, REMOVED, RETYPED, STATE_FILE,
-                            TOOLBOX, columns_at, read_rows)
+from .lineage_state import (ADDED, BLOCK, INHERITED, OPAQUE, OWN, REMOVED, RETYPED,
+                            ROOT_CHANGES, STATE_FILE, TOOLBOX, columns_at, read_rows)
 from .refusals import refuse
 from .shared import counted, in_words, items_of
 from .unchecked import SENT
@@ -33,8 +34,9 @@ from .unchecked import SENT
 TIMES_GIVEN = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d")
 # A commit, as git shows it, short or whole.
 COMMIT = re.compile(r"[0-9a-f]{4,40}")
-# The changes made at a column itself, as against one it inherits from up its chain.
-CHANGES_AT_THE_COLUMN = (OWN, OPAQUE, RETYPED, ADDED, REMOVED)
+# What changed of a table, in the words the pages use, and the kind its box is drawn as.
+TABLE_WORDS = {OWN: "own change", INHERITED: "inherited change only"}
+TABLE_KINDS = {OWN: "own-change", INHERITED: "inherited-change"}
 # Each change in the words the pages use.
 CHANGE_WORDS = {OWN: "own change", OPAQUE: "own change, opaque", RETYPED: "retyped",
                 ADDED: "added", REMOVED: "removed", INHERITED: "inherited change"}
@@ -313,23 +315,10 @@ def _chain(name: str, root: str, state: dict[tuple[str, str], dict[str, str]]
 def _reads_of(state: dict[tuple[str, str], dict[str, str]], name: str) -> list[str]:
     """The columns the column `name` reads, as the state holds it, a whole-table read given
     as every column of its table."""
-    row = state.get(_key_of(name))
+    row = state.get(column_key(name))
     if row is None:
         return []
-    reads = []
-    for read in filter(None, row["reads"].split(";")):
-        table, column = read.rsplit(".", 1)
-        if column == WHOLE_TABLE:
-            reads += sorted(".".join(key) for key in state if key[0] == table)
-        else:
-            reads.append(read)
-    return reads
-
-
-def _key_of(name: str) -> tuple[str, str]:
-    """A column's key in the state, (table, column), from its <db>.<table>.<column> name."""
-    table, column = name.rsplit(".", 1)
-    return (table, column)
+    return each_column(filter(None, row["reads"].split(";")), state)
 
 
 def _tables_drawn(base: dict[tuple[str, str], dict[str, str]],
@@ -369,7 +358,7 @@ def _tables_shown(names: list[object], changed: list[ChangedColumn], kinds: dict
     for column in changed:
         if column.table in shown:
             for chain in column.chains:
-                shown.update(_key_of(link)[0] for link in chain)
+                shown.update(column_key(link)[0] for link in chain)
     return shown
 
 
@@ -383,7 +372,7 @@ def _changed_tables(changed: list[ChangedColumn], kinds: dict[str, str],
     found = []
     for table, columns in by_table.items():
         change = INHERITED
-        if any(column.change in CHANGES_AT_THE_COLUMN for column in columns):
+        if any(column.change in ROOT_CHANGES for column in columns):
             change = OWN
         kind = kinds.get(table, SAVED_TABLE)
         written = None
@@ -426,7 +415,7 @@ def effective_logic_text(state: dict[tuple[str, str], dict[str, str]], name: str
     its own logic and the rows that count for it, then each column it reads, written out in
     turn, down to the tables the Project doesn't write; a column met twice is written once.
     "" when the state doesn't hold it."""
-    if _key_of(name) not in state:
+    if column_key(name) not in state:
         return ""
     return "\n".join(_tree_lines(state, name, "", "", set()))
 
@@ -435,7 +424,7 @@ def _tree_lines(state: dict[tuple[str, str], dict[str, str]], name: str, first: 
                 seen: set[str]) -> list[str]:
     """The lines of the column `name` and what it reads: its first line after `first`, each
     line under it after `rest`, the tree's branches."""
-    row = state.get(_key_of(name))
+    row = state.get(column_key(name))
     if name.endswith(f".{WHOLE_TABLE}"):
         return [f"{first}{name}  (every column of {name[:-2]}: an Unchecked step names only "
                 "its tables)"]
@@ -549,9 +538,7 @@ def part_key(table: str) -> str:
 def _changed_table_part(table: ChangedTable) -> html_page.Part:
     """A changed table's section: what changed of it, when it was next written, and a section
     for each changed column."""
-    words = "own change"
-    if table.change == INHERITED:
-        words = "inherited change only"
+    words = TABLE_WORDS[table.change]
     written = "A table the Project doesn't write."
     if table.kind == SCHEDULED_RUN:
         written = ("A Scheduled run's Statement: the run sends it as it is now the next time "
@@ -727,7 +714,7 @@ def _changed_box_lines(found: Difference, table: str, changed: dict[str, Changed
     if table not in changed:
         return [*lines, "unchanged"]
     columns = changed[table].columns
-    words = "own change" if changed[table].change == OWN else "inherited change only"
+    words = TABLE_WORDS[changed[table].change]
     return [*lines, f"{words}: {counted(len(columns), 'column')}"]
 
 
@@ -735,7 +722,7 @@ def _box_class(table: str, changed: dict[str, ChangedTable]) -> str:
     """The kind a table's box is drawn as, as html_page.KINDS names it."""
     if table not in changed:
         return "unchanged"
-    return "own-change" if changed[table].change == OWN else "inherited-change"
+    return TABLE_KINDS[changed[table].change]
 
 
 def _difference_drawing(found: Difference, changed: dict[str, ChangedTable]

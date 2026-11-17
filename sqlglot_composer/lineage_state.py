@@ -21,8 +21,8 @@ import hashlib
 from pathlib import Path
 
 from . import unchecked
-from .effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN, WHOLE_TABLE, ColumnLogic,
-                              ProjectLogic)
+from .effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN, ColumnLogic, ProjectLogic,
+                              column_key, each_column)
 from .lineage import scripts_commit
 from .project_files import BUILDING_BLOCK, REGISTRY, Registry
 from .shared import counted, in_words
@@ -177,11 +177,15 @@ def _block_row(stamp: dict[str, str], name: str, digest: str, change: str) -> di
 def _block_hashes(root: Path) -> dict[str, str]:
     """Each Building block's file hash, by its name, the file's line endings read as one, so
     a checkout on another computer hashes the same."""
+    folder = root / BUILDING_BLOCK.folder
     blocks = {}
-    for path in sorted((root / BUILDING_BLOCK.folder).glob("*.py")):
+    # building_blocks/prod/ holds the prod copy of each one a promoted table uses, named as
+    # blocks_of names it, prod/<name>.
+    for path in sorted(folder.rglob("*.py")):
         if path.name != "__init__.py":
             text = path.read_bytes().replace(b"\r\n", b"\n")
-            blocks[path.stem] = hashlib.sha256(text).hexdigest()[:16]
+            name = path.relative_to(folder).with_suffix("").as_posix()
+            blocks[name] = hashlib.sha256(text).hexdigest()[:16]
     return blocks
 
 
@@ -299,33 +303,19 @@ def _roots(key: tuple[str, str], logic: ProjectLogic, changes: dict[tuple[str, s
     or removal in this recording its inherited change comes from, as <db>.<table>.<column>,
     nearest first."""
     roots, seen = [], set()
-    waiting = _each_column(logic.columns[key].reads, logic, changes)
+    waiting = each_column(logic.columns[key].reads, {*logic.columns, *changes})
     while waiting:
         read = waiting.pop(0)
         if read in seen:
             continue
         seen.add(read)
-        table, column = read.rsplit(".", 1)
+        table, column = column_key(read)
         if changes.get((table, column)) in ROOT_CHANGES:
             roots.append(read)
         if (table, column) in logic.columns:
-            waiting += _each_column(logic.columns[(table, column)].reads, logic, changes)
+            waiting += each_column(logic.columns[(table, column)].reads,
+                                   {*logic.columns, *changes})
     return roots
-
-
-def _each_column(reads: tuple[str, ...], logic: ProjectLogic,
-                 changes: dict[tuple[str, str], str]) -> list[str]:
-    """`reads` with each whole-table read, <db>.<table>.*, which an Unchecked step's text
-    makes, given as every column of that table, those this recording removed among them."""
-    each = []
-    for read in reads:
-        table, column = read.rsplit(".", 1)
-        if column != WHOLE_TABLE:
-            each.append(read)
-            continue
-        each += sorted(f"{table}.{name}" for (of, name) in {*logic.columns, *changes}
-                       if of == table)
-    return each
 
 
 def _as_toolbox(row: dict[str, str]) -> dict[str, str]:

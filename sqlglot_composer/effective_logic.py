@@ -19,6 +19,7 @@ import contextlib
 import hashlib
 import inspect
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -56,6 +57,27 @@ BLOCKS = "building_blocks"
 # How a column read names every column of a table, for an Unchecked statement's text, which
 # names tables, never their columns.
 WHOLE_TABLE = "*"
+
+
+def column_key(name: str) -> tuple[str, str]:
+    """A column's (table, column), from its name as `reads` writes it, <db>.<table>.<column>,
+    or <run>.<result>.<column> for a Scheduled run's Statement."""
+    table, column = name.rsplit(".", 1)
+    return table, column
+
+
+def each_column(reads: Iterable[str], keys: Iterable[tuple[str, str]]) -> list[str]:
+    """`reads`, each a column's name, with each whole-table read, <db>.<table>.*, which an
+    Unchecked step's text makes, given as every column of that table `keys` hold, in order."""
+    known = sorted(set(keys))
+    each = []
+    for read in reads:
+        table, column = column_key(read)
+        if column != WHOLE_TABLE:
+            each.append(read)
+            continue
+        each += [f"{table}.{name}" for of, name in known if of == table]
+    return each
 
 
 @dataclass(frozen=True)

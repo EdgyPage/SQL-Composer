@@ -251,6 +251,21 @@ def test_an_own_change_with_its_building_block_names_the_block(root: Path) -> No
     assert lines[-1] == "Building blocks changed: owner_on_day."
 
 
+def test_a_prod_copys_own_change_names_its_prod_building_block(root: Path) -> None:
+    # A promoted table's prod copy imports building_blocks/prod/<name>.py, as blocks_of names.
+    (root / "building_blocks" / "prod").mkdir()
+    block = root / "building_blocks" / "prod" / "owner_on_day.py"
+    block.write_text("def owner_on_day():\n    return 1\n", encoding="utf-8")
+    uses = {"prod.t": ("prod/owner_on_day",)}
+    record(root, logic_of(column("prod.t", "a", own="a-1")), "first")
+    block.write_text("def owner_on_day():\n    return 2\n", encoding="utf-8")
+    record(root, logic_of(column("prod.t", "a", own="a-2"), blocks_of=uses), "second")
+
+    found = {row["table"]: row for row in rows_of(root, "2026-11-20 06:01:00")}
+    assert found["prod.t"]["because"] == "building_block:prod/owner_on_day"
+    assert found["prod/owner_on_day"]["change"] == "own"
+
+
 def test_a_building_blocks_hash_reads_line_endings_as_one(root: Path) -> None:
     block = root / "building_blocks" / "b.py"
     block.write_bytes(b"x = 1\n")

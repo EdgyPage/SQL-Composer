@@ -741,8 +741,7 @@ def new_table(name: str | list[str], template: str = "saved_table",
     more = _template_shown(template) + (", queries=..." if queries else "")
     report = _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
                                 queries, more=more)
-    call = f"project.new_table({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return _report_once_recorded(report, "new_table", name)
 
 
 def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> None:
@@ -997,8 +996,7 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     frame = callers_frame()
 
     report = _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
-    call = f"project.remove_table({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return _report_once_recorded(report, "remove_table", name)
 
 
 def _remove_table_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1285,8 +1283,7 @@ def new_scheduled_run(name: str | list[str]) -> ProjectReport:
 
     report = _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
                                 frame)
-    call = f"project.new_scheduled_run({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return _report_once_recorded(report, "new_scheduled_run", name)
 
 
 def _new_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1374,8 +1371,7 @@ def remove_scheduled_run(name: str | list[str]) -> ProjectReport:
 
     report = _run_for_each_name(name, "project.remove_scheduled_run",
                                 _remove_scheduled_run_one, frame)
-    call = f"project.remove_scheduled_run({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return _report_once_recorded(report, "remove_scheduled_run", name)
 
 
 def _remove_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1740,7 +1736,7 @@ def add_references(names: str | list[str],
     changed, databases = _write_databases(root)
     _log(root, call, [str(name) for name in names],
          [f"created {file}" for file in files] + changed, frame, skipped, result)
-    recorded = _recorded(ProjectReport([]), root, call).lines
+    recorded = _unrecorded_lines(root, call)
     if skipped:
         _refuse_skipped_tables(skipped, files, len(names))
     if len(files) > 1:
@@ -1900,8 +1896,7 @@ def register(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
     report = _run_for_each_name(name, "project.register", _register_one, frame)
-    call = f"project.register({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return _report_once_recorded(report, "register", name)
 
 
 def _register_one(name: str, frame: FrameType) -> ProjectReport:
@@ -3296,7 +3291,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
                            files, dev)
     # After its first line, which says what it converted: each staging table, and its choice.
     report[1:1] = _staging_lines(staging_found, folded, unfoldable)
-    return _recorded(ProjectReport(report), root, call)
+    return ProjectReport([*report, *_unrecorded_lines(root, call)])
 
 
 def _staging_lines(found: dict[str, str], folded: list[str],
@@ -5634,7 +5629,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
     lines.append(_promote_next_line(root, list(names.values())))
-    return _recorded(ProjectReport(lines), root, call)
+    return ProjectReport([*lines, *_unrecorded_lines(root, call)])
 
 
 def _promote_next_line(root: Path, prods: list[str]) -> str:
@@ -6497,7 +6492,7 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     call = "project.refresh_reference_sheet()"
     if name is not None:
         call = f"project.refresh_reference_sheet({_names_as_written(name)})"
-    return _recorded(report, _project_root(call), call)
+    return ProjectReport([*report.lines, *_unrecorded_lines(_project_root(call), call)])
 
 
 def _refresh_reference_sheet_one(name: str | None) -> ProjectReport:
@@ -7735,12 +7730,21 @@ def record_after_a_change(root: Path, recorded_by: str) -> list[str]:
                 "it with project.record_lineage_state(), in admin/lineage.ipynb."]
 
 
-def _recorded(report: ProjectReport, root: Path, recorded_by: str) -> ProjectReport:
-    """`report`, a Project action's, once the Lineage state is recorded at its end: as it was,
-    or with a line saying the recording failed."""
-    failed = [line for line in record_after_a_change(root, recorded_by)
-              if line.startswith(NOT_RECORDED)]
-    return ProjectReport([*report.lines, *failed])
+def _unrecorded_lines(root: Path, recorded_by: str) -> list[str]:
+    """The line a Project action adds when the recording of the Lineage state at its end, as
+    `recorded_by`, failed, in a list; none when it worked, since a recording that works adds
+    nothing to what an action prints."""
+    return [line for line in record_after_a_change(root, recorded_by)
+            if line.startswith(NOT_RECORDED)]
+
+
+def _report_once_recorded(report: ProjectReport, action: str, name: str | list[str]
+                          ) -> ProjectReport:
+    """`report`, the Project action `action`'s on `name`, once the Lineage state is recorded
+    at its end, as project.<action>(<name>): as it was, or with the line saying the recording
+    failed."""
+    call = f"project.{action}({_names_as_written(name)})"
+    return ProjectReport([*report.lines, *_unrecorded_lines(_project_root(call), call)])
 
 
 # --- export_run_lineage and export_run_hive ---------------------------------------------------
