@@ -13,10 +13,11 @@ import csv
 import datetime
 import shutil
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import ROOT, toolbox_module
+from conftest import ROOT, forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import project
 from sqlglot_composer.effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN,
@@ -335,7 +336,7 @@ def test_a_whole_table_read_names_each_column_it_could_come_from(root: Path) -> 
 
 
 @pytest.fixture
-def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """A copy of the Intermediate Example project, its clock a minute on at each reading."""
     shutil.copytree(ROOT / "example_projects" / "intermediate", tmp_path, dirs_exist_ok=True)
     for name in [name for name in sys.modules
@@ -344,7 +345,8 @@ def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     times = iter(FIRST_TIME + datetime.timedelta(minutes=n) for n in range(1000))
     monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: next(times))
     monkeypatch.chdir(tmp_path / "admin")
-    return tmp_path
+    yield tmp_path
+    forget_the_projects_modules()  # what the copy imported, so the next test imports its own
 
 
 def test_a_building_block_changed_in_the_example_project_is_recorded_end_to_end(
