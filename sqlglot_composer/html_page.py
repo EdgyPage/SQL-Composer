@@ -7,7 +7,8 @@ keeps.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: export_lineage
 and project.export_run_lineage build their page with lineage.py, and
-project.export_project_lineage with project_lineage.py, each from here. The Workflows overview
+project.export_project_lineage with project_lineage.py, and project.export_lineage_difference
+with lineage_difference.py, each from here. The Workflows overview
 and the Example projects page, in the download's docs folder, are built from here too, by tools
 on dev (tickets 07 and 13).
 
@@ -80,6 +81,12 @@ COLOURS: dict[str, str] = {
     "workflow-edge": "#000",
     "excel": "#009e73",  # bluish green: the Excel path
     "excel-edge": "#000",
+    # The Lineage difference's page (Toolbox 8.8, ticket 06): Okabe–Ito's orange and sky blue,
+    # the pair told apart best with colour blindness, and a plain box for what didn't change,
+    # drawn faded.
+    "own-change": "#e69f00",  # orange: a column of it changed at the table itself
+    "inherited-change": "#56b4e9",  # sky blue: only something it reads changed
+    "unchanged": "#fff",
 }
 
 
@@ -111,6 +118,10 @@ KINDS: dict[str, Kind] = {
     # The Workflows overview: a box for each Workflow, and one for the Excel path
     "workflow": Kind("workflow", "workflow-edge"),
     "excel": Kind("excel", "excel-edge"),
+    # The Lineage difference: a table of each, by what changed of it
+    "own-change": Kind("own-change"),
+    "inherited-change": Kind("inherited-change"),
+    "unchanged": Kind("unchanged"),
 }
 
 # The CSS every page starts with, after its tokens.

@@ -43,7 +43,8 @@ _LAST_CELLS = '''
 export_lineage(write())
 
 # %%
-# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved
+# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved, then the
+#    Project's Lineage state recorded: run it after each change to the logic
 export_hive()
 
 # %%

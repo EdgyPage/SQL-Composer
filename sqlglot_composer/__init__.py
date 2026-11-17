@@ -20,9 +20,9 @@ full text, which also says when this copy was exported. Both are read from the f
 version.txt, the one place the version is written.
 
 >>> TOOLBOX_VERSION
-'8.7'
+'8.8'
 >>> VERSION
-'sqlglot Composer 8.7, ...'
+'sqlglot Composer 8.8, ...'
 """  # noqa: E501 - the import line is one line, to copy as it is
 
 from __future__ import annotations

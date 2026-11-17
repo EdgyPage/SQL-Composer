@@ -1,9 +1,9 @@
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.7)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through a job on their own Project with sqlglot Composer 8.7, each step a
+Objective: take the user through a job on their own Project with sqlglot Composer 8.8, each step a
 cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
 change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
@@ -153,6 +153,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
    warehouse, yours to run).
 
        run_execute(change, execute)
+       project.record_lineage_state()
 
 
 ## Worked patterns

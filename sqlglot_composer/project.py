@@ -22,7 +22,10 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
-    │   ├── lineage/         the Project's lineage, which export_project_lineage writes
+    │   ├── lineage.ipynb    record the Lineage state by hand, and write what changed in it
+    │   ├── lineage/         the Project's lineage, which export_project_lineage writes;
+    │   │                    lineage_state.csv, which record_lineage_state adds to; and what
+    │   │                    changed in it, which export_lineage_difference writes
     │   ├── templates/       the Templates new_table, new_block and new_scheduled_run make
     │   │                    files from: yours to edit
     │   └── removed/         what remove_table, remove_reference, remove_block,
@@ -65,7 +68,11 @@ Statements it names with the writes of each table they read, in that order, and 
 Hive; export_project_lineage, run by hand from admin/scheduled_runs.ipynb, draws every Saved
 table, what reads it and which Scheduled runs write it, export_run_lineage and export_run_hive
 write one run's lineage and its built Hive into its folder, and describe_logic lists a table's
-logic functions, to paste into Copilot. upgrade carries the Project's files
+logic functions, to paste into Copilot. record_lineage_state adds to
+admin/lineage/lineage_state.csv a row for each column whose logic, or Effective logic, changed
+since it last ran, and export_lineage_difference writes what changed in it as a page, both
+run by hand from admin/lineage.ipynb.
+upgrade carries the Project's files
 to a newer Toolbox you copied in, marking with `# UPGRADE` what it leaves you to change.
 scan_hive reads Hive someone else wrote and says what a Conversion would make; convert makes
 each table the Hive writes a Saved table in your Dev Database, its Table folder and Table
@@ -88,15 +95,15 @@ send nothing, and read the warehouse only through a Run value's function that re
 as a table's latest Partition, worked out as they build each write, through the connection of
 the notebook they run in; the rest never touch the warehouse. start, new_table, new_block,
 new_run_value, new_scheduled_run, remove_table, remove_reference, remove_block,
-remove_scheduled_run, register, add_references and upgrade, the Project actions, each add an
-entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
-Project. The rest add no entry of their own: check and load
-change no file, nor does describe_logic; export_project_lineage writes only its two files
-in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
-export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
-Hivevar; refresh_reference_sheet writes the Reference sheet and the Database modules, and no
-other file; run_tables writes only your tables in the warehouse, though an Admin or
-Unchecked statement it sends is logged, as run_execute logs one anywhere.
+remove_scheduled_run, register, add_references, upgrade, record_lineage_state and
+export_lineage_difference, the Project actions, each add an entry to admin/admin_log.md, the
+log that also keeps every Admin statement run inside the Project. The rest add no entry of
+their own: check and load change no file, nor does describe_logic; export_project_lineage
+writes only its two files in admin/lineage/, export_run_lineage only its two in the run's
+lineage/, and export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's
+Hive holds a Hivevar; refresh_reference_sheet writes the Reference sheet and the Database
+modules, and no other file; run_tables writes only your tables in the warehouse, though an
+Admin or Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -186,12 +193,16 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
            "reference_from_logic", "new_run_value", "new_scheduled_run",
            "remove_scheduled_run", "build_run", "export_project_lineage",
-           "export_run_lineage", "export_run_hive", "describe_logic"]
+           "export_run_lineage", "export_run_hive", "describe_logic",
+           "record_lineage_state", "export_lineage_difference"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
 FOLDERS = ("admin", "references", "building_blocks", "tables", "scheduled_runs")
 WAREHOUSE = "warehouse.py"
+# The admin notebook that records the Lineage state by hand and exports its difference
+# (Toolbox 8.8, ticket 07): check() asks for a first recording only where it is there.
+LINEAGE_NOTEBOOK = Path("admin") / "lineage.ipynb"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
 # A converted table's checklist.md's heading, before the table's name.
@@ -493,14 +504,41 @@ ADMIN_NOTEBOOKS = {
          "project.do_next()  # runs the next steps it can of each Workflow you have started",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
     ),
+    "lineage": (
+        "# The Lineage state and the Lineage difference\n\n"
+        "`admin/lineage/lineage_state.csv`, the Lineage state, records the logic of each "
+        "column of your Project: its own logic and the rows that count for it, and its "
+        "Effective logic, the same traced through every Saved table it reads, down to the "
+        "tables the Project doesn't write. A row is added each time one changes, saying when, "
+        "at which commit and from which call. Each Project action that changes a table or a "
+        "Table reference records it already, and so does each Table notebook's cell 5, "
+        "`export_hive()`: run the record cell below, `project.record_lineage_state()`, after a "
+        "change made any other way, such as a Table reference edited by hand. "
+        "`project.check()` says when the state is behind.\n\n"
+        "The difference cell after it writes the Lineage difference, "
+        "`admin/lineage/<time>-difference.html`, and its Markdown twin: each column with an "
+        "Own change, its own logic changed, and each with an Inherited change, its own logic "
+        "the same but something it reads, up its chain, changed, with that chain down to the "
+        "change it comes from, and when `admin/sent.csv` shows each changed table was next "
+        "written. `SINCE` takes a time, such as `\"2026-11-20\"`, or a commit, such as "
+        "`\"1a2b3c4\"`: left `None`, it compares the newest recording with the one before. "
+        "`TABLES` takes a table's name, such as `\"mart.team_days\"`, or a list of them, to "
+        "show only those and the chains that reach them. Neither cell reaches the warehouse, "
+        "so this notebook needs no `connect(...)`.",
+        ["project.record_lineage_state()  # after a change no Project action or cell 5 made",
+         "SINCE = None  # a time or a commit, such as \"2026-11-20\"; None: the one before\n"
+         "TABLES = None  # a table's name or a list, such as \"mart.team_days\"; None: all\n"
+         "project.export_lineage_difference(since=SINCE, tables=TABLES)"],
+    ),
     "check_references": (
         "# Check the Table references\n\nCompares every Table reference in `references/` "
         "with its table in the warehouse, through your query, and prints what differs, with "
         "the line to change. Then it checks the Key of each table that has one: that no two "
         "rows share it. It changes nothing in the warehouse; its first cell refreshes the "
         "Reference sheet, so it writes `references/reference_sheet.csv` and the Database "
-        "modules again, and no other file. A Saved table you haven't created yet reports "
-        "that DESCRIBE failed, as each of the Example projects' does: that is expected. It "
+        "modules again and records the Project's Lineage state, and no other file. A Saved "
+        "table you haven't created yet reports that DESCRIBE failed, as each of the Example "
+        "projects' does: that is expected. It "
         "reads each table from the Reference sheet: its columns, "
         "their types, its partition columns and its Key. A partitioned table's Key is checked "
         "on its latest Partition, the last SHOW PARTITIONS lists, since checking every one "
@@ -729,8 +767,9 @@ def new_table(name: str | list[str], template: str = "saved_table",
     queries = queries or {}
     _refuse_queries_it_cant_make(name, queries)
     more = _template_shown(template) + (", queries=..." if queries else "")
-    return _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
-                              queries, more=more)
+    report = _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
+                                queries, more=more)
+    return _report_once_recorded(report, "new_table", name)
 
 
 def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> None:
@@ -984,7 +1023,8 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
+    report = _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
+    return _report_once_recorded(report, "remove_table", name)
 
 
 def _remove_table_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1269,8 +1309,9 @@ def new_scheduled_run(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
-                              frame)
+    report = _run_for_each_name(name, "project.new_scheduled_run", _new_scheduled_run_one,
+                                frame)
+    return _report_once_recorded(report, "new_scheduled_run", name)
 
 
 def _new_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1356,8 +1397,9 @@ def remove_scheduled_run(name: str | list[str]) -> ProjectReport:
     """
     frame = callers_frame()
 
-    return _run_for_each_name(name, "project.remove_scheduled_run",
-                              _remove_scheduled_run_one, frame)
+    report = _run_for_each_name(name, "project.remove_scheduled_run",
+                                _remove_scheduled_run_one, frame)
+    return _report_once_recorded(report, "remove_scheduled_run", name)
 
 
 def _remove_scheduled_run_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1722,13 +1764,14 @@ def add_references(names: str | list[str],
     changed, databases = _write_databases(root)
     _log(root, call, [str(name) for name in names],
          [f"created {file}" for file in files] + changed, frame, skipped, result)
+    recorded = _unrecorded_lines(root, call)
     if skipped:
         _refuse_skipped_tables(skipped, files, len(names))
     if len(files) > 1:
         wrote = f"Wrote {in_words(files)}: fill in their TODO lines."
     else:
         wrote = f"Wrote {files[0]}: fill in its TODO lines."
-    return ProjectReport([wrote, *proposed, *databases])
+    return ProjectReport([wrote, *proposed, *databases, *recorded])
 
 
 def _write_proposals(root: Path, tables: list[str],
@@ -1865,7 +1908,8 @@ def register(name: str | list[str]) -> ProjectReport:
     >>> project.register("runs_per_job")
     Registered building_blocks/runs_per_job.py.
 
-    check() then stops reporting it.
+    check() then stops reporting it, and the Project's Lineage state is recorded, as a Project
+    action that makes a Table folder or Table reference records it.
 
     Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
     for references/ops__jobs.py, whichever is there and isn't registered yet. Given a name with
@@ -1879,8 +1923,8 @@ def register(name: str | list[str]) -> ProjectReport:
     how to run the rest.
     """
     frame = callers_frame()
-
-    return _run_for_each_name(name, "project.register", _register_one, frame)
+    report = _run_for_each_name(name, "project.register", _register_one, frame)
+    return _report_once_recorded(report, "register", name)
 
 
 def _register_one(name: str, frame: FrameType) -> ProjectReport:
@@ -1953,13 +1997,19 @@ def check() -> ProjectReport:
     through the connection of the notebook check() runs in; each Table folder whose logic
     fails, passed over in looking for a loop, with what stops it, a typo Python can't read
     among them, though not one whose logic cell still holds a <...> from its Template, at the
-    line Python stops on; each
-    batch the convert Workflow finished, as done; and last, since they block nothing, each
+    line Python stops on; whether the Lineage state is behind, which the next paragraph says
+    more of;
+    each batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
     each with its file and line. Where a decision step deciding Keys waits on two tables or
     more with a proposed Key, the DECISIONS it prints to paste offers "all_tables": {"key":
     "proposed"}, which accepts each.
+
+    The Lineage state is behind when a column's logic changed since its last recording, as a
+    logic cell edited but not exported with export_hive() leaves it: check() names each table,
+    and records nothing itself. A Project from 8.8 on, which holds admin/lineage.ipynb, is also
+    told when it has no recording yet.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1993,8 +2043,44 @@ def check() -> ProjectReport:
         lines = ["Every Table folder, Table reference, Building block and Scheduled run is "
                  "registered, and each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
-    return ProjectReport([*lines, *_finished_batch_lines(root), *_proposed_line_lines(root),
+    return ProjectReport([*lines, *_lineage_state_lines(root, registry),
+                          *_finished_batch_lines(root), *_proposed_line_lines(root),
                           *_conversion_note_lines(root)])
+
+
+def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
+    """What check() says of the Lineage state: that the Project has none yet, where its
+    notebook, admin/lineage.ipynb, is there and it has a table or run to record, or which
+    tables' columns changed since its last recording, and the cell that records them. It
+    records nothing: a logic cell edited and written, but not exported, leaves the state
+    behind (Toolbox 8.8, ticket 04). A Project with no admin/lineage.ipynb is from before 8.8,
+    which the version check names."""
+    # effective_logic reads this file's Table references, so both are imported here, when
+    # check() runs, as record_lineage_state imports them.
+    from . import effective_logic, lineage_state
+
+    record_cell = f"project.record_lineage_state(), in {LINEAGE_NOTEBOOK.as_posix()}"
+    if not lineage_state.read_rows(root):
+        if not (root / LINEAGE_NOTEBOOK).is_file() or not any(
+                registry.in_force(kind) for kind in (TABLE_FOLDER, SCHEDULED_RUN, REFERENCE)):
+            return []
+        # A table whose logic holds a <...> still, as new_table writes it, has no column to
+        # record: asking for a recording that would find none would ask again each time.
+        if not effective_logic.project_logic(root).columns:
+            return []
+        return [f"No Lineage state yet: record the first with {record_cell}."]
+    logic = effective_logic.project_logic(root)
+    changes = lineage_state.unrecorded_changes(root, logic)
+    if not changes:
+        return []
+    tables = sorted({table for table, _ in changes})
+    columns = singular_or_plural(len(changes), "column's", "columns'")
+    behind = (f"The Lineage state is behind: {len(changes)} {columns} logic differs from its "
+              f"last recording, in {in_words(tables)}.")
+    # Any Table notebook's cell 5 records the whole Project, whatever was changed by hand,
+    # a Table reference among them, so the record cell comes first, cell 5 beside it.
+    return [f"{behind} Record it with {record_cell}; a Table notebook's cell 5, "
+            "export_hive(), records the whole Project too."]
 
 
 def _proposed_line_lines(root: Path) -> list[str]:
@@ -2624,7 +2710,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.7.
+    Upgraded the Project from 7.1 to 8.8.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2635,10 +2721,11 @@ def upgrade() -> ProjectReport:
     8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     8.6: nothing to change by hand. admin/upgrade_8.6.md lists what it did.
     8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
+    8.8: nothing to change by hand. admin/upgrade_8.8.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
-        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md and
-        admin/upgrade_8.7.md.
+        admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md,
+        admin/upgrade_8.7.md and admin/upgrade_8.8.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -3238,7 +3325,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
                            files, dev)
     # After its first line, which says what it converted: each staging table, and its choice.
     report[1:1] = _staging_lines(staging_found, folded, unfoldable)
-    return ProjectReport(report)
+    return ProjectReport([*report, *_unrecorded_lines(root, call)])
 
 
 def _staging_lines(found: dict[str, str], folded: list[str],
@@ -5576,7 +5663,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
     lines.append(_promote_next_line(root, list(names.values())))
-    return ProjectReport(lines)
+    return ProjectReport([*lines, *_unrecorded_lines(root, call)])
 
 
 def _promote_next_line(root: Path, prods: list[str]) -> str:
@@ -6426,13 +6513,20 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     <...> still to fill in, is left out (or, given its name, keeps its rows from before), and
     the report says so. It also writes each Database module again, such as references/ops.py,
     which from references import ops reads, so run it once a Table reference is filled in.
-    It changes no other file, and isn't logged: its exported_at column says when it was
-    written. `name` may be a list of tables' names too, each replaced in turn.
+    Then it records the Project's Lineage state (help(project.record_lineage_state)), as
+    every Project action that changes a table or Table reference does. It changes no other
+    file, and isn't logged: its exported_at column says when it was written. `name` may be a
+    list of tables' names too, each replaced in turn.
     """
     if name is None or isinstance(name, str):
-        return _refresh_reference_sheet_one(name)
-    return _run_for_each_name(name, "project.refresh_reference_sheet",
-                              _refresh_reference_sheet_one)
+        report = _refresh_reference_sheet_one(name)
+    else:
+        report = _run_for_each_name(name, "project.refresh_reference_sheet",
+                                    _refresh_reference_sheet_one)
+    call = "project.refresh_reference_sheet()"
+    if name is not None:
+        call = f"project.refresh_reference_sheet({_names_as_written(name)})"
+    return ProjectReport([*report.lines, *_unrecorded_lines(_project_root(call), call)])
 
 
 def _refresh_reference_sheet_one(name: str | None) -> ProjectReport:
@@ -6536,6 +6630,18 @@ def _table_call(tree: ast.Module) -> tuple[str, ast.Call] | None:
         if isinstance(value, ast.Call) and _function_called(value) == "Table":
             return target, value
     return None
+
+
+def reference_columns(path: Path) -> tuple[str, dict[str, str]] | None:
+    """A Table reference file's table, by its name, and its columns with their types, read
+    without running it, as the Reference sheet reads them: None for a file the sheet leaves
+    out, one that doesn't parse, has no Table(...), or whose columns are still new_table's
+    <COLUMNS>. The Lineage state reads it (Toolbox 8.8, ticket 01)."""
+    read = _read_reference(path)
+    if read is None or not decisions.has_columns_written(path.read_text(encoding="utf-8")):
+        return None
+    values = read[3]
+    return values["name"], {column: kind or "" for column, kind in values["columns"].items()}
 
 
 def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
@@ -7523,6 +7629,164 @@ def export_project_lineage() -> ProjectReport:
     from .project_lineage import write_project_lineage
 
     return ProjectReport(write_project_lineage(root, call))
+
+
+# --- record_lineage_state ---------------------------------------------------------------------
+
+
+def record_lineage_state() -> ProjectReport:
+    """Record the logic of each column of the Project, to find a change to it later.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.record_lineage_state()  # a Project just started: nothing to record yet
+    Lineage state: the first recording, 0 columns of 0 tables, in
+    admin/lineage/lineage_state.csv.
+
+    It works out the Effective logic of every column: each Saved table's write(), each
+    Scheduled run's Statements and each Table reference's columns for a table the Project
+    doesn't write, each column followed through every Saved table it reads. It adds a row to
+    admin/lineage/lineage_state.csv for each column that changed since the last recording,
+    and none for one that didn't, so it may run as often as you like. The first recording
+    writes a row for every column, marked first. After it, a row says what changed: own (its
+    own logic or the rows that count for it), inherited (only something it reads, up its
+    chain, changed, named in its because column), retyped, added, removed, opaque (an
+    Unchecked statement, Unchecked derived table or Python step that writes it), or toolbox
+    (only the Toolbox's new way of writing Hive changed it, which only an Upgrade's recording
+    finds). An own change that came with a change to a Building block its table imports names
+    the block.
+
+    A table whose logic doesn't load, or a Scheduled run with a <...> left, isn't recorded:
+    its rows from before stand, and the report names it, with why. Only a table or run the
+    registry marks removed, as remove_table and remove_scheduled_run mark them, is recorded
+    as removed.
+
+    It reads only the Project's files: each Statement is built with each Run value standing
+    in for its value, never called, so it needs no connect(...) and never reaches the
+    warehouse. It writes
+    only admin/lineage/lineage_state.csv, and logs itself in the Admin log. Open the file in
+    Excel, or read it with pandas.read_csv, to look at what changed and when.
+    """
+    frame = callers_frame()
+    call = "project.record_lineage_state()"
+    root = _project_root(call)
+    # effective_logic reads this file's Table references, so both are imported here, when the
+    # state is recorded, as export_project_lineage imports project_lineage.
+    from . import effective_logic, lineage_state
+
+    lines = lineage_state.record(root, effective_logic.project_logic(root), call)
+    files = [f"added to {lineage_state.STATE_FILE.as_posix()}"]
+    if lines[0] == lineage_state.NO_CHANGE:
+        files = []
+    _log(root, call, [], files, frame)
+    return ProjectReport(lines)
+
+
+def export_lineage_difference(since: str | None = None,
+                              tables: str | list[str] | None = None) -> ProjectReport:
+    """Write what changed in the Lineage state as a page, to find what moved a column.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.record_lineage_state()
+    Lineage state: the first recording, 0 columns of 0 tables, in
+    admin/lineage/lineage_state.csv.
+    >>> project.export_lineage_difference()  # one recording: nothing to compare it with yet
+    Wrote admin/lineage/...-difference.html and its Markdown twin, ...-difference.md: Nothing
+    to compare yet: no recording was made since the first recording, which found no column.
+    Record again once something has changed.
+
+    The page shows each Own change and Inherited change, and when it reached your tables. It
+    reads admin/lineage/lineage_state.csv, which project.record_lineage_state() and each
+    Table notebook's export_hive() add to, and writes an HTML page and its Markdown twin into
+    admin/lineage/, named by the time, such as admin/lineage/20261120-093000-difference.html.
+    Left out, since= compares the newest recording with the one before it; given a time, such
+    as "2026-11-20" or "2026-11-20 06:00", or a commit, such as "1a2b3c4", it shows every
+    change recorded after it. tables= takes a table's name or a list of them, such as
+    "mart.team_days", and shows only those and the chains of reads that reach them: "why did
+    mart.team_days change?".
+
+    For each changed table, the page shows each column with an own change, its own logic and
+    the rows that count for it before and after; each column with an inherited change only,
+    its own logic the same but a column it reads, up its chain, changed, with that chain down
+    to the change it comes from; columns added, removed and retyped; and each column's
+    Effective logic before and after, written out down to the tables the Project doesn't
+    write. A Saved table says when admin/sent.csv shows it was first written with its new
+    logic, or that it wasn't yet: the moment the numbers changed. What an Upgrade's recording
+    found, the Toolbox writing the same logic as other Hive, is shown apart, never as your
+    change.
+
+    It works out every table's logic, as project.record_lineage_state() does, only to name
+    each table or Scheduled run that isn't recorded now, with why; it needs no connect(...)
+    and never reaches the warehouse. A time before the first recording starts from the first
+    recording, and the page says so: a table made since then shows as added, its columns'
+    later changes within that, so give a time after the tables you ask about were made. A
+    commit no recording was made at, or a table the state holds nothing of, is refused,
+    naming the nearest. It logs itself in the Admin log.
+    """
+    frame = callers_frame()
+    call = "project.export_lineage_difference()"
+    root = _project_root(call)
+    # Both import what imports this file, so they are imported here, when the page is
+    # written, as record_lineage_state imports them.
+    from . import effective_logic
+    from .lineage_difference import write_difference
+
+    not_built = effective_logic.project_logic(root).not_built
+    lines, written = write_difference(root, call, since, tables, not_built)
+    files = [f"wrote {path}" for path in written]
+    named = []
+    if tables is not None:
+        named = [str(table) for table in items_of(tables)]
+    _log(root, call, named, files, frame)
+    return ProjectReport(lines)
+
+
+# The first words of the line a Project action adds when its recording of the Lineage state
+# failed, which no other line it prints starts with.
+NOT_RECORDED = "Lineage state not recorded"
+
+
+def record_after_a_change(root: Path, recorded_by: str, by_upgrade: bool = False) -> list[str]:
+    """Record the Lineage state of the Project at `root`, as `recorded_by`, at the end of
+    what changed a table or Table reference: the lines the recording gives; `by_upgrade` marks
+    each change an Upgrade's recording finds the Toolbox's. A recording that fails, such as
+    one whose admin/lineage/lineage_state.csv is open in Excel, never fails what called it: it
+    gives one line saying so, and which call records."""
+    # effective_logic reads this file's Table references, so both are imported here, when the
+    # state is recorded, as export_project_lineage imports project_lineage.
+    from . import effective_logic, lineage_state
+
+    try:
+        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by,
+                                    by_upgrade=by_upgrade)
+    # Whatever stops the recording, what called it is done, and stays done.
+    except Exception as error:  # noqa: BLE001
+        return [f"{NOT_RECORDED}: {type(error).__name__}: {one_line_message(error)}. Record "
+                "it with project.record_lineage_state(), in admin/lineage.ipynb."]
+
+
+def _unrecorded_lines(root: Path, recorded_by: str) -> list[str]:
+    """The line a Project action adds when the recording of the Lineage state at its end, as
+    `recorded_by`, failed, in a list; none when it worked, since a recording that works adds
+    nothing to what an action prints."""
+    return [line for line in record_after_a_change(root, recorded_by)
+            if line.startswith(NOT_RECORDED)]
+
+
+def _report_once_recorded(report: ProjectReport, action: str, name: str | list[str]
+                          ) -> ProjectReport:
+    """`report`, the Project action `action`'s on `name`, once the Lineage state is recorded
+    at its end, as project.<action>(<name>): as it was, or with the line saying the recording
+    failed."""
+    call = f"project.{action}({_names_as_written(name)})"
+    return ProjectReport([*report.lines, *_unrecorded_lines(_project_root(call), call)])
 
 
 # --- export_run_lineage and export_run_hive ---------------------------------------------------

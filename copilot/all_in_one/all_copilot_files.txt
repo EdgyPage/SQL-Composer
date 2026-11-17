@@ -4,12 +4,12 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.7: start here
+# Copilot files for sqlglot Composer 8.8: start here
 
 **Find the words you would type in the Index, load the file it names into a new chat, then
 follow the steps below in order.**
 
-sqlglot Composer 8.7 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
+sqlglot Composer 8.8 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
 Clause functions, such as SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses
 one that would give a wrong number or read too much. These files teach Microsoft Copilot to
 write that Python, so you can ask it in plain words.
@@ -143,7 +143,7 @@ write that Python, so you can ask it in plain words.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.7)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -171,7 +171,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.7, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.8, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -322,7 +322,7 @@ rows = run_query(s, query)
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.7)
+# Copilot file 02: Table references (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -351,7 +351,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.7, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.8, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -483,7 +483,7 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.7)
+# Copilot file 03: building a Statement (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -669,7 +669,7 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.7)
+# Copilot file 04: joins (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -846,7 +846,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.7)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1027,7 +1027,7 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.7)
+# Copilot file 06: saving a table (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1206,7 +1206,7 @@ One ```python block the user can paste into a notebook cell, then a few plain se
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.7)
+# Copilot file 07: converting Hive (sqlglot Composer 8.8)
 
 **Find each Hive part in Patterns, write the code it names, then tick the Self-check. Add
 nothing the Hive doesn't hold.**
@@ -1365,7 +1365,7 @@ One ```python block building the Statement `s`, then a line naming each part kep
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.7)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1529,7 +1529,7 @@ on what the Verdict means when it holds and when it doesn't.
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.7)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.8)
 
 **Find the message's What happened in Patterns, write the fix its rule gives, then tick the
 Self-check. Keep the user's columns, tables and days; add nothing else.**
@@ -1694,7 +1694,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.7)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1859,7 +1859,7 @@ naming each hand-written piece.
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.7)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
 
 **Use this file as reference while you follow file 15's steps: find each formula of an
 attached workbook in Patterns, then write the Hive its rule gives.**
@@ -2007,7 +2007,7 @@ FROM <database>.job_runs
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.7)
+# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.8)
 
 **Use this file as reference while you follow file 15's steps: find each Power Query step,
 whole-column total and Total Row in Patterns, then write the Hive its rule gives.**
@@ -2173,13 +2173,13 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.7)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database
-with sqlglot Composer 8.7, each step a cell of the convert Workflow's notebook, in order.
+with sqlglot Composer 8.8, each step a cell of the convert Workflow's notebook, in order.
 Load this file when the user asks to turn Hive into tables. File 16 promotes to prod; file
 14 covers new tables, Table references, upgrades and changes to a Saved table.
 
@@ -2348,12 +2348,12 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.7)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through a job on their own Project with sqlglot Composer 8.7, each step a
+Objective: take the user through a job on their own Project with sqlglot Composer 8.8, each step a
 cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
 change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
@@ -2503,6 +2503,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
    warehouse, yours to run).
 
        run_execute(change, execute)
+       project.record_lineage_state()
 
 
 ## Worked patterns
@@ -2548,7 +2549,7 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 ===== 15_excel_workbook_steps.txt =====
 
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.7)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.8)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
 each final's Hive by files 11 and 12, then tick the Self-check. Reply as Output says.**
@@ -2698,13 +2699,13 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 
 ===== 16_workflows_promote.txt =====
 
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.7)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database with sqlglot Composer 8.7, each step a cell of the promote Workflow's notebook, in order.
+Database with sqlglot Composer 8.8, each step a cell of the promote Workflow's notebook, in order.
 Load this file when the user asks how to carry dev tables to prod. File 13 converts Hive into
 dev first; file 14 covers new tables, Table references, upgrades and changes to a Saved
 table.
@@ -2853,7 +2854,7 @@ project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 ===== 17_run_values_and_seed_limits.txt =====
 
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.7)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Answer only what the user gives; add no cell they didn't ask for.**
@@ -3022,7 +3023,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 ===== 18_scheduled_runs.txt =====
 
-# Copilot file 18: Scheduled runs (sqlglot Composer 8.7)
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Call only the logic functions the paste lists.**
@@ -3206,7 +3207,7 @@ def statements() -> dict[str, Statement]:
 
 ===== 19_metric_request.txt =====
 
-# Copilot file 19: Metric request (sqlglot Composer 8.7)
+# Copilot file 19: Metric request (sqlglot Composer 8.8)
 
 **Look each case up by its rule id and do what it says. Reply as Output says.**
 

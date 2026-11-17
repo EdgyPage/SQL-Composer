@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Lineage: write_job_notes</title><style>
-:root{--ink:#222;--page:#fff;--muted:#777;--rule:#ddd;--faint-rule:#eee;--menu-edge:#ccc;--shadow:#0002;--code:#f7f7f7;--box:#fff;--box-edge:#888;--box-text:#000;--arrow:#aaa;--rows-arrow:#c9c9c9;--filters-arrow:#b5b5b5;--filters-label:#999;--lit:#000;--group:#fafafa;--group-edge:#c8c8c8;--group-label:#555;--table-group:#eef7fd;--derived-group:#fefcec;--output-group:#e6f5f1;--condition-group:#fbfbfb;--table:#56b4e9;--derived:#f0e442;--output:#009e73;--condition:#bbb;--unchecked:#e69f00;--unchecked-edge:#000;--python:#cc79a7;--python-edge:#000;--folder:#56b4e9;--saved:#009e73;--read:#bbb;--shared:#f0e442;--shared-edge:#000;--loop:#d33;--loop-text:#a11;--workflow:#56b4e9;--workflow-edge:#000;--excel:#009e73;--excel-edge:#000}
+:root{--ink:#222;--page:#fff;--muted:#777;--rule:#ddd;--faint-rule:#eee;--menu-edge:#ccc;--shadow:#0002;--code:#f7f7f7;--box:#fff;--box-edge:#888;--box-text:#000;--arrow:#aaa;--rows-arrow:#c9c9c9;--filters-arrow:#b5b5b5;--filters-label:#999;--lit:#000;--group:#fafafa;--group-edge:#c8c8c8;--group-label:#555;--table-group:#eef7fd;--derived-group:#fefcec;--output-group:#e6f5f1;--condition-group:#fbfbfb;--table:#56b4e9;--derived:#f0e442;--output:#009e73;--condition:#bbb;--unchecked:#e69f00;--unchecked-edge:#000;--python:#cc79a7;--python-edge:#000;--folder:#56b4e9;--saved:#009e73;--read:#bbb;--shared:#f0e442;--shared-edge:#000;--loop:#d33;--loop-text:#a11;--workflow:#56b4e9;--workflow-edge:#000;--excel:#009e73;--excel-edge:#000;--own-change:#e69f00;--inherited-change:#56b4e9;--unchanged:#fff}
 body{margin:0;font:14px system-ui,sans-serif;color:var(--ink);background:var(--page)}
 header{padding:12px 16px;border-bottom:1px solid var(--rule)} h1{font-size:18px;margin:0 0 6px}
 .key span{display:inline-block;margin-right:14px}
@@ -26,6 +26,9 @@ footer{padding:8px 16px 24px;color:var(--muted);font-size:12px}
 .loop rect{stroke:var(--loop);stroke-width:2} .sw.loop{border-color:var(--loop);border-width:2px}
 .workflow rect{fill:var(--workflow);stroke:var(--workflow-edge);stroke-width:2} .sw.workflow{background:var(--workflow);border-color:var(--workflow-edge)}
 .excel rect{fill:var(--excel);stroke:var(--excel-edge);stroke-width:2} .sw.excel{background:var(--excel);border-color:var(--excel-edge)}
+.own-change rect{fill:var(--own-change)} .sw.own-change{background:var(--own-change)}
+.inherited-change rect{fill:var(--inherited-change)} .sw.inherited-change{background:var(--inherited-change)}
+.unchanged rect{fill:var(--unchanged)} .sw.unchanged{background:var(--unchanged)}
 #controls{display:none;padding:8px 16px;border-bottom:1px solid var(--faint-rule);gap:18px;flex-wrap:wrap;align-items:center}
 #controls label{white-space:nowrap} #controls details{position:relative}
 #groups{position:absolute;z-index:2;background:var(--page);border:1px solid var(--menu-edge);padding:8px 10px;box-shadow:0 2px 8px var(--shadow);min-width:260px}
@@ -85,7 +88,7 @@ JOIN ops.job_owners AS job_owners
   AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;</pre></div><h3>Calculated columns</h3><p>Every column that is calculated rather than copied, in the order it is calculated.</p><p>None: every column is copied.</p><h3>Copied columns</h3><ul><li><code>job_id</code> comes from ops.job_owners.job_id</li><li><code>team</code> comes from ops.team_notes.team</li><li><code>note</code> comes from ops.team_notes.note</li><li><code>written_on</code> comes from ops.team_notes.written_on</li></ul><h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.</p><ul><li>write_job_notes: no Key the Toolbox can see, since team_notes declares no Key.</li><li>mart.job_notes declares no Key, so its rows aren&#x27;t checked.</li></ul></div>
 </aside>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.7.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.8.</footer>
 <script>
 // The drawing's script, shared by every page that draws boxes and arrows: it makes the
 // picture zoom, pan and light up a path. It is plain JavaScript that any browser runs, with

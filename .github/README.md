@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 8.7, exported 2026-11-14 22:27 - generated from dev, do not edit -->
+<!-- sqlglot Composer 8.8, exported 2026-11-17 15:55 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 8.7, exported 2026-11-14 22:27.
+This is version 8.8, exported 2026-11-17 15:55.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. **It refuses a Statement that would silently
@@ -171,13 +171,19 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     `query` and `execute` make, and the names its `connect` checks for, to yours.
 - **In admin/:**
   - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
-    run_tables.ipynb, remove.ipynb and scheduled_runs.ipynb, whose cells you run by hand for
-    your Scheduled runs: made by `project.start()`; you fill in the names some ask for in their
-    names cell, such as the tables to remove.
-  - admin/lineage/, the Project's lineage: every Saved table, what reads it and which
-    Scheduled runs write it, an HTML page and its Markdown twin. Made by
-    `project.export_project_lineage()`, run by hand from `admin/scheduled_runs.ipynb`; you fill
-    in nothing.
+    run_tables.ipynb, remove.ipynb, scheduled_runs.ipynb, whose cells you run by hand for your
+    Scheduled runs, and lineage.ipynb, which records the Lineage state and writes the Lineage
+    difference: made by `project.start()`; you fill in the names some ask for in their names
+    cell, such as the tables to remove.
+  - admin/lineage/, the Project's lineage and its Lineage state; you fill in nothing in it:
+    - the Project lineage: every Saved table, what reads it and which Scheduled runs write it,
+      an HTML page and its Markdown twin, made by `project.export_project_lineage()`, run by
+      hand from `admin/scheduled_runs.ipynb`;
+    - `lineage_state.csv`, the Lineage state, a row added each time a column's logic changes,
+      made by each Project action that changes a table or Table reference, each Table
+      notebook's cell 5 and `project.record_lineage_state()`;
+    - each Lineage difference, an HTML page and its Markdown twin, made by
+      `project.export_lineage_difference()`, run from `admin/lineage.ipynb`.
   - `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding
     its notebook: made by `project.start()`; you fill in what the Workflow works on, in its
     notebook's names cell, such as the tables, then save it. Then run its cells top to bottom,
@@ -650,18 +656,38 @@ Goal: each output column followed back to the table columns it reads.
    text, with no drawing. Done when the new pages are in `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
-   column; then go on to section 8, "Keep the Project in order".
+   column; then step 3.
    - If the table reads another Saved table, pass that table's write too, from
      `project.load("mart.daily_job_runs").write()`, so its Lineage goes on back to the tables
      they start from.
    - If a change is made in pandas, declare it with `python_step`, a **Python step**, so the
      Lineage doesn't stop at it.
+3. **Find what changed a column.** Goal: why a column's numbers moved when its own Statement
+   didn't. A column's **Effective logic** is its own logic and the rows that count for it,
+   followed through every Saved table it reads, down to the tables the Project doesn't write,
+   so a change up the chain changes it. The **Lineage state**,
+   `admin/lineage/lineage_state.csv`, records each column's own logic and Effective logic, a
+   row each time one changes: each Project action that changes a table or Table reference
+   records it, and so does each Table notebook's cell 5, `export_hive()`. Action: in
+   `admin/lineage.ipynb`, run `project.export_lineage_difference(tables="mart.team_days")`,
+   naming the table whose numbers moved, the **Lineage
+   difference**: an HTML page and a Markdown twin in `admin/lineage/` naming each **Own
+   change**, a change to a column's own logic, and each **Inherited change**, one that came
+   only through what it reads, with its chain down to the change it comes from and when the
+   table was first written with its new logic. Done when the page names the change each
+   changed column of the table you asked about comes from; then go on to section 8, "Keep the Project in order".
+   - If you changed a file by hand, `project.check()` says the Lineage state is behind: run
+     `project.record_lineage_state()` in `admin/lineage.ipynb`, or any Table notebook's cell 5,
+     which records the whole Project.
+   - A Scheduled run never records: its runs only build and send.
 
-How-to: [Follow lineage](../docs/how_to.html#follow_lineage).
+How-tos: [Follow lineage](../docs/how_to.html#follow_lineage) and
+[Find what changed a column](../docs/how_to.html#find_what_changed_a_column).
 
 Before you go on, check:
 
 - The table's `lineage/` holds the HTML page and its Markdown twin from your last export.
+- `project.check()` doesn't say the Lineage state is behind.
 
 ## 8. Keep the Project in order
 
@@ -1363,6 +1389,7 @@ flowchart TD
    warehouse, yours to run).
 
        run_execute(change, execute)
+       project.record_lineage_state()
 
 <!-- /chart -->
 
@@ -1594,7 +1621,7 @@ Getting started, how-tos 1 to 9:
 8. [Keep the Project in order](../docs/how_to.html#keep_the_project_in_order)
 9. [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_hive)
 
-Intermediate, how-tos 10 to 31:
+Intermediate, how-tos 10 to 32:
 
 10. [Describe a table by hand](../docs/how_to.html#describe_a_table_by_hand)
 11. [The latest row of each group, and the top N](../docs/how_to.html#latest_row_of_each_group)
@@ -1618,6 +1645,7 @@ Intermediate, how-tos 10 to 31:
 29. [Follow a Workflow](../docs/how_to.html#follow_a_workflow)
 30. [Set your Database settings](../docs/how_to.html#set_your_database_settings)
 31. [Schedule a run](../docs/how_to.html#schedule_a_run)
+32. [Find what changed a column](../docs/how_to.html#find_what_changed_a_column)
 
 ## The Example gallery
 
@@ -1752,10 +1780,10 @@ flowchart TD
 1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is.
 2. Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as Hive, a query
    for each final Table.
-3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
-   final Table, and convert them as one batch in the convert Workflow, with DEV filled in, in
-   admin/databases.py: each becomes a Saved table named for its file, or, when the batch is one
-   file, for the batch.
+3. Fill in each name it writes in angle brackets, save each query as a .hql file named for the
+   table it becomes (its final Table's name, unless you want another), and convert them as one
+   batch in the convert Workflow, with DEV filled in, in admin/databases.py: each becomes a
+   Saved table named for its file, or, when the batch is one file, for the batch.
 
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 
@@ -1804,14 +1832,17 @@ To hand over an Excel workbook's calculations, one chat holds three Copilot file
 5. **Save the queries.** Goal: the convert Workflow can read them. Action: leave out each
    final no one needs kept as a table, such as a Total Row whose total no one needs. Save each
    other filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
-   `convert.ipynb`, named for its final Table, such as `by_job.hql`; a Total Row's query,
-   titled `by_job (Total Row)`, as `by_job_total.hql`. Done when each final you keep has its
-   file; then step 6.
+   `convert.ipynb`, named for the table it becomes: its final Table's name, such as
+   `by_job.hql`, unless you were asked for another name, such as `job_run_report.hql` for a
+   final `job_report`; a Total Row's query, titled `by_job (Total Row)`, as `by_job_total.hql`.
+   Done when each final you keep has its file; then step 6.
 6. **Convert them.** Goal: a Saved table in dev for each final. Action: in the convert
    notebook's names cell, name the batch and its files, such as `NAME = "sales_summary"` and
    `FILES = ["sales.hql", "regions.hql"]`, with DEV filled in, in `admin/databases.py`, then
    run its steps. Each query becomes a Saved table named for its file; with one file, the
-   table is named for the batch, so name the batch for its final Table. A query here writes no
+   table is named for the batch, so name the batch for the table you want: its final Table's
+   name, or the name you were asked for, such as `NAME = "job_run_report"` for a final
+   `job_report`. A query here writes no
    table of its own, so its compare step checks each Saved table's rows against the rows the
    query gives. Done when each table has passed its compare.
 
@@ -1886,6 +1917,12 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      no Example database, so delete the marked import, and write your team's connection in the
      `connect(...)` under it. A copy of an Example project can't run on 8.7: read it on the
      Example projects page instead.
+   - If your Project was at 8.7, the 8.8 Upgrade carries it to 8.8: it makes the Project's
+     first Lineage state, `admin/lineage/lineage_state.csv`, which needs no connection and
+     sends nothing, and writes the comment of each Table notebook's cell 5, `export_hive()`,
+     and each Template still as 8.7 wrote it again, saying that cell records it now. A Table
+     notebook with no `export_hive()` cell is marked, since it records nothing when its logic
+     changes.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
@@ -1940,8 +1977,8 @@ lives in.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'8.7'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 8.7, exported 2026-11-14 22:27'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'8.8'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 8.8, exported 2026-11-17 15:55'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -2156,6 +2193,8 @@ The project module: a Project's folders and files, made and archived for you, an
 - `project.export_run_lineage` - Draw one Scheduled run's lineage, built as its notebook's defaults give it.
 - `project.export_run_hive` - Write one Scheduled run's built Hive, in order, into its folder, to read.
 - `project.describe_logic` - List each table's logic functions, their hints and docstrings, for Copilot.
+- `project.record_lineage_state` - Record the logic of each column of the Project, to find a change to it later.
+- `project.export_lineage_difference` - Write what changed in the Lineage state as a page, to find what moved a column.
 
 ### `comparisons.py`
 

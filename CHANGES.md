@@ -2,6 +2,67 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.8
+
+8.8 finds what changed a column when its own Statement didn't: a filter, a calculation or a
+Building block changed in a table it reads, a table or two up. The Project keeps a Lineage
+state, a CSV recorded each time a table or Table reference changes, and the Lineage difference
+draws what changed between two points of it, each change traced to where it began and to when
+it reached your tables.
+
+### To update from 8.7
+
+- **Copy in 8.8's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.8.md`. A Project 8.3 to 8.6 last wrote upgrades straight to 8.8 the
+  same way, each step in turn.
+- **Your Scheduled runs keep their paths.** The Upgrade moves, renames, deletes and rewrites
+  nothing under `scheduled_runs/`.
+- **The Upgrade makes the Project's first Lineage state**, `admin/lineage/lineage_state.csv`,
+  every column marked `first`, recorded by `project.upgrade() to 8.8`. It works out each
+  table's logic from your files alone: it needs no `connect(...)`, sends nothing and calls no
+  Run value's function. A table whose logic doesn't build yet, such as one with a `<...>` left,
+  isn't recorded: the next recording adds it.
+- **Cell 5 of each Table notebook**, `export_hive()`, now records the Lineage state too. Its
+  comment is written again where it is as 8.7 wrote it, and so is each Template still as 8.7
+  wrote it; a Template you changed is marked, and a comment you changed is left, as the cell
+  records all the same. A Table notebook with no `export_hive()` cell is marked: add one, or it
+  records nothing when its logic changes.
+- **`admin/check_references.ipynb`'s text** says its refresh records the Lineage state, and the
+  `change_a_saved_table` Workflow's notebook is written again, each name and step cell of yours
+  kept, its last step recording after the change is sent.
+
+### What's new
+
+- **The Lineage state, `admin/lineage/lineage_state.csv`.** A row for each column whose logic,
+  or Effective logic, changed since the last recording: each Saved table's write(), each
+  Scheduled run's Statements and each Table reference's columns for the tables your Project
+  doesn't write. Effective logic is a column's own logic and the rows that count for it,
+  followed through every Saved table it reads. A row says when, at which commit, from which
+  call, and what changed: `own`, `inherited` (only something up its chain changed, named in
+  its `because` column), `retyped`, `added`, `removed` or `opaque` (an Unchecked statement or
+  Python step that writes it). A Run value counts as its function and what it was given, never
+  its value, so a daily build is no change. Open it in Excel, or read it with
+  `pandas.read_csv`.
+- **Recorded as you work.** Each Project action that changes a table or Table reference
+  records it at its end: `new_table`, `remove_table`, `new_scheduled_run`,
+  `remove_scheduled_run`, `add_references`, `register`, `convert`, `promote` and
+  `refresh_reference_sheet`, and each Table notebook's cell 5, `export_hive()`, which prints
+  what changed. `project.record_lineage_state()` records by hand. A Scheduled run never
+  records. A recording that fails never fails the action it ends.
+- **The Lineage difference.** `project.export_lineage_difference(since=None, tables=None)`
+  writes `admin/lineage/<time>-difference.html` and its Markdown twin: each table with an own
+  change, before and after, and each with only an inherited change, with its chain down to
+  the change it comes from, such as `mart.team_days.runs` ← `mart.job_day_facts.runs`, and
+  when `admin/sent.csv` shows it was next written. The page draws your tables, an own change in
+  orange, an inherited one in sky blue; click one for its columns in the side panel.
+  `since=` takes a time or a commit; `tables=` one table or a list, and their chains.
+- **`project.check()` says when the Lineage state is behind**: a logic cell edited and written,
+  but not exported with cell 5, names its tables and the cell that records them.
+- **`admin/lineage.ipynb`**, a new admin notebook beside `check_project.ipynb`: a cell that
+  records the Lineage state, and one that writes the Lineage difference, its `SINCE` and
+  `TABLES` to fill in. It needs no connection. The Upgrade adds it.
+
 ## 8.7
 
 8.7 takes the Example database out of the Toolbox, so the folder holds nothing but what your
