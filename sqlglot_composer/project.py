@@ -22,8 +22,9 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    and Conversion folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
-    │   ├── lineage/         the Project's lineage, which export_project_lineage writes, and
-    │   │                    lineage_state.csv, which record_lineage_state adds to
+    │   ├── lineage/         the Project's lineage, which export_project_lineage writes;
+    │   │                    lineage_state.csv, which record_lineage_state adds to; and what
+    │   │                    changed in it, which export_lineage_difference writes
     │   ├── templates/       the Templates new_table, new_block and new_scheduled_run make
     │   │                    files from: yours to edit
     │   └── removed/         what remove_table, remove_reference, remove_block,
@@ -68,7 +69,8 @@ table, what reads it and which Scheduled runs write it, export_run_lineage and e
 write one run's lineage and its built Hive into its folder, and describe_logic lists a table's
 logic functions, to paste into Copilot. record_lineage_state adds to
 admin/lineage/lineage_state.csv a row for each column whose logic, or Effective logic, changed
-since it last ran. upgrade carries the Project's files
+since it last ran, and export_lineage_difference writes what changed in it as a page.
+upgrade carries the Project's files
 to a newer Toolbox you copied in, marking with `# UPGRADE` what it leaves you to change.
 scan_hive reads Hive someone else wrote and says what a Conversion would make; convert makes
 each table the Hive writes a Saved table in your Dev Database, its Table folder and Table
@@ -91,15 +93,15 @@ send nothing, and read the warehouse only through a Run value's function that re
 as a table's latest Partition, worked out as they build each write, through the connection of
 the notebook they run in; the rest never touch the warehouse. start, new_table, new_block,
 new_run_value, new_scheduled_run, remove_table, remove_reference, remove_block,
-remove_scheduled_run, register, add_references, upgrade and record_lineage_state, the Project
-actions, each add an entry to admin/admin_log.md, the log that also keeps every Admin
-statement run inside the Project. The rest add no entry of their own: check and load
-change no file, nor does describe_logic; export_project_lineage writes only its two files
-in admin/lineage/, export_run_lineage only its two in the run's lineage/, and
-export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's Hive holds a
-Hivevar; refresh_reference_sheet writes the Reference sheet and the Database modules, and no
-other file; run_tables writes only your tables in the warehouse, though an Admin or
-Unchecked statement it sends is logged, as run_execute logs one anywhere.
+remove_scheduled_run, register, add_references, upgrade, record_lineage_state and
+export_lineage_difference, the Project actions, each add an entry to admin/admin_log.md, the
+log that also keeps every Admin statement run inside the Project. The rest add no entry of
+their own: check and load change no file, nor does describe_logic; export_project_lineage
+writes only its two files in admin/lineage/, export_run_lineage only its two in the run's
+lineage/, and export_run_hive only <name>.hql, and <name>.hivevars beside it while the run's
+Hive holds a Hivevar; refresh_reference_sheet writes the Reference sheet and the Database
+modules, and no other file; run_tables writes only your tables in the warehouse, though an
+Admin or Unchecked statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations
@@ -190,7 +192,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "reference_from_logic", "new_run_value", "new_scheduled_run",
            "remove_scheduled_run", "build_run", "export_project_lineage",
            "export_run_lineage", "export_run_hive", "describe_logic",
-           "record_lineage_state"]
+           "record_lineage_state", "export_lineage_difference"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -7589,6 +7591,66 @@ def record_lineage_state() -> ProjectReport:
     if lines[0] == lineage_state.NO_CHANGE:
         files = []
     _log(root, call, [], files, frame)
+    return ProjectReport(lines)
+
+
+def export_lineage_difference(since: str | None = None,
+                              tables: str | list[str] | None = None) -> ProjectReport:
+    """Write what changed in the Lineage state as a page, to find what moved a column.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/, scheduled_runs/ and warehouse.py.
+    Next: at the top of each notebook, fill in connect(...) with your connection.
+    >>> project.record_lineage_state()
+    Lineage state: the first recording, 0 columns of 0 tables, in
+    admin/lineage/lineage_state.csv.
+    >>> project.export_lineage_difference()  # one recording: nothing to compare it with yet
+    Wrote admin/lineage/...-difference.html and its Markdown twin, ...-difference.md: Nothing
+    to compare yet: no recording was made since the first recording, which found no column.
+    Record again once something has changed.
+
+    The page shows each Own change and Inherited change, and when it reached your tables. It
+    reads admin/lineage/lineage_state.csv, which project.record_lineage_state() and each
+    Table notebook's export_hive() add to, and writes an HTML page and its Markdown twin into
+    admin/lineage/, named by the time, such as admin/lineage/20261120-093000-difference.html.
+    Left out, since= compares the newest recording with the one before it; given a time, such
+    as "2026-11-20" or "2026-11-20 06:00", or a commit, such as "1a2b3c4", it shows every
+    change recorded after it. tables= takes a table's name or a list of them, such as
+    "mart.team_days", and shows only those and the chains of reads that reach them: "why did
+    mart.team_days change?".
+
+    For each changed table, the page shows each column with an own change, its own logic and
+    the rows that count for it before and after; each column with an inherited change only,
+    its own logic the same but a column it reads, up its chain, changed, with that chain down
+    to the change it comes from; columns added, removed and retyped; and each column's
+    Effective logic before and after, written out down to the tables the Project doesn't
+    write. A Saved table says when admin/sent.csv shows it was first written after the change,
+    or that it wasn't yet: the moment the numbers changed. What an Upgrade's recording found,
+    the Toolbox writing the same logic as other Hive, is shown apart, never as your change.
+
+    It works out every table's logic, as project.record_lineage_state() does, only to name
+    each table or Scheduled run that isn't recorded now, with why; it needs no connect(...)
+    and sends nothing. A time before the first recording, a commit no recording was made at,
+    or a table the state holds nothing of is refused, naming the nearest. It logs itself in
+    the Admin log.
+    """
+    frame = callers_frame()
+    call = "project.export_lineage_difference()"
+    root = _project_root(call)
+    # Both import what imports this file, so they are imported here, when the page is
+    # written, as record_lineage_state imports them.
+    from . import effective_logic
+    from .lineage_difference import write_difference
+
+    not_built = effective_logic.project_logic(root).not_built
+    lines, written = write_difference(root, call, since, tables, not_built)
+    files = [f"wrote {path}" for path in written]
+    named = []
+    if tables is not None:
+        named = [str(table) for table in items_of(tables)]
+    _log(root, call, named, files, frame)
     return ProjectReport(lines)
 
 

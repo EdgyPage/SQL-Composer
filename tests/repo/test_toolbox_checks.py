@@ -135,7 +135,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # functions described for Copilot.
                  "export_run_lineage", "export_run_hive", "describe_logic",
                  # Toolbox 8.8, ticket 02: the Lineage state, recorded by hand.
-                 "record_lineage_state"]
+                 "record_lineage_state",
+                 # Toolbox 8.8, ticket 05: what changed in it, as a page and its twin.
+                 "export_lineage_difference"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER
