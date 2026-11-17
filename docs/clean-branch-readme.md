@@ -662,12 +662,13 @@ Goal: each output column followed back to the table columns it reads.
    `admin/lineage/lineage_state.csv`, records each column's own logic and Effective logic, a
    row each time one changes: each Project action that changes a table or Table reference
    records it, and so does each Table notebook's cell 5, `export_hive()`. Action: in
-   `admin/lineage.ipynb`, run `project.export_lineage_difference(tables=...)`, the **Lineage
+   `admin/lineage.ipynb`, run `project.export_lineage_difference(tables="mart.team_days")`,
+   naming the table whose numbers moved, the **Lineage
    difference**: an HTML page and a Markdown twin in `admin/lineage/` naming each **Own
    change**, a change to a column's own logic, and each **Inherited change**, one that came
    only through what it reads, with its chain down to the change it comes from and when the
-   table was next written. Done when the page names the change each column you asked about
-   comes from; then go on to section 8, "Keep the Project in order".
+   table was first written with its new logic. Done when the page names the change each
+   changed column of the table you asked about comes from; then go on to section 8, "Keep the Project in order".
    - If you changed a file by hand, `project.check()` says the Lineage state is behind: run
      `project.record_lineage_state()` in `admin/lineage.ipynb`, or any Table notebook's cell 5,
      which records the whole Project.

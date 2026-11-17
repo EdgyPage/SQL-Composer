@@ -359,8 +359,9 @@ def _tables_shown(names: list[object], changed: list[ChangedColumn], kinds: dict
                    why="tables= keeps the difference to the tables it names and the chains "
                    "that reach them, so each must be a table, or a Scheduled run's "
                    "Statement as <run>.<result>, the state has recorded.",
-                   fix="Name it as the Lineage state does, <db>.<table>, or leave tables= out "
-                   "to see every table.", error=ValueError)
+                   fix="Name it as the Lineage state does: <db>.<table>, or <run>.<result> "
+                   "for a Scheduled run's Statement; or leave tables= out to see every table.",
+                   error=ValueError)
     shown = {str(name) for name in names}
     for column in changed:
         if column.table in shown:
@@ -836,6 +837,11 @@ def write_difference(root: Path, call: str, since: str | None,
               f"with {VERSION}.")
     folder = root / STATE_FILE.parent
     stem = f"{when.strftime(unchecked.TIME_IN_A_NAME)}-difference"
+    # Two in one second get a number each after the first, so neither writes over the other.
+    taken = 1
+    while (folder / f"{stem}.md").exists() or (folder / f"{stem}.html").exists():
+        taken += 1
+        stem = f"{when.strftime(unchecked.TIME_IN_A_NAME)}-difference-{taken}"
     html_path, markdown_path = folder / f"{stem}.html", folder / f"{stem}.md"
     folder.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(to_markdown(found, footer), encoding="utf-8")

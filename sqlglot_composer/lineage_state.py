@@ -353,7 +353,10 @@ def _summary_lines(new_rows: list[dict[str, str]]) -> list[str]:
                   if change in found]
         lines = [f"Lineage state: {counted(len(columns), 'column')} changed "
                  f"({', '.join(counts)}): project.export_lineage_difference() shows them."]
-    if blocks:
+    if blocks and not columns:
+        lines.append(f"Building blocks changed: {in_words(blocks)}, which no column's logic "
+                     "uses yet, or whose change left each column's logic as it was.")
+    elif blocks:
         lines.append(f"Building blocks changed: {in_words(blocks)}.")
     return lines
 

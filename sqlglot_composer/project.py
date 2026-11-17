@@ -506,12 +506,12 @@ ADMIN_NOTEBOOKS = {
     ),
     "lineage": (
         "# The Lineage state and the Lineage difference\n\n"
-        "`admin/lineage/lineage_state.csv`, the Lineage state, records what each column of "
-        "your Project holds: its own logic and the rows that count for it, and its Effective "
-        "logic, the same traced through every Saved table it reads, down to the tables the "
-        "Project doesn't write. A row is added each time one changes, saying when, at which "
-        "commit and from which call. Each Project action that changes a table or a Table "
-        "reference records it already, and so does each Table notebook's cell 5, "
+        "`admin/lineage/lineage_state.csv`, the Lineage state, records the logic of each "
+        "column of your Project: its own logic and the rows that count for it, and its "
+        "Effective logic, the same traced through every Saved table it reads, down to the "
+        "tables the Project doesn't write. A row is added each time one changes, saying when, "
+        "at which commit and from which call. Each Project action that changes a table or a "
+        "Table reference records it already, and so does each Table notebook's cell 5, "
         "`export_hive()`: run the record cell below, `project.record_lineage_state()`, after a "
         "change made any other way, such as a Table reference edited by hand. "
         "`project.check()` says when the state is behind.\n\n"
@@ -526,7 +526,7 @@ ADMIN_NOTEBOOKS = {
         "show only those and the chains that reach them. Neither cell reaches the warehouse, "
         "so this notebook needs no `connect(...)`.",
         ["project.record_lineage_state()  # after a change no Project action or cell 5 made",
-         "SINCE = None  # a time or a commit, such as \"2026-11-20\"; None: the last change\n"
+         "SINCE = None  # a time or a commit, such as \"2026-11-20\"; None: the one before\n"
          "TABLES = None  # a table's name or a list, such as \"mart.team_days\"; None: all\n"
          "project.export_lineage_difference(since=SINCE, tables=TABLES)"],
     ),
@@ -1997,16 +1997,19 @@ def check() -> ProjectReport:
     through the connection of the notebook check() runs in; each Table folder whose logic
     fails, passed over in looking for a loop, with what stops it, a typo Python can't read
     among them, though not one whose logic cell still holds a <...> from its Template, at the
-    line Python stops on; whether the Lineage state is behind, naming each table whose
-    columns' logic changed since its last recording, as a logic cell edited but not exported
-    with export_hive() leaves it, or, with admin/lineage.ipynb there, that it has no recording
-    yet, never recording one itself;
+    line Python stops on; whether the Lineage state is behind, which the next paragraph says
+    more of;
     each batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
     each with its file and line. Where a decision step deciding Keys waits on two tables or
     more with a proposed Key, the DECISIONS it prints to paste offers "all_tables": {"key":
     "proposed"}, which accepts each.
+
+    The Lineage state is behind when a column's logic changed since its last recording, as a
+    logic cell edited but not exported with export_hive() leaves it: check() names each table,
+    and records nothing itself. A Project from 8.8 on, which holds admin/lineage.ipynb, is also
+    told when it has no recording yet.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -7632,7 +7635,7 @@ def export_project_lineage() -> ProjectReport:
 
 
 def record_lineage_state() -> ProjectReport:
-    """Record what each column of the Project holds, to find a change to it later.
+    """Record the logic of each column of the Project, to find a change to it later.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -7650,9 +7653,11 @@ def record_lineage_state() -> ProjectReport:
     and none for one that didn't, so it may run as often as you like. The first recording
     writes a row for every column, marked first. After it, a row says what changed: own (its
     own logic or the rows that count for it), inherited (only something it reads, up its
-    chain, changed, named in its because column), retyped, added, removed, or opaque (an
-    Unchecked statement, Unchecked derived table or Python step that writes it). An own
-    change that came with a change to a Building block its table imports names the block.
+    chain, changed, named in its because column), retyped, added, removed, opaque (an
+    Unchecked statement, Unchecked derived table or Python step that writes it), or toolbox
+    (only the Toolbox's new way of writing Hive changed it, which only an Upgrade's recording
+    finds). An own change that came with a change to a Building block its table imports names
+    the block.
 
     A table whose logic doesn't load, or a Scheduled run with a <...> left, isn't recorded:
     its rows from before stand, and the report names it, with why. Only a table or run the

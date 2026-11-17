@@ -4,23 +4,26 @@ For: Intermediate
 
 ## Goal
 
-Find why a column's numbers moved when its own Statement didn't change. A column's Effective
-logic is its own logic and the rows that count for it, with each Saved table's column it reads
-replaced by that column's Effective logic, down to the tables the Project doesn't write. So a
-change up the chain changes it, while its notebook stays the same. The Lineage state,
+Find why a column's numbers moved when its own Statement didn't change. A column's own logic
+is how its own Statement makes it, with the rows that count for it: the WHERE, JOIN ON, GROUP BY
+and HAVING on its way. Its Effective logic is that logic followed through every Saved table it
+reads, down to the tables the Project doesn't write. So a change up the chain changes its
+Effective logic, while its notebook stays the same. The Lineage state,
 admin/lineage/lineage_state.csv, records each column's own logic and Effective logic, a row each
 time one changes; the Lineage difference shows what changed between two recordings, each column
 marked an Own change or an Inherited change, with the chain down to where it came from and when
-your table was next written.
+your table was first written with its new logic.
 
 ## When you'd use it
 
 - If a number moved and nothing in its own Table notebook changed, export the Lineage
   difference for its table, as step 5 does: it names the change up the chain.
 - If you changed a table, a Table reference or a Building block by hand, record the Lineage
-  state, as step 3 does, or `project.check()` says it is behind.
-- If you want to know when the new numbers reached your table, read its "First written" line,
-  as step 5 shows: it comes from admin/sent.csv, which keeps each write your notebooks run.
+  state, as step 3 does; until you do, `project.check()` says it is behind.
+- If you want to know when the new numbers reached your table, read its "First written with
+  this logic" line, as step 5 shows. It comes from admin/sent.csv, which keeps each write the
+  Toolbox runs from your Project's notebooks, a Scheduled run's among them when it runs from its
+  folder in the Project: a scheduler that runs a copy of the notebook elsewhere leaves no row.
 - If you want the state itself, to filter in Excel or pandas, open
   admin/lineage/lineage_state.csv: one row per change, never rewritten.
 
@@ -46,12 +49,15 @@ reads ops.job_events, and mart.team_days reads mart.job_day_facts.
 Done when the folder you work in holds admin/lineage/lineage_state.csv and admin/lineage.ipynb.
 Then step 2.
 
-### 2. Change a table up the chain
+### 2. Change a Table reference, no notebook
 
 Goal: a change none of the Table notebooks shows. mart.job_day_facts counts a run's minutes on
 the event that ends it, which ops.job_events' Table reference names with its Alias
 ends_a_run. Your team now counts a retry as the end of a run too: one word in one file, and
-neither mart.job_day_facts's notebook nor mart.team_days's changes.
+neither mart.job_day_facts's notebook nor mart.team_days's changes. An Alias is written into the
+Hive of each Statement that uses it, so changing it is an Own change of each column that uses
+it, mart.job_day_facts.minutes here, and an Inherited change of each column that reads that
+one.
 
 The file `references/ops__job_events.py`, after you edit it:
 
@@ -113,21 +119,25 @@ Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 
+weekly_team.week_totals is the Scheduled run weekly_team's Statement week_totals: the Lineage
+state names a run's Statement <run>.<result>, as the run's results name it. The last lines are
+about a batch the Example project converted earlier, which needs nothing from you.
+
 Done when `project.check()` names the tables whose logic differs. Then step 3.
 
 ### 3. Record the Lineage state
 
-Goal: the change in admin/lineage/lineage_state.csv. Record it from admin/lineage.ipynb, whose
-code cell after the Project's path is this call; cell 5 of any Table notebook records the whole
-Project the same way:
+Goal: the change in admin/lineage/lineage_state.csv. Record it from admin/lineage.ipynb's
+record cell, which is this call; cell 5 of any Table notebook records the whole Project the
+same way:
 
 >>> print(project.record_lineage_state())
 Lineage state: 3 columns changed (1 own, 2 inherited): project.export_lineage_difference()
     shows them.
 
 One Own change, mart.job_day_facts.minutes, whose own logic now holds 'retry', and two
-Inherited changes, mart.team_days.minutes and the weekly_team run's minutes, whose own logic is
-the same. Recording needs no `connect(...)` and never reaches the warehouse: each Run value
+Inherited changes, mart.team_days.minutes and weekly_team.week_totals.minutes, whose own logic
+is the same. Recording needs no `connect(...)` and never reaches the warehouse: each Run value
 stands in for its value, never called.
 
 Done when the line counts the changes, and `project.check()` no longer says the Lineage state
@@ -155,6 +165,10 @@ inside that.
 Wrote admin/lineage/20260925-090000-difference.html and its Markdown twin,
     20260925-090000-difference.md: 2 tables changed, since ..., to the newest, of 2026-09-25
     09:00:00: 2 columns (1 own, 1 inherited).
+
+The line's "since ..." names the recording it starts from, the one before the newest. It
+counts 2 tables though `tables=` named one: mart.job_day_facts is on mart.team_days's chain, and
+`tables=` keeps every chain that reaches the table you name.
 
 Open the HTML page: each table is a box, one with an Own change in one colour, one with only an
 Inherited change in another, and a click on a box opens its columns beside the drawing. Its
@@ -186,8 +200,10 @@ Before you go on, check that:
 
 - `project.check()` doesn't say the Lineage state is behind;
 - admin/lineage/lineage_state.csv's last rows are step 3's recording: an own row for
-  mart.job_day_facts.minutes, and inherited rows naming it in their because column;
-- the difference page names each changed table, its chain, and when it was first written.
+  mart.job_day_facts.minutes, and inherited rows naming it in their because column, which
+  names, for an Inherited change, each Own change up its chain it comes from;
+- the difference page names each changed table, its chain, and when it was first written with
+  its new logic.
 
 ## Common mistakes
 
@@ -200,7 +216,8 @@ a change up the chain.
 ### Forgetting cell 5 after an edit
 
 A Table notebook's logic, edited and written but not exported with cell 5, `export_hive()`,
-leaves the Lineage state behind, and the next difference would date the change late.
+leaves the Lineage state behind: the change is recorded only at the next recording, so a
+difference dates it then, not when you made it.
 `project.check()` catches it: it says the Lineage state is behind, naming the tables. Run cell
 5, or `project.record_lineage_state()` in admin/lineage.ipynb.
 

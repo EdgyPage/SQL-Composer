@@ -408,3 +408,17 @@ def test_the_example_projects_building_block_change_is_written_as_a_page(
     log = (intermediate / "admin" / "admin_log.md").read_text(encoding="utf-8")
     assert "- Call: `project.export_lineage_difference()`" in log
     assert "- Tables named: mart.team_days" in log
+
+
+def test_two_differences_in_one_second_each_keep_their_page(
+        intermediate: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The beginner reader's run: two exports in one second wrote one file name.
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: FIRST_TIME)
+    first = project.export_lineage_difference()
+    second = project.export_lineage_difference(tables="mart.team_days")
+    assert first.lines[0].startswith("Wrote admin/lineage/20261120-060000-difference.html ")
+    assert second.lines[0].startswith("Wrote admin/lineage/20261120-060000-difference-2.html ")
+    pages = sorted(path.name for path in (intermediate / "admin" / "lineage").glob(
+        "20261120-060000-difference*"))
+    assert pages == ["20261120-060000-difference-2.html", "20261120-060000-difference-2.md",
+                     "20261120-060000-difference.html", "20261120-060000-difference.md"]
