@@ -3,9 +3,11 @@ from: Toolbox 8.7, ticket 04 (docs/agents/standards.md, "HTML pages"); and its b
 ticket 05.
 
 export_lineage, project.export_run_lineage and project.export_project_lineage each write an
-HTML page and its Markdown twin. Each page is built from `sqlglot_composer/html_page.py`, which
-holds the colour tokens, each written once, the base CSS, the legend, the drawing's script and
-the side panel's. The tests read the pages the three exports write, and the Toolbox's own files:
+HTML page and its Markdown twin, and so, since Toolbox 8.8, does
+project.export_lineage_difference. Each page is built from `sqlglot_composer/html_page.py`,
+which holds the colour tokens, each written once, the base CSS, the legend, the drawing's script
+and the side panel's. The tests read the pages the four exports write, and the Toolbox's own
+files:
 no colour is written outside the token table, no page has an inline style, every page loads
 nothing from outside itself, and every page comes from the one module. Since ticket 06, a click
 on a box opens a panel, and each line of a page's Markdown twin is on its HTML page too.
@@ -14,6 +16,7 @@ on a box opens a panel, and each line of a page's Markdown twin is on its HTML p
 from __future__ import annotations
 
 import ast
+import datetime
 import html
 import json
 import re
@@ -24,6 +27,7 @@ import pytest
 from conftest import toolbox_folder, toolbox_module
 from offline_policy import external_references
 from test_lineage import BY_HAND, runs_per_team
+from test_lineage_state import FIRST_TIME, chain, start_registry_folder
 from test_project_lineage import LOGIC, NOW, STEM, make_a_loop, new_run
 
 from sqlglot_composer import export_lineage, project, set_admin_log, to_hive, unchecked_hive
@@ -49,9 +53,10 @@ def html_page() -> ModuleType:
 
 @pytest.fixture
 def pages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, tuple[str, str]]:
-    """Each page the three exports write, by what wrote it: the HTML, then its Markdown twin.
+    """Each page the four exports write, by what wrote it: the HTML, then its Markdown twin.
     The Project's page is written twice, read as soon as it is written: with a loop, then with
-    a table two Scheduled runs write."""
+    a table two Scheduled runs write. The Lineage difference's (Toolbox 8.8, ticket 06) is
+    written from a Lineage state of its own."""
     html_file, _ = export_lineage(runs_per_team(), unchecked_hive(BY_HAND),
                                   to=tmp_path / "statements" / "lineage.html")
     read = {"export_lineage": texts(html_file)}
@@ -83,7 +88,26 @@ def statements():
         root / "scheduled_runs" / "weekly" / "lineage" / f"{RUN_STEM}.html")
     project.export_project_lineage()
     read["export_project_lineage"] = texts(project_page(root))
+    read["export_lineage_difference"] = difference_page(tmp_path / "difference", monkeypatch)
     return read
+
+
+def difference_page(root: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
+    """The page project.export_lineage_difference writes, and its twin, for two recordings of
+    three tables: one read, one changed at the table itself and one that reads it, a minute
+    apart. The clock is put back at NOW after."""
+    root.mkdir()
+    start_registry_folder(root)
+    times = iter(FIRST_TIME + datetime.timedelta(minutes=n) for n in range(10))
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: next(times))
+    state = toolbox_module("lineage_state")
+    state.record(root, chain(), "first")
+    state.record(root, chain(up_own="up-2", up_effective="up-e2", down_effective="down-e2"),
+                 "changed")
+    _, written = toolbox_module("lineage_difference").write_difference(
+        root, "project.export_lineage_difference()", None, None, {})
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
+    return texts(root / written[0])
 
 
 def project_page(root: Path) -> Path:
@@ -177,7 +201,8 @@ def test_every_page_loads_nothing_from_outside_itself(
 
 def test_every_page_comes_from_the_one_module(pages: dict[str, tuple[str, str]]) -> None:
     module = html_page()
-    assert set(pages) >= {"export_lineage", "export_run_lineage", "export_project_lineage"}
+    assert set(pages) >= {"export_lineage", "export_run_lineage", "export_project_lineage",
+                          "export_lineage_difference"}
     for made_by, (page, _) in pages.items():
         assert page.startswith("<!doctype html>\n<html><head><meta charset=\"utf-8\">"), made_by
         assert module.BASE_CSS in page, made_by
@@ -331,7 +356,11 @@ def contrast(one: str, other: str) -> float:
 
 def page_kinds(made_by: str) -> list[str]:
     """The kinds of box the page made by `made_by` draws, as its legend names them."""
-    builder = toolbox_module("project_lineage" if "project" in made_by else "lineage")
+    builder = toolbox_module("lineage")
+    if "project" in made_by:
+        builder = toolbox_module("project_lineage")
+    elif "difference" in made_by:
+        builder = toolbox_module("lineage_difference")
     return [kind for kind, _ in builder.LEGEND if kind is not None]
 
 

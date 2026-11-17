@@ -24,7 +24,7 @@ import contextlib
 import html
 import io
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import NamedTuple, NoReturn
 
@@ -613,9 +613,14 @@ LINE_HEIGHT = 15  # one line of text in a box
 
 
 def _columns(lineage: ProjectLineage) -> dict[str, int]:
-    """The column each table's box is drawn in, from 0 at the left: one right of the furthest
-    table it reads. In a loop, the table met again while its own column is worked out counts
-    as 0, so the loop ends."""
+    """The column each table's box is drawn in, as table_columns works it out."""
+    return table_columns(lineage.tables, lineage.reads)
+
+
+def table_columns(tables: list[str], reads: Mapping[str, Sequence[str]]) -> dict[str, int]:
+    """The column each of `tables` is drawn in, from 0 at the left: one right of the furthest
+    table it reads, by `reads`. In a loop, the table met again while its own column is worked
+    out counts as 0, so the loop ends. The Lineage difference's page draws its tables so too."""
     columns: dict[str, int] = {}
     working: set[str] = set()
 
@@ -626,12 +631,12 @@ def _columns(lineage: ProjectLineage) -> dict[str, int]:
         if table in working:
             return 0
         working.add(table)
-        column = 1 + max([-1] + [column_of(read) for read in lineage.reads.get(table, [])])
+        column = 1 + max([-1] + [column_of(read) for read in reads.get(table, [])])
         working.discard(table)
         columns[table] = column
         return column
 
-    for table in lineage.tables:
+    for table in tables:
         column_of(table)
     return columns
 
