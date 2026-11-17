@@ -1,4 +1,4 @@
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.7)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.8)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Answer only what the user gives; add no cell they didn't ask for.**

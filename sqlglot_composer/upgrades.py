@@ -26,7 +26,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .notebooks import read_cells, read_cells_if_readable, write_cell_text, write_notebook
+from .notebooks import (LOGIC, first_line, read_cells, read_cells_if_readable, write_cell_text,
+                        write_notebook)
 from .project_templates import CONNECT_LINES, CONNECT_PLACEHOLDER
 from .shared import counted
 
@@ -2336,6 +2337,122 @@ def _line_mover(edits: list[_Edit]) -> Callable[[int], int]:
     return moved
 
 
+def to_8_8(upgrade: Upgrade) -> None:
+    """8.7 to 8.8: the Project keeps a Lineage state, admin/lineage/lineage_state.csv, recorded
+    by each Project action that changes a table or Table reference and by each Table notebook's
+    export_hive(). So each Table notebook's export_hive() cell whose comment is as 8.7 wrote it
+    says it records too, and one with no export_hive() cell is marked, as it records nothing
+    when its logic changes; a comment you changed is left, as the cell records all the same.
+    Each Template still as 8.7 wrote it is written again, and one you changed is marked.
+    admin/check_references.ipynb's text says its refresh records, and the change_a_saved_table
+    Workflow's notebook is written again, each name given and each step cell you wrote in kept,
+    its last step recording. What project.start() makes that the Project lacks is added. Last,
+    the Project's first recording is made, marked as the Upgrade's, which needs no connection
+    and sends nothing: a table whose logic doesn't build yet isn't recorded, and the next
+    recording adds it. A prod copy's record, and an open batch's, follow each file this step
+    changed that was still as promote or convert wrote it."""
+    hashes = _recorded_files(upgrade.root)
+    for notebook in _table_notebooks(upgrade.root):
+        _say_export_hive_records(upgrade, notebook.relative_to(upgrade.root).as_posix())
+    _write_templates_again(upgrade, TEMPLATES_BEFORE_8_8, TEMPLATE_MARK_8_8)
+    _write_check_references_text(upgrade)
+    _write_workflow_notebook_again(upgrade, "change_a_saved_table")
+    upgrade.add_what_start_makes()
+    _rehash_records(upgrade, hashes)
+    _record_the_first_lineage_state(upgrade)
+
+
+# Each Template as 8.7 wrote it, by its hash, which 8.8 writes again, its cell 5 saying
+# export_hive() records the Lineage state.
+TEMPLATES_BEFORE_8_8 = {
+    "saved_table": "6a6ae4922b8e8a66c528d26ccc3acab2aa61231f55317d815b2608c620d98bd3",
+    "quality_checks": "8e108fc7a401bcfecd481fe11c212d7da5c40b63114d0ca524689514235ffa43",
+}
+TEMPLATE_MARK_8_8 = ("8.8's export_hive() also records the Project's Lineage state: copy the "
+                     "comment of cell 5 from this Template as project.start() writes it in an "
+                     "empty folder's admin/templates/")
+# A Table notebook's export_hive() cell as 8.7's Templates wrote it, and as 8.8's write it.
+HIVE_CELL_8_7 = ("# 5. Its Hive: {stem}.hql beside this notebook, from the logic as last "
+                 "saved\nexport_hive()")
+HIVE_CELL_8_8 = ("# 5. Its Hive: {stem}.hql beside this notebook, from the logic as last "
+                 "saved, then the\n#    Project's Lineage state recorded: run it after each "
+                 "change to the logic\nexport_hive()")
+NO_HIVE_CELL_8_8 = ("this notebook has no export_hive() cell, which 8.8 records the Project's "
+                    "Lineage state in: add one after its lineage cell, as a new Table "
+                    "notebook's cell 5 is, and run it after each change to the logic")
+RECORDED_BY_8_8 = "project.upgrade() to 8.8"
+
+
+def _say_export_hive_records(upgrade: Upgrade, relative: str) -> None:
+    """Write a Table notebook's export_hive() cell's comment as 8.8 writes it, where it is as
+    8.7 wrote it; mark one with no export_hive() cell, on its first code cell."""
+    path = upgrade.root / relative
+    cells = read_cells_if_readable(path)
+    if cells is None:
+        return
+    before = HIVE_CELL_8_7.format(stem=path.stem)
+    numbers = [number for number, (kind, text) in enumerate(cells, 1)
+               if kind == "code" and text == before]
+    if numbers:
+        upgrade.rewrite_cells(relative, {numbers[0]: HIVE_CELL_8_8.format(stem=path.stem)},
+                              f"wrote cell {numbers[0]}'s comment of {relative} again: its "
+                              "export_hive() records the Project's Lineage state")
+        return
+    if any(kind == "code" and "export_hive(" in text for kind, text in cells):
+        return
+    # Never above a logic cell's first line, # logic, by which project.load finds it.
+    first = [number for number, (kind, text) in enumerate(cells, 1)
+             if kind == "code" and first_line(text) != LOGIC]
+    if first:
+        upgrade.mark(relative, 1, NO_HIVE_CELL_8_8, cell=first[0])
+
+
+def _write_check_references_text(upgrade: Upgrade) -> None:
+    """Write admin/check_references.ipynb's text cell as this version writes it, saying its
+    refresh records the Lineage state, its code cells as they are."""
+    from .project import admin_notebook_cells  # project.py imports this file
+
+    path = upgrade.root / CHECK_REFERENCES
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    if not cells or cells[0][0] != "markdown":
+        return
+    fresh = admin_notebook_cells("check_references")[0]
+    if cells[0] != fresh:
+        upgrade.rewrite_cells(CHECK_REFERENCES, {1: fresh[1]},
+                              f"wrote the text of {CHECK_REFERENCES} again: its refresh "
+                              "records the Project's Lineage state")
+
+
+def _write_workflow_notebook_again(upgrade: Upgrade, name: str) -> None:
+    """Write the Workflow `name`'s notebook again, as _write_workflow_notebooks_again writes
+    each, where it isn't as this version writes it already."""
+    # project.py and workflows.py import this file, so their names are read here, when it runs.
+    from . import workflows
+    from .project import WORKFLOW_PATH_LINES
+
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(upgrade.root, workflow)
+        if workflow.name != name or not path.is_file():
+            continue
+        connection = _connection_given(path)
+        path_lines = _filled("\n".join(WORKFLOW_PATH_LINES), connection).split("\n")
+        cells = _workflow_cells_with_yours(upgrade.root, workflow, path_lines)
+        if cells != read_cells(path):
+            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+
+
+def _record_the_first_lineage_state(upgrade: Upgrade) -> None:
+    """Record the Project's Lineage state as the Upgrade's: the first, where the Project has
+    none, and from 8.9 on an Upgrade's, each change it finds marked the Toolbox's, never yours
+    (ADR 0015). A recording that fails leaves the rest of the step done, and says which call
+    records."""
+    from .project import record_after_a_change  # project.py imports this file
+
+    lines = record_after_a_change(upgrade.root, RECORDED_BY_8_8, by_upgrade=True)
+    upgrade.changed.append(f"recorded the Lineage state: {' '.join(lines)}")
+
+
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
-                                               "8.5": to_8_5, "8.6": to_8_6, "8.7": to_8_7}
+                                               "8.5": to_8_5, "8.6": to_8_6, "8.7": to_8_7,
+                                               "8.8": to_8_8}

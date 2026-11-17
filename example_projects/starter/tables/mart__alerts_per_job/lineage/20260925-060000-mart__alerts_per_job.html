@@ -94,7 +94,7 @@ GROUP BY
 └─ ops.run_alerts.severity  (string)</pre><p>Rows that count:</p><ul><li>WHERE in write_alerts_per_job: <code>all_of(equals(run_alerts.dt, &quot;2026-09-24&quot;), between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;))</code>, which is <code>run_alerts.dt = &#x27;2026-09-24&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;</code> (reads ops.job_runs.dt, ops.run_alerts.dt)</li><li>JOIN ON in write_alerts_per_job: <code>equals(job_runs.run_id, run_alerts.run_id)</code>, which is <code>job_runs.run_id = run_alerts.run_id</code> (reads ops.job_runs.run_id, ops.run_alerts.run_id)</li></ul><p>One value for each different <code>job_runs.job_id</code> and <code>run_alerts.dt</code>.</p></div><h3>Copied columns</h3><ul><li><code>job_id</code> comes from ops.job_runs.job_id</li><li><code>dt</code> comes from ops.run_alerts.dt</li></ul><h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.</p><ul><li>write_alerts_per_job: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>mart.alerts_per_job&#x27;s Key (job_id, dt) holds: each row written has its own.</li></ul></div>
 </aside>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.7.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.8.</footer>
 <script>
 // The drawing's script, shared by every page that draws boxes and arrows: it makes the
 // picture zoom, pan and light up a path. It is plain JavaScript that any browser runs, with

@@ -7718,17 +7718,19 @@ def export_lineage_difference(since: str | None = None,
 NOT_RECORDED = "Lineage state not recorded"
 
 
-def record_after_a_change(root: Path, recorded_by: str) -> list[str]:
+def record_after_a_change(root: Path, recorded_by: str, by_upgrade: bool = False) -> list[str]:
     """Record the Lineage state of the Project at `root`, as `recorded_by`, at the end of
-    what changed a table or Table reference: the lines the recording gives. A recording that
-    fails, such as one whose admin/lineage/lineage_state.csv is open in Excel, never fails
-    what called it: it gives one line saying so, and which call records."""
+    what changed a table or Table reference: the lines the recording gives; `by_upgrade` marks
+    each change an Upgrade's recording finds the Toolbox's. A recording that fails, such as
+    one whose admin/lineage/lineage_state.csv is open in Excel, never fails what called it: it
+    gives one line saying so, and which call records."""
     # effective_logic reads this file's Table references, so both are imported here, when the
     # state is recorded, as export_project_lineage imports project_lineage.
     from . import effective_logic, lineage_state
 
     try:
-        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by)
+        return lineage_state.record(root, effective_logic.project_logic(root), recorded_by,
+                                    by_upgrade=by_upgrade)
     # Whatever stops the recording, what called it is done, and stays done.
     except Exception as error:  # noqa: BLE001
         return [f"{NOT_RECORDED}: {type(error).__name__}: {one_line_message(error)}. Record "

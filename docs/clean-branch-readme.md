@@ -1851,6 +1851,12 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      no Example database, so delete the marked import, and write your team's connection in the
      `connect(...)` under it. A copy of an Example project can't run on 8.7: read it on the
      Example projects page instead.
+   - If your Project was at 8.7, the 8.8 Upgrade carries it to 8.8: it makes the Project's
+     first Lineage state, `admin/lineage/lineage_state.csv`, which needs no connection and
+     sends nothing, and writes the comment of each Table notebook's cell 5, `export_hive()`,
+     and each Template still as 8.7 wrote it again, saying that cell records it now. A Table
+     notebook with no `export_hive()` cell is marked, since it records nothing when its logic
+     changes.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
