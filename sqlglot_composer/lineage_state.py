@@ -20,10 +20,9 @@ import datetime
 import hashlib
 from pathlib import Path
 
-from . import unchecked
+from . import lineage, unchecked
 from .effective_logic import (REFERENCE, SAVED_TABLE, SCHEDULED_RUN, ColumnLogic, ProjectLogic,
                               column_key, each_column)
-from .lineage import scripts_commit
 from .project_files import BUILDING_BLOCK, REGISTRY, Registry
 from .shared import counted, in_words
 
@@ -138,7 +137,8 @@ def _stamp(root: Path, recorded_by: str, rows: list[dict[str, str]]) -> dict[str
     git."""
     from . import TOOLBOX_VERSION  # __init__.py sets it before importing this module
 
-    commit = scripts_commit(root)
+    # Read through its module, as unchecked.now is, so a commit pinned there reaches it.
+    commit = lineage.scripts_commit(root)
     if commit in ("nogit", "nocommits"):
         commit = ""
     return {"recorded_at": _recorded_at(rows), "commit": commit,

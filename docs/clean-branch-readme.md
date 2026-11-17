@@ -649,18 +649,36 @@ Goal: each output column followed back to the table columns it reads.
    text, with no drawing. Done when the new pages are in `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
-   column; then go on to section 8, "Keep the Project in order".
+   column; then step 3.
    - If the table reads another Saved table, pass that table's write too, from
      `project.load("mart.daily_job_runs").write()`, so its Lineage goes on back to the tables
      they start from.
    - If a change is made in pandas, declare it with `python_step`, a **Python step**, so the
      Lineage doesn't stop at it.
+3. **Find what changed a column.** Goal: why a column's numbers moved when its own Statement
+   didn't. A column's **Effective logic** is its own logic and the rows that count for it,
+   followed through every Saved table it reads, down to the tables the Project doesn't write,
+   so a change up the chain changes it. The **Lineage state**,
+   `admin/lineage/lineage_state.csv`, records each column's own logic and Effective logic, a
+   row each time one changes: each Project action that changes a table or Table reference
+   records it, and so does each Table notebook's cell 5, `export_hive()`. Action: in
+   `admin/lineage.ipynb`, run `project.export_lineage_difference(tables=...)`, the **Lineage
+   difference**: an HTML page and a Markdown twin in `admin/lineage/` naming each **Own
+   change**, a change to a column's own logic, and each **Inherited change**, one that came
+   only through what it reads, with its chain down to the change it comes from and when the
+   table was next written. Done when the page names the change each column you asked about
+   comes from; then go on to section 8, "Keep the Project in order".
+   - If you changed a file by hand, `project.check()` says the Lineage state is behind: run
+     `project.record_lineage_state()` in `admin/lineage.ipynb`, or the Table notebook's cell 5.
+   - A Scheduled run never records: its runs only build and send.
 
-How-to: [Follow lineage](../docs/how_to.html#follow_lineage).
+How-tos: [Follow lineage](../docs/how_to.html#follow_lineage) and
+[Find what changed a column](../docs/how_to.html#find_what_changed_a_column).
 
 Before you go on, check:
 
 - The table's `lineage/` holds the HTML page and its Markdown twin from your last export.
+- `project.check()` doesn't say the Lineage state is behind.
 
 ## 8. Keep the Project in order
 
