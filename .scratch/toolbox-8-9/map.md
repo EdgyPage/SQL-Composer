@@ -249,6 +249,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   `map_text`); no public name; all 45 formula-only Excel tasks pass. M1 and I1 follow file 11;
   P11 and I1's last limits left for ticket 13. The seam for 05 and 06 is in its Answer.
   Merged 2026-11-19 (c6a9bf0d).
+- [03 The reader reads PivotTables](issues/03-the-reader-reads-pivots.md): `Sheet.pivot_tables`
+  a list of `PivotTable` (source, Row, Column, Value and Report filter fields, filters, slicers,
+  totals shown, cells with their items and stored values); `Workbook.slicers`; the Order's
+  `PIVOT_TABLE` and `RANGE` pieces, GETPIVOTDATA in a Table's formula reading a pivot; a Table
+  named alone (`VLOOKUP(k, jobs, ...)`) now in the Order; `workbook_text.py` writes each
+  `PivotTable "name"`. Merged 2026-11-19 (d7ad237a), with ticket 04 counting the list.
 
 ## Not yet specified
 
