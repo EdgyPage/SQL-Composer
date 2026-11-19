@@ -179,6 +179,21 @@ nothing to change in a Project and touches nothing under `scheduled_runs/<name>/
 Example projects at 8.8 in `tests/upgrade_from/8.8/`. Only the last task ticket changes
 `version.txt`.
 
+### Hive that stays small (ticket 17, the user's, 2026-11-19)
+
+- The user: "add a ticket that sweeps the documentation to make sure the sql produced is memory
+  efficient. I just wasted an hour of time 'debugging' an inefficient statement that has no
+  logical errors in it, just was written to have bloated ctes."
+- No doc or Copilot file says what a CTE costs in Hive today. Ticket 17 writes the rules once,
+  checked against Hive's documentation, sweeps `docs/`, the README, `worked_examples/`, the
+  Example projects and Copilot files 00 to 21, and adds a repo test that reads every SQL block
+  with sqlglot for a CTE read twice, a `SELECT *` in a CTE, a column nothing reads and an ORDER
+  BY with no LIMIT.
+- It bears on 8.9's own Hive: file 15 and tickets 04 to 06 write each step as a CTE in each
+  final reading it, so a step read twice in one final is worked out twice. It lands before
+  files 20 and 21 (11, 12), the docs (15) and the rounds (14), so they are written and scored
+  to it.
+
 ### Words
 
 - **Pivot filter** and **Workbook check** (new), **Formula workbook**, **Conversion** and **Excel
@@ -204,6 +219,7 @@ Example projects at 8.8 in `tests/upgrade_from/8.8/`. Only the last task ticket 
 - [14 The rounds: file 20 tuned, held-out scored, the code path scored](issues/14-the-rounds.md)
 - [15 The docs](issues/15-the-docs.md)
 - [16 8.9: the Upgrade step and the raise](issues/16-eight-point-nine.md)
+- [17 Hive that stays small: the docs and Copilot files swept for bloated CTEs](issues/17-memory-efficient-hive.md)
 
 One at a time, by number, the user's habit. 01 and 02 can run side by side; once 01 is done,
 04 can; once 03 and 04 are, 05, 06 and 10 can. The real dependencies are in each ticket's `Blocked by:`.
