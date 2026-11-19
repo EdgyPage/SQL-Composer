@@ -114,8 +114,9 @@ or type checker holds them: the reviewer does.
   `from __future__ import annotations`.
 - An import used only by a hint goes under `if TYPE_CHECKING:` only to break an import cycle or
   to keep the Toolbox's import order, with a comment saying which. In the Toolbox, sqlglot's
-  types are named only in `sqlglot_composer/writing.py`, `sqlglot_composer/engine.py` and
-  `sqlglot_composer/converting.py`, the three files that may import it.
+  types are named only in the files that may import it, `tools/toolbox_registry.py`'s
+  `LIBRARY_FILES`: `writing.py`, `engine.py` and `converting.py`, and since 8.9
+  `workbook_hive.py` and `workbook_formulas.py`, which write a Formula workbook's Hive.
 
 ## HTML pages
 

@@ -41,6 +41,7 @@ GROUPS = {
     "tests/test_example_projects.py::projects": "example_projects",
     "tests/test_excel_eval.py::hive": "excel_stand_in_hive",
     "tests/test_pivot_tables.py::written": "pivot_workbooks",
+    "tests/test_workbook_hive.py::hive": "workbook_hive_stand_in_hive",
 }
 
 
