@@ -35,9 +35,9 @@ EXAMPLE_DATABASE = "example_database"
 # The only files that may import sqlglot: writing.py writes Hive with it, engine.py checks it,
 # converting.py reads someone else's Hive with it, for a Conversion (Toolbox 7.2, ticket 05),
 # and workbook_hive.py and workbook_formulas.py write a Formula workbook's Hive as its trees
-# (Toolbox 8.9, ticket 04).
+# (Toolbox 8.9, ticket 04), with workbook_pivot_hive.py writing its PivotTables' (ticket 06).
 LIBRARY_FILES = ("writing.py", "engine.py", "converting.py", "workbook_hive.py",
-                 "workbook_formulas.py")
+                 "workbook_formulas.py", "workbook_pivot_hive.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
                 "decisions.py",
                 "comparisons.py", "conditions.py", "converting.py", "describe.py",
@@ -53,7 +53,7 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py",
                 "workbook_formula_reader.py", "workbook_formulas.py", "workbook_hive.py",
-                "workbook_reader.py", "workflows.py", "writing.py")
+                "workbook_pivot_hive.py", "workbook_reader.py", "workflows.py", "writing.py")
 # The workbook reader (Toolbox 8.9, ticket 01; ADR 0016), the one reader of an Excel workbook,
 # and the one file outside the folder that loads it. That file writes a workbook as text for a
 # Copilot chat with nothing but Python, so it loads the reader alone, by the folder's path,

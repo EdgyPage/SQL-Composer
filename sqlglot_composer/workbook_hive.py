@@ -47,7 +47,23 @@ from .workbook_formulas import (
     table_query,
     tables_of,
 )
-from .workbook_reader import EXCEL_TABLE, POWER_QUERY, TYPED, Piece, Table, Workbook, coordinate
+from .workbook_pivot_hive import (
+    PIVOT_FUNCTIONS,
+    add_range_read,
+    write_pivot_query,
+    write_pivot_total_finals,
+)
+from .workbook_reader import (
+    EXCEL_TABLE,
+    PIVOT_TABLE,
+    POWER_QUERY,
+    RANGE,
+    TYPED,
+    Piece,
+    Table,
+    Workbook,
+    coordinate,
+)
 from .writing import sql_text
 
 # Each piece's role, in file 15's words.
@@ -157,6 +173,7 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE) -> WorkbookHive:
         if role in (FINAL, SUMMARY_FINAL) and piece in trees:
             finals[piece.name] = _with_steps(trees[piece], piece, roles, trees, workbook)
     finals.update(_total_row_finals(workbook, finals, book))
+    finals.update(write_pivot_total_finals(workbook, finals, book))
     notes = book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
     return WorkbookHive(roles, finals, notes)
 
@@ -164,8 +181,8 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE) -> WorkbookHive:
 def _functions() -> dict[str, Callable[[Call, Place], exp.Expression]]:
     """The function each name a formula calls is written by: file 11's (`FUNCTIONS`); a file
     writing more adds its own here. A copy, so adding them never changes `FUNCTIONS`, which
-    holds file 11's alone."""
-    return dict(FUNCTIONS)
+    holds file 11's alone. GETPIVOTDATA reads a pivot (`workbook_pivot_hive.py`)."""
+    return {**FUNCTIONS, **PIVOT_FUNCTIONS}
 
 
 def _database_table(name: str, database: str) -> exp.Table:
@@ -218,12 +235,18 @@ def _with_steps(tree: exp.Query, piece: Piece, roles: dict[Piece, str],
 
 
 def _piece_tree(piece: Piece, role: str, book: Book) -> exp.Query | None:
-    """A step's or a final's query, by its piece's kind; None, refused and named, where it has
-    none."""
+    """A step's or a final's query, by its piece's kind; None where it has none: refused and
+    named, or a range a pivot reads, read as the Table it would be, in place
+    (`workbook_pivot_hive.py`)."""
     if piece.kind == EXCEL_TABLE:
         return _table_tree(tables_of(book.workbook)[piece.name.lower()], book)
     if piece.kind == POWER_QUERY:
         return _power_query_tree(piece, role, book)
+    if piece.kind == PIVOT_TABLE:
+        return write_pivot_query(piece, book)
+    if piece.kind == RANGE:
+        add_range_read(piece, book)
+        return None
     book.notes.append(Note(REFUSED, "X1", f"{piece.kind} \"{piece.name}\"",
                            f"a {piece.kind} isn't converted by the code yet"))
     return None
@@ -295,8 +318,8 @@ def summary_groups(table: Table, book: Book) -> exp.Query:
 
 def _left_alone(workbook: Workbook, roles: dict[Piece, str]) -> list[Note]:
     """Each thing the conversion leaves alone, named (file 11's X1, file 15's P8): each query
-    that loads nothing and nothing reads, each chart and PivotTable, and the cells outside a
-    Table holding a number, a date or a formula."""
+    that loads nothing and nothing reads, each chart, and the cells outside a Table holding a
+    number, a date or a formula. A PivotTable converts (`workbook_pivot_hive.py`)."""
     notes = [Note(LEFT_ALONE, "P8", f"Power Query \"{piece.name}\"",
                   "it loads nothing and nothing reads it: left out")
              for piece, role in roles.items() if role == LEFT_OUT]
@@ -304,9 +327,6 @@ def _left_alone(workbook: Workbook, roles: dict[Piece, str]) -> list[Note]:
         where = f"Sheet \"{sheet.title}\""
         notes += [Note(LEFT_ALONE, "X1", where, f"a {kind} chart: presentation")
                   for kind in sheet.charts]
-        if sheet.pivot_tables:
-            pivots = counted(len(sheet.pivot_tables), "PivotTable")
-            notes.append(Note(LEFT_ALONE, "X1", where, f"{pivots}: presentation"))
         cells = [coordinate(*place) for place, value in sheet.cells.items()
                  if not isinstance(value, str) or value.startswith("=")]
         if cells:
