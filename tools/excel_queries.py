@@ -95,12 +95,14 @@ def data_mashup(queries: list[tuple[str, str]]) -> str:
     return base64.b64encode(mashup).decode("ascii")
 
 
-def _relationship(rid: str, kind: str, target: str) -> str:
+def relationship(rid: str, kind: str, target: str) -> str:
+    """A part's relationship `rid` to `target`, of the type `kind` under RELATIONSHIP_TYPES."""
     return (f'<Relationship Id="{rid}" Type="{RELATIONSHIP_TYPES}/{kind}" '
             f'Target="{target}"/>')
 
 
-def _with_relationships(rels: str, added: list[str]) -> str:
+def with_relationships(rels: str, added: list[str]) -> str:
+    """A part's relationships `rels`, with each relationship `added` after them."""
     return rels.replace("</Relationships>", "".join(added) + "</Relationships>")
 
 
@@ -159,12 +161,12 @@ def with_queries(saved: bytes, queries: list[tuple[str, str]],
         f'xmlns:ds="{CUSTOM_XML}"><ds:schemaRefs/></ds:datastoreItem>')
     text["customXml/_rels/item1.xml.rels"] = (
         f'{HEAD}<Relationships xmlns="{PACKAGE_RELATIONSHIPS}">'
-        + _relationship("rId1", "customXmlProps", "itemProps1.xml") + "</Relationships>")
+        + relationship("rId1", "customXmlProps", "itemProps1.xml") + "</Relationships>")
     text["xl/connections.xml"] = _connections(queries)
-    text["xl/_rels/workbook.xml.rels"] = _with_relationships(
+    text["xl/_rels/workbook.xml.rels"] = with_relationships(
         text["xl/_rels/workbook.xml.rels"],
-        [_relationship("rIdQueries1", "connections", "connections.xml"),
-         _relationship("rIdQueries2", "customXml", "../customXml/item1.xml")])
+        [relationship("rIdQueries1", "connections", "connections.xml"),
+         relationship("rIdQueries2", "customXml", "../customXml/item1.xml")])
     tables = {re.search(r'displayName="([^"]*)"', text[name]).group(1): name
               for name in text if re.fullmatch(r"xl/tables/table\d+\.xml", name)}
     connection_of = {name: number for number, (name, _) in enumerate(queries, 1)}
@@ -177,7 +179,7 @@ def with_queries(saved: bytes, queries: list[tuple[str, str]],
         folder, file = part.rsplit("/", 1)
         text[f"{folder}/_rels/{file}.rels"] = (
             f'{HEAD}<Relationships xmlns="{PACKAGE_RELATIONSHIPS}">'
-            + _relationship("rId1", "queryTable", f"../queryTables/queryTable{number}.xml")
+            + relationship("rId1", "queryTable", f"../queryTables/queryTable{number}.xml")
             + "</Relationships>")
     text["[Content_Types].xml"] = text["[Content_Types].xml"].replace(
         "</Types>", "".join(f'<Override PartName="{name}" ContentType="{kind}"/>'

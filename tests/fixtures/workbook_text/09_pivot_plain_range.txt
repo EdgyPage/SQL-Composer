@@ -1,0 +1,99 @@
+Sheet "Steps": the empty Formula workbook's steps, as it ships.
+Sheet "Parameters"
+  Excel Table "Parameters", A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP("tax_rate", Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet "Keys"
+  Excel Table "Keys", A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table's name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet "Runs"
+  A1: run_id
+  B1: job_id
+  C1: status
+  D1: duration_mins
+  E1: avg_retry_secs
+  F1: dt
+  A2: 95
+  B2: 1
+  C2: SUCCESS
+  D2: 12
+  E2: 2
+  F2: 2026-09-23
+  A3: 96
+  B3: 2
+  C3: SUCCESS
+  D3: 18
+  E3: 0
+  F3: 2026-09-23
+  A4: 97
+  B4: 3
+  C4: FAILED
+  D4: 30
+  E4: 8
+  F4: 2026-09-23
+  A5: 98
+  B5: 2
+  D5: 15
+  F5: 2026-09-23
+  A6: 99
+  B6: 1
+  C6: TEST
+  D6: 5
+  E6: 0
+  F6: 2026-09-23
+  A7: 101
+  B7: 1
+  C7: SUCCESS
+  D7: 10
+  E7: 1
+  F7: 2026-09-24
+  A8: 102
+  B8: 2
+  C8: FAILED
+  D8: 20
+  E8: 6
+  F8: 2026-09-24
+  A9: 103
+  B9: 3
+  C9: SUCCESS
+  D9: 30
+  E9: 0
+  F9: 2026-09-24
+  A10: 104
+  B10: 1
+  C10: SUCCESS
+  D10: 40
+  E10: 3
+  F10: 2026-09-24
+Sheet "Pivot"
+  A3: Row Labels
+  B3: Count of run_id
+  C3: Average of duration_mins
+  A4: 2026-09-23
+  A5: FAILED
+  B5: 1
+  C5: 30
+  A6: SUCCESS
+  B6: 2
+  C6: 15
+  A7: TEST
+  B7: 1
+  C7: 5
+  A8: (blank)
+  B8: 1
+  C8: 15
+  A9: 2026-09-24
+  A10: FAILED
+  B10: 1
+  C10: 20
+  A11: SUCCESS
+  B11: 3
+  C11: 26.66666666666667
+  A PivotTable
+Order, each piece after every piece it reads:
+  1. Excel Table "Parameters"
+  2. Excel Table "Keys"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.
