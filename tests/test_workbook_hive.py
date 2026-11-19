@@ -592,7 +592,7 @@ def test_x1_charts_pivots_and_cells_outside_a_table_are_left_alone_and_named() -
     book = workbook(runs(hours="=[@duration_mins]/60"), cells=(("Notes", "B2", 7),
                                                               ("Notes", "A1", "a title")),
                     chart=True)
-    book.sheets[-1].pivot_tables = 1
+    book.sheets[-1].pivot_tables = [None]  # one pivot, only counted here until ticket 06
     left = [(note.rule, note.where, note.text) for note in notes_of(book, LEFT_ALONE)]
     assert left == [("X1", 'Sheet "Notes"', "B2: 1 cell outside a Table"),
                     ("X1", 'Sheet "Summary"', "a bar chart: presentation"),

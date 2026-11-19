@@ -305,8 +305,8 @@ def _left_alone(workbook: Workbook, roles: dict[Piece, str]) -> list[Note]:
         notes += [Note(LEFT_ALONE, "X1", where, f"a {kind} chart: presentation")
                   for kind in sheet.charts]
         if sheet.pivot_tables:
-            notes.append(Note(LEFT_ALONE, "X1", where,
-                              counted(sheet.pivot_tables, "PivotTable") + ": presentation"))
+            pivots = counted(len(sheet.pivot_tables), "PivotTable")
+            notes.append(Note(LEFT_ALONE, "X1", where, f"{pivots}: presentation"))
         cells = [coordinate(*place) for place, value in sheet.cells.items()
                  if not isinstance(value, str) or value.startswith("=")]
         if cells:

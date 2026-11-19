@@ -69,31 +69,33 @@ Sheet "Runs"
   E10: 3
   F10: 2026-09-24
 Sheet "Pivot"
-  A3: Row Labels
-  B3: Count of run_id
-  C3: Average of duration_mins
-  A4: 2026-09-23
-  A5: FAILED
-  B5: 1
-  C5: 30
-  A6: SUCCESS
-  B6: 2
-  C6: 15
-  A7: TEST
-  B7: 1
-  C7: 5
-  A8: (blank)
-  B8: 1
-  C8: 15
-  A9: 2026-09-24
-  A10: FAILED
-  B10: 1
-  C10: 20
-  A11: SUCCESS
-  B11: 3
-  C11: 26.66666666666667
-  A PivotTable
+  PivotTable "PivotTable1", A3:C11
+    Source: the range Runs!A1:F10, read as the Table it would be: run_id | job_id | status | duration_mins | avg_retry_secs | dt
+    Rows: dt, status
+    Columns: Values
+    Value "Count of run_id": Count of run_id
+    Value "Average of duration_mins": Average of duration_mins
+    Totals shown: none
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B4: empty (Count of run_id; Rows dt 2026-09-23)
+      C4: empty (Average of duration_mins; Rows dt 2026-09-23)
+      B5: 1 (Count of run_id; Rows dt 2026-09-23, status FAILED)
+      C5: 30 (Average of duration_mins; Rows dt 2026-09-23, status FAILED)
+      B6: 2 (Count of run_id; Rows dt 2026-09-23, status SUCCESS)
+      C6: 15 (Average of duration_mins; Rows dt 2026-09-23, status SUCCESS)
+      B7: 1 (Count of run_id; Rows dt 2026-09-23, status TEST)
+      C7: 5 (Average of duration_mins; Rows dt 2026-09-23, status TEST)
+      B8: 1 (Count of run_id; Rows dt 2026-09-23, status (blank))
+      C8: 15 (Average of duration_mins; Rows dt 2026-09-23, status (blank))
+      B9: empty (Count of run_id; Rows dt 2026-09-24)
+      C9: empty (Average of duration_mins; Rows dt 2026-09-24)
+      B10: 1 (Count of run_id; Rows dt 2026-09-24, status FAILED)
+      C10: 20 (Average of duration_mins; Rows dt 2026-09-24, status FAILED)
+      B11: 3 (Count of run_id; Rows dt 2026-09-24, status SUCCESS)
+      C11: 26.66666666666667 (Average of duration_mins; Rows dt 2026-09-24, status SUCCESS)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
+  3. Range "Runs!A1:F10"
+  4. PivotTable "PivotTable1", reads Range "Runs!A1:F10"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.
