@@ -589,7 +589,8 @@ def test_x1_a_formula_reading_a_refused_one_is_refused_too() -> None:
 
 
 def test_x1_charts_and_cells_outside_a_table_are_left_alone_and_named() -> None:
-    # A PivotTable converts (ticket 06, tests/test_workbook_pivot_hive.py): never left alone.
+    # A PivotTable converts (ticket 06, in
+    # tests/sqlglot_checks/test_sqlglot_workbook_pivot_hive.py): never left alone.
     book = workbook(runs(hours="=[@duration_mins]/60"), cells=(("Notes", "B2", 7),
                                                               ("Notes", "A1", "a title")),
                     chart=True)

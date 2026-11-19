@@ -115,10 +115,12 @@ or type checker holds them: the reviewer does.
 - An import used only by a hint goes under `if TYPE_CHECKING:` only to break an import cycle or
   to keep the Toolbox's import order, with a comment saying which. In the Toolbox, sqlglot's
   types are named only in the files that may import it, `tools/toolbox_registry.py`'s
-  `LIBRARY_FILES`: `writing.py`, `engine.py` and `converting.py`, and since 8.9
-  `workbook_hive.py`, `workbook_formulas.py`, `workbook_power_query.py`, `workbook_totals.py`
-  and `workbook_pivot_hive.py`, which write a Formula workbook's Hive, and `lean_hive.py`, which
-  keeps any query's CTEs lean.
+  `LIBRARY_FILES`: `sqlglot_composer/writing.py`, `sqlglot_composer/engine.py` and
+  `sqlglot_composer/converting.py`, and since 8.9 `sqlglot_composer/workbook_hive.py`,
+  `sqlglot_composer/workbook_formulas.py`, `sqlglot_composer/workbook_power_query.py`,
+  `sqlglot_composer/workbook_totals.py` and `sqlglot_composer/workbook_pivot_hive.py`, which
+  write a Formula workbook's Hive, and `sqlglot_composer/lean_hive.py`, which keeps any query's
+  CTEs lean.
 
 ## HTML pages
 

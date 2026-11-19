@@ -62,7 +62,7 @@ from sqlglot_composer.workbook_reader import (
 )
 from sqlglot_composer.writing import read_hive, sql_text
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "tools")]
 
 import excel_eval  # noqa: E402
