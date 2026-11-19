@@ -1,10 +1,10 @@
 """Score answers to the Copilot evaluation's Excel tasks: a Formula workbook into Hive, offline.
 
-Copilot files 15, 11 and 12 should make Copilot turn a Formula workbook into Hive that gives the
-workbook's rows. This measures it, as `tools/copilot_eval.py` measures the other files: the
-same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files, by Copilot in
-its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
-replies against the tasks' reference Hive.
+Copilot files 15, 11, 12 and 20 should make Copilot turn a Formula workbook into Hive that
+gives the workbook's rows. This measures it, as `tools/copilot_eval.py` measures the other
+files: the same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files, by
+Copilot in its web chat or by a proxy model, each reply is kept in an answers file, and this
+scores the replies against the tasks' reference Hive.
 
     .venv/Scripts/python tools/excel_eval.py plan C --split dev --tasks X01,X02 --model haiku
     .venv/Scripts/python tools/excel_eval.py batch C --split dev --tasks X01,X02 \\
@@ -16,7 +16,7 @@ replies against the tasks' reference Hive.
 
 A round runs as `tools/copilot_eval.py`'s does, on `tools/eval_runs.py`: its rounds are under
 `.eval-local/excel/runs/`, its replies are kept in the same memo by the hash of the text they
-load (files 15, 11 and 12 in arm C), a held-out task asked once per version of it, and its
+load (files 15, 11, 12 and 20 in arm C), a held-out task asked once per version of it, and its
 rows go to the same `results.md`. A proxy is given five workbooks at most. `prompts`,
 `template` and `score` of an answers file are for a round run by hand in Copilot.
 
@@ -99,10 +99,11 @@ COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# File 15, the steps, and files 11 and 12, the reference it reads, all loaded in one chat.
-EXCEL_FILES = ("15", "11", "12")
+# File 15, the steps, and files 11, 12 and 20 (PivotTables), the reference it reads, all
+# loaded in one chat.
+EXCEL_FILES = ("15", "11", "12", "20")
 ARMS = {"A0": "nothing: the request alone",
-        "C": "Copilot files 15, 11 and 12"}
+        "C": "Copilot files 15, 11, 12 and 20"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -120,7 +121,7 @@ def tasks_of(split: str) -> list[ExcelTask]:
 
 
 def shared_text(arm: str) -> str | None:
-    """What the person shares before asking: nothing, or files 15, 11 and 12."""
+    """What the person shares before asking: nothing, or files 15, 11, 12 and 20."""
     if arm == "A0":
         return None
     texts = []
@@ -131,8 +132,8 @@ def shared_text(arm: str) -> str | None:
 
 
 def files_loaded(arm: str, task_id: str) -> dict[str, str]:
-    """The Copilot files whose ids a reply may cite, by their numbers: 15, 11 and 12 in arm C,
-    and none in the arm that loads no file."""
+    """The Copilot files whose ids a reply may cite, by their numbers: 15, 11, 12 and 20 in arm
+    C, and none in the arm that loads no file."""
     if arm == "A0":
         return {}
     texts: dict[str, str] = {}
@@ -175,7 +176,7 @@ def template(tasks: list[ExcelTask]) -> str:
 
 def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
     """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
-    model and the text the arm loads, files 15, 11 and 12 in arm C, which is all a held-out
+    model and the text the arm loads, files 15, 11, 12 and 20 in arm C, which is all a held-out
     task is asked once per. The reply changes no Excel task's key."""
     return eval_runs.hashed_key(task_id, prompt(BY_ID[task_id]), arm, model,
                                 shared_text(arm) or "")

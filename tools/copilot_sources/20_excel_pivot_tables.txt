@@ -1,0 +1,188 @@
+# Copilot file 20: PivotTables into Hive ({version})
+
+**Use this file as reference while you follow file 15's steps: find each part of a
+PivotTable in Patterns, then write the Hive its rule gives.**
+
+Objective: write each PivotTable of an Excel workbook as the Hive giving the values it shows.
+Load this file when the workbook attached has a `PivotTable "name"`, with file 15 (the steps,
+the map and the reply), file 11 (formulas) and file 12 (Power Query).
+
+## Patterns: when the PivotTable has X, look up Y
+
+| ID | The PivotTable has | Rules |
+|---|---|---|
+| P1 | Source, its name | PS1 to PS4, PN1, PN2 |
+| P2 | Rows, Columns, a grouping | PR1 to PR5 |
+| P3 | a Value, Show Values As, a Calculated Field | PV1 to PV8 |
+| P4 | a Calculated Item | PC1 to PC3 |
+| P5 | Totals shown | PL1, PL2 |
+| P6 | Filter, Items hidden, Slicer, Timeline, Value Filter | PF1 to PF5 |
+| P7 | GETPIVOTDATA in a Table's formula | PG1, PG2 |
+| P8 | DAX, OLAP, Show items with no data | PX1 to PX7 |
+
+## Terms
+
+- **Row field**, **Column field**: a field on its Rows, its Columns. **Value**: each
+  `Value "caption"`. **Total level**: each total `Totals shown:` lists.
+- **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
+  slicer, a Timeline, a value filter (Top or Bottom).
+
+## Rules: source and name
+
+- **PS1** A Table: FROM `<database>.<table>`, or its step's CTE (file 15); never its cells
+  typed in, never a CTE named for the table it reads.
+- **PS2** A query's Table: FROM what the query loads, as PS1.
+- **PS3** A plain range: its sheet in snake case, as `<database>.runs`; the table it samples
+  is a Decision in convert.
+- **PS4** A Data Model pivot of one table: FROM what loads it; of several: refused.
+- **PN1** The pivot's own name, in snake case, names its final.
+- **PN2** Excel's default name, as PivotTable1: kept; the map proposes the sheet's name in
+  snake case plus `_pivot`, alone if it ends in pivot (`pivot`), a second `_2`; marked
+  "default name".
+
+## Rules: rows
+
+- **PR1** Its final groups by each Row field, then each Column field, then each Value, named
+  its caption in snake case: `SELECT f, SUM(x) AS sum_of_x FROM <database>.t GROUP BY f`.
+- **PR2** A Column field is written as rows, never a column per item; mark "Column field
+  <name>: written as rows".
+- **PR3** Dates grouped, in SELECT and GROUP BY: Years YEAR(d), Quarters CONCAT('Qtr',
+  QUARTER(d)), Months DATE_FORMAT(d, 'MMM'), Days DATE_FORMAT(d, 'd-MMM'); the field keeps
+  its name (dt holds Sep), a coarser one Excel's (Years).
+- **PR4** Numbers By 10, 0 to 49: CASE WHEN x < 0 THEN '<0' WHEN x < 10 THEN '0-9' .. WHEN x
+  <= 49 THEN '40-49' ELSE '>49' END.
+- **PR5** Grouped by hand: CASE WHEN f IN (a, b) THEN 'Group1' ELSE f END.
+
+## Rules: values
+
+- **PV1** Sum SUM, Count and Count Numbers COUNT, Average AVG, Max MAX, Min MIN, StdDev
+  STDDEV_SAMP, StdDevp STDDEV_POP, Var POWER(STDDEV_SAMP(x), 2), Varp POWER(STDDEV_POP(x),
+  2), never VARIANCE.
+- **PV2** Distinct Count: COUNT(DISTINCT x).
+- **PV3** A Calculated Field: its formula over the SUM of each field, duration_mins/60 as
+  SUM(duration_mins) / 60; ^ as POWER.
+- **PV4** % of Grand, Row or Column Total: SUM(x) / SUM(SUM(x)) OVER (), or PARTITION BY the
+  level's Row fields, or Column fields.
+- **PV5** Running Total In b: SUM(SUM(x)) OVER (PARTITION BY the other fields ORDER BY b ROWS
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW); a grouped b by MIN of its column.
+- **PV6** Difference From, % Of, % Difference From item i of b: i's value is MAX(CASE WHEN b
+  = i THEN SUM(x) END) OVER (PARTITION BY the other fields); a difference NULL on i's row.
+- **PV7** Rank Largest to Smallest: RANK() OVER (PARTITION BY the other fields ORDER BY
+  SUM(x) DESC); Smallest to Largest ASC.
+- **PV8** At a total level without PV5 to PV7's base field: NULL, as Excel shows a blank,
+  marked. Never at its own final, nor for PV4.
+
+## Rules: calculated items
+
+- **PC1** An item of items, done = SUCCESS+FAILED on status: a column beside the real rows,
+  SUM(SUM(CASE WHEN status IN ('SUCCESS', 'FAILED') THEN x END)) OVER (PARTITION BY the
+  row's other fields) AS done; with several Values, `<item>_<value>`.
+- **PC2** Any other, as a ratio: its formula over each item's own such sum.
+- **PC3** At a total level not grouped by its field, Excel adds it into each total: SUM(x) +
+  COALESCE(SUM(CASE WHEN status IN (..) THEN x END), 0); mark "added into the total".
+
+## Rules: totals
+
+- **PL1** **Each total level shown is a final of its own**, reading the source again: the
+  Grand Total row grouped by the Column fields alone, the Grand Total column by the Row
+  fields alone, a field's subtotals by it and the fields outside it, and where they meet;
+  named `<pivot> (by <fields>)`, joined by "and", or `<pivot> (grand total)`. Never a total
+  row or ROLLUP in its own final.
+- **PL2** Totals shown: none: its own final alone. Subtotals of functions chosen: refused.
+
+## Rules: Pivot filters
+
+- **PF1** A Report filter: f = x, f IN (..), a blank f IS NULL; (All): none.
+- **PF2** Items hidden: f <> x, NOT f IN (..); a blank kept, f IS NULL OR first; a blank
+  hidden, NOT f IS NULL AND.
+- **PF3** A slicer, on each pivot it is connected to: f IN (..); none if it keeps all.
+- **PF4** A Timeline: d BETWEEN 'start' AND 'end'.
+- **PF5** Top or Bottom n on the outer field: f IN (SELECT f FROM (SELECT f, RANK() OVER
+  (ORDER BY SUM(x) DESC) AS item_rank FROM the source WHERE the other filters GROUP BY f) r
+  WHERE item_rank <= n); Bottom ASC. Its second read stays.
+- Each goes in the WHERE of the source's read, at every level. **On the line above each
+  condition, write `-- Pivot filter: <kind> <field>`** (in a CASE, before its WHEN), its
+  kind Report filter, hidden items, slicer, Timeline or value filter; and in the map's Marks.
+
+## Rules: GETPIVOTDATA
+
+- **PG1** Naming every Row and Column field: the pivot is a step, a CTE of the Values read,
+  no final; LEFT JOIN it on the fields named, each to its item's Hive. NULL for #REF!;
+  IFERROR as COALESCE.
+- **PG2** Naming fewer: that total level's query joined, CROSS JOIN for the grand total; a
+  total not shown: refused, NULL.
+
+## Rules: refused, and named
+
+- **PX1** A DAX measure: NULL.
+- **PX2** OLAP, a data connection, another workbook, consolidation ranges: no final.
+- **PX3** Show items with no data: no final.
+- **PX4** Product, Index, % of Parent Total, % Running Total In; a base field off Rows and
+  Columns; a (previous) or (next) item: NULL.
+- **PX5** A label or date filter; a value filter by percent or sum, on an inner field or a
+  Value not shown: no final.
+- **PX6** Grouped by seconds, minutes, hours, days of several; other bins: no final.
+- **PX7** A calculated formula beyond names, numbers, + - * / ^: NULL; a Calculated Item
+  beside a Value not a Sum: no final.
+
+## Worked patterns
+
+### W1: each total level its own final
+
+PivotTable1 on sheet "Job days": Source job_runs; Rows job_id; Columns dt; Value "Sum of
+duration_mins"; Totals shown: Grand Total row, Grand Total column. Map:
+Sources job_runs. Finals PivotTable1, PivotTable1 (by job_id), PivotTable1 (by dt),
+PivotTable1 (grand total). Marks: Column field dt: written as rows; default name
+PivotTable1: job_days_pivot. (by dt) is (by job_id) with dt.
+
+```sql
+SELECT job_id, dt, SUM(duration_mins) AS sum_of_duration_mins
+FROM <database>.job_runs GROUP BY job_id, dt
+```
+
+```sql
+SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins
+FROM <database>.job_runs GROUP BY job_id
+```
+
+```sql
+SELECT SUM(duration_mins) AS sum_of_duration_mins FROM <database>.job_runs
+```
+
+### W2: Pivot filters, marked
+
+busy_jobs: Rows job_id; Slicer "status" selected SUCCESS; Items hidden on job_id: 2. Its
+(grand total) has the same WHERE.
+
+```sql
+SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins
+FROM <database>.job_runs
+WHERE
+  -- Pivot filter: slicer status
+  status = 'SUCCESS'
+  AND
+  -- Pivot filter: hidden items job_id
+  job_id <> 2
+GROUP BY job_id
+```
+
+### W3: GETPIVOTDATA, the pivot a step
+
+Table jobs (job_id, job_name) adds runs of run_counts (Rows job_id):
+`=GETPIVOTDATA("Count of run_id",Pivot!$A$3,"job_id",[@job_id])`. Steps run_counts. Finals jobs.
+
+```sql
+WITH run_counts AS (
+  SELECT job_id, COUNT(run_id) AS count_of_run_id
+  FROM <database>.job_runs GROUP BY job_id
+)
+SELECT j.job_id, j.job_name, p.count_of_run_id AS runs
+FROM <database>.jobs j LEFT JOIN run_counts p ON j.job_id = p.job_id
+```
+
+## Self-check
+
+- [ ] **C1** Each PivotTable is a final, or a step a GETPIVOTDATA reads (PG1).
+- [ ] **C2** Each total level shown has its own block (PL1), and no final a column per item.
+- [ ] **C3** Each Pivot filter's condition has its `-- Pivot filter:` line, in each block.
+- [ ] **C4** The map's Marks name each PR2, PN2, PV8, PC3 and Pivot filter.

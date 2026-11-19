@@ -5,7 +5,8 @@ attached workbook in Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
+file 15 (the steps, the map and the reply), file 12 (Power Query and totals) and, for a
+PivotTable, file 20.
 
 ## Patterns: when the formula has X, look up Y
 
@@ -121,7 +122,7 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
   reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
   row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
-  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
+  files 11 and 12 don't list. Left alone, named: charts, cells outside a Table.
 
 ## Worked patterns
 

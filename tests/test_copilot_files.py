@@ -60,9 +60,10 @@ OWN_CALLS = frozenset({"connect", "query", "execute", "rows", "preview", "write"
 # block tests, which run the code, are what catch it.
 HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN", "MAX",
                         "ROW_NUMBER"})
-# Files 15, 11 and 12 turn a Formula workbook into Hive, loaded together.
+# Files 15, 11 and 12 turn a Formula workbook into Hive, loaded together, with file 20 for a
+# workbook with a PivotTable.
 EXCEL_FILES = ("11_excel_formula_workbooks.txt", "12_excel_power_query.txt",
-               "15_excel_workbook_steps.txt")
+               "15_excel_workbook_steps.txt", "20_excel_pivot_tables.txt")
 # File 19 writes a Metric request, plain text for the user's chatbot: no code, and no SQL.
 METRIC_REQUEST = "19_metric_request.txt"
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
@@ -92,7 +93,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(20)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(21)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -139,6 +140,23 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
         # or a file's own shorter one where the shared one doesn't fit.
         after = text.split(copilot_files.ALWAYS.read_text(encoding="utf-8").strip())[1]
         assert after.startswith("\n- **A11** Read each Derived table once; SELECT in it only")
+
+
+# Ticket 06's pivot rules, by their IDs (.scratch/toolbox-8-9/issues/06-pivots-in-code.md):
+# file 20 holds each, so the Copilot path and the code path give the same Hive.
+PIVOT_RULES = ([f"PR{n}" for n in range(1, 6)] + [f"PV{n}" for n in range(1, 9)]
+               + [f"PC{n}" for n in range(1, 4)] + ["PL1", "PL2"]
+               + [f"PF{n}" for n in range(1, 6)] + ["PG1", "PG2"]
+               + [f"PS{n}" for n in range(1, 5)] + ["PN1", "PN2"]
+               + [f"PX{n}" for n in range(1, 8)])
+
+
+def test_file_20_holds_every_pivot_rule_and_has_copilot_mark_each_pivot_filter() -> None:
+    text = (COPILOT / "20_excel_pivot_tables.txt").read_text(encoding="utf-8")
+    assert [rule for rule in PIVOT_RULES if f"- **{rule}** " not in text] == []
+    assert "`-- Pivot filter: <kind> <field>`" in text
+    start_here = (COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
+    assert "| 15, 11, 12, 20 |" in start_here
 
 
 def test_start_here_names_every_other_file() -> None:
