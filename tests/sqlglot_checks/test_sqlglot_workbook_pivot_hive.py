@@ -186,9 +186,9 @@ def notes_of(book: Workbook, kind: str) -> list[tuple[str, str, str]]:
 
 def run(connection: sqlite3.Connection, tree: exp.Query) -> list[dict[str, object]]:
     """A final's rows on the stand-in Hive, each by its columns' names; a range read as the
-    Table it would be, `<runs>`, is the Example database's job_runs."""
+    Table it would be, `runs`, is the Example database's job_runs."""
     def named(node: exp.Expression) -> exp.Expression:
-        if isinstance(node, exp.Identifier) and node.this == "<runs>":
+        if isinstance(node, exp.Identifier) and node.this == "runs":
             return exp.Identifier(this="job_runs")
         return node
     cursor = connection.execute(excel_eval.as_sqlite(tree.transform(named)))
@@ -723,13 +723,14 @@ def test_ps2_a_pivot_over_a_querys_table_is_read_once_its_query_has_hive() -> No
     assert "ok_runs AS (" in finals_of(book)["job_hours"]
 
 
-def test_ps3_a_range_is_the_table_it_would_be_to_fill_in() -> None:
+def test_ps3_a_range_is_the_table_it_would_be_its_name_proposed() -> None:
     book = fixture("09_pivot_plain_range")
     assert finals_of(book)["PivotTable1"] == (
         "SELECT dt, status, COUNT(run_id) AS count_of_run_id, AVG(duration_mins) AS "
-        "average_of_duration_mins FROM db.<runs> GROUP BY dt, status")
-    assert ("PS3", 'Range "Runs!A1:F10"', "read as the Table it would be, <runs>: fill in its "
-            "name in the database") in notes_of(book, MARK)
+        "average_of_duration_mins FROM db.runs GROUP BY dt, status")
+    assert ("PS3", 'Range "Runs!A1:F10"', "read as the Table it would be, runs: the database "
+            "table it samples is proposed as that, a Decision of its table") in notes_of(
+                book, MARK)
 
 
 def test_ps4_a_data_model_pivot_reads_the_table_feeding_it(
@@ -745,7 +746,7 @@ def test_ps4_a_data_model_pivot_reads_the_table_feeding_it(
 
 def test_pn1_a_pivots_own_name_in_snake_case() -> None:
     book = fixture("05_pivot_slicer_two_pivots")
-    assert workbook_pivot_hive.pivot_table_names(book) == {"PivotTable1": "pivot_pivot",
+    assert workbook_pivot_hive.pivot_table_names(book) == {"PivotTable1": "pivot",
                                                            "runs_by_day": "runs_by_day"}
     book.pivot_tables[1].name = "Runs By Day"
     book.order = {Piece(piece.kind, "Runs By Day") if piece.name == "runs_by_day" else piece:
@@ -756,12 +757,14 @@ def test_pn1_a_pivots_own_name_in_snake_case() -> None:
 def test_pn2_excels_default_name_is_its_sheets_proposed_for_a_decision() -> None:
     book = fixture("10_pivot_calculated_item_rank")
     assert workbook_pivot_hive.pivot_table_names(book) == {
-        "PivotTable1": "pivot_pivot", "PivotTable2": "ranked_pivot",
+        "PivotTable1": "pivot", "PivotTable2": "ranked_pivot",
         "PivotTable3": "spread_pivot"}
     assert ("PN2", "PivotTable2", "Excel's default name: its table is proposed as "
             "ranked_pivot, for you to decide") in notes_of(book, MARK)
     book.pivot_tables[1].sheet = "Pivot"
-    assert workbook_pivot_hive.pivot_table_names(book)["PivotTable2"] == "pivot_pivot_2"
+    assert workbook_pivot_hive.pivot_table_names(book)["PivotTable2"] == "pivot_2"
+    book.pivot_tables[1].sheet = "Team pivot"
+    assert workbook_pivot_hive.pivot_table_names(book)["PivotTable2"] == "team_pivot"
 
 
 # --- PX: refused and named -------------------------------------------------------------------

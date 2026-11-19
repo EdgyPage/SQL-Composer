@@ -140,7 +140,9 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 **Decision**:
 One thing about one table that only the user decides, which the table's files show made or
 not: its location, its Key, a column type the Toolbox could only guess, the value a Script
-tag stands for, the Partitions its Seed copies, or a `<...>` left to fill in. The user answers
+tag stands for, the Partitions its Seed copies, the name proposed for a table made from a
+Formula workbook, the database table proposed for cells a PivotTable reads, or a
+`<...>` left to fill in. The user answers
 each in a Workflow's decisions cell, and a step writes each answer into the table's Table
 reference. An answer may be given once for every table of a batch, and a table's own answer
 overrides it; an answer may also be a Run value's function, called each time the table is
@@ -163,7 +165,8 @@ Formula workbook, and writes the user's own code for it. Each table the scripts 
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
 that copy; a Staging table may instead be folded into the tables that read it. One query
 alone becomes a Saved table named for the batch, and in a batch of several scripts, each
-script that holds one query alone a Saved table named for its file.
+script that holds one query alone a Saved table named for its file. Each final of a Formula
+workbook is a query alone, a Saved table named for its Table or its PivotTable.
 Each gets its Table folder, whose notebook's Statement gives the same rows, its Table
 reference, and a checklist of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
 pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
@@ -177,14 +180,16 @@ _Avoid_: source table, old table
 
 **Batch**:
 One or more scripts of Hive converted together by one Conversion, with every statement in
-them ordered by what reads what. Where each script is, and the list of what each statement
-became, are kept in the convert Workflow's folder, under the batch's name: a script read from a
-file is read where it is, never copied, and only Hive given as text is kept there.
+them ordered by what reads what; a Formula workbook in it gives a script for each of its
+finals. Where each script is, and the list of what each statement became, are kept in the
+convert Workflow's folder, under the batch's name: a script read from a file, or a workbook,
+is read where it is, never copied, and only Hive given as text, or a workbook's finals' Hive,
+is kept there.
 _Avoid_: job, bundle, script set
 
 **Conversion folder**:
-A batch's index, in the convert Workflow's folder: where each script is (Hive given as text
-kept in its scripts/), their order, what each statement became and the tables that came from
+A batch's index, in the convert Workflow's folder: where each script is (Hive given as text,
+and each workbook final's Hive, kept in its scripts/), their order, what each statement became and the tables that came from
 them. What belongs to one table, the statements it came from, the scan and its checklist, is
 in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder

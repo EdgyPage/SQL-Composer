@@ -97,6 +97,8 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 # written, left out of every comparison until it is, and emptied once its step makes them, as
 # 8.6's ticket 12, 8.7's ticket 14 and 8.8's ticket 10 emptied it.
 AWAITING_ITS_STEP: tuple[str, ...] = (
+    # 8.9's ticket 07: the convert notebook's FILES and RENAME take a workbook.
+    "admin/workflows/convert/convert.ipynb",
 )
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"

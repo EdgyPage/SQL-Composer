@@ -155,7 +155,7 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
     ({"OPS.JOB_RUN": {"key": None}}, "; did you mean ops.job_runs?"),
     ({"ops.job_runs": {"keys": ["run_id"]}},
      "ops.job_runs: 'keys' is no kind of answer; the decisions cell answers location, key, "
-     "types, tags and seed; did you mean key?"),
+     "types, tags, name, sources and seed; did you mean key?"),
     ({"ops.job_runs": {"tag": {"X": "1"}}}, "; did you mean tags?"),
     ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
      "ops.job_runs: types: run_idd is no column of ops.job_runs; did you mean run_id?"),

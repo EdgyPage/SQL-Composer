@@ -19176,9 +19176,11 @@ flowchart TD
 # a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is
 # True, each batch named for its file
 NAME = &#x27;&#x27;
-# the scripts&#x27; files, such as [&quot;daily.hql&quot;], each beside this notebook or a path
-# anywhere, such as &quot;C:/work/daily.hql&quot;, read where it is: left [], every .hql file
-# beside this notebook, or HIVE when it is given
+# the scripts&#x27; files, such as [&quot;daily.hql&quot;], or an Excel workbook&#x27;s, such as
+# [&quot;runs.xlsx&quot;], each calculation of it a Saved table, each beside this notebook or
+# a path anywhere, such as &quot;C:/work/daily.hql&quot;, read where it is: left [], every
+# .hql file beside this notebook, never a workbook, which you name here; or HIVE
+# when it is given
 FILES = []
 # the Hive as text, such as &quot;&quot;&quot;SELECT ...&quot;&quot;&quot;, or None to read FILES
 HIVE = None

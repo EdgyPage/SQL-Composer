@@ -119,8 +119,9 @@ or type checker holds them: the reviewer does.
   `sqlglot_composer/converting.py`, and since 8.9 `sqlglot_composer/workbook_hive.py`,
   `sqlglot_composer/workbook_formulas.py`, `sqlglot_composer/workbook_power_query.py`,
   `sqlglot_composer/workbook_totals.py` and `sqlglot_composer/workbook_pivot_hive.py`, which
-  write a Formula workbook's Hive, and `sqlglot_composer/lean_hive.py`, which keeps any query's
-  CTEs lean.
+  write a Formula workbook's Hive, `sqlglot_composer/lean_hive.py`, which keeps any query's
+  CTEs lean, and `sqlglot_composer/pivot_filters.py`, which reads the Pivot filters Hive
+  marks.
 
 ## HTML pages
 
