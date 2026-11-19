@@ -214,15 +214,20 @@ as the others are, and besides:
   `<pivot> (grand total)` and `<pivot> (by <field>)`, are each correct when one query gives
   their rows, its columns in any order, a number written as text the number (a Years group's
   "2026"). A Column field is written as rows, a calculated item as a column beside the real
-  rows, a grouped field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"). A pivot a
-  Table's GETPIVOTDATA reads is a step, with no final of its own.
+  rows (and added into each total its field isn't a key of, as Excel adds it), a grouped
+  field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"), and a Show Values As NULL
+  at a total level where Excel shows a blank. A pivot a Table's GETPIVOTDATA reads is a step,
+  with no final of its own. Each reference reads each step once and carries only the columns
+  its final reads (ticket 17 of the 8.9 map).
 - **Its Pivot filters.** Each Pivot filter is its condition, its values written in, with
   `-- Pivot filter: <kind> <field>` above it, the kind in the glossary's words (Report filter,
-  hidden items, slicer, Timeline, value filter). The query that gives a final's rows must mark
+  hidden items, slicer, Timeline, value filter); `/* Pivot filter: ... */` after it, as the
+  code path writes it, is the same mark. The query that gives a final's rows must mark
   each Pivot filter the final's reference marks, or the reply is not named: `unnamed` lists
   `Pivot filter: slicer status`.
-- **Its marks.** A Column field's "written as rows", and a default name's proposed
-  `<sheet>_pivot`, are named in the reply's words, as any mark is.
+- **Its marks.** A Column field's "written as rows", a default name's proposed
+  `<sheet>_pivot`, and a calculated item added into a total ("added into the total"), are
+  named in the reply's words, as any mark is.
 
 Each pivot final's reference gives the values the pivot stored, a test holds: a Workbook check
 in small, on the tasks' own workbooks.

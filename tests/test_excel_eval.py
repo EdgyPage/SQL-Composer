@@ -27,7 +27,7 @@ import code_audit
 import eval_runs
 import excel_eval
 import offline_policy
-from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask
+from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask, pivot_filter
 from formula_workbook import as_text, build, saved
 from pivot_tables import Pivot, Timeline, caption
 from sqlglot_composer.workbook_reader import PivotCell, read_workbook
@@ -337,8 +337,8 @@ def where_stored(cell: PivotCell, pivot: Pivot
     of the fields the cell names and their items there; and the place of the cell's value.
 
     A final's columns are its fields, outermost Row field first, then its values, then each
-    calculated item: a calculated item's cell is its column in the pivot's own final, on each
-    row of the other items the cell names."""
+    calculated item: a calculated item's cell is its column in the final of the level its
+    field is a key of, on each row of the other items the cell names."""
     every = [*pivot.rows, *pivot.columns]
     captions = [caption(value) for value in pivot.values]
     calculated = [(field, item) for field, item, _ in pivot.calculated_items]
@@ -346,12 +346,12 @@ def where_stored(cell: PivotCell, pivot: Pivot
     named = [field for field in every if field in items]
     fields = [field for field in named if (field, items[field]) not in calculated]
     key = tuple(as_compared(items[field]) for field in fields)
+    final = level_final(pivot.name, named, every)
     if len(fields) == len(named):
-        return (level_final(pivot.name, fields, every), list(range(len(fields))), key,
-                len(fields) + captions.index(cell.value))
+        return final, list(range(len(fields))), key, len(fields) + captions.index(cell.value)
     [item] = [(field, items[field]) for field in named if field not in fields]
-    return (pivot.name, [every.index(field) for field in fields], key,
-            len(every) + len(captions) + calculated.index(item))
+    return (final, [named.index(field) for field in fields], key,
+            len(named) + len(captions) + calculated.index(item))
 
 
 @pytest.mark.parametrize("task", PIVOT_TASKS, ids=lambda task: task.id)
@@ -365,7 +365,8 @@ def test_each_pivot_finals_reference_gives_the_values_the_pivot_stored(
     cells = {pivot.name: pivot.cells for pivot in read_workbook(saved(task.workbook))
              .pivot_tables}
     for pivot in task.workbook.pivots:
-        finals = [final for final in task.finals if excel_eval.named_by(final) == pivot.name]
+        finals = [final for final in task.finals
+                  if excel_eval.table_or_pivot_of(final) == pivot.name]
         if not finals:
             continue
         seen: dict[str, set[tuple[object, ...]]] = {final: set() for final in finals}
@@ -409,7 +410,8 @@ def test_each_pivot_filter_is_marked_in_each_final_it_ends_up_in(task: ExcelTask
     for pivot in task.workbook.pivots:
         filters = pivot_filters_of(pivot, task)
         every |= filters
-        finals = [final for final in task.finals if excel_eval.named_by(final) == pivot.name]
+        finals = [final for final in task.finals
+                  if excel_eval.table_or_pivot_of(final) == pivot.name]
         if not finals:  # a step's filters, in the Tables that read it
             finals = [final for final in task.finals if not excel_eval.is_a_pivots(final, task)]
         for final in finals:
@@ -455,6 +457,25 @@ def test_a_pivot_filter_is_marked_in_each_query_it_ends_up_in(
     assert scored(task, reply, hive).passed
 
 
+def test_a_pivot_filter_mark_above_its_condition_or_after_it_is_named(
+        hive: sqlite3.Connection) -> None:
+    # A reply writes `-- Pivot filter: ...` above the condition; the code path's sqlglot
+    # writes `/* Pivot filter: ... */` after it. Both are the same mark.
+    task = BY_ID["X95"]
+    after = {}
+    for name, sql in task.finals.items():
+        after[name] = (sql.replace(pivot_filter("Report filter", "status"), "")
+                       .replace(pivot_filter("hidden items", "job_id"), "")
+                       .replace("'FAILED') AND", "'FAILED') /* Pivot filter: Report filter "
+                                                 "status */ AND")
+                       .replace("job_id <> 3", "job_id <> 3 /* Pivot filter: hidden items "
+                                               "job_id */"))
+        assert "-- Pivot filter" not in after[name]
+    for hives in (task.finals, after):
+        result = scored(task, reference_reply(task, hives), hive)
+        assert result.unnamed == [] and result.passed, result
+
+
 @pytest.mark.parametrize(("task_id", "final", "wrong"), [
     # a hidden item's condition that drops the blank status too
     ("X116", "status_mins", ("(status IS NULL OR status <> 'TEST')", "status <> 'TEST'")),
@@ -469,10 +490,11 @@ def test_a_pivot_filter_is_marked_in_each_query_it_ends_up_in(
     ("X93", "monthly_runs", ("GROUP BY DATE_FORMAT(dt, 'MMM'), job_id",
                              "GROUP BY DATE_FORMAT(dt, 'MMM'), job_id WITH ROLLUP")),
     # a ratio item worked out over every status, not the ratio of the two items' sums
-    ("X113", "job_status_mins", ("(COALESCE(SUM(CASE WHEN status = 'SUCCESS' THEN "
-                                 "duration_mins END), 0) + COALESCE(SUM(CASE WHEN status = "
-                                 "'FAILED' THEN duration_mins END), 0))",
-                                 "SUM(duration_mins)")),
+    ("X113", "job_status_mins", ("(COALESCE(SUM(SUM(CASE WHEN status = 'SUCCESS' THEN "
+                                 "duration_mins END)) OVER (PARTITION BY job_id), 0) + "
+                                 "COALESCE(SUM(SUM(CASE WHEN status = 'FAILED' THEN "
+                                 "duration_mins END)) OVER (PARTITION BY job_id), 0))",
+                                 "SUM(SUM(duration_mins)) OVER (PARTITION BY job_id)")),
     # a calculated field as the mean of each row's ratio, not the ratio of the sums
     ("X112", "retry_rate", ("SUM(avg_retry_secs) / SUM(duration_mins)",
                             "AVG(avg_retry_secs / duration_mins)")),

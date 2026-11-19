@@ -678,10 +678,10 @@ def sources(task: ExcelTask) -> list[str]:
             if not table.loaded_by and not table.rows.startswith("SELECT DISTINCT")]
 
 
-def named_by(final: str) -> str:
-    """The Table or PivotTable a final is of, as `finals` names it: a Total Row's,
-    `job_runs (Total Row)`, and a pivot's total level, `runs_by_job (grand total)`, are their
-    Table's and pivot's."""
+def table_or_pivot_of(final: str) -> str:
+    """The name of the Table or PivotTable a final belongs to, as `finals` names it: a Total
+    Row's, `job_runs (Total Row)`, is its Table's; a pivot's total level's,
+    `runs_by_job (grand total)`, its pivot's."""
     return final.split(" (", 1)[0]
 
 
@@ -689,20 +689,20 @@ def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
     """Whether the reply's map, before its first query, says which Tables are the sources and
     which the finals, naming each."""
     before = BLOCK.split(reply, maxsplit=1)[0].lower()
-    finals = [named_by(name) for name in task.finals]
+    finals = [table_or_pivot_of(name) for name in task.finals]
     return ("source" in before and "final" in before
             and all(name.lower() in before for name in [*sources(task), *finals]))
 
 
 def is_a_pivots(final: str, task: ExcelTask) -> bool:
     """Whether a final is a PivotTable's: its own, or one of its total levels'."""
-    return named_by(final) in {pivot.name for pivot in task.workbook.pivots}
+    return table_or_pivot_of(final) in {pivot.name for pivot in task.workbook.pivots}
 
 
-# The mark above a Pivot filter's condition, `-- Pivot filter: slicer status`, and what it
-# says, as the comment's text.
-PIVOT_FILTER_MARK = re.compile(r"--\s*Pivot filter:([^\n]*)", re.IGNORECASE)
-MARK_TEXT = re.compile(r"\s*Pivot filter:(.*)", re.IGNORECASE)
+# What a Pivot filter's mark says, as a comment's text: `-- Pivot filter: slicer status` above
+# its condition, as a reply writes it, or `/* Pivot filter: slicer status */` after it, as
+# sqlglot writes it for the code path. sqlglot keeps either as a comment of the node beside it.
+MARK = re.compile(r"\s*Pivot filter:(.*)", re.IGNORECASE | re.DOTALL)
 # Each kind of Pivot filter, by its words in CONTEXT.md, and the words a mark may name it by.
 PIVOT_FILTER_KINDS = {"Report filter": ("report",), "hidden items": ("hidden",),
                       "slicer": ("slicer",), "Timeline": ("timeline",),
@@ -710,23 +710,14 @@ PIVOT_FILTER_KINDS = {"Report filter": ("report",), "hidden items": ("hidden",),
 
 
 def marks_in(query: exp.Expression) -> list[str]:
-    """What each `-- Pivot filter:` mark in a query says, in lower case, such as
-    `slicer status`: sqlglot keeps each comment on the node it is beside."""
+    """What each Pivot filter mark in a query says, in lower case, such as `slicer status`: the
+    one reader of the mark, from the comments sqlglot keeps on the query's nodes."""
     found = []
     for node in query.walk():
         for comment in node.comments or []:
-            mark = MARK_TEXT.fullmatch(comment)
+            mark = MARK.fullmatch(comment)
             if mark:
                 found.append(mark.group(1).strip().lower())
-    return found
-
-
-def marks_in_text(code: list[str]) -> list[str]:
-    """What each `-- Pivot filter:` mark in any of the reply's SQL blocks says, in lower
-    case."""
-    found = []
-    for sql in code:
-        found += [mark.strip().lower() for mark in PIVOT_FILTER_MARK.findall(sql)]
     return found
 
 
@@ -744,7 +735,7 @@ def pivot_filters_marked(sql: str) -> list[tuple[str, str]]:
 def unmarked_pivot_filters(task: ExcelTask, marks_of: dict[str, list[str]]) -> list[str]:
     """Each Pivot filter a final's reference marks that the marks `marks_of` gives for that
     final don't name, as `Pivot filter: <kind> <field>`: the marks of the reply's query that
-    gives the final's rows, or of all its SQL where none does."""
+    gives the final's rows, or of all its queries where none does."""
     unmarked = []
     for final, sql in task.finals.items():
         for kind, name in pivot_filters_marked(sql):
@@ -776,73 +767,94 @@ def _toolbox_code(reply: str) -> str:
 def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
           expected: dict[str, list[tuple[object, ...]]]) -> ExcelScore:
     """One answer, scored check by check against the reference rows of each final Table."""
-    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task),
-                        code=_toolbox_code(reply))
+    result, marks_of = _scored_queries(task, blocks(reply, SQL_LANGUAGES), hive, expected)
+    result.mapped = names_sources_and_finals(reply, task)
+    result.code = _toolbox_code(reply)
     prose = BLOCK.sub("", reply).lower()
     for group in (*task.refused, *task.marks, *task.ignored):
         if not any(word.lower() in prose for word in group):
             result.unnamed.append(group[0])
-    code = blocks(reply, SQL_LANGUAGES)
-    marks_of = {final: marks_in_text(code) for final in task.finals}
-    result.found = bool(code)
-    if code:
-        _run_queries(task, code, hive, expected, result, marks_of)
-    else:
-        result.note = "no SQL block"
     result.unnamed += unmarked_pivot_filters(task, marks_of)
     return result
 
 
-def _run_queries(task: ExcelTask, code: list[str], hive: sqlite3.Connection,
-                 expected: dict[str, list[tuple[object, ...]]], result: ExcelScore,
-                 marks_of: dict[str, list[str]]) -> None:
-    """Score the reply's queries, its SQL blocks `code`, on whether they parse, run, give each
-    final's rows and read each table; and give each final a query gives the marks of that
-    query, in `marks_of`."""
-    got = []
-    marks = []
-    answer_tables: set[str] = set()
+@dataclass
+class _ReadQueries:
+    """A reply's queries as read: each as the stand-in Hive runs it, with its Pivot filter
+    marks; the tables they read; the names they invent; and why they don't parse, if they
+    don't."""
+
+    runnable: list[str] = field(default_factory=list)
+    marks: list[list[str]] = field(default_factory=list)
+    tables: set[str] = field(default_factory=set)
+    invented: list[str] = field(default_factory=list)
+    error: str = ""
+
+
+def _read_queries(task: ExcelTask, code: list[str]) -> _ReadQueries:
+    """Each query of the reply's SQL blocks `code`, its `<...>` filled in, read."""
+    read = _ReadQueries()
     try:
         for sql in code:
             sql, placed = filled(sql, task)
             for query in queries(sql):
                 runnable, invented = resolved(query, task, placed)
-                result.invented += [name for name in invented if name not in result.invented]
-                got.append(runnable)
-                marks.append(marks_in(query))
-                answer_tables |= tables_read(query)
+                read.invented += [name for name in invented if name not in read.invented]
+                read.runnable.append(runnable)
+                read.marks.append(marks_in(query))
+                read.tables |= tables_read(query)
     except sqlglot.errors.ParseError as error:
-        result.note = f"doesn't parse: {str(error).splitlines()[0]}"
-        return
-    result.parses = bool(got)
+        read.error = f"doesn't parse: {str(error).splitlines()[0]}"
+    return read
+
+
+def _scored_queries(task: ExcelTask, code: list[str], hive: sqlite3.Connection,
+                    expected: dict[str, list[tuple[object, ...]]]
+                    ) -> tuple[ExcelScore, dict[str, list[str]]]:
+    """The reply's queries, its SQL blocks `code`, scored on whether there are any, they parse
+    and run, give each final's rows and read each table; and, for each final, the Pivot filter
+    marks of the query that gives its rows, or of every query where none does."""
+    read = _read_queries(task, code)
+    result = ExcelScore(task.id, found=bool(code), invented=read.invented, note=read.error)
+    every_mark = []
+    for query_marks in read.marks:
+        every_mark += query_marks
+    marks_of = dict.fromkeys(task.finals, every_mark)
+    if not code:
+        result.note = "no SQL block"
+    if result.note:
+        return result, marks_of
+    result.parses = bool(read.runnable)
     try:
-        answers = [rows_of(hive, sql) for sql in got]
+        answers = [rows_of(hive, sql) for sql in read.runnable]
     except sqlite3.Error as error:
         result.note = f"doesn't run: {error}"
-        return
+        return result, marks_of
     result.runs = True
     missing = []
     for name, rows in expected.items():
-        place = answer_giving(name, rows, answers, task)
+        place = place_of_answer_giving(name, rows, answers, task)
         if place is None:
             missing.append(name)
         else:
-            marks_of[name] = marks[place]
+            marks_of[name] = read.marks[place]
     result.correct = not missing
     if missing:
         result.note = f"gives something else for {', '.join(missing)}"
-    unread = unread_tables(task, answer_tables)
+    unread = unread_tables(task, read.tables)
     result.reads = not unread
     if unread and result.correct:
         result.note = (f"types in the rows of {', '.join(unread)}, a sample, where its Hive "
                        "reads the table")
+    return result, marks_of
 
 
-def answer_giving(final: str, rows: list[tuple[object, ...]],
-                  answers: list[list[tuple[object, ...]]], task: ExcelTask) -> int | None:
-    """The place of the first of the answer's queries that gives a final's rows, or None: a
-    Table's column by column in its order; a PivotTable's with its columns in any order, a
-    number as text the number."""
+def place_of_answer_giving(final: str, rows: list[tuple[object, ...]],
+                           answers: list[list[tuple[object, ...]]], task: ExcelTask
+                           ) -> int | None:
+    """The position, among the reply's queries' rows `answers`, of the first that gives a
+    final's rows, or None where none does: a Table's column by column in its order; a
+    PivotTable's with its columns in any order, a number as text the number."""
     if not is_a_pivots(final, task):
         if rows in answers:
             return answers.index(rows)
@@ -866,6 +878,7 @@ def _as_pivot_value(value: object) -> object:
 
 
 def _as_pivot_rows(rows: list[tuple[object, ...]]) -> list[tuple[object, ...]]:
+    """A pivot's rows, each value as `_as_pivot_value` compares it."""
     found = []
     for row in rows:
         found.append(tuple(_as_pivot_value(value) for value in row))
@@ -1011,6 +1024,8 @@ def write_workbooks(split: str, into: Path) -> list[Path]:
 
 
 def has_a_data_model_pivot(task: ExcelTask) -> bool:
+    """Whether the task's workbook holds a Data Model pivot, which only Excel can open with the
+    model Excel writes."""
     return any(pivot.data_model for pivot in task.workbook.pivots)
 
 

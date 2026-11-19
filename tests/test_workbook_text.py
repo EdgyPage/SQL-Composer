@@ -40,7 +40,13 @@ def order_of(path: Path) -> list[str]:
     return [line.strip() for line in text.split(ORDER)[1].splitlines()]
 
 
-@pytest.mark.parametrize("task", TASKS, ids=[task.id for task in TASKS])
+# openpyxl reads no PivotTable, only the cells a pivot fills, so a pivot task's text has nothing
+# of openpyxl's to match: the reader's tests (tests/test_workbook_pivots.py) and the pivot
+# tasks' stored-values test (tests/test_excel_eval.py) hold it.
+FORMULA_TASKS = [task for task in TASKS if not task.workbook.pivots]
+
+
+@pytest.mark.parametrize("task", FORMULA_TASKS, ids=[task.id for task in FORMULA_TASKS])
 def test_each_tasks_text_is_the_one_openpyxl_reads_its_queries_read_back(
         task: ExcelTask) -> None:
     # Its queries saved as Excel saves them, then read back from the DataMashup and the
