@@ -50,9 +50,21 @@ def passed_through(query: exp.Query) -> exp.Query:
             source.this.name != last.alias) or source.this.alias or any(
             query.args.get(part) for part in ROW_PARTS):
         return query
-    if [each.sql() for each in query.expressions] != last.this.named_selects:
+    if _plain_column_names(query) != last.this.named_selects:
         return query
     return with_ctes(last.this, list(held.expressions[:-1]))
+
+
+def _plain_column_names(query: exp.Select) -> list[str | None]:
+    """Each column `query` selects, by its name where it is a plain column of no table and
+    no alias, else None."""
+    names: list[str | None] = []
+    for each in query.expressions:
+        if isinstance(each, exp.Column) and not each.table:
+            names.append(each.name)
+        else:
+            names.append(None)
+    return names
 
 
 def with_ctes(query: exp.Query, ctes: list[exp.CTE]) -> exp.Query:

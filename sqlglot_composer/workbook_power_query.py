@@ -16,6 +16,8 @@ whole-column totals and Total Rows are `workbook_totals.py`'s.
 
 from __future__ import annotations
 
+import datetime
+
 import copy
 import re
 from collections.abc import Callable
@@ -90,7 +92,9 @@ M_TWINS = {
     "Date.StartOfMonth": ("CAST(TRUNC(p0, 'MM') AS STRING)",),
 }
 # Text.Contains and its like (file 12's Q3), each as the LIKE pattern around its text.
-LIKE_PATTERNS = {"Text.Contains": "%{}%", "Text.StartsWith": "{}%", "Text.EndsWith": "%{}"}
+# What goes before and after the text in each one's LIKE pattern.
+LIKE_PATTERNS = {"Text.Contains": ("%", "%"), "Text.StartsWith": ("", "%"),
+                 "Text.EndsWith": ("%", "")}
 # A Table.Group's aggregates of a column (file 12's G1), by their M names.
 LIST_AGGREGATES = {"List.Sum": "SUM", "List.Max": "MAX", "List.Min": "MIN",
                    "List.Average": "AVG", "List.StandardDeviation": "STDDEV_SAMP"}
@@ -617,7 +621,7 @@ def m_call_hive(call: MCall, rows: Rows, reading: Reading,
         return combined_text_hive(call, rows, reading, value)
     if name == "#date":
         year, month, day = (int(each) for each in constant_of(MList(call.args), reading))
-        return exp.Literal.string(f"{year:04d}-{month:02d}-{day:02d}")
+        return exp.Literal.string(datetime.date(year, month, day).isoformat())
     if name not in M_TWINS:
         raise Refused("X1", f"{name} is an M function file 12 doesn't list")
     args = {f"p{number}": scalar_hive(arg, rows, reading, value)
@@ -650,9 +654,11 @@ def like_hive(call: MCall, rows: Rows, reading: Reading,
     `'%x'`, case kept, as M keeps it (Q3)."""
     name = call.function.name
     column, text = step_arguments(call.args, 2, 2, name)
-    pattern = text_of(text, reading).replace("%", "\\%").replace("_", "\\_")
+    escaped = text_of(text, reading).replace("%", "\\%").replace("_", "\\_")
+    before, after = LIKE_PATTERNS[name]
+    pattern = before + escaped + after
     return rule_hive("p0 LIKE p1", p0=scalar_hive(column, rows, reading, value),
-                     p1=exp.Literal.string(LIKE_PATTERNS[name].format(pattern)))
+                     p1=exp.Literal.string(pattern))
 
 
 def in_list_hive(call: MCall, rows: Rows, reading: Reading,
