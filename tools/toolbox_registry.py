@@ -36,17 +36,18 @@ EXAMPLE_DATABASE = "example_database"
 # converting.py reads someone else's Hive with it, for a Conversion (Toolbox 7.2, ticket 05),
 # workbook_hive.py, workbook_formulas.py, workbook_power_query.py and workbook_totals.py write a
 # Formula workbook's Hive as its trees, with workbook_pivot_hive.py writing its PivotTables',
-# and lean_hive.py keeps any query's CTEs lean (Toolbox 8.9, tickets 04 to 06).
+# lean_hive.py keeps any query's CTEs lean (Toolbox 8.9, tickets 04 to 06), and
+# pivot_filters.py reads the Pivot filters Hive marks (ticket 07).
 LIBRARY_FILES = ("writing.py", "engine.py", "converting.py", "workbook_hive.py",
                  "workbook_formulas.py", "workbook_power_query.py", "workbook_totals.py",
-                 "workbook_pivot_hive.py", "lean_hive.py")
+                 "workbook_pivot_hive.py", "lean_hive.py", "pivot_filters.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
                 "decisions.py",
                 "comparisons.py", "conditions.py", "converting.py", "describe.py",
                 "effective_logic.py", "engine.py",
                 "html_page.py", "joins.py",
                 "keys.py", "kinds.py", "lean_hive.py", "lineage.py", "lineage_difference.py",
-                "lineage_state.py", "notebooks.py", "project.py",
+                "lineage_state.py", "notebooks.py", "pivot_filters.py", "project.py",
                 "project_files.py", "project_lineage.py", "project_templates.py", "public.py",
                 "python_steps.py",
                 "refusals.py", "run_values.py", "running.py", "scheduled_runs.py",

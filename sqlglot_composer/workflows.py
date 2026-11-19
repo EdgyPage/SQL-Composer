@@ -538,6 +538,23 @@ def batch_instances(root: Path) -> list[dict[str, object]]:
     return found
 
 
+def batch_record_path(root: Path, name: str) -> Path | None:
+    """Where the batch `name` keeps its record, written.json: in its folder in
+    admin/workflows/convert/, or in finished/ once it is finished; None where it has none."""
+    for folder in (root / BATCHES / name, root / BATCHES / FINISHED / name):
+        if (folder / BATCH_RECORD).is_file():
+            return folder / BATCH_RECORD
+    return None
+
+
+def batch_record(root: Path, name: str) -> dict[str, object]:
+    """What the batch `name`'s written.json records, or nothing where it has none."""
+    path = batch_record_path(root, name)
+    if path is None:
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def finished_batch_names(root: Path) -> list[str]:
     """Each batch the convert Workflow finished, by its name: its folder moved to
     admin/workflows/convert/finished/ once every table it wrote passed its compare. A table
@@ -1140,7 +1157,8 @@ CONVERT = Workflow(
              "                rename=RENAME, staging=STAGING)",
              every_batch_converted, send=convert_the_batch,
              goal="a Table folder and a Table reference for each table the scripts write, and "
-             "each final of a workbook, each a Saved table in your Dev Database",
+             "for each calculation of a workbook that nothing else in it reads, each a Saved "
+             "table in your Dev Database",
              action="run the cell below. It reads DESCRIBE through your query, and writes only "
              "files.",
              done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
@@ -1235,10 +1253,10 @@ CONVERT = Workflow(
                   "EACH_SCRIPT_ITS_OWN_BATCH is True, each batch named for its file",
                   starts=True),
             Input("FILES", [], 'the scripts\' files, such as ["daily.hql"], or an Excel '
-                  'workbook\'s, such as ["runs.xlsx"], each final of it a Saved table, each '
-                  'beside this notebook or a path anywhere, such as "C:/work/daily.hql", read '
-                  "where it is: left [], every .hql file beside this notebook, or HIVE when it "
-                  "is given"),
+                  'workbook\'s, such as ["runs.xlsx"], each calculation of it a Saved table, '
+                  'each beside this notebook or a path anywhere, such as "C:/work/daily.hql", '
+                  "read where it is: left [], every .hql file beside this notebook, never a "
+                  "workbook, which you name here; or HIVE when it is given"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
                   "to read FILES"),
             Input(EACH_SCRIPT_ITS_OWN_BATCH, False, "True makes each file of FILES a batch "
@@ -1250,8 +1268,7 @@ CONVERT = Workflow(
             Input("RENAME", {}, "a name of your own for a table's copy in dev, by the table's "
                   'full name, such as {"mart.team_fails": "team_fails"} for '
                   "mart_dev.team_fails: left out, a copy is <table>_<its database>, such as "
-                  "mart_dev.team_fails_mart; or for a workbook's final, by its name in the "
-                  'workbook, such as {"PivotTable1": "runs_by_job"}'),
+                  "mart_dev.team_fails_mart"),
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept"),

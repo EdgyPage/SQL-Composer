@@ -210,7 +210,12 @@ class ConvertedPivotFilter:
     Report filter's or a slicer's), the items dropped (hidden), the first and last day (a
     Timeline's), or how many items are kept (a value filter's); `field_values`, every value
     the field takes, for how many tables a table per value would make (`field_values`); and,
-    for a value filter, the value it is `ranked_by` and whether it keeps the `bottom` ones."""
+    for a value filter, the value it is `ranked_by` and whether it keeps the `bottom` ones.
+
+    A Conversion keeps each for the table it ends up in, `final` then that table's name in
+    dev (`pivot_filters.py`). Read from a script's Hive, Copilot's, `field_values` is the
+    workbook's when the batch holds the workbook too, and else empty: Hive holds no pivot
+    cache, so ticket 08's Decision counts no tables for it then."""
 
     final: str
     kind: str
@@ -240,14 +245,17 @@ def pivot_pieces(workbook: Workbook) -> list[Piece]:
 
 def pivot_table_names(workbook: Workbook) -> dict[str, str]:
     """The table each pivot's final writes, by the final's name: its own name in snake case
-    (PN1), or for Excel's default name `<sheet name>_pivot` (PN2), with a number after it
-    where two pivots would share one."""
+    (PN1), or for Excel's default name `<sheet name>_pivot` (PN2), the sheet's name alone
+    where it is or ends with "pivot" already, as `pivot` for a sheet named Pivot, with a
+    number after it where two pivots would share one."""
     names: dict[str, str] = {}
     for piece in pivot_pieces(workbook):
         pivot = pivot_of(piece, workbook)
         name = snake_case(pivot.name)
         if DEFAULT_NAME.fullmatch(pivot.name):
-            name = snake_case(pivot.sheet) + "_pivot"
+            name = snake_case(pivot.sheet)
+            if name != "pivot" and not name.endswith("_pivot"):
+                name += "_pivot"
         taken = set(names.values())
         number = 2
         proposed = name
@@ -457,18 +465,25 @@ def _source_read(pivot: PivotTable, book: Book) -> exp.Expression:
 
 def add_range_read(piece: Piece, book: Book) -> None:
     """Add to the Book how a plain range a pivot reads is read, as the Table it would be
-    (PS3): its defined name's, or its sheet's, `<database>.<sheet>`, in brackets for the person
-    to fill in; and name it in the map."""
-    range_name = piece.name
-    for pivot in book.workbook.pivot_tables:
-        if pivot.source.pieces == [piece] and pivot.source.table is not None:
-            range_name = pivot.source.table.name
-    name = "<" + snake_case(range_name.split("!")[0].strip("'")) + ">"
+    (PS3): its defined name's, or its sheet's, in snake case, `<database>.runs`, the name of
+    the database table it samples proposed, a Decision of the table reading it; and name it in
+    the map."""
+    name = range_table_name(piece, book.workbook)
     book.reads[piece] = exp.Table(this=exp.Identifier(this=name, quoted=False),
                                   db=exp.Identifier(this=book.database, quoted=False))
     book.notes.append(Note(MARK, "PS3", piece_name(piece),
-                           f"read as the Table it would be, {name}: fill in its name in the "
-                           "database"))
+                           f"read as the Table it would be, {name}: the database table it "
+                           "samples is proposed as that, a Decision of its table"))
+
+
+def range_table_name(piece: Piece, workbook: Workbook) -> str:
+    """The database table a plain range a pivot reads is proposed to sample: its defined
+    name's, or its sheet's, in snake case (PS3)."""
+    range_name = piece.name
+    for pivot in workbook.pivot_tables:
+        if pivot.source.pieces == [piece] and pivot.source.table is not None:
+            range_name = pivot.source.table.name
+    return snake_case(range_name.split("!")[0].strip("'"))
 
 
 def check_pivot_rows(pivot: PivotTable) -> None:
@@ -519,7 +534,7 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
               for column in own_level(pivot).columns]
     for written in pivot_filters_of(name, pivot):
         notes.append(Note(MARK, FILTER_RULES[written.kind], name,
-                          f"{pivot_filter_said(written)}: a Decision of its table"))
+                          f"{pivot_filter_text(written)}: a Decision of its table"))
     for field_name in pivot.subtotals:
         if pivot.fields[field_name].subtotals != [AUTOMATIC]:
             chosen = in_words(pivot.fields[field_name].subtotals)
@@ -528,7 +543,7 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     return notes
 
 
-def pivot_filter_said(written: ConvertedPivotFilter) -> str:
+def pivot_filter_text(written: ConvertedPivotFilter) -> str:
     """A Pivot filter in words, as the map and a checklist say it: "Pivot filter: slicer
     status, FAILED and SUCCESS kept"; its kind and field alone where its values weren't
     read, as from Hive whose marked condition is written otherwise."""

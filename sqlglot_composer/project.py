@@ -121,6 +121,7 @@ import inspect
 import json
 import keyword
 import re
+import shutil
 import sys
 import textwrap
 import warnings
@@ -134,9 +135,11 @@ import pandas as pd
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import (converting, decisions, describe, keys, kinds, unchecked, upgrades,
                workbook_conversion, workflows)
-from .workbook_conversion import (ConvertedWorkbook, WorkbookFinal, pivot_filter_of_record,
-                                  pivot_filter_record)
-from .workbook_pivot_hive import ConvertedPivotFilter, pivot_filter_said
+from .pivot_filters import (PIVOT_FILTERS, pivot_filter_record, pivot_filters_in,
+                            with_field_values_of)
+from .workbook_conversion import (WORKBOOK_FINALS, BatchWorkbooks, ConvertedWorkbook,
+                                  FinalOrigin, WorkbookFinal)
+from .workbook_pivot_hive import ConvertedPivotFilter, pivot_filter_text
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
@@ -2183,91 +2186,98 @@ def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
     return scripts
 
 
-def _scripts_and_workbooks(call: str, files: str | list[str], database: str,
-                           rename: dict[str, str]
-                           ) -> tuple[list[tuple[str, str]], list[ConvertedWorkbook]]:
+def _scripts_and_workbooks(call: str, root: Path, name: str, files: str | list[str],
+                           database: str) -> tuple[list[tuple[str, str]], BatchWorkbooks]:
     """Each script `files` names, as _scripts_given reads it, then each final of each
-    workbook it names (Toolbox 8.9, ticket 07), as a script named for its table, its sources
-    in `database`, each named as `rename` names it, by its name in the workbook; and each
-    workbook. A final whose Hive holds a `<...>` to fill in is no script. Refused when a
-    workbook isn't there, an .xls is given, a script and a final share a name, or no final of
-    a batch of workbooks alone can be converted."""
-    named = items_of(files)
+    workbook it names (Toolbox 8.9, ticket 07) as a script named for its table, its sources in
+    `database`, as `_read_workbooks` reads them; and the workbooks. A script named for a final,
+    as Copilot names one, is that final's Hive, which the batch converts in place of the
+    workbook's; a final whose Hive holds a `<...>` to fill in is no script. Refused when an
+    .xls is given, or no final of a batch of workbooks alone can be converted."""
+    named = [str(file) for file in items_of(files)]
     for file in named:
-        if Path(str(file)).suffix.lower() == workbook_conversion.OLD_WORKBOOK:
-            workbook_conversion.refuse_an_old_workbook(call, str(file))
-    hql = [str(file) for file in named if not workbook_conversion.is_workbook(str(file))]
+        if Path(file).suffix.lower() == workbook_conversion.OLD_WORKBOOK:
+            workbook_conversion.refuse_an_old_workbook(call, file)
+    hql = [file for file in named if not workbook_conversion.is_workbook(file)]
     scripts = _scripts_given(call, hql) if hql else []
-    workbooks = []
-    for file in named:
-        if workbook_conversion.is_workbook(str(file)):
-            path = _working_folder() / Path(str(file))
-            if not path.is_file():
-                _refuse_no_file(call, path)
-            workbooks.append(workbook_conversion.converted_workbook(call, path, database,
-                                                                    rename))
-    for final in _finals_converted(workbook_conversion.every_final(workbooks)):
+    workbooks = _read_workbooks(call, root, name, named, database)
+    for script, _ in scripts:
+        for final in workbooks.every_final():
+            if workbook_conversion.is_copilots_hive_of(script, final):
+                workbooks.copilot_finals[script] = final
+    for final in workbooks.finals_converted():
         _check_named_once(call, final, scripts)
         scripts.append((final.script, final.hive + ";\n"))
-    if workbooks and not scripts:
-        _refuse_every_final_to_fill_in(call, workbook_conversion.every_final(workbooks))
+    if workbooks.workbooks and not scripts:
+        _refuse_every_final_to_fill_in(call, workbooks.every_final())
     return scripts, workbooks
 
 
-def _finals_converted(finals: list[WorkbookFinal]) -> list[WorkbookFinal]:
-    """The finals a Conversion converts: each but one whose Hive holds a `<...>`."""
-    return [final for final in finals if not final.to_fill_in]
+def _read_workbooks(call: str, root: Path, name: str, files: list[str],
+                    database: str) -> BatchWorkbooks:
+    """Each workbook of `files`, read as converted_workbook reads it, each final's table named
+    as the batch `name` named it when it was converted before; refused when one isn't
+    there."""
+    origins = workbook_conversion.final_origins_of_batch(root, name)
+    places = _where_each_is(root, files)
+    found = BatchWorkbooks()
+    for file in files:
+        if not workbook_conversion.is_workbook(file):
+            continue
+        path = _working_folder() / Path(file)
+        if not path.is_file():
+            _refuse_no_file(call, path)
+        found.places[path.name] = places[path.name]
+        kept = workbook_conversion.names_kept_of(origins, places[path.name])
+        found.workbooks.append(
+            workbook_conversion.converted_workbook(call, path, database, kept))
+    return found
 
 
 def _refuse_no_file(call: str, path: Path) -> NoReturn:
-    """Refuse a file files= names that isn't there."""
+    """Refuse a file files= names that isn't there, its example a workbook's for a workbook."""
+    example = 'such as files=["daily.hql", "weekly.hql"]'
+    if workbook_conversion.is_workbook(path.name):
+        example = 'such as files=["runs.xlsx"], a workbook saved beside this notebook'
     refuse(
         what=f"{call}: there is no file {path}.",
-        why="files= names each script of the batch, from the folder you're working in.",
-        fix="Check each path, such as files=[\"daily.hql\", \"weekly.hql\"].",
+        why="files= names each script or workbook of the batch, from the folder you're "
+        "working in.",
+        fix=f"Check each path, {example}.",
         error=FileNotFoundError,
     )
 
 
 def _check_named_once(call: str, final: WorkbookFinal, scripts: list[tuple[str, str]]) -> None:
-    """Refuse a workbook's final whose script, named for its table, another script of the
-    batch has the name of, a file's or another workbook's final's."""
+    """Refuse a workbook's final whose script, named for its table, another workbook's final
+    of the batch has the name of."""
     if final.script not in dict(scripts):
         return
     refuse(
         what=f"{call}: {final.final} of {final.workbook} becomes the table {final.table}, and "
-        f"another script of the batch is named {final.script} too.",
-        why="A batch keeps each script by its name, and a workbook's final is kept as a script "
-        "named for its table, as a query alone in a batch is named for its file.",
-        fix=f"Name the final otherwise with rename=, by its name in the workbook, such as "
-        f'rename={{{python_literal(final.final)}: "{final.table}_book"}}, or rename the other '
-        "file, then run it again.",
+        f"a final of another workbook of the batch is named {final.table} too.",
+        why="A batch keeps each final's Hive as a script named for its table, and two tables "
+        "can't share a name.",
+        fix="Give one of the two a name of its own in its workbook, such as its Table's or its "
+        "PivotTable's, then run it again; or convert the two workbooks as two batches.",
         error=ValueError,
     )
 
 
 def _refuse_every_final_to_fill_in(call: str, finals: list[WorkbookFinal]) -> NoReturn:
     """Refuse a batch of workbooks alone each of whose finals holds a `<...>` to fill in."""
-    each = [f"{final.final} of {final.workbook} ({in_words(final.to_fill_in)})"
-            for final in finals]
+    finals_named = [f"{final.final} of {final.workbook} ({in_words(final.to_fill_in)})"
+                    for final in finals]
     refuse(
-        what=f"{call}: the Hive of each final holds a name to fill in: {'; '.join(each)}.",
+        what=f"{call}: the Hive of each final holds a name to fill in: "
+        f"{'; '.join(finals_named)}.",
         why="A Conversion reads each final's Hive to make its Saved table, and a <...> in "
         "place of a table's or a column's name it can't read.",
-        fix="In the workbook, make each range a pivot reads an Excel Table (Insert > Table), "
-        "and name each Table and column as its table and column are named in the database; "
-        "save it, and convert it again.",
+        fix="In the workbook, name each Table and each column as its table and column are "
+        "named in the database, in lowercase letters, digits and _; save it, and convert it "
+        "again.",
         error=ValueError,
     )
-
-
-def _rename_of_scripts(rename: dict[str, str],
-                       workbooks: list[ConvertedWorkbook]) -> dict[str, str]:
-    """rename= but the names it gives a workbook's finals, by their names in the workbook,
-    which each final's table is named by already: the names it gives tables the scripts
-    write."""
-    finals = {final.final for final in workbook_conversion.every_final(workbooks)}
-    return {table: name for table, name in rename.items() if table not in finals}
 
 
 def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step,
@@ -2695,19 +2705,20 @@ def _check_each_its_own_batch(root: Path, instances: list[dict[str, object]]) ->
                    fix="Rename one of the two files, or convert them as one batch: set "
                    "EACH_SCRIPT_ITS_OWN_BATCH = False and name the batch in NAME.",
                    error=ValueError)
-    _refuse_batches_reading_each_others_tables(call, files,
+    _refuse_batches_reading_each_others_tables(call, root, files,
                                                str(instances[0].get("DATABASE", "default")))
 
 
-def _refuse_batches_reading_each_others_tables(call: str, files: list[str],
+def _refuse_batches_reading_each_others_tables(call: str, root: Path, files: list[str],
                                                database: str) -> None:
     """Refuse two scripts, each its own batch, one of which reads a table the other writes,
     naming the pair."""
     writes, reads = {}, {}
     for file in files:
-        scripts, workbooks = _scripts_and_workbooks(call, [file], database, {})
-        statements = _batch_statements(call, scripts, database,
-                                       f"{database}.{Path(file).stem}", bool(workbooks))
+        name = Path(file).stem
+        scripts, workbooks = _scripts_and_workbooks(call, root, name, [file], database)
+        statements = _batch_statements(call, scripts, database, f"{database}.{name}",
+                                       workbooks)
         writes[file] = {each.table for each in statements
                         if each.kind in converting.MAKES and each.table}
         reads[file] = set()
@@ -3085,22 +3096,22 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     is, never copied, and batch.md names where.
     It reads DEV, your Dev Database, from admin/databases.py, and refuses until you fill it in.
 
-    A Formula workbook, an .xlsx, goes in files= too, alone, files=["runs.xlsx"], or beside
-    scripts. It is read where it is, and each final of it, a calculation nothing else in it
-    reads (a Table's formula columns, a Power Query's Table, or a PivotTable, with each total
-    level it shows), becomes a Saved table: its Hive, its sources in `database`, is kept in the
-    batch's scripts/ as <table>.hql, then converted as any script is. Its table is named for
-    it, a Table's or a pivot's name in snake case, but a pivot keeping Excel's default name,
-    such as PivotTable1, is named for its sheet, <sheet>_pivot, and a final named as a table
-    it reads <name>_report: each a proposal, which its checklist names, and
-    rename={"PivotTable1": "runs_by_job"}, by the name in the workbook, changes. Each mark,
-    refusal, thing left alone and <...> to fill in the workbook's map names of a final is a
-    note in its table's checklist; batch.md lists what it names of no one table. A final whose
-    Hive holds a <...>, as a pivot over a plain range's does, isn't converted, and the report
-    says why. A workbook whose pieces read each other in a loop, or with no final, is refused.
-    Each Pivot filter is recorded for its table, as the workbook gives it, or, in a script, as
-    a comment above its condition marks it, -- Pivot filter: slicer status, as Copilot writes
-    it.
+    An Excel workbook, an .xlsx, goes in files= too: alone, files=["runs.xlsx"], or beside
+    scripts. It is read where it is. Each final of it becomes a Saved table. A final is a
+    calculation that nothing else in the workbook reads: a Table with formula columns, a Table
+    a Power Query loads, or a PivotTable, with each total it shows. Each final's Hive, its
+    tables in `database`, is kept in the batch's scripts/, then converted as a script is.
+    A final's table is named for its Table or its PivotTable. Two names are only proposed,
+    each a Decision in the decisions cell: a PivotTable keeping Excel's name, such as
+    PivotTable1, is named for its sheet, and a Table named as a table it reads gets _report.
+    A PivotTable over cells that aren't an Excel Table reads the database table they sample,
+    proposed for its sheet: a Decision too. What the conversion found of each final, such as
+    a formula marked or refused, is a note in its table's checklist; batch.md lists what
+    belongs to no table, such as a chart. A workbook whose pieces read each other in a loop,
+    or that holds no final, is refused.
+    In a script, a comment above a condition, -- Pivot filter: slicer status, as Copilot
+    writes it, marks a Pivot filter, as the workbook's own are kept: each is recorded for its
+    table, for its Decision.
     It needs your query, for DESCRIBE, only when a table it reads has no Table reference yet,
     and never your execute: it changes only files.
 
@@ -3175,9 +3186,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     if file is not None and hive is None and workbook_conversion.is_workbook(file):
         files, file = [file], None
     read_from: dict[str, str] = {}
-    workbooks: list[ConvertedWorkbook] = []
+    workbooks = BatchWorkbooks()
     if files:
-        scripts, workbooks = _scripts_and_workbooks(call, files, database, rename or {})
+        scripts, workbooks = _scripts_and_workbooks(call, root, name, files, database)
         read_from = _where_each_is(root, files)
     else:
         script = HIVE_GIVEN
@@ -3185,8 +3196,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
             script = Path(file).name
             read_from = _where_each_is(root, [file])
         scripts = [(script, _hive_given(call, hive, file))]
-    report = _convert_batch(name, scripts, query, database,
-                            _rename_of_scripts(rename or {}, workbooks), overwrite, frame,
+    report = _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame,
                             staging or {}, read_from=read_from, workbooks=workbooks)
     if not beside:
         return report
@@ -3251,7 +3261,7 @@ class _BatchFiles:
     compare; with overwrite, each is written afresh, kept in admin/removed/ first."""
 
     def __init__(self, root: Path, index: Path, overwrite: bool, made_for: str = "",
-                 workbooks: list[ConvertedWorkbook] | None = None) -> None:
+                 workbooks: BatchWorkbooks | None = None) -> None:
         self.root = root
         self.index = index
         self.overwrite = overwrite
@@ -3273,13 +3283,15 @@ class _BatchFiles:
         # The Workflow that made the batch when not convert's: new_table's, for a table made
         # from its query, which convert's Workflow then passes over.
         self.made_for = made_for
-        # The workbooks the batch reads (Toolbox 8.9, ticket 07), and each final of theirs it
-        # converts, by its script's name; and each Pivot filter of each table it makes, by
-        # the table, as its Hive marks it or its workbook gives it, for its Decision.
-        self.workbooks = workbooks or []
-        self.finals = {final.script: final
-                       for final in workbook_conversion.every_final(self.workbooks)}
+        # The workbooks the batch reads (Toolbox 8.9, ticket 07); each Pivot filter of each
+        # table it makes, by the table, as its Hive marks it or its workbook gives it, for its
+        # Decision; and where each table made from a workbook's final came from.
+        self.workbooks = workbooks or BatchWorkbooks()
         self.pivot_filters: dict[str, list[ConvertedPivotFilter]] = {}
+        self.origins: dict[str, FinalOrigin] = {}
+        # Each Table reference written from a plain range's columns, which DESCRIBE couldn't
+        # give.
+        self.range_references: list[str] = []
 
     def write_text(self, relative: str, text: str) -> str:
         """Write a text file, as the batch writes it: the path it went to."""
@@ -3322,14 +3334,25 @@ class _BatchFiles:
                   "files": {**self.before, **self.after}}
         if self.made_for:
             record["made_for"] = self.made_for
+        record.update(self.workbook_parts())
+        (self.index / BATCH_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
+                                               encoding="utf-8")
+
+
+    def workbook_parts(self) -> dict[str, object]:
+        """What written.json keeps of the workbooks the batch read, where it read any: each
+        table's Pivot filters, and where each table made from a workbook came from."""
+        parts: dict[str, object] = {}
         kept: dict[str, list[dict[str, object]]] = {}
         for table, filters in self.pivot_filters.items():
             if filters:
                 kept[table] = [pivot_filter_record(each) for each in filters]
         if kept:
-            record["pivot_filters"] = kept
-        (self.index / BATCH_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
-                                               encoding="utf-8")
+            parts[PIVOT_FILTERS] = kept
+        if self.origins:
+            parts[WORKBOOK_FINALS] = {table: dataclasses.asdict(origin)
+                                      for table, origin in self.origins.items()}
+        return parts
 
 
 def _written_before(index: Path) -> dict[str, str]:
@@ -3393,7 +3416,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
                    overwrite: bool, frame: FrameType, staging: dict[str, str],
                    made_for: str = "", read_from: dict[str, str] | None = None,
-                   workbooks: list[ConvertedWorkbook] | None = None) -> ProjectReport:
+                   workbooks: BatchWorkbooks | None = None) -> ProjectReport:
     """convert(...) for a batch: each script split into its statements, ordered by what reads
     what, and each table it writes a Saved table in the Dev Database, as convert says.
     `read_from` gives where each script read from a file is, by its file's name, which
@@ -3404,8 +3427,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     dev = _dev_database(root, call)
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
-    statements = _batch_statements(call, scripts, database, f"{database}.{name}",
-                                   bool(workbooks))
+    statements = _batch_statements(call, scripts, database, f"{database}.{name}", workbooks)
     staging_found = converting.staging_tables(statements)
     folded, unfoldable = converting.fold_staging(
         statements, _staging_choices(call, staging_found, staging, database), database)
@@ -3422,7 +3444,8 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
         )
     added, skipped = _write_missing_references(call, root, ordered, names, query)
     files = _BatchFiles(root, index, overwrite, made_for, workbooks)
-    skipped += _finals_not_converted(workbook_conversion.every_final(files.workbooks))
+    files.range_references = _write_range_references(root, files.workbooks, skipped)
+    skipped += _finals_not_converted(files.workbooks.every_final())
     made, created_only = [], []
     for table in _tables_in_order(ordered):
         failure = _convert_one_table(files, table, name, ordered, names, query, database)
@@ -3443,9 +3466,9 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     report = _batch_report(name, scripts, statements, made, created_only, added, skipped,
                            files, dev)
     # After its first line, which says what it converted: each staging table, and its choice,
-    # and each name a workbook's final was given as a proposal.
+    # and each name proposed for a workbook's final, a Decision.
     report[1:1] = [*_staging_lines(staging_found, folded, unfoldable),
-                   *_workbook_report_lines(files.workbooks, names)]
+                   *_workbook_report_lines(files, names)]
     return ProjectReport([*report, *_unrecorded_lines(root, call)])
 
 
@@ -3465,29 +3488,65 @@ def _batch_log_lines(name: str, scripts: list[tuple[str, str]], made: list[str],
 def _finals_not_converted(finals: list[WorkbookFinal]) -> list[str]:
     """Each final whose Hive holds a `<...>` to fill in, with why it wasn't converted, as
     convert's report lists what it skipped."""
-    return [f"{final.final} of {final.workbook} ({workbook_conversion.to_fill_in_said(final)})"
+    return [f"{final.final} of {final.workbook} "
+            f"({workbook_conversion.not_converted_text(final)})"
             for final in finals if final.to_fill_in]
 
 
-def _workbook_report_lines(workbooks: list[ConvertedWorkbook],
-                           names: dict[str, str]) -> list[str]:
-    """What convert's report says of the batch's workbooks: each table a final was given a
-    name for as a proposal, and how to name it otherwise; and each workbook whose map names
-    what is about no one table, which batch.md lists."""
+def _write_range_references(root: Path, workbooks: BatchWorkbooks,
+                            skipped: list[str]) -> list[str]:
+    """Write the Table reference of each database table a plain range of a workbook samples,
+    proposed for its sheet, that DESCRIBE couldn't give, from the range's own columns, each
+    type a guess, so the final reading it converts; take its line out of `skipped`, and give
+    each file written. Its name is a Decision of the table reading it."""
+    written, to_register = [], []
+    for final in workbooks.finals_converted():
+        for source in final.sources:
+            stem = REFERENCE.stem(source.table)
+            if REFERENCE.path(root, stem).exists():
+                continue
+            text = table_reference_text(source.table, source.columns, [],
+                                        f"{REFERENCE.folder}.{stem}",
+                                        guessed=tuple(source.columns))
+            REFERENCE.path(root, stem).write_text(text, encoding="utf-8")
+            written.append(REFERENCE.shown(stem))
+            to_register.append((REFERENCE, source.table))
+            skipped[:] = [each for each in skipped if not each.startswith(f"{source.table} (")]
+    if written:
+        Registry(root).add(to_register, unchecked.now())
+        _write_databases(root)
+    return written
+
+
+def _workbook_report_lines(files: _BatchFiles, names: dict[str, str]) -> list[str]:
+    """What convert's report says of the batch's workbooks: each script that is a final's
+    Hive, as Copilot writes it; each table whose name was proposed, a Decision; each Table
+    reference written from a range; and each workbook with things that belong to no table,
+    which batch.md lists."""
+    workbooks = files.workbooks
     in_dev = {split_table_name(table)[1]: copy for table, copy in names.items()}
-    finals = _finals_converted(workbook_conversion.every_final(workbooks))
-    proposed = [final for final in finals if final.proposed and final.table in in_dev]
-    lines = []
+    lines = [f"{script} is {final.final} of {final.workbook}'s Hive, as Copilot writes it: it "
+             "is converted in place of the workbook's own."
+             for script, final in workbooks.copilot_finals.items()]
+    proposed = [final for final in workbooks.finals_converted()
+                if final.proposed and final.table in in_dev]
     if proposed:
         said = [f"{in_dev[final.table]}, for {final.final} of {final.workbook}"
                 for final in proposed]
-        lines.append(f"Named as proposed, each in its checklist: {in_words(said)}. RENAME, by "
-                     f"the name in the workbook, such as RENAME = "
-                     f'{{{python_literal(proposed[0].final)}: "<a name>"}}, names one '
-                     "otherwise when you convert again.")
-    lines += [f"{workbook.file}: its map names {counted(len(workbook.notes), 'thing')} of no "
-              "one table, such as a chart left alone, which batch.md lists."
-              for workbook in workbooks if workbook.notes]
+        lines.append("Named as proposed, a Decision of each in its checklist: "
+                     f'{in_words(said)}. Answer "name" in the decisions cell: "proposed" keeps '
+                     "it, or a name of your own renames the table.")
+    if files.range_references:
+        lines.append(f"Wrote {in_words(files.range_references)} from the cells a PivotTable "
+                     "reads, each type a guess, as no database table has its name: which table "
+                     "the cells sample is a Decision of each table reading them.")
+    for workbook in workbooks.workbooks:
+        count = len(workbook.notes)
+        if count:
+            lines.append(f"{counted(count, 'thing')} in {workbook.file} "
+                         f"{singular_or_plural(count, 'belongs', 'belong')} to no table, such "
+                         "as a chart left alone or a PivotTable refused: batch.md lists "
+                         f"{singular_or_plural(count, 'it', 'them')}, each with what to do.")
     return lines
 
 
@@ -3595,12 +3654,13 @@ def _refuse_a_query_named_like_another(call: str,
 
 
 def _batch_statements(call: str, scripts: list[tuple[str, str]], database: str,
-                      query_table: str, named_for_files: bool = False
+                      query_table: str, workbooks: BatchWorkbooks | None = None
                       ) -> list[converting.BatchStatement]:
     """Each statement of the batch's scripts, as converting.batch_statements reads them, each
-    query alone named for its file where `named_for_files`, as a batch with a workbook's
-    finals is; refused, before anything is written, where a Script tag's shape isn't the one a
+    query alone named for its file where the batch reads `workbooks`, as a workbook's finals
+    are; refused, before anything is written, where a Script tag's shape isn't the one a
     Conversion reads, or a tag stands where no value goes."""
+    named_for_files = workbooks is not None and bool(workbooks.workbooks)
     try:
         return converting.batch_statements(scripts, database, query_table, named_for_files)
     except converting.ConversionRefused as why:
@@ -3842,7 +3902,8 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
                            _guessed(columns), proposed=proposed,
                            tag_is_quoted=hive_read.tag_is_quoted,
-                           tag_places=_first_place_of_each_tag(pieces), seeded=seeded)
+                           tag_places=_first_place_of_each_tag(pieces), seeded=seeded,
+                           decided=_workbook_decision_blocks(files, first.script))
     if seeded:
         files.seeded.append(dev)
     whole_hive = None
@@ -3855,44 +3916,52 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
         items.append(SEED_NOTE)
-    items += _note_pivot_filters_and_workbook(files, dev, pieces)
+    items += _record_workbook_parts(files, dev, pieces)
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
 
 
-def _note_pivot_filters_and_workbook(files: _BatchFiles, dev: str,
-                                     pieces: list[converting.BatchStatement]) -> list[str]:
-    """Record each Pivot filter of a dev table, for its Decision (ticket 08), and give the
-    checklist's notes of it and of its workbook: for a workbook's final, each line of its map
-    about it, its Pivot filters among them; for any other, each Pivot filter its Hive marks,
-    `-- Pivot filter: <kind> <field>`, as Copilot writes it."""
-    final = files.finals.get(pieces[0].script)
+def _record_workbook_parts(files: _BatchFiles, dev: str,
+                          pieces: list[converting.BatchStatement]) -> list[str]:
+    """Record each Pivot filter of a dev table, for its Decision (ticket 08), and the workbook
+    and the final it came from, for the Workbook check (ticket 09); and give its checklist's
+    notes of them: for a workbook's final, each line of the map about it, its Pivot filters
+    among them; for a script, each Pivot filter its Hive marks, `-- Pivot filter: <kind>
+    <field>`, as Copilot writes it, every value its field takes the workbook's where the
+    script is the Hive of a final of a workbook in the batch."""
+    script = pieces[0].script
+    final = files.workbooks.final_of_script().get(script)
     if final is not None:
-        files.pivot_filters[dev] = workbook_conversion.filters_of(final, dev)
+        files.pivot_filters[dev] = workbook_conversion.filters_retargeted_to(final, dev)
+        files.origins[dev] = FinalOrigin(files.workbooks.places[final.workbook], final.final)
         return final.notes
     marked: list[ConvertedPivotFilter] = []
     for each in pieces:
-        marked += converting.pivot_filters_in(each.text, dev)
+        marked += pivot_filters_in(each.text, dev)
+    stood_for = files.workbooks.copilot_finals.get(script)
+    if stood_for is not None:
+        marked = with_field_values_of(marked, stood_for.filters)
+        files.origins[dev] = FinalOrigin(files.workbooks.places[stood_for.workbook],
+                                         stood_for.final)
     files.pivot_filters[dev] = list(dict.fromkeys(marked))
-    return [f"{pivot_filter_said(each)}, as its Hive marks it: a Decision of its table."
+    return [f"{pivot_filter_text(each)}, as its Hive marks it: a Decision of its table."
             for each in files.pivot_filters[dev]]
 
 
-def pivot_filters_of_batch(root: Path, name: str) -> dict[str, list[ConvertedPivotFilter]]:
-    """Each Pivot filter of each table a batch made, by the table, as its written.json keeps
-    them, for the table's Decision (ticket 08): none for a batch that kept none, or isn't
-    there."""
-    for index in (CONVERSION_FOLDER.path(root, name), root / BATCHES / FINISHED / name):
-        record = index / BATCH_RECORD
-        if not record.is_file():
-            continue
-        kept = json.loads(record.read_text(encoding="utf-8")).get("pivot_filters", {})
-        found = {}
-        for table, filters in kept.items():
-            found[table] = [pivot_filter_of_record(each) for each in filters]
-        return found
-    return {}
+def _workbook_decision_blocks(files: _BatchFiles, script: str) -> list[list[str]]:
+    """The Decisions a workbook's final gives its table's Table reference: its name, where it
+    was proposed, and the database table each plain range it reads samples."""
+    final = files.workbooks.final_of_script().get(script)
+    if final is None:
+        return []
+    blocks = []
+    if final.proposed:
+        blocks.append(decisions.name_block(final.table, final.final, final.workbook))
+    if final.sources:
+        blocks.append(decisions.sources_block({source.table: source.range
+                                               for source in final.sources}))
+    return blocks
 
 
 # The checklist's note of a table that reads itself, which the seed step fills once.
@@ -4002,7 +4071,14 @@ def _logic_with_opt_outs(root: Path, hive_read: converting.ConvertedQuery
     until none refuses, as convert does: the logic, the Statement (None when one refusal had
     no opt-out to add), each opt-out added, once, with the first line of the refusal it
     answers, and the first line of a refusal it had no opt-out for, or None."""
-    logic = hive_read.logic()
+    return _with_opt_outs_needed(root, hive_read.logic())
+
+
+def _with_opt_outs_needed(root: Path, logic: str
+                          ) -> tuple[str, Statement | UncheckedStatement | None, dict[str, str],
+                                     str | None]:
+    """A logic cell's logic with each opt-out its refusals name added, as
+    _logic_with_opt_outs gives it."""
     added: dict[str, str] = {}
     for _ in range(_MOST_OPT_OUTS):
         try:
@@ -4054,10 +4130,12 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            proposed: tuple[list[str], ...] = (),
                            tag_is_quoted: dict[str, bool] | None = None,
                            tag_places: dict[str, str] | None = None,
-                           seeded: bool = False) -> None:
+                           seeded: bool = False,
+                           decided: list[list[str]] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
-    as a Decision, TAGS, what each of its Script tags stands for, when it has any, and SEED,
-    its seed's limits, when it reads itself, before its Aliases; then the Database modules,
+    as a Decision, TAGS, what each of its Script tags stands for, when it has any, SEED, its
+    seed's limits, when it reads itself, and each block of lines `decided` gives, a workbook's
+    Decisions (`_workbook_decision_blocks`), before its Aliases; then the Database modules,
     which the next table's logic imports it through."""
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
@@ -4068,6 +4146,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
         blocks.append(converting.tags_block(tag_is_quoted, tag_places))
     if seeded:
         blocks.append([*decisions.SEED_COMMENT, decisions.SEED_START + "}"])
+    blocks += decided or []
     for block in blocks:
         at = text.index(ALIASES_HEADING)
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
@@ -4542,7 +4621,7 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
     in the batch's scripts/, as no file holds it, and so is each final of a workbook."""
     index = CONVERSION_FOLDER.shown(name)
     kept = [(script, text) for script, text in scripts if script not in (read_from or {})]
-    kept += [(final.script, final.hive + ";\n") for final in files.finals.values()
+    kept += [(final.script, final.hive + ";\n") for final in files.workbooks.finals_kept()
              if final.to_fill_in]
     for script, text in kept:
         files.write_text(f"{index}{BATCH_SCRIPTS}/{script}", text)
@@ -4552,7 +4631,7 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
              "Table reference alone.", "", "## Tables", ""]
     for table in _tables_in_order(ordered):
         lines += _table_lines(files, table, ordered, names, made)
-    for workbook in files.workbooks:
+    for workbook in files.workbooks.workbooks:
         lines += _workbook_lines(workbook, index)
     lines += ["", "## Each statement, in the order they run", ""]
     # Each write's part in its table's write: the first piece, a later one, or replaced.
@@ -4571,28 +4650,29 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
 
 
 def _scripts_where(scripts: list[tuple[str, str]], read_from: dict[str, str],
-                   workbooks: list[ConvertedWorkbook]) -> str:
+                   workbooks: BatchWorkbooks) -> str:
     """batch.md's sentence saying where each script is: each read from a file where it is,
     or each given as text kept in scripts/; and each workbook read where it is, each of its
-    finals kept as its Hive in scripts/."""
-    finals = {final.script for final in workbook_conversion.every_final(workbooks)}
+    finals no script stands for kept as its Hive in scripts/."""
+    finals = {final.script for final in workbooks.finals_converted()}
     files = [script for script, _ in scripts if script not in finals]
-    if not workbooks and read_from:
+    if not workbooks.workbooks and read_from:
         return (f"{counted(len(files), 'script')}, each read where it is: "
                 f"{in_words([read_from[script] for script in files])}.")
-    if not workbooks:
+    if not workbooks.workbooks:
         return (f"{counted(len(files), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
                 f"{in_words(files)}.")
     parts = []
     if files:
         parts.append(f"{counted(len(files), 'script')}, each read where it is: "
                      f"{in_words([read_from[script] for script in files])}")
-    for workbook in workbooks:
-        finals_kept = singular_or_plural(len(workbook.finals), "its final",
-                                         f"each of its {len(workbook.finals)} finals")
+    for workbook in workbooks.workbooks:
+        kept = workbooks.finals_kept(workbook)
+        finals_kept = singular_or_plural(len(kept), "its final",
+                                         f"each of its {len(kept)} finals")
         parts.append(f"{read_from[workbook.file]}, a workbook read where it is, {finals_kept} "
                      f"kept as its Hive in {BATCH_SCRIPTS}/: "
-                     f"{in_words([each.script for each in workbook.finals])}")
+                     f"{in_words([each.script for each in kept]) or 'none'}")
     return "; ".join(parts) + "."
 
 
@@ -4600,7 +4680,7 @@ def _workbook_lines(workbook: ConvertedWorkbook, index: str) -> list[str]:
     """batch.md's lines for a workbook: each final not converted, with why, and each line of
     its map about no one table, such as a chart left alone or a pivot refused."""
     lines = [f"- {final.final}, not converted, its Hive kept in {index}{BATCH_SCRIPTS}/"
-             f"{final.script}: {workbook_conversion.to_fill_in_said(final)}."
+             f"{final.script}: {workbook_conversion.not_converted_text(final)}."
              for final in workbook.finals if final.to_fill_in]
     lines += [f"- {note}" for note in workbook.notes]
     if not lines:
@@ -4679,16 +4759,17 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
     return lines
 
 
-def _scripts_counted(scripts: list[tuple[str, str]], workbooks: list[ConvertedWorkbook]) -> str:
+def _scripts_counted(scripts: list[tuple[str, str]], workbooks: BatchWorkbooks) -> str:
     """What convert's report says it read: "2 scripts", or, with a workbook, "1 script and 3
     finals of runs.xlsx", each final a script of the batch."""
-    finals = [_finals_converted(workbook.finals) for workbook in workbooks]
+    converted = workbooks.finals_converted()
     parts = []
-    files = len(scripts) - sum(len(each) for each in finals)
-    if files or not workbooks:
+    files = len(scripts) - len(converted)
+    if files or not workbooks.workbooks:
         parts.append(counted(files, "script"))
-    parts += [f"{counted(len(each), 'final')} of {workbook.file}"
-              for workbook, each in zip(workbooks, finals, strict=True)]
+    for workbook in workbooks.workbooks:
+        finals = [final for final in converted if final.workbook == workbook.file]
+        parts.append(f"{counted(len(finals), 'final')} of {workbook.file}")
     return in_words(parts)
 
 
@@ -4740,9 +4821,9 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
 def _batch_index(root: Path, name: str, call: str) -> Path:
     """A batch's folder: admin/workflows/convert/<name>/, or finished/<name>/ in it once every
     table passed the compare step; refused when neither holds its record."""
-    for index in (CONVERSION_FOLDER.path(root, name), root / BATCHES / FINISHED / name):
-        if (index / BATCH_RECORD).is_file():
-            return index
+    record = workflows.batch_record_path(root, name)
+    if record is not None:
+        return record.parent
     refuse(
         what=f"{call}: no batch is named {name}: there is no "
         f"{CONVERSION_FOLDER.shown(name)}{BATCH_RECORD}, nor one in "
@@ -4925,10 +5006,18 @@ def write_decisions(answers: dict[str, dict[str, object]],
     no longer repeats rows without it, and the report names each one; one still needed stays.
     Its Workflow's next step names each Decision still open.
 
+    A table made from an Excel workbook may have two more. "name" answers its NAME, the name
+    proposed for it: "proposed" keeps it; a name of your own, such as "runs_by_job",
+    renames the table, its Table folder and its Table reference, and its total levels' tables
+    with it, before it is created in dev. "sources" answers its SOURCES, the database table
+    proposed for cells a PivotTable reads, such as {"ops.runs": "ops.job_runs"}, a table with
+    a Table reference: its logic reads that table then, with any opt-out it now needs.
+
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
-    kind other than location, key, types, tags and seed, a "types", "tags" or "seed" that
-    isn't a dict, a seed limit on a column that isn't a partition column, a
-    column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
+    kind other than location, key, types, tags, name, sources and seed, a "types", "tags",
+    "sources" or "seed" that isn't a dict, a seed limit on a column that isn't a partition
+    column, a column the table doesn't have, a tag its TAGS doesn't hold, or a name it can't
+    take, as one another table has, or once it is created in dev. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
 
@@ -4961,6 +5050,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
         named = list(dict.fromkeys([*tables, *named]))
     lines, files = [], []
     before, written = {}, {}
+    renamed: dict[str, str] = {}
     keys_written = False
     for table in named:
         stem = table_stem(table)
@@ -4976,7 +5066,10 @@ def write_decisions(answers: dict[str, dict[str, object]],
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
+            lines += _point_sources_answered(root, table, before[table], answered.text)
+            renamed.update(_name_answered_change(table, before[table], answered.text))
         lines += _answered_lines(root, table, answer, answered)
+    lines += rename_converted_tables(root, renamed)
     lines += _all_tables_report_lines(answers, before, written)
     if keys_written:
         lines += _take_out_needless_many_matches(root)
@@ -5206,6 +5299,7 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
         texts[table] = path.read_text(encoding="utf-8")
         problems += _unmatched_answers(table, answer, texts[table],
                                        types_by_stem.get(path.stem, {}))
+        problems += _unmatched_workbook_answers(root, table, answer, texts[table])
     if decisions.ALL_TABLES in answers:
         for table in tables:
             if table_stem(table) in references:
@@ -5223,6 +5317,33 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
         "one, then run the step's cell that writes the answers again.",
         error=ValueError,
     )
+
+
+def _unmatched_workbook_answers(root: Path, table: str, answer: dict[str, object],
+                                reference_text: str) -> list[str]:
+    """A line naming each part of one table's answer to a workbook's Decisions that can't be
+    written: a "name" for a table with no NAME, or one it can't be renamed to; and a "sources"
+    naming no range's table of its SOURCES, or a table with no Table reference."""
+    problems = []
+    name = answer.get(decisions.ANSWERS[decisions.NAME])
+    if name is not None and decisions.name_answered(reference_text) is None:
+        problems.append(f"{table}: name: {table} has no name to decide: only a table made from "
+                        "a workbook's final whose name was proposed has one")
+    elif name not in (None, decisions.ACCEPT_PROPOSED) and not decisions.is_left_to_fill_in(
+            name) and name != decisions.name_answered(reference_text):
+        problems += _rename_problems(root, table, name)
+    sources = answer.get(decisions.ANSWERS[decisions.SOURCE])
+    if isinstance(sources, dict):
+        proposed = decisions.sources_answered(reference_text)
+        for source, given in sources.items():
+            if source not in proposed:
+                problems.append(f"{table}: sources: {source} is no table of its SOURCES"
+                                f"{_nearest_or_all(source, list(proposed), 'tables')}")
+            elif (given != decisions.ACCEPT_PROPOSED and not decisions.is_left_to_fill_in(given)
+                  and not REFERENCE.path(root, table_stem(str(given))).exists()):
+                problems.append(f"{table}: sources: {given} has no Table reference: add it "
+                                f'first, with project.add_references("{given}", query=query)')
+    return problems
 
 
 def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,
@@ -5271,6 +5392,7 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
     types, tags = decisions.ANSWERS[decisions.GUESSED_TYPE], decisions.ANSWERS[decisions.TAG]
     for kind, example in ((types, '{"fails": "bigint"}'),
                           (tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
+                          (decisions.ANSWERS[decisions.SOURCE], '{"ops.runs": "ops.job_runs"}'),
                           (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in answer and not isinstance(answer[kind], dict):
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
@@ -5421,6 +5543,252 @@ def _write_checklist_again(root: Path, table: str) -> None:
         text = checklist.read_text(encoding="utf-8")
         checklist.write_text(_checklist_text(root, table, _notes_of(text),
                                              _decisions_notebook_of(text)), encoding="utf-8")
+
+
+# --- A workbook's Decisions: a table's name, and a range's database table (Toolbox 8.9) -----
+
+
+def _name_answered_change(table: str, before: str, after: str) -> dict[str, str]:
+    """The new full name a table's answer gives it, by its name, where its NAME line now names
+    another table than before; nothing where it keeps its name."""
+    old, new = decisions.name_answered(before), decisions.name_answered(after)
+    if old is None or new is None or old == new:
+        return {}
+    return {table: f"{split_table_name(table)[0]}.{new}"}
+
+
+def _point_sources_answered(root: Path, table: str, before: str, after: str) -> list[str]:
+    """Point a converted table's logic, and the Hive it was converted from, at each database
+    table its answer to SOURCES gives in place of the one it read before: each qualified name
+    written again in its notebook and in its conversion/ Hive; a line saying each."""
+    old, new = decisions.sources_answered(before), decisions.sources_answered(after)
+    folder = TABLE_FOLDER.path(root, table_stem(table))
+    notebook = folder / f"{table_stem(table)}.ipynb"
+    lines = []
+    for proposed, source in new.items():
+        if old.get(proposed) == source:
+            continue
+        # The logic reads the table through a variable named for it, as runs = ops.runs.
+        if notebook.is_file():
+            notebook.write_bytes(_renamed_content(notebook, old[proposed], source))
+        for path in (folder / CONVERSION / IN_DEV, folder / CONVERSION / STATEMENT):
+            if path.is_file():
+                path.write_text(_qualified_name_renamed(path.read_text(encoding="utf-8"),
+                                                        old[proposed], source),
+                                encoding="utf-8")
+        lines.append(f"{table}: its logic reads {source} now, in place of {old[proposed]}, the "
+                     "database table its workbook's range samples.")
+    if lines:
+        lines += _add_opt_outs_needed(root, table, notebook)
+    return lines
+
+
+def _add_opt_outs_needed(root: Path, table: str, notebook: Path) -> list[str]:
+    """Add to a Table notebook's logic each opt-out its refusals now name, marked `#
+    CONVERSION:`, as a Conversion adds them, such as reads_all_partitions=True for a table
+    it reads now that has Partitions: a line saying each."""
+    found = _logic_cell_of(notebook)
+    if found is None:
+        return []
+    number, logic = found
+    logic, _, added, _ = _with_opt_outs_needed(root, logic)
+    if not added:
+        return []
+    write_cell_text(notebook, number, logic)
+    return [f"{table}: added {opt_out} to its logic, marked # CONVERSION:: without it the "
+            f"Toolbox refuses it, saying: {refused.rstrip('.')}." for opt_out, refused in
+            added.items()]
+
+
+def _qualified_name_renamed(text: str, old: str, new: str) -> str:
+    """Text with each `db.table` name `old` written `new`, never inside a longer name."""
+    return re.sub(rf"(?<![\w.]){re.escape(old)}(?!\w)", new, text)
+
+
+def _rename_problems(root: Path, table: str, name: object) -> list[str]:
+    """Why a converted table can't be renamed to the short name `name`, a line each: a name
+    that isn't a plain lowercase one or is taken, a table made in dev already, or one another
+    table's logic reads."""
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+        return [f"{table}: name: give a plain lowercase name, letters, digits and _, starting "
+                f'with a letter, such as "runs_by_job", or "{decisions.ACCEPT_PROPOSED}", not '
+                f"{name!r}"]
+    new = f"{split_table_name(table)[0]}.{name}"
+    if new != table and REFERENCE.path(root, table_stem(new)).exists():
+        return [f"{table}: name: {new} has a Table reference already: give another name"]
+    if workflows.was_sent(root, "create", table):
+        return [f"{table}: name: {table} is created in dev already, as admin/sent.csv records, "
+                "so it keeps its name: drop it with admin.drop_table first to rename it"]
+    readers = _tables_reading(root, table)
+    if readers:
+        return [f"{table}: name: {in_words(readers)} read {table}, so it keeps its name"]
+    return []
+
+
+def _tables_reading(root: Path, table: str) -> list[str]:
+    """Each other table of the Project whose Table notebook imports `table`'s Table
+    reference."""
+    imported = f"references.{table_stem(table)} import"
+    readers = []
+    for stem in TABLE_FOLDER.found(root):
+        notebook = TABLE_FOLDER.path(root, stem) / f"{stem}.ipynb"
+        if stem != table_stem(table) and notebook.is_file() and imported in notebook.read_text(
+                encoding="utf-8"):
+            readers.append(TABLE_FOLDER.name_of(stem))
+    return readers
+
+
+def rename_converted_tables(root: Path, renamed: dict[str, str]) -> list[str]:
+    """Rename each table a Conversion made, by its full name, to the full name `renamed` gives
+    it, before it is created in dev: with it, each table made from its workbook final's total
+    levels and its Total Row, named for it. Its Table folder and its Table reference move, its
+    name is written again in each of their files and in its batch's record, batch.md and
+    scripts/, and its registry rows follow; a line saying each. The answer to a "name"
+    Decision renames through it; so may any change that names a converted table afresh, as a
+    table per value of a Pivot filter does (ticket 08). Refused where a table can't be
+    renamed, as `_rename_problems` says."""
+    lines = []
+    for table, name in renamed.items():
+        family = _tables_named_with(root, table, name)
+        problems = []
+        for old, new in family.items():
+            problems += _rename_problems(root, old, split_table_name(new)[1])
+        if problems:
+            refuse(what=f"rename_converted_tables can't rename {table}: {'; '.join(problems)}.",
+                   why="A table's name is in each of its files and in the tables that read it, "
+                   "and in dev once it is created.",
+                   fix="Rename it before it is created in dev, to a name no table has.",
+                   error=ValueError)
+        for old, new in family.items():
+            _rename_converted_table(root, old, new)
+            folder, reference = TABLE_FOLDER.shown(table_stem(new)), REFERENCE.shown(
+                table_stem(new))
+            lines.append(f"Renamed {old} to {new}: its Table folder is {folder} now, its Table "
+                         f"reference {reference}, and its batch names it so.")
+    if lines:
+        _write_databases(root)
+    return lines
+
+
+def _tables_named_with(root: Path, table: str, name: str) -> dict[str, str]:
+    """Each table renamed with `table` renamed to `name`, by its full name, and its new one:
+    the table, and each table its batch made from the total levels or the Total Row of the
+    workbook final it came from, its name the new one and its level's."""
+    database, short = split_table_name(table)
+    family = {table: f"{database}.{split_table_name(name)[1]}"}
+    for batch in _batch_names(root):
+        origins = workbook_conversion.final_origins_of_batch(root, batch)
+        if table not in origins:
+            continue
+        base = origins[table].final.partition(" (")[0]
+        for other, origin in origins.items():
+            other_short = split_table_name(other)[1]
+            same_final = origin.workbook == origins[table].workbook
+            if (other != table and same_final and origin.final.startswith(f"{base} (")
+                    and other_short.startswith(short)):
+                family[other] = f"{family[table]}{other_short[len(short):]}"
+    return family
+
+
+def _batch_names(root: Path) -> list[str]:
+    """Each batch the convert Workflow made, open or finished, by its name."""
+    found = [path.parent.name for path in (root / BATCHES).glob(f"*/{BATCH_RECORD}")]
+    return found + [path.parent.name
+                    for path in (root / BATCHES / FINISHED).glob(f"*/{BATCH_RECORD}")]
+
+
+def _rename_converted_table(root: Path, old: str, new: str) -> None:
+    """Move one converted table's Table reference and Table folder to `new`'s, each file's text
+    naming it written again; then its batch's record and registry rows."""
+    old_stem, new_stem = table_stem(old), table_stem(new)
+    moved = {REFERENCE.shown(old_stem): REFERENCE.shown(new_stem)}
+    old_folder = TABLE_FOLDER.path(root, old_stem)
+    for path in sorted(old_folder.rglob("*")):
+        if path.is_file():
+            relative = path.relative_to(root).as_posix()
+            moved[relative] = relative.replace(old_stem, new_stem)
+    contents = {after: _renamed_content(root / before, old, new)
+                for before, after in moved.items()}
+    for before, after in moved.items():
+        (root / before).unlink()
+        (root / after).parent.mkdir(parents=True, exist_ok=True)
+        (root / after).write_bytes(contents[after])
+    shutil.rmtree(old_folder)
+    _rename_in_batch_records(root, old, new, moved)
+    registry = Registry(root)
+    now = unchecked.now()
+    registry.mark_removed(REFERENCE, old, now)
+    registry.mark_removed(TABLE_FOLDER, old, now)
+    registry.add([(REFERENCE, new), (TABLE_FOLDER, new)], now)
+    _write_checklist_again(root, new)
+
+
+def _renamed_content(path: Path, old: str, new: str) -> bytes:
+    """A file's content with the table `old`'s name written `new`, as _table_renamed writes
+    it: in a notebook, cell by cell, its variable too; in a Table reference, its variable too;
+    in any other file, its full name and its stem."""
+    if path.suffix == ".ipynb":
+        return notebook_bytes([(kind, _table_renamed(text, old, new, True))
+                               for kind, text in read_cells(path)])
+    text = _table_renamed(path.read_text(encoding="utf-8"), old, new, path.suffix == ".py")
+    return text.encode("utf-8")
+
+
+def _table_renamed(text: str, old: str, new: str, names_its_variable: bool) -> str:
+    """A file's text with a table's name written again: its full name, its stem, and, in a
+    Table reference or a notebook, its Table reference's variable, its short name, never
+    inside a longer name, an attribute or quotes."""
+    text = _qualified_name_renamed(text, old, new)
+    text = re.sub(rf"(?<!\w){re.escape(table_stem(old))}(?!\w)", table_stem(new), text)
+    if names_its_variable:
+        old_short, new_short = split_table_name(old)[1], split_table_name(new)[1]
+        text = re.sub(rf"(?<![\w.\"']){re.escape(old_short)}(?![\w\"'])", new_short, text)
+    return text
+
+
+def _rename_in_batch_records(root: Path, old: str, new: str, moved: dict[str, str]) -> None:
+    """Write each batch's record, batch.md and kept script naming the table `old` again as
+    `new`, each file `moved` gives by its path recorded at its new path with the hash it had
+    before, so converting again keeps it as a file changed since."""
+    old_short, new_short = split_table_name(old)[1], split_table_name(new)[1]
+    for batch in _batch_names(root):
+        path = workflows.batch_record_path(root, batch)
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if old not in record.get("tables", []):
+            continue
+        record = _record_renamed(record, old, new)
+        files = record["files"]
+        for before, after in moved.items():
+            if before in files:
+                hash_before = files.pop(before)
+                files[after] = hash_before
+        index = path.parent
+        script = index / BATCH_SCRIPTS / f"{old_short}.hql"
+        if script.is_file():
+            script.rename(index / BATCH_SCRIPTS / f"{new_short}.hql")
+        batch_list = index / BATCH_LIST
+        text = _table_renamed(batch_list.read_text(encoding="utf-8"), old, new, False)
+        batch_list.write_text(text.replace(f"{BATCH_SCRIPTS}/{old_short}.hql",
+                                           f"{BATCH_SCRIPTS}/{new_short}.hql")
+                              .replace(f" {old_short}.hql", f" {new_short}.hql"),
+                              encoding="utf-8")
+        path.write_text(json.dumps(record, indent=1, sort_keys=True), encoding="utf-8")
+
+
+def _record_renamed(record: dict[str, object], old: str, new: str) -> dict[str, object]:
+    """A batch's record with the table `old` named `new` in each list and by each key."""
+    renamed = dict(record)
+    for key in ("tables", "seeded"):
+        renamed[key] = [new if each == old else each for each in record.get(key, [])]
+    for key in ("originals", PIVOT_FILTERS, WORKBOOK_FINALS):
+        if key in record:
+            renamed[key] = {new if each == old else each: value
+                            for each, value in record[key].items()}
+    for filters in renamed.get(PIVOT_FILTERS, {}).values():
+        for each in filters:
+            if each["final"] == old:
+                each["final"] = new
+    return renamed
 
 
 def table_reference(name: str) -> Table:

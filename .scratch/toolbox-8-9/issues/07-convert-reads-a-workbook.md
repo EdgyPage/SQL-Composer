@@ -28,6 +28,9 @@ Conversion).
 
 ## Answer
 
+(The Review below changes the names, the range finals, the Pivot filter module and the
+names of several functions; where the two differ, the Review holds.)
+
 Built 2026-11-19. **No new public name**: the user's call is `project.convert`, as before,
 whose `files=` (and `file=`) now take an `.xlsx` (or `.xlsm`).
 
@@ -137,3 +140,127 @@ marks joined by AND; each refusal. 171 new hashes in `tests/snapshot/known.txt`.
 name Decision's place (above). `FILES = []` still reads only `.hql` files beside the notebook,
 not a workbook. A Data Model pivot over a query loading only the Data Model (ticket 06's Left)
 still has no source.
+
+## Review
+
+The review (2026-11-19) and the user's decision, each answered in `fix(8.9): ticket 07's
+review: ...`, rebased first onto dev's 192d4b9c (tickets 05, 06 and 10, the VAR_SAMP fix, and
+the pivot Hive tests moved to `tests/sqlglot_checks/`).
+
+**The user's decision: the pivot name is a Decision.** Built as one, answered in DECISIONS:
+
+- A new Decision kind, `decisions.NAME`, answered as `"name"`: the converted table's Table
+  reference holds `NAME = "pivot"  # TODO: proposed for PivotTable1 of runs.xlsx` above its
+  Aliases (`decisions.name_block`), open while it holds TODO:, so `check()` lists it, the
+  pasted DECISIONS offer `"name": "proposed"`, and promotion waits on it as on any Decision.
+  `"proposed"` keeps the name (its TODO taken off); a name of one's own renames the table.
+  Both proposals are this Decision: PN2's, and a final named as a table it reads, `_report`.
+  Answering again renames again; a table created in dev already, a name taken, a name that
+  isn't plain lowercase, or a table another table's logic reads, is refused before anything is
+  written (`_unmatched_workbook_answers`, `_rename_problems`).
+- **The renaming, for ticket 08 too:** `project.rename_converted_tables(root, {old: new})`
+  renames one converted table, and with it each table its batch made from the same workbook
+  final's total levels and Total Row (`_tables_named_with`, by the batch's record of where
+  each table came from): it moves the Table reference and the Table folder, writes the name
+  again in each of their files (the full name, the stem, and the table's own variable in its
+  reference and its notebook's cells), the batch's written.json (tables, seeded, originals,
+  Pivot filters, workbook finals, each file's path, its hash kept so a convert run again keeps
+  it as changed), batch.md and its kept script, and the registry; the checklist is written
+  again. Ticket 08's "a table per value" can call it, or its single-table
+  `_rename_converted_table`.
+- Converting again keeps each final's table's name: `names_kept_of(final_origins_of_batch(...))`
+  names each final as the batch last named it, so an answered name is never proposed again.
+- RENAME keeps its old job alone: `_rename_of_scripts` and the final-by-workbook-name rename
+  are gone, and the notebook's RENAME comment is as it was.
+
+**Spec.**
+
+1. **Ticket 09's workbook:** written.json keeps `"workbook_finals"`: per table, `{"workbook":
+   <its path as batch.md names it>, "final": <its name in the workbook>}`, for a Copilot
+   script standing for a final too; `workbook_conversion.final_origins_of_batch(root, name)`
+   reads it as `FinalOrigin(workbook, final)`, beside `pivot_filters_of_batch`.
+2. **The Copilot path's `field_values`:** a script named for a workbook's final (by its table,
+   `pivot.hql`, or its name, `pivottable1.hql`), in a batch holding the workbook, is that
+   final's Hive, as Copilot writes it: the batch converts it in place of the workbook's own
+   Hive (`BatchWorkbooks.copilot_finals`; the report says so), and its Pivot filters take
+   `field_values` from that final's, matched by field (`pivot_filters.with_field_values_of`).
+   Else they stay `()`, as `ConvertedPivotFilter`'s docstring now says: ticket 08 counts
+   nothing then. This replaces ticket 07's refusal of a script named as a final.
+3. **A pivot over a plain range:** PS3 now reads it as `<database>.<sheet in snake case>`, no
+   brackets (`workbook_pivot_hive.range_table_name`), so the final converts. Its table's
+   Table reference holds `SOURCES = {"ops.runs": "ops.runs",  # TODO: proposed: the database
+   table Runs!A1:F10 samples}`, a new Decision kind, `decisions.SOURCE`, answered as
+   `"sources": {"ops.runs": "ops.job_runs"}` (or "proposed"): the answer points the logic, and
+   conversion/'s Hive, at that table, adding any opt-out it then needs, such as
+   `reads_all_partitions=True`, marked `# CONVERSION:` (`_point_sources_answered`); a table with
+   no Table reference is refused, naming `project.add_references`. Where DESCRIBE finds no
+   such table, its Table reference is written from the range's own columns, each type a guess
+   (`_write_range_references`), and the report says so. A `<...>` no Decision can stand for,
+   a Table or column named otherwise than plainly (N2), still skips its final, or refuses a
+   batch of such finals alone.
+
+**Standards.**
+
+4. **Names:** `checklist_note_text`, `not_converted_text`, `pivot_filter_text`,
+   `read_workbook_or_refuse`, `proposed_name_note`, `filters_retargeted_to`,
+   `BatchWorkbooks.every_final` (and `finals_kept`, `finals_converted`, `final_of_script`);
+   `finals_named` in `_refuse_every_final_to_fill_in`.
+5. **The loop refusal:** `LoopError(what, why, fix)` carries the three as attributes; its
+   message is as it was, so `copilot/workbook_text.py` shows the same; `read_workbook_or_refuse`
+   refuses with them.
+6. **One module for Pivot filters:** `sqlglot_composer/pivot_filters.py` (in `PYTHON_FILES`
+   and `LIBRARY_FILES`, and standards.md's list): `pivot_filters_in` and its helpers, moved
+   out of converting.py, `with_field_values_of`, `pivot_filter_record`,
+   `pivot_filter_of_record`, `json_value`, `value_of_json`, `pivot_filters_of_batch`. It reads
+   Hive through `script_tags.readable_tags` and `writing.read_hive`, as converting does. Its
+   literal reading is `converting.python_of_literal` (made public) through `ast.literal_eval`,
+   one way; `tables.literal*` go the other way, a value to Hive. The two batch readers share
+   `workflows.batch_record` / `batch_record_path`, which `project._batch_index` now uses too.
+7. **One record passed along:** `BatchWorkbooks` (the workbooks, where each is, and the
+   scripts that stand for finals) goes through `_scripts_and_workbooks`, `_convert_batch`,
+   `_batch_statements`, `_BatchFiles`, batch.md's and the report's helpers;
+   `named_for_files` is worked out from it in `_batch_statements` alone. `FinalName(table,
+   proposed)` in place of the pair. `_check_names_given` is gone. Split:
+   `_scripts_and_workbooks` / `_read_workbooks`; `notes_by_final` /
+   `_finals_a_note_is_about`; `final_table_names` / `_final_name` / `_own_name`.
+
+**The beginner reader.**
+
+8. `project.convert`'s workbook paragraph: short sentences; "final" said in plain words where it
+   first stands ("a calculation that nothing else in the workbook reads: ..."); no "map"; the
+   `-- Pivot filter:` sentence is with scripts. `write_decisions`' docstring has a paragraph for
+   "name" and "sources".
+9. Each checklist note names its rule and where it is explained, and what to do next: "From the
+   workbook, marked (rule F6, in Copilot file 11): job_runs[next_month]: ... Next: check the
+   values it gives are the ones you want, as the compare step shows them." (`RULE_FILES` by the
+   ID's first letters, M and X "11 or 12"; `NEXT_STEPS` by kind).
+10. The notebook's words in the notebook's run: no new refusal says `rename=` (the name is
+    answered as "name" in DECISIONS; two workbooks' finals of one name are refused with "give
+    one a name of its own in its workbook").
+11. `pivot_pivot`: a sheet named "pivot", or ending in "pivot", is the name alone (`pivot`,
+    `team_pivot`); else `<sheet>_pivot` (PN2, tested). A rename moves the table, so nothing is
+    left to remove.
+12. "1 thing in runs.xlsx belongs to no table, such as a chart left alone or a PivotTable
+    refused: batch.md lists it, each with what to do."
+13. FILES: "... and any Excel workbook, such as ["runs.xlsx"], each calculation of it a Saved
+    table, ...: left [], every .hql file beside this notebook, never a workbook, which you name
+    here; or HIVE when it is given." Step 1's goal names "each calculation of a workbook that
+    nothing else in it reads".
+14. A missing workbook's refusal: "Check each path, such as files=["runs.xlsx"], a workbook
+    saved beside this notebook."
+
+**For ticket 11 (file 20):** PN2 now proposes `pivot` for a sheet named Pivot (not
+`pivot_pivot`), and PS3 reads a range as `<database>.<sheet>` with no brackets, a Decision.
+
+**Tests:** `tests/test_convert_workbooks.py` (57): the kinds as before plus a pivot over a plain
+range; the name Decision (listed by check, pasted, "proposed" kept, a rename of the pivot and
+its levels with every file, record and run, converting again keeps it, answered again, each
+refusal); `_report` renamed with its Total Row; the range's table proposed, its reference from
+the range, answered with an opt-out added, refused without a reference; the workbook record;
+a Copilot script beside its workbook. `test_sqlglot_workbook_pivot_hive.py`'s PN1, PN2 and PS3
+follow the new names; `test_decisions.py` names the new kinds. Regenerated: both Example
+projects' convert notebooks, `docs/main/example_projects.html`, `examples.html`, `how_to.html`
+and `worked_examples/how_to/29_follow_a_workflow.py` (the latter missed by the first commit).
+`tests/snapshot/known.txt`: 192d4b9c's with the 202 new hashes; the first commit's 171 that no
+test makes now are out; 192d4b9c's hashes this change no longer makes (PS3's `<runs>` Hive, the
+old checklist notes) are left for the lead.

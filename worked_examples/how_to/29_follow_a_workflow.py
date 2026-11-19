@@ -179,9 +179,11 @@ Its names cell, which you fill in and save first:
     # a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is
     # True, each batch named for its file
     NAME = ''
-    # the scripts' files, such as ["daily.hql"], each beside this notebook or a path
-    # anywhere, such as "C:/work/daily.hql", read where it is: left [], every .hql file
-    # beside this notebook, or HIVE when it is given
+    # the scripts' files, such as ["daily.hql"], or an Excel workbook's, such as
+    # ["runs.xlsx"], each calculation of it a Saved table, each beside this notebook or
+    # a path anywhere, such as "C:/work/daily.hql", read where it is: left [], every
+    # .hql file beside this notebook, never a workbook, which you name here; or HIVE
+    # when it is given
     FILES = []
     # the Hive as text, such as \"\"\"SELECT ...\"\"\", or None to read FILES
     HIVE = None

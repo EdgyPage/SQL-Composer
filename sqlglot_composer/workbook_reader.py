@@ -405,7 +405,14 @@ class Workbook:
 
 class LoopError(ValueError):
     """The workbook's pieces read each other in a loop, so no order puts each after what it
-    reads."""
+    reads: `what` names each link, `why` says why it is refused and `fix` the usual fix, and
+    its message is the three, as copilot/workbook_text.py shows it."""
+
+    def __init__(self, what: str, why: str, fix: str) -> None:
+        super().__init__(f"{what}\nWhy: {why}\nUsual fix: {fix}")
+        self.what = what
+        self.why = why
+        self.fix = fix
 
 
 def read_workbook(source: Path | bytes) -> Workbook:
@@ -1697,12 +1704,11 @@ def _in_order(reads: dict[Piece, list[Piece]]) -> dict[Piece, list[Piece]]:
         loop = error.args[1]
         links = "; ".join(_link(reader, piece) for piece, reader in zip(loop, loop[1:]))
         raise LoopError(
-            f"Its pieces read each other in a loop: {links}.\n"
-            "Why: each piece must come after every piece it reads, and in a loop none can, so "
-            "no Hive gives the same rows.\n"
-            "Usual fix: in Excel, break one of these links, such as a query reading the raw "
-            "data's Table in place of a Table in the loop; save the workbook, and run this "
-            "again.") from None
+            f"Its pieces read each other in a loop: {links}.",
+            "each piece must come after every piece it reads, and in a loop none can, so no "
+            "Hive gives the same rows.",
+            "in Excel, break one of these links, such as a query reading the raw data's Table "
+            "in place of a Table in the loop; save the workbook, and run this again.") from None
     ordered = []
     while sorter.is_active():
         ready = sorted(sorter.get_ready(), key=place.__getitem__)

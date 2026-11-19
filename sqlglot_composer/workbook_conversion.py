@@ -3,30 +3,31 @@
 `project.convert(..., files=["runs.xlsx"])` reads a workbook beside any `.hql` scripts.
 `converted_workbook` gives what the Conversion needs of it: each final's Hive, as
 `workbook_hive.py` writes it with the batch's database filled in, under the name of the Saved
-table it becomes; what the workbook's map names of each final, in plain words, for that
-table's checklist; what it names of no one final, for batch.md; and each Pivot filter of
-each final, for its Decision (ticket 08). The Conversion then keeps each final's Hive in the
-batch's scripts/, as it keeps Hive given as text, and converts it as it converts any batch's.
+table it becomes; what the workbook's map says of each final, in plain words, for that
+table's checklist; what it says of no one final, for batch.md; each plain range a final reads,
+whose database table is a Decision of its table; and each Pivot filter of each final, for its
+Decision (ticket 08). The Conversion then keeps each final's Hive in the batch's scripts/, as
+it keeps Hive given as text, and converts it as it converts any batch's.
 
-A final's table is named for it: a Table's name, or a pivot's (PN1), in snake case. Some names
-are proposed, the table made under the proposal until the person names it otherwise: a pivot
-keeping Excel's default name, `<sheet name>_pivot` (PN2); and a final named as a database
-table the batch reads, as a Table with formula columns over its own rows is, `<name>_report`.
-`rename=`, by the final's name in the workbook, names one otherwise. A total level or a Total
-Row is named for its pivot's or its Table's table, `pivot_pivot_grand_total`.
+A final's table is named for it: a Table's name, or a pivot's (PN1), in snake case. Two names
+are proposed, each a Decision of its table, the table made under the proposal until the
+person answers "name" in the decisions cell: a pivot keeping Excel's default name, named for
+its sheet (PN2); and a final named as a database table the batch reads, as a Table with
+formula columns over its own rows is, `<name>_report`. A total level or a Total Row is named
+for its pivot's or its Table's table, `pivot_grand_total`, and renamed with it. Converted
+again, a batch keeps the name each final's table has.
 """
 
 from __future__ import annotations
 
-import datetime
 import re
 import zipfile
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import NoReturn
 
 from .refusals import refuse
-from .shared import in_words, python_literal
+from .shared import in_words, split_table_name
 from .workbook_formulas import (
     LEFT_ALONE,
     MARK,
@@ -53,15 +54,19 @@ from .workbook_pivot_hive import (
     pivot_filters,
     pivot_of,
     pivot_table_names,
+    range_table_name,
 )
 from .workbook_reader import (
     EXCEL_TABLE,
     PIVOT_TABLE,
+    RANGE,
     LoopError,
     Piece,
+    Table,
     Workbook,
     read_workbook,
 )
+from .workflows import batch_record
 
 # The files a Conversion reads as a workbook, by their ending; an .xls, Excel's older kind, it
 # can't read.
@@ -69,17 +74,65 @@ WORKBOOK_SUFFIXES = (".xlsx", ".xlsm")
 OLD_WORKBOOK = ".xls"
 # What a final's name is proposed with, where it is named as a database table the batch reads.
 REPORT = "_report"
-# A Saved table's name a person gives a final: lowercase letters, digits and _.
-PLAIN_TABLE_NAME = re.compile(r"[a-z][a-z0-9_]*")
-# How a batch's written.json keeps a Pivot filter's date and time, and its date.
-TIME_KEPT = "time"
-DAY_KEPT = "day"
-# What each kind of the map's notes is, as a checklist says it, in file 15's Output's words.
+# Where a batch's written.json keeps the workbook and the final each table came from.
+WORKBOOK_FINALS = "workbook_finals"
+# What each kind of the map's notes is, as a checklist says it, in file 15's Output's words,
+# and what the person does about it.
 NOTE_WORDS = {WRITTEN_IN: "written in", TYPED_OVER: "typed over a formula", MARK: "marked",
               REFUSED: "refused", LEFT_ALONE: "left alone", TO_FILL_IN: "to fill in"}
+NEXT_STEPS = {
+    WRITTEN_IN: "check it still holds for the database's rows, which may hold more",
+    TYPED_OVER: "the value typed over the formula is kept, as Excel shows it: check it is "
+                "still wanted",
+    MARK: "check the values it gives are the ones you want, as the compare step shows them",
+    REFUSED: "it is NULL, or left out, in the table: if you need it, write it yourself in the "
+             "table's logic cell",
+    LEFT_ALONE: "nothing to do",
+    TO_FILL_IN: "write the database's name in its place",
+}
+# The Copilot file each rule's ID is explained in, by its first letters: a rule M or X is in
+# file 11 for a formula, and in file 12 for a Power Query.
+RULE_FILES = (("PR", "20"), ("PV", "20"), ("PC", "20"), ("PL", "20"), ("PF", "20"),
+              ("PG", "20"), ("PS", "20"), ("PN", "20"), ("PX", "20"), ("P", "15"),
+              ("R", "15"), ("W", "15"), ("N", "11"), ("F", "11"), ("I", "11"), ("V", "11"),
+              ("Q", "12"), ("G", "12"), ("S", "12"), ("T", "12"), ("M", "11 or 12"),
+              ("X", "11 or 12"))
 # A note's place, such as `Power Query "ok_runs"`, and its column after it, such as `[hours]`.
 _PLACE_NAMED = re.compile(r'[A-Za-z ]+ "(?P<name>.*)"')
 _COLUMN_AFTER = re.compile(r"\[[^\]]*\]$")
+# The type a range's column is guessed as, by the kind of value its cells hold.
+_GUESSED_TYPES = ((bool, "boolean"), (int, "bigint"), (float, "double"))
+
+
+@dataclass(frozen=True)
+class FinalName:
+    """The name of the table a final becomes, its plain lowercase name, and why it was
+    proposed: "" where it is the final's own, or the one its table has from an answer."""
+
+    table: str
+    proposed: str = ""
+
+
+@dataclass(frozen=True)
+class FinalOrigin:
+    """Where a converted table came from: its workbook, by its path as the batch names it, and
+    its final's name in the workbook, such as `PivotTable1`, for the Workbook check (ticket
+    09)."""
+
+    workbook: str
+    final: str
+
+
+@dataclass(frozen=True)
+class RangeSource:
+    """A database table a plain range a final reads samples, proposed for its sheet, a Decision
+    of the final's table: its name in the database, `ops.runs`; the range, `Runs!A1:F10`;
+    and its columns, each typed as its cells suggest, for its Table reference where the
+    database has no such table."""
+
+    table: str
+    range: str
+    columns: dict[str, str]
 
 
 @dataclass
@@ -89,7 +142,8 @@ class WorkbookFinal:
     named for; its Hive; why that name was proposed, "" where it is the final's own; each line
     of the workbook's map about it, for its table's checklist; each `<...>` its Hive still
     holds, which stops it converting; each Pivot filter its rows go through, its `final` the
-    workbook's name of the pivot it is in; and its workbook's file's name."""
+    workbook's name of the pivot it is in; its workbook's file's name; and each plain range it
+    reads."""
 
     final: str
     table: str
@@ -99,6 +153,7 @@ class WorkbookFinal:
     to_fill_in: list[str] = field(default_factory=list)
     filters: list[ConvertedPivotFilter] = field(default_factory=list)
     workbook: str = ""
+    sources: list[RangeSource] = field(default_factory=list)
 
     @property
     def script(self) -> str:
@@ -117,56 +172,87 @@ class ConvertedWorkbook:
     notes: list[str] = field(default_factory=list)
 
 
+@dataclass
+class BatchWorkbooks:
+    """The workbooks a batch reads, where each is, by its file's name, its path as the batch
+    names it; and what each of its scripts stands for: each script named for a workbook's
+    final, as Copilot names one, by its name, and the final it is the Hive of, which the batch
+    converts from the script in place of the workbook. A batch holding a workbook names each
+    query alone for its file."""
+
+    workbooks: list[ConvertedWorkbook] = field(default_factory=list)
+    places: dict[str, str] = field(default_factory=dict)
+    copilot_finals: dict[str, WorkbookFinal] = field(default_factory=dict)
+
+    def every_final(self) -> list[WorkbookFinal]:
+        """Each final of each workbook, in order."""
+        finals = []
+        for workbook in self.workbooks:
+            finals += workbook.finals
+        return finals
+
+    def finals_kept(self, workbook: ConvertedWorkbook | None = None) -> list[WorkbookFinal]:
+        """Each final of each workbook, or of `workbook`, whose Hive the batch keeps in its
+        scripts/: each but one a script of the batch is the Hive of."""
+        stood_for = [id(final) for final in self.copilot_finals.values()]
+        finals = self.every_final() if workbook is None else workbook.finals
+        return [final for final in finals if id(final) not in stood_for]
+
+    def finals_converted(self) -> list[WorkbookFinal]:
+        """Each final the batch converts from its workbook: each it keeps but one whose Hive
+        holds a `<...>`."""
+        return [final for final in self.finals_kept() if not final.to_fill_in]
+
+    def final_of_script(self) -> dict[str, WorkbookFinal]:
+        """Each final the batch converts from its workbook, by its script's name."""
+        return {final.script: final for final in self.finals_converted()}
+
+
 def is_workbook(file: str) -> bool:
     """Whether a file a Conversion is given is a workbook, by its ending."""
     return Path(file).suffix.lower() in WORKBOOK_SUFFIXES
 
 
 def converted_workbook(call: str, path: Path, database: str,
-                       rename: dict[str, str]) -> ConvertedWorkbook:
-    """A workbook as a Conversion takes it, its sources in `database`, each final named as
-    `rename` names it, by its name in the workbook, or else for itself, as the module
-    docstring says. Refused for a file that isn't a workbook the reader reads, such as one
-    whose pieces read each other in a loop, and for a workbook with no final."""
-    workbook = _workbook_read(call, path)
+                       names_kept: dict[str, str]) -> ConvertedWorkbook:
+    """A workbook as a Conversion takes it, its sources in `database`, each final's table
+    named as `names_kept` names it, by the final's name in the workbook, as a batch converted
+    before named it, or else for itself, as the module docstring says. Refused for a file that
+    isn't a workbook the reader reads, such as one whose pieces read each other in a loop, and
+    for a workbook with no final."""
+    workbook = read_workbook_or_refuse(call, path)
     hive = workbook_hive(workbook, database=database)
     if not hive.finals:
         _refuse_nothing_to_convert(call, path.name, hive)
-    texts = hive_texts(hive)
-    _check_names_given(call, path.name, rename, list(texts))
-    names = final_table_names(workbook, hive, rename)
-    owned, of_no_final = _notes_by_final(workbook, hive)
+    names = final_table_names(workbook, hive, names_kept)
+    owned, of_no_final = notes_by_final(workbook, hive)
     filters = pivot_filters(workbook)
     finals = []
-    for final, text in texts.items():
-        table, proposed = names[final]
-        notes = [name_note(final, table, proposed)] if proposed else []
-        notes += [note_said(note) for note in owned[final] if note.rule != "PN2"]
-        reads = _pieces_a_final_reads(final, workbook)
+    for final, text in hive_texts(hive).items():
+        name = names[final]
+        notes = []
+        if name.proposed:
+            notes.append(proposed_name_note(name))
+        notes += [checklist_note_text(note) for note in owned[final] if note.rule != "PN2"]
+        read = _pieces_a_final_reads(final, workbook)
         to_fill_in = [note.where for note in owned[final] if note.kind == TO_FILL_IN]
-        finals.append(WorkbookFinal(final, table, text, proposed, notes, to_fill_in,
-                                    [each for each in filters if each.final.lower() in reads],
-                                    path.name))
-    return ConvertedWorkbook(path.name, finals, [note_said(note) for note in of_no_final])
+        read_names = {piece.name.lower() for piece in read}
+        finals.append(WorkbookFinal(
+            final, name.table, text, name.proposed, notes, to_fill_in,
+            [each for each in filters if each.final.lower() in read_names], path.name,
+            [range_source(piece, workbook, database) for piece in read if piece.kind == RANGE]))
+    return ConvertedWorkbook(path.name, finals,
+                             [checklist_note_text(note) for note in of_no_final])
 
 
-def every_final(workbooks: list[ConvertedWorkbook]) -> list[WorkbookFinal]:
-    """Each final of each workbook, in order."""
-    finals = []
-    for workbook in workbooks:
-        finals += workbook.finals
-    return finals
-
-
-def _workbook_read(call: str, path: Path) -> Workbook:
+def read_workbook_or_refuse(call: str, path: Path) -> Workbook:
     """The workbook at `path`, read; refused where it can't be: a file that isn't a workbook,
     or one whose pieces read each other in a loop."""
     try:
         return read_workbook(path)
     except LoopError as loop:
-        what, why, fix = str(loop).split("\n")
-        refuse(what=f"{call}: {path.name}: {what}", why=why.removeprefix("Why: "),
-               fix=fix.removeprefix("Usual fix: "), error=ValueError)
+        refuse(what=f"{call}: {path.name}: {loop.what}", why=loop.why, fix=loop.fix,
+               error=ValueError)
     except (zipfile.BadZipFile, KeyError):
         refuse(what=f"{call}: {path.name} ends in {path.suffix}, but isn't a workbook Excel "
                "saved.",
@@ -193,8 +279,8 @@ def _refuse_nothing_to_convert(call: str, file: str, hive: WorkbookHive) -> NoRe
         found = f" Refused: {'; '.join(refused)}."
     refuse(what=f"{call}: {file} holds nothing to convert: no Table with a formula column, "
            f"no Power Query loading a Table, and no PivotTable that converts.{found}",
-           why="A Conversion makes each final of a workbook, a calculation nothing else in it "
-           "reads, a Saved table; a Table of typed values alone stands for a database table "
+           why="A Conversion makes a Saved table of each calculation nothing else in the "
+           "workbook reads; a Table of typed values alone stands for a database table "
            "already, so it makes none.",
            fix="Put the calculation in the workbook, as a formula column in a Table, a Power "
            "Query loading a Table, or a PivotTable, save it, and convert it again.",
@@ -205,60 +291,49 @@ def _refuse_nothing_to_convert(call: str, file: str, hive: WorkbookHive) -> NoRe
 
 
 def final_table_names(workbook: Workbook, hive: WorkbookHive,
-                      rename: dict[str, str]) -> dict[str, tuple[str, str]]:
-    """Each final's table's name, by the final's name in the workbook, with why it was
-    proposed, "" where it is the final's own or `rename` gives it: as the module docstring
-    says, a number after a name two finals would share."""
+                      names_kept: dict[str, str]) -> dict[str, FinalName]:
+    """Each final's table's name, by the final's name in the workbook, as the module
+    docstring says, a number after a name two finals would share."""
     read = _database_tables_read(workbook, hive)
     pivots = pivot_table_names(workbook)
-    names: dict[str, tuple[str, str]] = {}
+    names: dict[str, FinalName] = {}
     for final in hive.finals:
-        base, _, level = final.partition(" (")
-        name, why = _own_name(base, workbook, pivots, read)
-        # A total level or a Total Row is named for its pivot's or its Table's table, as
-        # rename= names it too, unless rename= names the level itself.
-        if base in rename:
-            name, why = rename[base], ""
-        if level:
-            name, why = f"{name}_{snake_case(level)}", ""
-        if final in rename:
-            name, why = rename[final], ""
-        names[final] = (_free_name(name, [each for each, _ in names.values()]), why)
+        name = _final_name(final, workbook, pivots, read, names_kept)
+        taken = [each.table for each in names.values()]
+        names[final] = replace(name, table=_free_name(name.table, taken))
     return names
 
 
-def _check_names_given(call: str, file: str, rename: dict[str, str],
-                       finals: list[str]) -> None:
-    """Refuse a name rename= gives a workbook's final that isn't a plain lowercase name, as
-    its Saved table's is."""
-    for final in finals:
-        name = rename.get(final)
-        if name is None or (isinstance(name, str) and PLAIN_TABLE_NAME.fullmatch(name)):
-            continue
-        refuse(what=f"{call} was given rename={{{python_literal(final)}: "
-               f"{python_literal(name)}}} for {final} of {file}, which isn't a plain lowercase "
-               "name.",
-               why="A workbook's final becomes a Saved table in your Dev Database, named as "
-               "rename= names it, and its script in the batch's scripts/ too.",
-               fix='Use lowercase letters, digits and _, starting with a letter, such as '
-               '"runs_by_job".', error=ValueError)
+def _final_name(final: str, workbook: Workbook, pivots: dict[str, str], read: set[str],
+                names_kept: dict[str, str]) -> FinalName:
+    """One final's table's name: the one the batch kept for it; else, for a total level or a
+    Total Row, its pivot's or its Table's table's name and the level's, in snake case; else
+    its own, or the one proposed for it."""
+    if final in names_kept:
+        return FinalName(names_kept[final])
+    base, _, level = final.partition(" (")
+    name = _own_name(base, workbook, pivots, read)
+    if base in names_kept:
+        name = FinalName(names_kept[base])
+    if level:
+        return FinalName(f"{name.table}_{snake_case(level)}")
+    return name
 
 
 def _own_name(final: str, workbook: Workbook, pivots: dict[str, str],
-              read: set[str]) -> tuple[str, str]:
-    """A Table's or a pivot's own final's table's name, and why it was proposed, "" where it is
-    its own."""
+              read: set[str]) -> FinalName:
+    """A Table's or a pivot's own final's table's name, and why it was proposed."""
     if final in pivots:
         pivot = pivot_of(Piece(PIVOT_TABLE, final), workbook)
         if DEFAULT_NAME.fullmatch(pivot.name):
-            return pivots[final], (f"{pivot.name} is Excel's default name, so it is named "
-                                   f"for its sheet, {pivot.sheet}")
-        return pivots[final], ""
+            return FinalName(pivots[final], f"{pivot.name} is Excel's default name, so it is "
+                                            f"named for its sheet, {pivot.sheet}")
+        return FinalName(pivots[final])
     name = snake_case(final)
     if name in read:
-        return name + REPORT, (f"{final} is the name of a table in the database it reads, "
-                               "which a Saved table of yours can't share")
-    return name, ""
+        return FinalName(name + REPORT, f"{final} is the name of a table in the database it "
+                                        "reads, which a Saved table of yours can't share")
+    return FinalName(name)
 
 
 def _free_name(name: str, taken: list[str]) -> str:
@@ -276,8 +351,9 @@ def _database_tables_read(workbook: Workbook, hive: WorkbookHive) -> set[str]:
     one."""
     read = set()
     for piece, role in hive.roles.items():
-        if (piece.kind == EXCEL_TABLE and role != SETTINGS and PLAIN_NAME.fullmatch(piece.name)
-                and is_read_from_the_database(piece.name, workbook)):
+        if piece.kind != EXCEL_TABLE or role == SETTINGS:
+            continue
+        if PLAIN_NAME.fullmatch(piece.name) and is_read_from_the_database(piece.name, workbook):
             read.add(piece.name.lower())
     return read
 
@@ -288,43 +364,111 @@ def is_read_from_the_database(table: str, workbook: Workbook) -> bool:
     return not found.loaded_by and not is_summary(found)
 
 
-def name_note(final: str, table: str, why: str) -> str:
-    """A table's checklist note saying its name was proposed, and how to name it otherwise."""
-    return (f"Its name, {table}, is proposed: {why}. If you want another, give it in RENAME in "
-            "the convert notebook's names cell, by the name the workbook gives it, such as "
-            f"RENAME = {{{python_literal(final)}: \"<a name>\"}}, and convert again: the table "
-            f"made as {table} stays until project.remove_table removes it.")
+def proposed_name_note(name: FinalName) -> str:
+    """A table's checklist note saying its name was proposed, a Decision, and how to answer
+    it."""
+    return (f"Its name, {name.table}, is proposed: {name.proposed}. It is a Decision: answer "
+            '"name" in the decisions cell, "proposed" to keep it, or a name of your own, such '
+            'as "runs_by_job", which renames the table, and its total levels\' tables with '
+            "it.")
 
 
-# --- What the map names, table by table -----------------------------------------------------
+def names_kept_of(origins: dict[str, FinalOrigin], workbook: str) -> dict[str, str]:
+    """The name each final of `workbook`, by its path as the batch names it, has as its
+    table's, by the final's name: as a batch converted before named it, `origins` being what
+    its written.json keeps."""
+    return {origin.final: split_table_name(table)[1] for table, origin in origins.items()
+            if origin.workbook == workbook}
 
 
-def note_said(note: Note) -> str:
-    """One line of the workbook's map in plain words, as a checklist or batch.md lists it."""
-    return (f"From the workbook, {NOTE_WORDS[note.kind]} (rule {note.rule}): {note.where}: "
-            f"{note.text}.")
+def final_origins_of_batch(root: Path, name: str) -> dict[str, FinalOrigin]:
+    """Where each table the batch `name` made from a workbook came from, by the table, as its
+    written.json keeps it: none for a batch with no workbook, or that isn't there."""
+    kept = batch_record(root, name).get(WORKBOOK_FINALS, {})
+    return {table: FinalOrigin(origin["workbook"], origin["final"])
+            for table, origin in kept.items()}
 
 
-def _notes_by_final(workbook: Workbook,
-                    hive: WorkbookHive) -> tuple[dict[str, list[Note]], list[Note]]:
-    """Each line of the workbook's map, by each final it is about: one about a piece the final
-    is, or reads at any depth, or, for a `<...>` to fill in, one its Hive holds; and the lines
-    about no one final, such as a chart left alone, or a pivot refused, with no final."""
+# --- A plain range's database table ---------------------------------------------------------
+
+
+def range_source(piece: Piece, workbook: Workbook, database: str) -> RangeSource:
+    """The database table a plain range samples, proposed for its sheet (PS3), with its
+    columns, each typed as its cells suggest."""
+    table = None
+    for pivot in workbook.pivot_tables:
+        if pivot.source.pieces == [piece]:
+            table = pivot.source.table
+    return RangeSource(f"{database}.{range_table_name(piece, workbook)}", piece.name,
+                       _guessed_columns(table))
+
+
+def _guessed_columns(table: Table | None) -> dict[str, str]:
+    """Each column of a range's rows, by its name in snake case, its type as its cells
+    suggest: "boolean", "bigint", "double" or else "string"."""
+    columns: dict[str, str] = {}
+    if table is None:
+        return columns
+    for column in table.columns:
+        kinds = {type(cell) for cell in column.cells if cell is not None}
+        guessed = "string"
+        for kind, name in _GUESSED_TYPES:
+            if kinds == {kind}:
+                guessed = name
+        if kinds == {int, float}:
+            guessed = "double"
+        columns[snake_case(column.header)] = guessed
+    return columns
+
+
+# --- What the map says, table by table -----------------------------------------------------
+
+
+def checklist_note_text(note: Note) -> str:
+    """One line of the workbook's map in plain words, as a checklist or batch.md lists it: what
+    it is, the rule and the Copilot file that explains it, and what to do about it."""
+    return (f"From the workbook, {NOTE_WORDS[note.kind]} (rule {note.rule}, in Copilot file "
+            f"{_rule_file(note.rule)}): {note.where}: {note.text}. Next: "
+            f"{NEXT_STEPS[note.kind]}.")
+
+
+def _rule_file(rule: str) -> str:
+    """The Copilot file a rule's ID is explained in, by its first letters."""
+    for start, file in RULE_FILES:
+        if rule.startswith(start):
+            return file
+    return "15"
+
+
+def notes_by_final(workbook: Workbook,
+                   hive: WorkbookHive) -> tuple[dict[str, list[Note]], list[Note]]:
+    """Each line of the workbook's map, by each final it is about (`_finals_a_note_is_about`),
+    and the lines about no one final, such as a chart left alone, or a pivot refused, with no
+    final."""
     texts = hive_texts(hive)
     owned: dict[str, list[Note]] = {final: [] for final in hive.finals}
     of_no_final = []
     for note in hive.notes:
-        if note.kind == TO_FILL_IN:
-            owners = [final for final, text in texts.items() if note.where in text]
-        else:
-            named = _named_in(note.where)
-            owners = [final for final in hive.finals
-                      if named in _pieces_a_final_reads(final, workbook) | {final.lower()}]
+        owners = _finals_a_note_is_about(note, workbook, texts)
         for final in owners:
             owned[final].append(note)
         if not owners and not (note.kind == TO_FILL_IN and note.where == DATABASE):
             of_no_final.append(note)
     return owned, of_no_final
+
+
+def _finals_a_note_is_about(note: Note, workbook: Workbook, texts: dict[str, str]) -> list[str]:
+    """The finals one line of the map is about: for a `<...>` to fill in, each whose Hive holds
+    it; for any other, each that is, or reads at any depth, the piece its place names."""
+    if note.kind == TO_FILL_IN:
+        return [final for final, text in texts.items() if note.where in text]
+    named = _named_in(note.where)
+    owners = []
+    for final in texts:
+        read = {piece.name.lower() for piece in _pieces_a_final_reads(final, workbook)}
+        if named in read or named == final.lower():
+            owners.append(final)
+    return owners
 
 
 def _named_in(where: str) -> str:
@@ -337,9 +481,9 @@ def _named_in(where: str) -> str:
     return piece.lower()
 
 
-def _pieces_a_final_reads(final: str, workbook: Workbook) -> set[str]:
-    """The name, in lower case, of the piece a final is, a total level's or a Total Row's its
-    pivot's or its Table's, and of every piece it reads, at any depth."""
+def _pieces_a_final_reads(final: str, workbook: Workbook) -> set[Piece]:
+    """The piece a final is, a total level's or a Total Row's its pivot's or its Table's, and
+    every piece it reads, at any depth."""
     base = final.partition(" (")[0]
     start = [piece for piece in workbook.order if piece.name.lower() == base.lower()]
     found: set[Piece] = set()
@@ -350,56 +494,24 @@ def _pieces_a_final_reads(final: str, workbook: Workbook) -> set[str]:
             continue
         found.add(piece)
         waiting += workbook.order.get(piece, [])
-    return {piece.name.lower() for piece in found}
+    return found
 
 
-def pivot_filter_record(written: ConvertedPivotFilter) -> dict[str, object]:
-    """A Pivot filter as a batch's written.json keeps it: each field of its record, each of
-    its values as `json_value` writes it, as JSON holds no date."""
-    record = asdict(written)
-    for name in ("values", "field_values"):
-        record[name] = [json_value(value) for value in record[name]]
-    return record
-
-
-def pivot_filter_of_record(record: dict[str, object]) -> ConvertedPivotFilter:
-    """A Pivot filter read back from a batch's written.json, as `pivot_filter_record` kept it,
-    each date and time as it was."""
-    values = tuple(value_of_json(value) for value in record["values"])
-    field_values = tuple(value_of_json(value) for value in record["field_values"])
-    return ConvertedPivotFilter(str(record["final"]), str(record["kind"]),
-                                str(record["field"]), values, field_values,
-                                str(record["ranked_by"]), bool(record["bottom"]))
-
-
-def json_value(value: object) -> object:
-    """A value as JSON holds it: a date and time as {"time": its ISO text}, a date as {"day":
-    its ISO text}, any other as it is."""
-    if isinstance(value, datetime.datetime):
-        return {TIME_KEPT: value.isoformat()}
-    if isinstance(value, datetime.date):
-        return {DAY_KEPT: value.isoformat()}
-    return value
-
-
-def value_of_json(value: object) -> object:
-    """A value `json_value` wrote, as it was."""
-    if isinstance(value, dict) and TIME_KEPT in value:
-        return datetime.datetime.fromisoformat(value[TIME_KEPT])
-    if isinstance(value, dict) and DAY_KEPT in value:
-        return datetime.date.fromisoformat(value[DAY_KEPT])
-    return value
-
-
-def filters_of(final: WorkbookFinal, table: str) -> list[ConvertedPivotFilter]:
-    """Each Pivot filter a final's rows go through, as the Hive of the table it became writes
-    it, its `final` that table's name, as the Copilot path's Hive gives it."""
+def filters_retargeted_to(final: WorkbookFinal, table: str) -> list[ConvertedPivotFilter]:
+    """Each Pivot filter a final's rows go through, its `final` the name of the table the final
+    became, as the Copilot path's Hive gives it."""
     return [replace(each, final=table) for each in final.filters]
 
 
-def to_fill_in_said(final: WorkbookFinal) -> str:
+def not_converted_text(final: WorkbookFinal) -> str:
     """Why a final whose Hive holds a `<...>` isn't converted, as convert's report says it."""
-    return (f"its Hive holds {in_words(final.to_fill_in)}, a name to fill in: name the Table "
-            "or the range in the workbook as its table is named in the database, as an Excel "
-            "Table, and convert again, or fill each in the Hive kept in scripts/, "
-            f"{final.script}, and convert that file")
+    return (f"its Hive holds {in_words(final.to_fill_in)}, a name to fill in: in the workbook, "
+            "name the Table or the column as the database names it, and convert again, or "
+            f"fill each in the Hive kept in scripts/, {final.script}, and convert that file")
+
+
+def is_copilots_hive_of(script: str, final: WorkbookFinal) -> bool:
+    """Whether a script is a workbook final's Hive, as Copilot writes it: named for the final,
+    by its name in the workbook or its table's, such as pivot.hql or PivotTable1.hql."""
+    stem = Path(script).stem.lower()
+    return stem in (final.table, snake_case(final.final))

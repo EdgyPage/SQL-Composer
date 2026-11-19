@@ -140,7 +140,9 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 **Decision**:
 One thing about one table that only the user decides, which the table's files show made or
 not: its location, its Key, a column type the Toolbox could only guess, the value a Script
-tag stands for, the Partitions its Seed copies, or a `<...>` left to fill in. The user answers
+tag stands for, the Partitions its Seed copies, the name proposed for a table made from a
+Formula workbook, the database table proposed for cells a PivotTable reads, or a
+`<...>` left to fill in. The user answers
 each in a Workflow's decisions cell, and a step writes each answer into the table's Table
 reference. An answer may be given once for every table of a batch, and a table's own answer
 overrides it; an answer may also be a Run value's function, called each time the table is
