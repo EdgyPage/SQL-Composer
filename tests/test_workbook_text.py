@@ -27,8 +27,9 @@ sys.path[:0] = [str(ROOT / "copilot"), str(ROOT / "tools")]
 
 import workbook_fixtures  # noqa: E402
 import workbook_text  # noqa: E402
-from excel_eval_tasks import TASKS, ExcelTask  # noqa: E402
-from formula_workbook import as_text, openpyxl_text  # noqa: E402
+from excel_eval_tasks import TASKS, ExcelTask, runs_table  # noqa: E402
+from formula_workbook import FormulaWorkbook, as_text, openpyxl_text, saved  # noqa: E402
+from pivot_tables import Pivot, Value  # noqa: E402
 
 FIXTURES = ROOT / "tests" / "fixtures" / "workbook_text"
 ORDER = "Order, each piece after every piece it reads:\n"
@@ -94,6 +95,87 @@ def test_each_fixture_and_its_text_is_what_the_builder_writes() -> None:
         assert workbook_fixtures.contents(held) == workbook_fixtures.contents(built), name
         assert ((FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
                 == workbook_fixtures.expected(held)), name
+
+
+def test_each_pivot_is_written_with_its_fields_filters_totals_and_cells() -> None:
+    # Toolbox 8.9, ticket 03: in place of "A PivotTable", each pivot as Copilot reads it.
+    for name in workbook_fixtures.FIXTURES:
+        assert "A PivotTable" not in (FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
+    text = workbook_text.workbook_text(FIXTURES / "05_pivot_slicer_two_pivots.xlsx")
+    pivot = text.split('Sheet "Pivot"\n')[1].split('  PivotTable "runs_by_day"')[0]
+    assert pivot.splitlines() == [
+        '  PivotTable "PivotTable1", A3:B7',
+        '    Source: Excel Table "job_runs"',
+        "    Rows: job_id",
+        '    Value "Sum of duration_mins": Sum of duration_mins',
+        '    Slicer "status" on sheet "Pivot", field status: selected FAILED, SUCCESS; '
+        "connected to PivotTable1, runs_by_day",
+        "    Totals shown: Grand Total row",
+        "    Cells: each value cell, what Excel last stored in it, then the Value it shows and "
+        "the Rows and Columns items it stands for:",
+        "      B4: 62 (Sum of duration_mins; Rows job_id 1)",
+        "      B5: 38 (Sum of duration_mins; Rows job_id 2)",
+        "      B6: 60 (Sum of duration_mins; Rows job_id 3)",
+        "      B7: 160 (Sum of duration_mins; Rows Grand Total)"]
+    # The slicer's defined name is the slicer's own, and the pivot's cells aren't the sheet's.
+    assert "Defined name Slicer_status" not in text
+    assert "  A3: Row Labels" not in text
+
+
+def test_each_kind_of_pivot_line_in_excels_words() -> None:
+    def text_of(name: str) -> str:
+        return workbook_text.workbook_text(FIXTURES / f"{name}.xlsx")
+    hours = text_of("06_pivot_query_sheet")
+    assert "    Value Filter on job_id: Top 2 Items by Sum of hours\n" in hours
+    assert '    Calculated Field "hours" = duration_mins/60\n' in hours
+    groups = text_of("07_pivot_groups")
+    assert ('    Field "Years" groups dt By Years, Starting at 2026-09-23 00:00:00, Ending at '
+            "2026-09-25 00:00:00\n") in groups
+    assert ('    Field "duration_mins" groups duration_mins By 10, Starting at 0, Ending at '
+            "49\n") in groups
+    assert ("    Totals shown: Grand Total row, Grand Total column, subtotals of Years\n"
+            in groups)
+    assert ("      C5: 55 (Sum of duration_mins; Rows Years 2026; Columns duration_mins "
+            "10-19)\n") in groups
+    filtered = text_of("08_pivot_timeline_filters")
+    assert ('    Value "Sum of duration_mins": Sum of duration_mins, Show Values As % of '
+            "Column Total\n") in filtered
+    assert "    Filter avg_retry_secs: (All)\n    Items hidden on status: TEST\n" in filtered
+    assert ('    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24 00:00:00 to '
+            "2026-09-24 00:00:00; connected to PivotTable1\n") in filtered
+    assert "      B5: empty (Sum of duration_mins; Rows job_id 1; Columns status FAILED)\n" in (
+        filtered)
+    ranged = text_of("09_pivot_plain_range")
+    assert ("    Source: the range Runs!A1:F10, read as the Table it would be: run_id | job_id "
+            "| status | duration_mins | avg_retry_secs | dt\n") in ranged
+    assert "    Columns: Values\n    Value \"Count of run_id\": Count of run_id\n" in ranged
+    assert "    Totals shown: none\n" in ranged
+    ranked = text_of("10_pivot_calculated_item_rank")
+    assert '    Calculated Item "done" on status = SUCCESS+FAILED\n' in ranked
+    assert ('    Value "Sum of duration_mins": Sum of duration_mins, Show Values As Rank '
+            "Largest to Smallest, Base field job_id\n") in ranked
+    assert "    Filter status: SUCCESS\n" in ranked
+    assert "      B8: 160 (Sum of duration_mins; Rows status done)\n" in ranked
+
+
+def test_a_pivot_in_the_order_after_its_source_and_before_getpivotdata() -> None:
+    assert order_of(FIXTURES / "06_pivot_query_sheet.xlsx")[3:7] == [
+        '4. Power Query "ok_runs", reads Excel Table "job_runs"',
+        '5. Excel Table "ok_runs", loaded by Power Query "ok_runs"',
+        '6. PivotTable "PivotTable1", reads Excel Table "ok_runs"',
+        '7. Excel Table "job_hours", its formulas read PivotTable "PivotTable1"']
+    assert order_of(FIXTURES / "09_pivot_plain_range.xlsx")[2:4] == [
+        '3. Range "Runs!A1:F10"', '4. PivotTable "PivotTable1", reads Range "Runs!A1:F10"']
+
+
+def test_a_data_model_pivot_says_its_model_and_what_loads_it() -> None:
+    described = FormulaWorkbook((runs_table(),), pivots=(
+        Pivot("job_runs", ("dt",), (Value("job_id", "distinctCount"),), data_model=True),))
+    text = workbook_text.workbook_text(saved(described))
+    assert ('    Source: the Data Model, its tables job_runs, loaded from Excel Table '
+            '"job_runs"\n') in text
+    assert '    Value "Distinct Count of job_id": Distinct Count of job_id\n' in text
+    assert '  4. PivotTable "PivotTable1", reads Excel Table "job_runs"\n' in text
 
 
 def test_a_power_query_sheet_gives_each_query_loading_the_table_of_its_name() -> None:

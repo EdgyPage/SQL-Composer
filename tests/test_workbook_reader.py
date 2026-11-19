@@ -85,7 +85,7 @@ def test_the_first_fixtures_other_cells_query_names_and_order() -> None:
     assert list(sheets["Parameters"].cells) == [(1, 4)]
     assert sheets["Parameters"].cells[(1, 4)].startswith("Parameters: the fixed values")
     assert sheets["Steps"].cells[(1, 1)] == "Formula workbook: how to fill it in"
-    assert [(sheet.charts, sheet.pivot_tables) for sheet in workbook.sheets] == [([], 0)] * 6
+    assert [(sheet.charts, sheet.pivot_tables) for sheet in workbook.sheets] == [([], [])] * 6
     assert workbook.defined_names == {}
     assert workbook.queries == [Query("ok_runs", (
         'let\n    Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],\n'

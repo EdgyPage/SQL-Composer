@@ -22,31 +22,28 @@ Sheet "job_runs"
     Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24
     Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24
 Sheet "Pivot"
-  A3: Sum of duration_mins
-  B3: Column Labels
-  A4: Row Labels
-  B4: 2026-09-23
-  C4: 2026-09-24
-  D4: Grand Total
-  A5: 1
-  B5: 17
-  C5: 50
-  D5: 67
-  A6: 2
-  B6: 33
-  C6: 20
-  D6: 53
-  A7: 3
-  B7: 30
-  C7: 30
-  D7: 60
-  A8: Grand Total
-  B8: 80
-  C8: 100
-  D8: 180
-  A PivotTable
+  PivotTable "PivotTable1", A3:D8
+    Source: Excel Table "job_runs"
+    Rows: job_id
+    Columns: dt
+    Value "Sum of duration_mins": Sum of duration_mins
+    Totals shown: Grand Total row, Grand Total column
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B5: 17 (Sum of duration_mins; Rows job_id 1; Columns dt 2026-09-23)
+      C5: 50 (Sum of duration_mins; Rows job_id 1; Columns dt 2026-09-24)
+      D5: 67 (Sum of duration_mins; Rows job_id 1; Columns Grand Total)
+      B6: 33 (Sum of duration_mins; Rows job_id 2; Columns dt 2026-09-23)
+      C6: 20 (Sum of duration_mins; Rows job_id 2; Columns dt 2026-09-24)
+      D6: 53 (Sum of duration_mins; Rows job_id 2; Columns Grand Total)
+      B7: 30 (Sum of duration_mins; Rows job_id 3; Columns dt 2026-09-23)
+      C7: 30 (Sum of duration_mins; Rows job_id 3; Columns dt 2026-09-24)
+      D7: 60 (Sum of duration_mins; Rows job_id 3; Columns Grand Total)
+      B8: 80 (Sum of duration_mins; Rows Grand Total; Columns dt 2026-09-23)
+      C8: 100 (Sum of duration_mins; Rows Grand Total; Columns dt 2026-09-24)
+      D8: 180 (Sum of duration_mins; Rows Grand Total; Columns Grand Total)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
+  4. PivotTable "PivotTable1", reads Excel Table "job_runs"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

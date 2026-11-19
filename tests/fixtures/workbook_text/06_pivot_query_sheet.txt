@@ -38,15 +38,17 @@ Sheet "job_hours"
     Row 5: 4 | =GETPIVOTDATA("Sum of hours",Pivot!$A$3,"job_id",[@job_id])
 Sheet "Power Query"
 Sheet "Pivot"
-  A3: Row Labels
-  B3: Sum of hours
-  A4: 1
-  B4: 1.033333333333333
-  A5: 3
-  B5: 0.5
-  A6: Grand Total
-  B6: 1.533333333333333
-  A PivotTable
+  PivotTable "PivotTable1", A3:B6
+    Source: Excel Table "ok_runs", loaded by Power Query "ok_runs"
+    Rows: job_id
+    Value "Sum of hours": Sum of hours
+    Calculated Field "hours" = duration_mins/60
+    Value Filter on job_id: Top 2 Items by Sum of hours
+    Totals shown: Grand Total row
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B4: 1.033333333333333 (Sum of hours; Rows job_id 1)
+      B5: 0.5 (Sum of hours; Rows job_id 3)
+      B6: 1.533333333333333 (Sum of hours; Rows Grand Total)
 Power Query "ok_runs" (loads into Excel Table "ok_runs"):
     let
         Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
@@ -58,7 +60,8 @@ Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
-  4. Excel Table "job_hours"
-  5. Power Query "ok_runs", reads Excel Table "job_runs"
-  6. Excel Table "ok_runs", loaded by Power Query "ok_runs"
+  4. Power Query "ok_runs", reads Excel Table "job_runs"
+  5. Excel Table "ok_runs", loaded by Power Query "ok_runs"
+  6. PivotTable "PivotTable1", reads Excel Table "ok_runs"
+  7. Excel Table "job_hours", its formulas read PivotTable "PivotTable1"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

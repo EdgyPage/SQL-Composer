@@ -1,5 +1,5 @@
-"""Write an Excel workbook as text for a Copilot chat: its Tables, formulas and Power Queries,
-and the order in which each piece reads the others.
+"""Write an Excel workbook as text for a Copilot chat: its Tables, formulas, PivotTables and
+Power Queries, and the order in which each piece reads the others.
 
     python copilot/workbook_text.py "my work/costs.xlsx"     writes costs.txt beside it
 
@@ -7,7 +7,13 @@ Run it in a terminal in the download's top folder, with your workbook's path in 
 
 Attach the .txt in place of the workbook, with Copilot files 15, 11 and 12, and ask Copilot to
 convert it. The text shows each sheet's Excel Tables row by row, with formulas as you type
-them, then the sheet's other cells, each Power Query with its M, and each defined name. The M
+them, then the sheet's other cells and its PivotTables, each Power Query with its M, and each
+defined name. Each PivotTable is shown as `PivotTable "name"`, with what it reads (its
+Source), its Rows, Columns, Values and Filters as the PivotTable Fields pane shows them, each
+value's Summarize Values By and Show Values As, its calculated fields and items, its grouped
+fields, its hidden items, its value filters, each slicer and Timeline connected to it with what
+it has selected, the totals it shows, and each value cell: the value Excel last stored there,
+and the value and the row and column items it stands for. The M
 comes from the queries the workbook holds. A workbook that holds none, such as one whose
 Excel couldn't add a query, gives them from its Power Query sheet: a cell "Query <its name>:"
 with the M in the cell below it.
@@ -17,7 +23,10 @@ in Excel's words:
 - a query reads each Table it names as `Excel.CurrentWorkbook(){[Name="..."]}` and each other
   query its M names;
 - a Table is loaded by the query that loads it, and its formulas read each Table they name,
-  such as `job_runs[dt]`.
+  such as `job_runs[dt]`, or `jobs` alone in `VLOOKUP([@job_id],jobs,2,FALSE)`, and each
+  PivotTable they read with GETPIVOTDATA;
+- a PivotTable reads its Source: a Table, a range, or each Table or query loading the Data
+  Model's tables it reads.
 A last line says how the Order is used: each final's query reads the steps it needs as CTEs in
 that order.
 
@@ -42,7 +51,9 @@ TOOLBOX = str(Path(__file__).resolve().parent.parent / "sqlglot_composer")
 sys.path.insert(0, TOOLBOX)
 try:
     import workbook_reader
-    from workbook_reader import LoopError, Piece, Sheet, Table, Workbook
+    from workbook_reader import (LoopError, Piece, PivotCell, PivotField, PivotFilter,
+                                 PivotLine, PivotSource, PivotTable, PivotValue, Sheet, Slicer,
+                                 Table, Timeline, Workbook)
 except ModuleNotFoundError:
     sys.exit("workbook_text.py can't find the workbook reader, "
              "sqlglot_composer/workbook_reader.py.\n"
@@ -118,7 +129,188 @@ def _sheet_lines(sheet: Sheet, typed: bool) -> list[str]:
     for (row, column), value in sheet.cells.items():
         lines.append(f"  {workbook_reader.coordinate(row, column)}: {cell_text(value, typed)}")
     lines += [f"  A {kind} chart" if kind else "  A chart" for kind in sheet.charts]
-    return lines + ["  A PivotTable"] * sheet.pivot_tables
+    for pivot in sheet.pivot_tables:
+        lines += _pivot_table_lines(pivot, typed)
+    return lines
+
+
+def _item_text(item: object, typed: bool) -> str:
+    """An item of a pivot's field as text: a blank as Excel shows it, (blank)."""
+    if item is None:
+        return "(blank)"
+    return cell_text(item, typed)
+
+
+def _items_text(items: list[object], typed: bool) -> str:
+    return ", ".join(_item_text(item, typed) for item in items)
+
+
+def _source_text(source: PivotSource) -> str:
+    """What a pivot reads, in Excel's words."""
+    if source.kind == workbook_reader.EXCEL_TABLE:
+        by = ""
+        if source.table is not None and source.table.loaded_by:
+            by = f', loaded by Power Query "{source.table.loaded_by}"'
+        return f'Excel Table "{source.name}"{by}'
+    if source.kind == workbook_reader.RANGE and source.table is not None:
+        headers = " | ".join(column.header for column in source.table.columns)
+        return f"the range {source.name}, read as the Table it would be: {headers}"
+    if source.kind == workbook_reader.DATA_MODEL:
+        line = f"the Data Model, its tables {', '.join(source.model_tables)}"
+        if source.pieces:
+            loaded = ", ".join(workbook_reader.piece_name(piece) for piece in source.pieces)
+            line += f", loaded from {loaded}"
+        return line
+    if source.kind == workbook_reader.OLAP:
+        return f'an OLAP cube, through the connection "{source.name}"'
+    return f'{source.kind} "{source.name}"'
+
+
+def _value_text(value: PivotValue, typed: bool) -> str:
+    """A pivot's value as its Value Field Settings say it: Summarize Values By, then Show
+    Values As, with its base field and item."""
+    if value.summary == workbook_reader.DAX_MEASURE:
+        line = f'Value "{value.caption}": the DAX measure {value.field}'
+    else:
+        line = f'Value "{value.caption}": {value.summary} of {value.field}'
+    if value.shown_as:
+        line += f", Show Values As {value.shown_as}"
+    if value.base_field:
+        line += f", Base field {value.base_field}"
+    if value.base_field and value.base_item is not None:
+        line += f", Base item {_item_text(value.base_item, typed)}"
+    return line
+
+
+def _grouping_text(pivot_field: PivotField, typed: bool) -> str:
+    """How a pivot's field groups another, as Excel's Grouping dialog says it."""
+    grouping = pivot_field.grouping
+    line = f'Field "{pivot_field.name}" groups {grouping.field}'
+    if grouping.by == "Items":
+        groups = "; ".join(f'"{name}" = {_items_text(items, typed)}'
+                           for name, items in grouping.groups.items())
+        return f"{line} by hand: {groups}"
+    if grouping.by == "Number":
+        line += f" By {cell_text(grouping.interval, typed)}"
+    else:
+        line += f" By {grouping.by}"
+    if grouping.by == "Days" and grouping.interval is not None:
+        line += f", Number of days {cell_text(grouping.interval, typed)}"
+    if grouping.start is not None:
+        line += f", Starting at {cell_text(grouping.start, typed)}"
+    if grouping.end is not None:
+        line += f", Ending at {cell_text(grouping.end, typed)}"
+    return line
+
+
+def _field_lines(pivot: PivotTable, typed: bool) -> list[str]:
+    """What a pivot's fields hold beyond where they are: calculated fields and items, each
+    grouping of a field it shows, items hidden, and items shown with no data."""
+    shown = {*pivot.rows, *pivot.columns, *(each.field for each in pivot.report_filters)}
+    lines = []
+    for pivot_field in pivot.fields.values():
+        if pivot_field.formula:
+            lines.append(f'Calculated Field "{pivot_field.name}" = {pivot_field.formula}')
+        for item, formula in pivot_field.calculated_items.items():
+            lines.append(f'Calculated Item "{item}" on {pivot_field.name} = {formula}')
+        if pivot_field.grouping is not None and pivot_field.name in shown:
+            lines.append(_grouping_text(pivot_field, typed))
+        if pivot_field.hidden:
+            lines.append(f"Items hidden on {pivot_field.name}: "
+                         f"{_items_text(pivot_field.hidden, typed)}")
+        if pivot_field.shows_items_with_no_data and pivot_field.name in shown:
+            lines.append(f"Show items with no data: on, for {pivot_field.name}")
+    return lines
+
+
+def _filter_text(pivot_filter: PivotFilter, typed: bool) -> str:
+    """A value, label or date filter, as its dialog says it."""
+    values = " and ".join(_item_text(value, typed) for value in pivot_filter.values)
+    line = f"{pivot_filter.kind} on {pivot_filter.field}: "
+    if pivot_filter.unit:
+        return line + f"{pivot_filter.test} {values} {pivot_filter.unit} by {pivot_filter.by}"
+    if pivot_filter.by:
+        line += f"{pivot_filter.by} "
+    return line + f"{pivot_filter.test} {values}".rstrip()
+
+
+def _slicer_text(slicer: Slicer | Timeline, typed: bool) -> str:
+    """A slicer or Timeline: where it is, its field, what it has selected, and the pivots it
+    is connected to."""
+    kind = "Slicer" if isinstance(slicer, Slicer) else "Timeline"
+    line = f'{kind} "{slicer.caption or slicer.name}"'
+    if slicer.sheet:
+        line += f' on sheet "{slicer.sheet}"'
+    if isinstance(slicer, Timeline) and slicer.start is None:
+        selected = "every date"
+    elif isinstance(slicer, Timeline):
+        selected = f"{cell_text(slicer.start, typed)} to {cell_text(slicer.end, typed)}"
+    else:
+        selected = _items_text(slicer.selected, typed) or "(All)"
+    return (f"{line}, field {slicer.field}: selected {selected}; connected to "
+            f"{', '.join(slicer.pivots)}")
+
+
+def _totals_text(pivot: PivotTable) -> str:
+    """The totals a pivot shows: its Grand Total row and column, and each field's
+    subtotals."""
+    shown = []
+    if pivot.grand_total_row:
+        shown.append("Grand Total row")
+    if pivot.grand_total_column:
+        shown.append("Grand Total column")
+    for name in pivot.subtotals:
+        functions = pivot.fields[name].subtotals
+        chosen = ""
+        if functions != [workbook_reader.AUTOMATIC]:
+            chosen = f" ({', '.join(functions)})"
+        shown.append(f"subtotals of {name}{chosen}")
+    return f"Totals shown: {', '.join(shown) or 'none'}"
+
+
+def _line_text(area: str, line: PivotLine, typed: bool) -> str:
+    """The row or column a cell is on, such as "Rows job_id 1", "Columns dt 2026-09-23
+    Total" or "Rows Grand Total"."""
+    if line.total == workbook_reader.GRAND_TOTAL:
+        return f"{area} Grand Total"
+    items = ", ".join(f"{name} {_item_text(item, typed)}" for name, item in line.items)
+    return " ".join(part for part in (area, items, line.total) if part)
+
+
+def _cell_line(pivot: PivotTable, cell: PivotCell, typed: bool) -> str:
+    """One value cell: its stored value, then its value and the items it stands for."""
+    parts = [cell.value]
+    if any(name != workbook_reader.VALUES for name in pivot.rows):
+        parts.append(_line_text("Rows", cell.row, typed))
+    if any(name != workbook_reader.VALUES for name in pivot.columns):
+        parts.append(_line_text("Columns", cell.column, typed))
+    stored = "empty" if cell.stored is None else cell_text(cell.stored, typed)
+    return (f"      {workbook_reader.coordinate(*cell.at)}: {stored} "
+            f"({'; '.join(parts)})")
+
+
+def _pivot_table_lines(pivot: PivotTable, typed: bool) -> list[str]:
+    """One PivotTable as text: its Source, its fields as the PivotTable Fields pane holds
+    them, its Pivot filters, its totals and its cells."""
+    lines = [f"Source: {_source_text(pivot.source)}"]
+    for area, names in (("Rows", pivot.rows), ("Columns", pivot.columns)):
+        if names:
+            lines.append(f"{area}: {', '.join(names)}")
+    lines += [_value_text(value, typed) for value in pivot.values]
+    for report_filter in pivot.report_filters:
+        selected = _items_text(report_filter.selected, typed)
+        if len(report_filter.selected) > 1:
+            selected = f"(Multiple Items) {selected}"
+        lines.append(f"Filter {report_filter.field}: {selected or '(All)'}")
+    lines += _field_lines(pivot, typed)
+    lines += [_filter_text(pivot_filter, typed) for pivot_filter in pivot.filters]
+    lines += [_slicer_text(slicer, typed) for slicer in pivot.slicers]
+    lines.append(_totals_text(pivot))
+    lines.append("Cells: each value cell, what Excel last stored in it, then the Value "
+                 "it shows and the Rows and Columns items it stands for:")
+    return ([f'  PivotTable "{pivot.name}", {pivot.ref}']
+            + [f"    {line}" for line in lines]
+            + [_cell_line(pivot, cell, typed) for cell in pivot.cells])
 
 
 def as_text(workbook: Workbook, typed: bool = True) -> str:

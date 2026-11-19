@@ -22,31 +22,31 @@ Sheet "job_runs"
     Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24 00:00:00
     Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24 00:00:00
 Sheet "Pivot"
-  A1: avg_retry_secs
-  B1: (All)
-  A3: Sum of duration_mins
-  B3: Column Labels
-  A4: Row Labels
-  B4: FAILED
-  C4: SUCCESS
-  D4: Grand Total
-  A5: 1
-  C5: 0.625
-  D5: 0.5
-  A6: 2
-  B6: 1
-  D6: 0.2
-  A7: 3
-  C7: 0.375
-  D7: 0.3
-  A8: Grand Total
-  B8: 1
-  C8: 1
-  D8: 1
-  A PivotTable
-Defined name NativeTimeline_dt: #N/A
+  PivotTable "PivotTable1", A3:D8
+    Source: Excel Table "job_runs"
+    Rows: job_id
+    Columns: status
+    Value "Sum of duration_mins": Sum of duration_mins, Show Values As % of Column Total
+    Filter avg_retry_secs: (All)
+    Items hidden on status: TEST
+    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24 00:00:00 to 2026-09-24 00:00:00; connected to PivotTable1
+    Totals shown: Grand Total row, Grand Total column
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B5: empty (Sum of duration_mins; Rows job_id 1; Columns status FAILED)
+      C5: 0.625 (Sum of duration_mins; Rows job_id 1; Columns status SUCCESS)
+      D5: 0.5 (Sum of duration_mins; Rows job_id 1; Columns Grand Total)
+      B6: 1 (Sum of duration_mins; Rows job_id 2; Columns status FAILED)
+      C6: empty (Sum of duration_mins; Rows job_id 2; Columns status SUCCESS)
+      D6: 0.2 (Sum of duration_mins; Rows job_id 2; Columns Grand Total)
+      B7: empty (Sum of duration_mins; Rows job_id 3; Columns status FAILED)
+      C7: 0.375 (Sum of duration_mins; Rows job_id 3; Columns status SUCCESS)
+      D7: 0.3 (Sum of duration_mins; Rows job_id 3; Columns Grand Total)
+      B8: 1 (Sum of duration_mins; Rows Grand Total; Columns status FAILED)
+      C8: 1 (Sum of duration_mins; Rows Grand Total; Columns status SUCCESS)
+      D8: 1 (Sum of duration_mins; Rows Grand Total; Columns Grand Total)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
+  4. PivotTable "PivotTable1", reads Excel Table "job_runs"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

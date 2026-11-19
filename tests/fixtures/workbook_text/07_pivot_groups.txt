@@ -22,39 +22,37 @@ Sheet "job_runs"
     Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24 00:00:00
     Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24 00:00:00
 Sheet "Pivot"
-  A3: Sum of duration_mins
-  B3: Column Labels
-  A4: Row Labels
-  B4: 0-9
-  C4: 10-19
-  D4: 20-29
-  E4: 30-39
-  F4: 40-49
-  G4: Grand Total
-  A5: 2026
-  B5: 5
-  C5: 55
-  D5: 20
-  E5: 60
-  F5: 40
-  G5: 180
-  A6: Sep
-  B6: 5
-  C6: 55
-  D6: 20
-  E6: 60
-  F6: 40
-  G6: 180
-  A7: Grand Total
-  B7: 5
-  C7: 55
-  D7: 20
-  E7: 60
-  F7: 40
-  G7: 180
-  A PivotTable
+  PivotTable "PivotTable1", A3:G7
+    Source: Excel Table "job_runs"
+    Rows: Years, dt
+    Columns: duration_mins
+    Value "Sum of duration_mins": Sum of duration_mins
+    Field "duration_mins" groups duration_mins By 10, Starting at 0, Ending at 49
+    Field "dt" groups dt By Months, Starting at 2026-09-23 00:00:00, Ending at 2026-09-25 00:00:00
+    Field "Years" groups dt By Years, Starting at 2026-09-23 00:00:00, Ending at 2026-09-25 00:00:00
+    Totals shown: Grand Total row, Grand Total column, subtotals of Years
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B5: 5 (Sum of duration_mins; Rows Years 2026; Columns duration_mins 0-9)
+      C5: 55 (Sum of duration_mins; Rows Years 2026; Columns duration_mins 10-19)
+      D5: 20 (Sum of duration_mins; Rows Years 2026; Columns duration_mins 20-29)
+      E5: 60 (Sum of duration_mins; Rows Years 2026; Columns duration_mins 30-39)
+      F5: 40 (Sum of duration_mins; Rows Years 2026; Columns duration_mins 40-49)
+      G5: 180 (Sum of duration_mins; Rows Years 2026; Columns Grand Total)
+      B6: 5 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns duration_mins 0-9)
+      C6: 55 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns duration_mins 10-19)
+      D6: 20 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns duration_mins 20-29)
+      E6: 60 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns duration_mins 30-39)
+      F6: 40 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns duration_mins 40-49)
+      G6: 180 (Sum of duration_mins; Rows Years 2026, dt Sep; Columns Grand Total)
+      B7: 5 (Sum of duration_mins; Rows Grand Total; Columns duration_mins 0-9)
+      C7: 55 (Sum of duration_mins; Rows Grand Total; Columns duration_mins 10-19)
+      D7: 20 (Sum of duration_mins; Rows Grand Total; Columns duration_mins 20-29)
+      E7: 60 (Sum of duration_mins; Rows Grand Total; Columns duration_mins 30-39)
+      F7: 40 (Sum of duration_mins; Rows Grand Total; Columns duration_mins 40-49)
+      G7: 180 (Sum of duration_mins; Rows Grand Total; Columns Grand Total)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
+  4. PivotTable "PivotTable1", reads Excel Table "job_runs"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

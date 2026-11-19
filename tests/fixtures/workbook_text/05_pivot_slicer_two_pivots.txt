@@ -22,29 +22,31 @@ Sheet "job_runs"
     Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24
     Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24
 Sheet "Pivot"
-  A3: Row Labels
-  B3: Sum of duration_mins
-  E3: Row Labels
-  F3: Count of run_id
-  A4: 1
-  B4: 62
-  E4: 2026-09-23
-  F4: 3
-  A5: 2
-  B5: 38
-  E5: 2026-09-24
-  F5: 4
-  A6: 3
-  B6: 60
-  E6: Grand Total
-  F6: 7
-  A7: Grand Total
-  B7: 160
-  A PivotTable
-  A PivotTable
-Defined name Slicer_status: #N/A
+  PivotTable "PivotTable1", A3:B7
+    Source: Excel Table "job_runs"
+    Rows: job_id
+    Value "Sum of duration_mins": Sum of duration_mins
+    Slicer "status" on sheet "Pivot", field status: selected FAILED, SUCCESS; connected to PivotTable1, runs_by_day
+    Totals shown: Grand Total row
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B4: 62 (Sum of duration_mins; Rows job_id 1)
+      B5: 38 (Sum of duration_mins; Rows job_id 2)
+      B6: 60 (Sum of duration_mins; Rows job_id 3)
+      B7: 160 (Sum of duration_mins; Rows Grand Total)
+  PivotTable "runs_by_day", E3:F6
+    Source: Excel Table "job_runs"
+    Rows: dt
+    Value "Count of run_id": Count of run_id
+    Slicer "status" on sheet "Pivot", field status: selected FAILED, SUCCESS; connected to PivotTable1, runs_by_day
+    Totals shown: Grand Total row
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      F4: 3 (Count of run_id; Rows dt 2026-09-23)
+      F5: 4 (Count of run_id; Rows dt 2026-09-24)
+      F6: 7 (Count of run_id; Rows Grand Total)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
+  4. PivotTable "PivotTable1", reads Excel Table "job_runs"
+  5. PivotTable "runs_by_day", reads Excel Table "job_runs"
 Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.
