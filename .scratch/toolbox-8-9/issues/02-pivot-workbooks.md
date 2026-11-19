@@ -117,3 +117,41 @@ Open each of these from `tests/fixtures/workbook_text/` and check that Excel ope
 
 If one opens with a repair, the repair log Excel offers (the link in its message) names the
 part it dropped: that part is the one to fix.
+
+## Review
+
+The code-review skill ran on the merge (514773de); each finding is answered here, the fixes in
+one commit, `fix(8.9): ticket 02's review: ...`.
+
+Standards:
+
+- **Type hints.** `_stored` and `_body_cells` took a bare `dict`. Fixed: they take
+  `dict[_Level, dict[_Cell, object]]`, the type `_worked_pivot` builds from what
+  `_level_values` returns (`dict[_Cell, object]`). No other bare container is left in
+  `tools/pivot_tables.py`.
+- **Names that say what they hold.** Fixed: `ran` is `hive_statements` (in `_top_condition`,
+  `_level_values`, `_worked_pivot` and `WorkedPivot.hive_statements`, once `hive`); `_kept` and
+  `_dropped` are `_kept_rows_hive` and `_dropped_rows_hive`; `wp` is `worked_pivot`, in
+  `tools/formula_workbook.py` too.
+- **A level as `tuple[int, int, int]`, and keys of nested tuples.** Fixed with two small
+  frozen dataclasses: `_Level(rows, columns, value)` and `_Cell(row, column)`, and
+  `_level_of(row, column)`, the one place a row and a column give their level. The code reads
+  plainer: `level.rows` for `level[0]`, `cell.row` for unpacking a pair, and the level is
+  worked out in one place where it was written twice.
+- **Split the module in three.** Left whole, as the lead decided: its `# ---` sections mark
+  the seams, and one tool file for one job is the repo's habit (`excel_queries.py`).
+- **`_kept_rows_hive` and `_dropped_rows_hive` mirror each other.** Left as two plain
+  functions: each reads in one pass, and a shared helper would need a flag to tell them apart.
+
+Spec:
+
+- **Each written workbook opens in Excel without a repair.** Still open, for the user: dev has
+  no Excel. The six workbooks to open, and what to look for in each, are listed above.
+- **Distinct Count.** It exists only in a Data Model pivot, which this tool writes in memory
+  alone (no committed fixture: its connection needs an `ALLOWED` entry, and Excel can't open it
+  without the model only Excel writes). Ticket 10 builds its Distinct Count tasks in memory
+  with `data_model=True`, or from a workbook the user makes in Excel, kept in `.eval-local/`.
+- **Cases the tool refuses.** More than one value with a Column field, and value filters other
+  than Top and Bottom N (label filters, date filters, "greater than" and the like), are refused
+  with a ValueError naming them. They aren't in the map's list; ticket 10 adds them to the tool
+  if its tasks need them.

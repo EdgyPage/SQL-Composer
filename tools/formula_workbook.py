@@ -430,11 +430,11 @@ def _built_with(described: FormulaWorkbook, worked: pivot_tables.Worked) -> open
 
 def _add_pivot_cells(workbook: openpyxl.Workbook, worked: pivot_tables.Worked) -> None:
     """Each pivot's cells, with their stored values, on its sheet, a new one if need be."""
-    for wp in worked.pivots:
-        if wp.pivot.sheet not in workbook.sheetnames:
-            workbook.create_sheet(wp.pivot.sheet)
-        for coordinate, value in wp.cells.items():
-            workbook[wp.pivot.sheet][coordinate] = value
+    for worked_pivot in worked.pivots:
+        if worked_pivot.pivot.sheet not in workbook.sheetnames:
+            workbook.create_sheet(worked_pivot.pivot.sheet)
+        for coordinate, value in worked_pivot.cells.items():
+            workbook[worked_pivot.pivot.sheet][coordinate] = value
 
 
 def _add_query_sheet(workbook: openpyxl.Workbook, queries: tuple[tuple[str, str], ...]
