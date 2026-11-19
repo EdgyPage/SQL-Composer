@@ -971,8 +971,8 @@ def _least_or_greatest(call: Call, place: Place) -> exp.Expression:
     is file 12's T1."""
     parts = call_arguments(call, 1, 255)
     if len(parts) < 2 or any(isinstance(part, WholeColumn) for part in parts):
-        raise Refused("T1", f"{call.name} of a whole column is file 12's T1, which the code "
-                            "doesn't write yet")
+        raise Refused("T1", f"{call.name} of one value, or of a whole column beside other "
+                            "values, isn't a form files 11 and 12 list")
     name = "LEAST" if call.name == "MIN" else "GREATEST"
     return hive_call(name, [hive_of(part, place) for part in parts])
 
@@ -1707,8 +1707,8 @@ def _sumproduct_hive(call: Call, place: Place) -> exp.Expression:
         elif not is_number(factor, 1):
             conditions.append(_product_condition(factor, rows))
     if len(values) > 1 or not conditions:
-        raise Refused("T1", "SUMPRODUCT of whole columns is file 12's T1, which the code "
-                            "doesn't write yet")
+        raise Refused("T1", "SUMPRODUCT of whole columns beside conditions, or of no "
+                            "condition, isn't a form files 11 and 12 list")
     if values:
         total = hive_call("SUM", [exp.Case().when(all_of(conditions), values[0]).else_(
             exp.Literal.number("0"))])

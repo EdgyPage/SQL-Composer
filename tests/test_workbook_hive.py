@@ -56,7 +56,7 @@ from sqlglot_composer.workbook_reader import (
 from sqlglot_composer.writing import read_hive, sql_text
 
 # Each Excel task whose workbook holds formulas alone: no Power Query, no Total Row and no
-# whole-column total, which are file 12's (ticket 05).
+# whole-column total, which are file 12's, scored by tests/test_workbook_power_query.py.
 FORMULA_TASKS = (
     "X01", "X02", "X03", "X04", "X05", "X06", "X07", "X08", "X09", "X10", "X11", "X12", "X13",
     "X14", "X15", "X41", "X42", "X51", "X54", "X55", "X79", "X81", "X82", "X21", "X22", "X23",
@@ -619,7 +619,8 @@ def test_p2_a_table_another_table_reads_is_a_step_a_cte() -> None:
             [1, "=SUMIFS(job_runs[hours],job_runs[job_id],[@job_id])"]]
     book = workbook({**runs(hours="=[@duration_mins]/60"), "jobs": jobs})
     assert roles_of(book)["Excel Table:job_runs"] == STEP
-    check(book, f"WITH job_runs AS (SELECT {RUN_COLUMNS}, duration_mins / 60 AS hours "
+    # The CTE carries only the columns the final reads (ticket 17).
+    check(book, "WITH job_runs AS (SELECT job_id, duration_mins / 60 AS hours "
                "FROM db.job_runs) SELECT j.job_id, COALESCE(c.total_hours, 0) AS "
                "total_hours FROM (SELECT 1 AS job_id) AS j LEFT JOIN (SELECT job_id, "
                "SUM(hours) AS total_hours FROM job_runs GROUP BY job_id) AS c ON "
@@ -668,7 +669,10 @@ def test_p9_a_table_with_a_total_row_has_a_total_row_final_named() -> None:
                     totals={"job_runs": {"run_id": "Total",
                                          "hours": "=SUBTOTAL(109,job_runs[hours])"}})
     assert roles_of(book)["Excel Table:job_runs"] == FINAL
-    assert "job_runs (Total Row)" in [note.where for note in notes_of(book, REFUSED)]
+    assert "job_runs (Total Row)" in finals_of(book)
+    hive = workbook_hive.workbook_hive(book)
+    assert ("Finals: job_runs (run_id, job_id, status, duration_mins, dt, hours); job_runs "
+            "(Total Row) (hours)") in workbook_hive.map_text(hive, book)
 
 
 def test_p10_parameters_and_keys_are_settings() -> None:
@@ -724,8 +728,11 @@ def test_file_15_w2_a_query_read_by_another_query_each_loading_a_table() -> None
     assert (roles["Excel Table:job_runs"], roles["Power Query:ok_runs"],
             roles["Excel Table:ok_runs"], roles["Excel Table:ok_by_job"]) == (
         SOURCE, STEP, FINAL, FINAL)
-    # The M is file 12's, which the code doesn't read yet: each Table it loads is named.
-    assert sorted(note.rule for note in notes_of(book, REFUSED)) == ["P7", "P7", "Q1", "Q1"]
+    # A block each, file 12's M read by tests/test_workbook_power_query.py. Each Table gives
+    # its query's rows, as W2 writes them, so neither reads a CTE that only passes rows on
+    # (ticket 17).
+    check(book, f"SELECT {RUN_COLUMNS} FROM db.job_runs", final="ok_runs")
+    check(book, f"SELECT {RUN_COLUMNS} FROM db.job_runs", final="ok_by_job")
 
 
 def test_file_15_w3_a_summary_writes_its_groups_in() -> None:

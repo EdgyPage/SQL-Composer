@@ -116,7 +116,8 @@ or type checker holds them: the reviewer does.
   to keep the Toolbox's import order, with a comment saying which. In the Toolbox, sqlglot's
   types are named only in the files that may import it, `tools/toolbox_registry.py`'s
   `LIBRARY_FILES`: `writing.py`, `engine.py` and `converting.py`, and since 8.9
-  `workbook_hive.py` and `workbook_formulas.py`, which write a Formula workbook's Hive.
+  `workbook_hive.py`, `workbook_formulas.py` and `workbook_power_query.py`, which write a
+  Formula workbook's Hive.
 
 ## HTML pages
 

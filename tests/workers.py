@@ -42,6 +42,7 @@ GROUPS = {
     "tests/test_excel_eval.py::hive": "excel_stand_in_hive",
     "tests/test_pivot_tables.py::written": "pivot_workbooks",
     "tests/test_workbook_hive.py::hive": "workbook_hive_stand_in_hive",
+    "tests/test_workbook_power_query.py::hive": "workbook_power_query_stand_in_hive",
     "tests/test_workbook_pivots.py::built": "pivot_workbooks_read",
 }
 
