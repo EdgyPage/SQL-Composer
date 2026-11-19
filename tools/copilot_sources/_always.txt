@@ -1,4 +1,4 @@
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:

@@ -14,12 +14,15 @@ code: one file for each objective, such as building a Statement or converting Hi
 characters, so it goes to Copilot in one message, as `copilot/count_characters.py` counts
 them, spaces and line breaks included; this refuses to write one that doesn't.
 
-A source is the file's text, with four kinds of placeholder, each on a line of its own:
+A source is the file's text, with five kinds of placeholder, each on a line of its own:
 
 - `{version}`: the Toolbox's name and version, from its version.txt;
 - `{always}`: the block each objective file holds, `tools/copilot_sources/_always.txt`, all
   but files 11, 12 and 15, which write Hive, not Toolbox code, and 13,
   which gives steps and leaves each step's code to its own file;
+- `{lean}`: rule A11, Hive that stays small (Toolbox 8.9, ticket 17),
+  `tools/copilot_sources/_lean.txt`, after `{always}` in each objective file it fits; a file
+  with no room for it writes its own shorter A11 there instead, as 03 and 05 do;
 - `{names: SELECT, FROM, project.convert, ...}`: a list of those names, each with its
   signature as the Toolbox defines it, so a file never names a function that isn't there or
   calls one with arguments it doesn't take;
@@ -51,6 +54,7 @@ from sqlglot_composer import admin, project  # noqa: E402
 SOURCES = ROOT / "tools" / "copilot_sources"
 COPILOT = ROOT / "copilot"
 ALWAYS = SOURCES / "_always.txt"
+LEAN = SOURCES / "_lean.txt"
 NAMES = re.compile(r"^\{names: ([^}]*)\}$", re.MULTILINE)
 WORKFLOW = re.compile(r"^\{workflow: (\w+)\}$", re.MULTILINE)
 
@@ -117,6 +121,7 @@ def rendered(source: str) -> str:
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     text = source.replace("{version}", version)
     text = text.replace("{always}", ALWAYS.read_text(encoding="utf-8").strip())
+    text = text.replace("{lean}", LEAN.read_text(encoding="utf-8").strip())
     text = WORKFLOW.sub(_steps_of, text)
     return NAMES.sub(_names_block_of, text)
 

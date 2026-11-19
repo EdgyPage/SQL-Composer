@@ -52,6 +52,18 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
   don't count. A query loading a Table: the Table is a step if another Table's formula reads
   it, else a final, its rows the query's.
 
+## Rules: Hive that stays small
+
+- **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
+  with totals read over 3 times). Forms grouped alike share one join (file 11's F9).
+- **H2** A CTE selects only the columns read after it, never `*`: Hive drops the rest, but a
+  short CTE is quicker to check.
+- **H3** Each WHERE goes in the SELECT that reads its source, before any join.
+- **H4** For reading: rename or add columns in the SELECT that reads a step, never in a CTE
+  that only copies it.
+- **H5** No ORDER BY without LIMIT in a CTE or subquery: Hive drops it. Fix a join that
+  repeats rows in its ON, never with a DISTINCT after it.
+
 ## Steps
 
 1. **Read.** Goal: see all of the workbook. Action: list each `Excel Table` with its typed
@@ -114,7 +126,7 @@ SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SU
 
 ```sql
 WITH ok_runs AS (
-  SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+  SELECT job_id FROM <database>.job_runs WHERE status = 'SUCCESS'
 )
 SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 ```
@@ -145,3 +157,4 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - [ ] **C7** Each step a final reads is a CTE in its block, after each CTE it reads.
 - [ ] **C8** Each value typed over a formula is in a CASE, matched on its Keys row.
 - [ ] **C9** Each mark, refusal, thing left alone and `<...>` is named in the map.
+- [ ] **C10** Each CTE is read once in its block, its columns each read after it (H1, H2).

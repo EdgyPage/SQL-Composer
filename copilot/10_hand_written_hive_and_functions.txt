@@ -58,7 +58,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   Show each first with `show_hive(change)`; file 14's change_a_saved_table Workflow takes
   one through as a whole job.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -88,6 +88,9 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 

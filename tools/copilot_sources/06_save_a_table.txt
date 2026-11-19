@@ -61,6 +61,7 @@ it, add to it, or write the logic cell of a Table notebook.
   `export_hive()` cell writes <db>__<table>.hql beside it, to read.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

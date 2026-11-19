@@ -55,7 +55,7 @@ tables.
 - **R9** `d = derived("d", statement(...))`, then `FROM(d)` and `d.runs`; no LIMIT inside
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -85,6 +85,8 @@ tables.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
@@ -151,7 +153,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))

@@ -201,7 +201,7 @@ something and see its rows.
   then `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`.
 - **R8** A Windows path is typed with forward slashes, `"C:/work/my_project"`.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -231,6 +231,9 @@ something and see its rows.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -388,7 +391,7 @@ table, or asks about a table's columns, partitions or Key.
   marked `# proposed` is a guess the user accepts or changes; if they doubt a Key,
   `check_key` on one Partition first (W2).
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -418,6 +421,9 @@ table, or asks about a table's columns, partitions or Key.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -540,7 +546,7 @@ tables.
 - **R9** `d = derived("d", statement(...))`, then `FROM(d)` and `d.runs`; no LIMIT inside
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -570,6 +576,8 @@ tables.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
@@ -636,7 +644,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))
@@ -725,7 +733,7 @@ match in another table, or a count of matches.
 - **R7** Join on the joined table's whole Key; on less, one row can match many and counts
   come out too big: join a Derived table of one row per value (W3). Opt-outs only if asked.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -755,6 +763,9 @@ match in another table, or a count of matches.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -900,7 +911,7 @@ row before or after, a running total, subtotals, or Statements stacked.
 - **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
   the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -930,6 +941,7 @@ row before or after, a running total, subtotals, or Statements stacked.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only columns read.
 
 ## Names for this objective, with their arguments
 
@@ -1089,7 +1101,7 @@ it, add to it, or write the logic cell of a Table notebook.
 - **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
   `export_hive()` cell writes <db>__<table>.hql beside it, to read.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1119,6 +1131,9 @@ it, add to it, or write the logic cell of a Table notebook.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1266,7 +1281,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1296,6 +1311,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1425,7 +1443,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   lineage cell; it writes <db>__<table>.hql beside it, to read, never to edit. One
   Statement's: `export_hive(weekly)` writes weekly.hql, one call per variable.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1455,6 +1473,9 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1602,7 +1623,7 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 - **R17** `send=` went in 7.0: `run_query(s, query)` reads, `run_execute(s, execute)`
   writes.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1632,6 +1653,9 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1676,7 +1700,7 @@ s = statement(
 1. **Find.** Match the message's What happened to a Patterns row. Then step 2.
 2. **Fix.** Write the rule's fix, keeping the user's columns, tables, days and names. Then
    step 3.
-3. **Read again.** Read the code against rules A1 to A10; fix each other refusal it would
+3. **Read again.** Read the code against rules A1 to A11; fix each other refusal it would
    meet. Then step 4.
 4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
@@ -1686,7 +1710,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ## Self-check
 
-- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A10.
+- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A11.
 - [ ] **C2** The user's columns, tables, days and order are kept.
 - [ ] **C3** An opt-out appears only where the user asked for it.
 - [ ] **C4** Names the user's own code defines, such as `write()`, are kept.
@@ -1754,7 +1778,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   Show each first with `show_hive(change)`; file 14's change_a_saved_table Workflow takes
   one through as a whole job.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1784,6 +1808,9 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1927,10 +1954,11 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   table won't follow. A summary's groups, written in (file 15): said in the map too.
 - **F9** SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN
   v END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
-  FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
-  nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
-  AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]):
-  the -IFS form, one match.
+  FROM t WHERE s = 'x' GROUP BY a)`; several grouped on t's a: one join, each `SUM(CASE WHEN
+  s = 'x' THEN v END)`, as Hive reads t again for each join. Either way COALESCE(.., 0), as
+  Excel gives 0 where nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each
+  with COALESCE too; AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]),
+  COUNTIF(t[a], [@a]): the -IFS form, one match.
 - **F10** RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third
   argument, ASC.
 
@@ -2097,8 +2125,8 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   t[b]): `SUM(a * b) OVER ()`.
 - **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
   cell holding a total, in the Table's order, none for an empty cell or a label such as
-  "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM, 101 AVG,
-  102 or 103 COUNT, 104 MAX, 105 MIN.
+  "Total", reading the Table's final query as a CTE that selects only the columns totalled.
+  SUBTOTAL(109, ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
 - **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
 - **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
 
@@ -2154,7 +2182,7 @@ summing runs; its typed job_ids, 1 and 2, are written in (file 15):
 
 ```sql
 WITH by_job AS (
-  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+  SELECT COALESCE(c.runs, 0) AS runs
   FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
   LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
     ON j.job_id = c.job_id
@@ -2603,6 +2631,18 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
   don't count. A query loading a Table: the Table is a step if another Table's formula reads
   it, else a final, its rows the query's.
 
+## Rules: Hive that stays small
+
+- **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
+  with totals read over 3 times). Forms grouped alike share one join (file 11's F9).
+- **H2** A CTE selects only the columns read after it, never `*`: Hive drops the rest, but a
+  short CTE is quicker to check.
+- **H3** Each WHERE goes in the SELECT that reads its source, before any join.
+- **H4** For reading: rename or add columns in the SELECT that reads a step, never in a CTE
+  that only copies it.
+- **H5** No ORDER BY without LIMIT in a CTE or subquery: Hive drops it. Fix a join that
+  repeats rows in its ON, never with a DISTINCT after it.
+
 ## Steps
 
 1. **Read.** Goal: see all of the workbook. Action: list each `Excel Table` with its typed
@@ -2665,7 +2705,7 @@ SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SU
 
 ```sql
 WITH ok_runs AS (
-  SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+  SELECT job_id FROM <database>.job_runs WHERE status = 'SUCCESS'
 )
 SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 ```
@@ -2696,6 +2736,7 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - [ ] **C7** Each step a final reads is a CTE in its block, after each CTE it reads.
 - [ ] **C8** Each value typed over a formula is in a CASE, matched on its Keys row.
 - [ ] **C9** Each mark, refusal, thing left alone and `<...>` is named in the map.
+- [ ] **C10** Each CTE is read once in its block, its columns each read after it (H1, H2).
 
 ===== 16_workflows_promote.txt =====
 

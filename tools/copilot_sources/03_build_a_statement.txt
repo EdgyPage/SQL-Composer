@@ -56,6 +56,8 @@ tables.
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
 {always}
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
@@ -90,7 +92,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))

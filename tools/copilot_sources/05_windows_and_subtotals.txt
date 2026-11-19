@@ -53,6 +53,7 @@ row before or after, a running total, subtotals, or Statements stacked.
   the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
 {always}
+- **A11** Read each Derived table once; SELECT in it only columns read.
 
 ## Names for this objective, with their arguments
 

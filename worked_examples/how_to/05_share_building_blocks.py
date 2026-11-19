@@ -103,20 +103,24 @@ Done when `from references import ops` runs without an error. Then step 2.
 
 Goal: a Statement other Statements read like a table. `derived` gives a Statement a name, and
 gives back a Table: its columns are what its `SELECT`
-makes, checked like a Table reference's. Here, each job's runs and minutes on 2026-09-24:
+makes, checked like a Table reference's. Here, each job's minutes on 2026-09-24:
 
 >>> job_runs = ops.job_runs  # -> Table
 >>> job_totals = derived("job_totals", statement(  # -> Table
-...     SELECT(job_runs.job_id, AS(count_rows(), "runs"),
-...            AS(sum_of(job_runs.duration_mins), "minutes")),
+...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... ))
 >>> job_totals
-derived('job_totals', columns: job_id, runs, minutes)
+derived('job_totals', columns: job_id, minutes)
 
-Done when `job_totals` shows its columns job_id, runs and minutes. Then step 3.
+A Derived table selects only the columns the Statement after it reads, here job_id and
+minutes, and groups only by those: a column it groups by makes a row for each of its values,
+and a short step is quicker to check when a number looks wrong ([Keep reads and joins
+fast](#keep_reads_and_joins_fast) gives the rules).
+
+Done when `job_totals` shows its columns job_id and minutes. Then step 3.
 
 ### 3. Read the Derived table from another Statement
 
@@ -135,7 +139,6 @@ partitioned.
 WITH job_totals AS (
   SELECT
     job_runs.job_id,
-    COUNT(*) AS runs,
     SUM(job_runs.duration_mins) AS minutes
   FROM ops.job_runs AS job_runs
   WHERE

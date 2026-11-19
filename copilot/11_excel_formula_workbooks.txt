@@ -66,10 +66,11 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   table won't follow. A summary's groups, written in (file 15): said in the map too.
 - **F9** SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN
   v END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
-  FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
-  nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
-  AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]):
-  the -IFS form, one match.
+  FROM t WHERE s = 'x' GROUP BY a)`; several grouped on t's a: one join, each `SUM(CASE WHEN
+  s = 'x' THEN v END)`, as Hive reads t again for each join. Either way COALESCE(.., 0), as
+  Excel gives 0 where nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each
+  with COALESCE too; AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]),
+  COUNTIF(t[a], [@a]): the -IFS form, one match.
 - **F10** RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third
   argument, ASC.
 

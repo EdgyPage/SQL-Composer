@@ -65,6 +65,7 @@ table, or asks about a table's columns, partitions or Key.
   `check_key` on one Partition first (W2).
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

@@ -180,6 +180,6 @@ def test_each_step_reads_the_one_before_it() -> None:
     found = sorted(result(step_by_step.minutes_per_team()), key=lambda row: row["team"])
     assert found == per_team.to_dict("records")
 
-    busy = per_team[per_team.minutes >= 100][["team", "minutes"]]
+    busy = per_team[per_team.minutes >= 100][["team", "runs", "minutes"]]
     assert result(step_by_step.busy_teams()) == busy.to_dict("records")
     assert list(busy.team) == ["finance"]

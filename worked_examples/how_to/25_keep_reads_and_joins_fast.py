@@ -5,17 +5,19 @@ For: Intermediate
 ## Goal
 
 Keep Statements, the queries you build with the Toolbox, fast on big tables: read only the
-Partitions you need, keep a Saved table's files few and large, give Hive the Statistics it
-plans joins from, let it copy a small table to every worker, and see with `explain` what Hive
-will do before you run a Statement. A Partition is a slice of a table, the rows that share one
-value of each column it is partitioned by; a Saved table is a real table your own Statements
-write; Statistics are what the warehouse has counted about a table's Partitions. Along the way,
-let the warehouse find a Saved table's Partitions again with `repair_partitions`. Each of these
-is safe to send again.
+Partitions you need, keep each step of a Statement small, keep a Saved table's files few and
+large, give Hive the Statistics it plans joins from, let it copy a small table to every worker,
+and see with `explain` what Hive will do before you run a Statement. A Partition is a slice of
+a table, the rows that share one value of each column it is partitioned by; a Saved table is a
+real table your own Statements write; Statistics are what the warehouse has counted about a
+table's Partitions. Along the way, let the warehouse find a Saved table's Partitions again with
+`repair_partitions`. Each of these is safe to send again.
 
 ## When you'd use it
 
 - If a Statement or a run of your tables gets slow, follow the steps below.
+- If a Statement has no mistake in its logic but takes far longer than its rows should, check
+  its steps against the rules in step 4.
 - If a Saved table grows to millions of rows a Partition, follow the steps below.
 - If you want an index: Hive has none to add. [Choose how a Saved table is
   stored](#choose_how_a_saved_table_is_stored) says why, under "Why there are no indexes", and
@@ -67,7 +69,90 @@ opens fewer folders still.
 Done when each of your Statements filters its partition columns to the days the job needs.
 Then step 4.
 
-### 4. Keep files few and large
+### 4. Keep each step small
+
+Goal: Hive that does no more work than its rows need. A Derived table is written at the top of
+the Hive as a CTE, `WITH name AS (...)`, and up to Hive 4.0 Hive keeps none of a CTE's rows:
+it works the CTE out again each time the Statement reads it. So each step reads its table
+once, keeps only the rows and columns the next step needs, and adds up before it joins. Here
+each team's events on 2026-09-24, counted per job first, so the join meets one row for each job
+rather than one for each event:
+
+>>> events_per_job = derived("events_per_job", statement(  # -> Table
+...     SELECT(job_events.job_id, AS(count_rows(), "events")),
+...     FROM(job_events),
+...     WHERE(equals(job_events.dt, "2026-09-24")),
+...     GROUP_BY(job_events.job_id),
+... ))
+>>> team_events = statement(  # -> Statement
+...     SELECT(job_owners.team, AS(sum_of(events_per_job.events), "events")),
+...     FROM(events_per_job),
+...     JOIN(job_owners, ON=all_of(equals(job_owners.job_id, events_per_job.job_id),
+...                                equals(job_owners.dt, "2026-09-24"))),
+...     GROUP_BY(job_owners.team),
+... )
+>>> print(to_hive(team_events))
+WITH events_per_job AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS events
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt = '2026-09-24'
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  job_owners.team,
+  SUM(events_per_job.events) AS events
+FROM events_per_job
+JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = '2026-09-24'
+GROUP BY
+  job_owners.team
+>>> run_query(team_events, query)  # -> DataFrame
+      team  events
+0     data       2
+1  finance       1
+
+The rules for keeping each step small, each with its reason, from Hive's own documentation
+where it has one. A step here is a Derived table, which the Hive holds as a CTE:
+
+- **Read each Derived table once in a Statement.** Hive's setting
+  hive.optimize.cte.materialize.threshold is -1, off, in Hive 2.x, 3.1 and 4.0, so a Derived
+  table one Statement reads twice is worked out twice. From Hive 4.1 the setting is 3: a CTE
+  with GROUP BY totals, read more than 3 times, is worked out once. Ask whoever looks after
+  your warehouse which Hive it runs. Where one Statement needs a step's rows twice, save the
+  step as a Saved table, written once: [Save a table](#save_a_table). A Building block that
+  several Statements import is no second read: each Statement works out its own copy once.
+- **Select in a Derived table only the columns read after it, and group it only by those.** A
+  column it groups by makes a row for each of its values, rows that every step after it
+  carries. A column it only carries is a matter of reading and checking: Hive drops what
+  nothing reads where it works the CTE out inside the Statement (though it keeps every column
+  of a CTE whose rows it saves, from 4.1, above), and a short step is quicker to check when a
+  number looks wrong. A Building block that several Statements share may carry more: each
+  Statement reads its own columns of it.
+- **Filter and add up before joining.** The WHERE, on a partition column first, goes in the
+  step that reads the big table, and a total goes in a step before the join it feeds, as
+  `events_per_job` does. Hive copies a join's small side to every worker only while it is under
+  10 MB (hive.auto.convert.join.noconditionaltask.size); otherwise it joins in its reducers,
+  which buffer every table of the join but the last and stream the last through.
+- **Rename or add a column in the SELECT that reads a table or step**, never in a step of its
+  own that copies every column to change one. This rule is for reading, not a Hive setting:
+  each copy is one more step to read when a number looks wrong.
+- **ORDER_BY only with LIMIT, and only in the Statement that gives the rows.** Hive sorts every
+  row through one worker for an ORDER BY, and from Hive 3.0 drops one with no LIMIT inside a
+  CTE or subquery (hive.remove.orderby.in.subquery), so it would sort nothing anyway.
+- **Fix a join that repeats rows in the join itself**: match the whole Key, or add up the
+  other side to one row for each key first. This rule is for the rows, not a Hive setting:
+  SELECT_DISTINCT afterwards makes every repeated row first, then sorts them all to drop the
+  copies, and drops rows that were rightly alike too.
+
+Done when the result is data 2 and finance 1, and the Hive names ops.job_events once, in
+`events_per_job`. Then step 5.
+
+### 5. Keep files few and large
 
 Goal: Partitions held in a few large files. Every file costs Hive a little to open, so a
 Partition held in a thousand small files reads far more slowly than the same rows in a few
@@ -94,9 +179,9 @@ execute: SET hive.stats.column.autogather=true
 nothing; the Example database's execute prints each one. They hold only while your query and
 execute keep one session across their calls.
 
-Done when your execute has been given the five SET lines. Then step 5.
+Done when your execute has been given the five SET lines. Then step 6.
 
-### 5. Give Hive the Statistics it plans joins from
+### 6. Give Hive the Statistics it plans joins from
 
 Goal: Partitions Hive has counted. Hive picks how to join two tables from their Statistics: how
 many rows and bytes each Partition holds. Without them it guesses, and may sort two big tables
@@ -129,9 +214,9 @@ execute; sending one again counts it again, which does no harm:
             run_execute(compute_statistics(job_day_facts, partition={"dt": day}), execute)
 
 Done when each Partition you wrote without "statistics_on_write" has had its ANALYZE TABLE
-sent. Then step 6.
+sent. Then step 7.
 
-### 6. Let Hive copy a small table to every worker
+### 7. Let Hive copy a small table to every worker
 
 Goal: map joins where a small table meets a big one. Joining a big table to a small one, such
 as the events of a day to the owners of that day, is fastest when Hive copies the small table
@@ -149,7 +234,7 @@ execute: SET hive.auto.convert.join=true
 execute: SET hive.auto.convert.join.noconditionaltask=true
 execute: SET hive.ignore.mapjoin.hint=false
 
-Nothing in the Statement changes: Hive decides when it plans it. Step 8 shows how to see what
+Nothing in the Statement changes: Hive decides when it plans it. Step 9 shows how to see what
 it decided.
 
 Where Hive still sorts both sides, `JOIN(job_owners, ON=..., broadcast=True)` asks it by name
@@ -157,9 +242,9 @@ to copy job_owners to every worker; [Semi-, anti- and full joins](#semi_anti_and
 shows how. Hive heeds that request only after "map_joins", whose last line,
 hive.ignore.mapjoin.hint=false, tells it to.
 
-Done when your execute has been given the three SET lines of "map_joins". Then step 7.
+Done when your execute has been given the three SET lines of "map_joins". Then step 8.
 
-### 7. Keep Buckets for big joins
+### 8. Keep Buckets for big joins
 
 Goal: Buckets only where they pay off. Where two big tables are joined on the same column on
 every run, Buckets spread each Partition's rows into a fixed number of files by that column, so
@@ -168,9 +253,9 @@ Partition, and changing them means writing the table again: [Choose how a Saved 
 stored](#choose_how_a_saved_table_is_stored) shows how.
 
 Done when you have decided, for each big join, whether its tables reach tens of millions of
-rows a Partition. Then step 8.
+rows a Partition. Then step 9.
 
-### 8. See Hive's Plan with explain
+### 9. See Hive's Plan with explain
 
 Goal: how Hive will run a Statement, before you run it. A Plan is that: which tables Hive reads,
 with which filters, and how it joins them. `explain` writes EXPLAIN before exactly the Hive
@@ -215,9 +300,9 @@ a tree of steps, each reading what the steps below it give. Look for:
 The Example database can't give a Plan: it runs Hive on sqlglot's own small executor, which
 makes none. `to_hive(explain(...))` still shows what you would send at work.
 
-Done when the Hive starts with `EXPLAIN SELECT`. Then step 9.
+Done when the Hive starts with `EXPLAIN SELECT`. Then step 10.
 
-### 9. Find the Partitions a Saved table lost
+### 10. Find the Partitions a Saved table lost
 
 Goal: every Partition of a Saved table on the warehouse's list. The warehouse keeps a list of
 each table's Partitions, and reads only the folders on it. When a table is made again where its

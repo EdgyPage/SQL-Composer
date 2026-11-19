@@ -135,6 +135,10 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
                          "17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt",
                          METRIC_REQUEST):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
+        # Ticket 17: rule A11, Hive that stays small, right after the block; the shared one,
+        # or a file's own shorter one where the shared one doesn't fit.
+        after = text.split(copilot_files.ALWAYS.read_text(encoding="utf-8").strip())[1]
+        assert after.startswith("\n- **A11** Read each Derived table once; SELECT in it only")
 
 
 def test_start_here_names_every_other_file() -> None:

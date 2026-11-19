@@ -88,8 +88,8 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   t[b]): `SUM(a * b) OVER ()`.
 - **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
   cell holding a total, in the Table's order, none for an empty cell or a label such as
-  "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM, 101 AVG,
-  102 or 103 COUNT, 104 MAX, 105 MIN.
+  "Total", reading the Table's final query as a CTE that selects only the columns totalled.
+  SUBTOTAL(109, ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
 - **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
 - **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
 
@@ -145,7 +145,7 @@ summing runs; its typed job_ids, 1 and 2, are written in (file 15):
 
 ```sql
 WITH by_job AS (
-  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+  SELECT COALESCE(c.runs, 0) AS runs
   FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
   LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
     ON j.job_id = c.job_id

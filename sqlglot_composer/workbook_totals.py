@@ -182,7 +182,8 @@ def subtotal_hive(part: object, table: Table) -> exp.Expression:
 def over_its_table(query: exp.Query, table: Table,
                    totals: list[exp.Expression]) -> exp.Query:
     """A Total Row's final: its totals over the Table's query, read as a CTE named for the
-    Table, after the CTEs that query reads (file 12's W2)."""
+    Table, after the CTEs that query reads (file 12's W2), the CTE carrying only the columns
+    the totals read (ticket 17)."""
     body = query.copy()
     held = body.args.get("with_")
     ctes = []
@@ -194,5 +195,4 @@ def over_its_table(query: exp.Query, table: Table,
         name = f"{name.strip('<>')}_rows"
     ctes.append(exp.CTE(this=body, alias=exp.TableAlias(this=identifier(name))))
     final = exp.select(*totals).from_(exp.Table(this=identifier(name)))
-    # W2 reads the Table's final whole, as file 12 writes it, every column of it kept.
-    return lean_ctes(with_ctes(final, ctes), (name,))
+    return lean_ctes(with_ctes(final, ctes))

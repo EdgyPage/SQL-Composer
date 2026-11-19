@@ -847,10 +847,11 @@ GROUP BY
 <tr><td>data</td><td>4</td><td>67</td></tr>
 <tr><td>finance</td><td>5</td><td>113</td></tr>
 </table></div><h4><code>busy_teams()</code></h4><pre class="python">def busy_teams() -&gt; Statement:
-    &quot;&quot;&quot;Step 3: keep the teams with 100 minutes of runs or more, reading step 2.&quot;&quot;&quot;
+    &quot;&quot;&quot;Step 3: keep the teams with 100 minutes of runs or more, with their runs and minutes,
+    reading step 2.&quot;&quot;&quot;
     per_team = derived(&quot;per_team&quot;, minutes_per_team())
     return statement(
-        SELECT(per_team.team, per_team.minutes),
+        SELECT(per_team.team, per_team.runs, per_team.minutes),
         FROM(per_team),
         # A total from step 2 is a plain column here, one per row, so WHERE can test it.
         WHERE(at_least(per_team.minutes, 100)),
@@ -877,12 +878,13 @@ GROUP BY
 )
 SELECT
   per_team.team,
+  per_team.runs,
   per_team.minutes
 FROM per_team
 WHERE
   per_team.minutes &gt;= 100</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
-<tr><th>team</th><th>minutes</th></tr>
-<tr><td>finance</td><td>113</td></tr>
+<tr><th>team</th><th>runs</th><th>minutes</th></tr>
+<tr><td>finance</td><td>5</td><td>113</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code></p>
 </section>
@@ -3827,7 +3829,7 @@ WHERE
     WHERE r.dt = &#x27;2026-09-24&#x27;
 &#x27;&#x27;&#x27;, columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;step&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
-    SELECT(steps.step, AS(count_rows(), &quot;runs&quot;)),
+    SELECT(steps.step, AS(count_distinct(steps.run_id), &quot;runs&quot;)),
     FROM(steps, reads_all_partitions=True),
     GROUP_BY(steps.step),
 )))</pre>
@@ -3844,16 +3846,16 @@ WHERE
 )
 SELECT
   steps.step,
-  COUNT(*) AS runs
+  COUNT(DISTINCT steps.run_id) AS runs
 FROM steps
 GROUP BY
   steps.step</pre>
-<p>Each run&#x27;s status is split at each _ (explode(split(r.status, &#x27;_&#x27;))), and LATERAL VIEW gives one row for each part, named s, beside the rest of the run&#x27;s row: steps has a row for each run and each part of its status, which no Clause function writes yet. The Example database can&#x27;t run it, as its executor has no LATERAL VIEW; Hive can.</p>
+<p>Each run&#x27;s status is split at each _ (explode(split(r.status, &#x27;_&#x27;))), and LATERAL VIEW gives one row for each part, named s, beside the rest of the run&#x27;s row: steps has a row for each run and each part of its status, which no Clause function writes yet. The Statement counts the runs of each part with count_distinct(steps.run_id), so a run whose status names a part twice counts once. The Example database can&#x27;t run it, as its executor has no LATERAL VIEW; Hive can.</p>
 <p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared. The text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct, as {&#x27;k&#x27;: 1}, is refused, since it can&#x27;t write that back as Hive; one inside quotes, as in a regular expression&#x27;s &#x27;[a-z]{2}&#x27;, is kept, and so is a Hive variable, as in WHERE r.dt = &#x27;${hivevar:run_day}&#x27;, for Hive to fill in from a SET line sent first.</p>
 <p>No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can see unless you name one: key=[&quot;run_id&quot;] says one row has each run_id, as a GROUP BY run_id in its text makes it, and a Table reference&#x27;s key= says. A JOIN on its Key is then checked as on any Derived table with one, and a write reading it isn&#x27;t refused for a Key it can&#x27;t prove. The Toolbox can&#x27;t check that the text makes it so: name a Key only when it does. Without one, a JOIN on it warns as on any table without a Key.</p>
 <p>A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads, those partitioned and those the Toolbox has no Table reference for: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which there says you have checked it. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no LATERAL VIEW.</p>
-<p class="names">Toolbox names used: <code>unchecked_derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
+<p class="names">Toolbox names used: <code>unchecked_derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_distinct</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="set_admin_log">
 <h3><code>set_admin_log</code></h3>
