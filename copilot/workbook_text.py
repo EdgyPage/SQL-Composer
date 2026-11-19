@@ -24,10 +24,10 @@ that order.
 A loop, such as a query reading a Table whose formulas read that query's own Table, has no
 such order. The script names each link of it, writes nothing, and exits with 1.
 
-It reads the workbook with the Toolbox's own reader, sqlglot_composer/workbook_reader.py, in
-the folder beside this one, the way the convert Workflow reads it. It needs nothing but Python,
-reads only the workbook you name, and writes only the .txt beside it. It runs nothing the
-workbook holds.
+It reads the workbook with the Toolbox's own reader, sqlglot_composer/workbook_reader.py:
+keep the sqlglot_composer folder beside the copilot folder that holds this script, as the
+download holds them. It needs nothing installed but Python, reads only the workbook you name,
+and writes only the .txt beside it. It runs nothing the workbook holds.
 """
 
 import re
@@ -46,10 +46,10 @@ try:
 except ModuleNotFoundError:
     sys.exit("workbook_text.py can't find the workbook reader, "
              "sqlglot_composer/workbook_reader.py.\n"
-             "Why: it reads your workbook with the Toolbox's reader, from the sqlglot_composer "
-             "folder beside the copilot folder.\n"
-             "Usual fix: run it from the download's top folder, as "
-             "python copilot/workbook_text.py, with both folders as the download holds them.")
+             "Why: it reads your workbook with the Toolbox's reader, which it looks for in "
+             f"{TOOLBOX}.\n"
+             "Usual fix: put the download's sqlglot_composer folder there, beside the copilot "
+             "folder that holds this script; nothing needs installing.")
 finally:
     sys.path.remove(TOOLBOX)
 

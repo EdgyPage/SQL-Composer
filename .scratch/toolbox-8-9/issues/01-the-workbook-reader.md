@@ -104,3 +104,4 @@ The code-review skill, 2026-11-19, on 4d430ccc (Standards and Spec, on Sonnet). 
   Kept: "take ... off its sheet" says both, and its docstring says so.
 - **Standards: a hand-joined list in the reader.** The reader may import only the standard
   library, so `shared.in_words` is out of reach; answered by the registry's rule.
+- **The beginner reader** (2026-11-19, on Opus): [its report](../reports/beginner-reader-2026-11-19-ticket-01.md). Its four stops on the script's docstring and refusal are fixed: the refusal's fix pointed at where it is run, not where the folder sits.

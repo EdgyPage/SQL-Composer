@@ -171,6 +171,7 @@ def test_the_script_copied_without_the_toolbox_beside_it_says_where_the_reader_i
     assert str(stopped.value).startswith(
         "workbook_text.py can't find the workbook reader, sqlglot_composer/workbook_reader.py."
         "\nWhy: ")
+    assert f"looks for in {tmp_path.resolve() / 'sqlglot_composer'}.\n" in str(stopped.value)
     assert str(tmp_path / "sqlglot_composer") not in sys.path
 
 
