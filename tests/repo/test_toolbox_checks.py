@@ -200,6 +200,36 @@ def test_each_toolbox_file_imports_only_what_toolbox_folder_allows() -> None:
     assert toolbox_registry.imports_outside(FOLDER) == []
 
 
+def test_the_workbook_reader_may_import_the_standard_library_alone(tmp_path: Path) -> None:
+    """copilot/workbook_text.py loads it alone, by the folder's path (Toolbox 8.9, ticket 01):
+    pandas, or a file of its own folder, would stop the script."""
+    reader = toolbox_registry.WORKBOOK_READER
+    (tmp_path / reader).write_text(
+        "import re\nimport pandas\nfrom . import shared\nfrom .tables import Column\n",
+        encoding="utf-8")
+    (tmp_path / "joins.py").write_text("import pandas\nfrom .tables import Column\n",
+                                       encoding="utf-8")
+    assert toolbox_registry.imports_outside(tmp_path) == [
+        f"{reader} imports pandas", f"{reader} imports .", f"{reader} imports .tables"]
+
+
+def test_only_the_file_the_registry_names_loads_the_workbook_reader() -> None:
+    stem = toolbox_registry.WORKBOOK_READER.removesuffix(".py")
+    loading = []
+    for folder in ("copilot", "tools", "worked_examples", toolbox_registry.EXAMPLE_DATABASE):
+        for path in sorted((ROOT / folder).rglob("*.py")):
+            if stem in [name.split(".")[0] for name in _imports_of(path)]:
+                loading.append(path.relative_to(ROOT).as_posix())
+    assert loading == [toolbox_registry.WORKBOOK_READER_LOADED_BY]
+
+
+def test_no_toolbox_file_is_named_as_a_standard_library_module() -> None:
+    """The script that loads the reader puts the folder first on the path while it loads, so a
+    file named as one of Python's own modules would stand in for it."""
+    assert [path.name for path in toolbox_files()
+            if path.stem in sys.stdlib_module_names] == []
+
+
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_no_toolbox_file_but_version_txt_names_the_version(path: Path) -> None:
     """The version is written in one place, version.txt (ADR 0013)."""

@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import export_clean  # noqa: E402
+import toolbox_registry  # noqa: E402
 from conftest import left_unchanged  # noqa: E402
 from test_pointers import named_paths  # noqa: E402
 
@@ -560,6 +561,26 @@ def test_below_the_stamp_each_copy_is_devs_own(clean: Path) -> None:
             if not relative.endswith(UNSTAMPED):
                 exported = exported.split("\n", 1)[1]
             assert exported == (ROOT / folder / relative).read_text(encoding="utf-8"), relative
+
+
+def test_main_writes_a_workbooks_text_with_nothing_but_python(clean: Path,
+                                                              tmp_path: Path) -> None:
+    """Main ships the workbook reader in the Toolbox's folder and the script that loads it by
+    the folder's path (Toolbox 8.9, ticket 01). Run from main's tree in a fresh Python where
+    neither sqlglot nor the Toolbox can be imported, the script still writes its text."""
+    reader = toolbox_registry.WORKBOOK_READER
+    assert (clean / toolbox_registry.FOLDER / reader).is_file()
+    assert (clean / toolbox_registry.WORKBOOK_READER_LOADED_BY).is_file()
+    fixture = ROOT / "tests" / "fixtures" / "workbook_text" / "01_query_table_formula"
+    shutil.copy(fixture.with_suffix(".xlsx"), tmp_path / "costs.xlsx")
+    done = export_clean.fresh_python(
+        tmp_path, "import sys; sys.modules['sqlglot'] = None; "
+        "sys.modules['sqlglot_composer'] = None; import workbook_text; "
+        "sys.exit(workbook_text.main(['costs.xlsx']))",
+        path=str(clean / "copilot"))
+    assert (done.returncode, done.stderr) == (0, "")
+    assert (tmp_path / "costs.txt").read_text(encoding="utf-8") == (
+        fixture.with_suffix(".txt").read_text(encoding="utf-8"))
 
 
 def _range_of(folder: str) -> dict[str, str]:

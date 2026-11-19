@@ -14,7 +14,10 @@ the Example projects page, `tools/example_projects_page.py`'s, which links each 
 project's lineage pages, shipped beside it at `lineage_pages`' paths.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
-and `imports_outside` lists every import that breaks it.
+and `imports_outside` lists every import that breaks it. One file is loaded from outside the
+folder, alone: the workbook reader, `WORKBOOK_READER`, which `WORKBOOK_READER_LOADED_BY` loads
+by the folder's path (Toolbox 8.9, ticket 01), so it may import nothing but the standard
+library.
 """
 
 from __future__ import annotations
@@ -46,8 +49,15 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "script_tags.py", "shared.py",
                 "stacking.py", "tables.py",
                 "trees.py",
-                "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workflows.py",
-                "writing.py")
+                "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workbook_reader.py",
+                "workflows.py", "writing.py")
+# The workbook reader (Toolbox 8.9, ticket 01; ADR 0016), the one reader of an Excel workbook,
+# and the one file outside the folder that loads it. That file writes a workbook as text for a
+# Copilot chat with nothing but Python, so it loads the reader alone, by the folder's path,
+# never through the Toolbox's __init__.py, which checks sqlglot: the reader may import the
+# standard library alone, and nothing of its own folder.
+WORKBOOK_READER = "workbook_reader.py"
+WORKBOOK_READER_LOADED_BY = "copilot/workbook_text.py"
 # The one file that says which Toolbox version the folder is (ADR 0013). On dev it holds the
 # version alone; the export adds when it was exported, from which commit, and each file's hash.
 VERSION_FILE = "version.txt"
@@ -75,7 +85,10 @@ SHARED_IMPORTS = frozenset({"pandas", "numpy"})
 
 
 def may_import(file_name: str) -> frozenset[str]:
-    """What a Toolbox file may import besides the standard library and its own folder."""
+    """What a Toolbox file may import besides the standard library and its own folder: the
+    workbook reader, nothing, nor its own folder."""
+    if file_name == WORKBOOK_READER:
+        return frozenset()
     if file_name in LIBRARY_FILES:
         return SHARED_IMPORTS | {LIBRARY}
     return SHARED_IMPORTS
@@ -83,12 +96,15 @@ def may_import(file_name: str) -> frozenset[str]:
 
 def imports_outside(folder: Path) -> list[str]:
     """Each import in the Toolbox's folder that `may_import` refuses, as
-    "<file> imports <name>"."""
+    "<file> imports <name>", and each import of its own folder in the workbook reader, which is
+    loaded alone, as "workbook_reader.py imports .<name>"."""
     found = []
     for path in sorted(folder.glob("*.py")):
         allowed = sys.stdlib_module_names | may_import(path.name) | {"__future__"}
         found += [f"{path.name} imports {name}" for name in _imported(path)
                   if name.split(".")[0] not in allowed]
+        if path.name == WORKBOOK_READER:
+            found += [f"{path.name} imports {name}" for name in _imported_relatively(path)]
     return found
 
 
@@ -101,4 +117,13 @@ def _imported(path: Path) -> list[str]:
             names += [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.level == 0:
             names.append(node.module or "")
+    return names
+
+
+def _imported_relatively(path: Path) -> list[str]:
+    """Every module a file imports from its own folder, relatively, such as ".shared"."""
+    names = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.level > 0:
+            names.append("." * node.level + (node.module or ""))
     return names

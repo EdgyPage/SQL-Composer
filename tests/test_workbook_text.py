@@ -3,8 +3,11 @@ pieces in the order each reads the others.
 
 Toolbox 8.2's ticket 22. It reads a workbook as Excel saves it, with nothing but Python: each
 Table, row by row, its formulas, and each Power Query's M, from the DataMashup Excel saves or
-from a Power Query sheet. Its view of every Excel evaluation task is the one openpyxl gives,
-so the evaluations measure the text the script writes.
+from a Power Query sheet. Since Toolbox 8.9 (ticket 01) the reading is the Toolbox's workbook
+reader, sqlglot_composer/workbook_reader.py, which the script loads alone by its folder's path
+(tests/test_workbook_reader.py); the script writes the same text of it. Its view of every
+Excel evaluation task is the one openpyxl gives, so the evaluations measure the text the
+script writes.
 """
 
 from __future__ import annotations
@@ -103,21 +106,6 @@ def test_a_power_query_sheet_gives_each_query_loading_the_table_of_its_name() ->
         '  7. Excel Table "ok_by_job", loaded by Power Query "ok_by_job"']
 
 
-def test_a_section_documents_queries_are_read_past_strings_comments_and_quoted_names() -> None:
-    m = ('section Section1;\r\n\r\nshared #"Jobs; kept" = let\r\n    // a ; in a comment\r\n'
-         '    Source = "a;b" & "say ""hi"";",\r\n    /* and ; here */ Kept = Source\r\n'
-         'in\r\n    Kept;\r\n\r\nshared plain = #"Jobs; kept";')
-    assert workbook_text.section_queries(m) == [
-        ("Jobs; kept", 'let\r\n    // a ; in a comment\r\n    Source = "a;b" & "say ""hi"";",'
-                       "\r\n    /* and ; here */ Kept = Source\r\nin\r\n    Kept"),
-        ("plain", '#"Jobs; kept"')]
-
-
-def test_a_shared_formulas_later_cells_move_each_reference_not_held_with_a_dollar() -> None:
-    assert workbook_text._shifted("A2*$B$1+C$3+$D4", 2, 1) == "B4*$B$1+D$3+$D6"
-    assert workbook_text._shifted("SUMIFS(t[a],t[b],[@b])", 3, 0) == "SUMIFS(t[a],t[b],[@b])"
-
-
 def test_a_date_shows_as_openpyxl_shows_it_and_a_formula_as_typed() -> None:
     book = openpyxl.Workbook()
     book.active.title = "Data"
@@ -148,14 +136,43 @@ def test_the_script_writes_each_text_beside_its_workbook_and_refuses_what_it_can
     assert workbook_text.main([]) == 2
 
 
-def test_the_script_imports_nothing_but_pythons_own_modules() -> None:
-    # Main ships it for people with nothing installed beside Python.
-    tree = ast.parse((ROOT / "copilot" / "workbook_text.py").read_text(encoding="utf-8"))
+def imported_by(path: Path) -> set[str]:
+    """Each module a file imports by name, by its first part."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     imported = {alias.name.split(".")[0] for node in ast.walk(tree)
                 if isinstance(node, ast.Import) for alias in node.names}
-    imported |= {node.module.split(".")[0] for node in ast.walk(tree)
-                 if isinstance(node, ast.ImportFrom) and node.module}
-    assert imported - {"__future__"} <= set(sys.stdlib_module_names)
+    return imported | {node.module.split(".")[0] for node in ast.walk(tree)
+                       if isinstance(node, ast.ImportFrom) and node.module}
+
+
+def test_the_script_imports_nothing_but_pythons_own_modules_and_the_reader() -> None:
+    # Main ships it for people with nothing installed beside Python. The reader is loaded
+    # alone from the Toolbox's folder, and imports Python's own modules alone, none relatively
+    # (tests/repo/test_toolbox_checks.py holds that).
+    imported = imported_by(ROOT / "copilot" / "workbook_text.py")
+    assert imported - {"__future__"} <= set(sys.stdlib_module_names) | {"workbook_reader"}
+    reader = imported_by(ROOT / "sqlglot_composer" / "workbook_reader.py")
+    assert reader - {"__future__"} <= set(sys.stdlib_module_names)
+    assert Path(workbook_text.workbook_reader.__file__).resolve() == (
+        ROOT / "sqlglot_composer" / "workbook_reader.py")
+    assert str(ROOT / "sqlglot_composer") not in sys.path
+
+
+def test_the_script_copied_without_the_toolbox_beside_it_says_where_the_reader_is(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "copilot").mkdir()
+    (tmp_path / "copilot" / "workbook_text.py").write_bytes(
+        (ROOT / "copilot" / "workbook_text.py").read_bytes())
+    monkeypatch.delitem(sys.modules, "workbook_text")
+    monkeypatch.delitem(sys.modules, "workbook_reader")
+    monkeypatch.syspath_prepend(str(tmp_path / "copilot"))
+    with pytest.raises(SystemExit) as stopped:
+        import workbook_text  # noqa: F401
+    assert str(stopped.value).startswith(
+        "workbook_text.py can't find the workbook reader, sqlglot_composer/workbook_reader.py."
+        "\nWhy: ")
+    assert f"looks for in {tmp_path.resolve() / 'sqlglot_composer'}.\n" in str(stopped.value)
+    assert str(tmp_path / "sqlglot_composer") not in sys.path
 
 
 def test_each_part_the_builder_adds_is_a_part_excel_saves_for_a_query() -> None:
