@@ -133,8 +133,9 @@ GETPIVOTDATA = re.compile(
 # A name a formula uses alone, with no [ after it, such as jobs in VLOOKUP(x,jobs,2,0): not
 # a function's, a sheet's or a cell's, once its strings and brackets are taken out.
 BARE_NAME = re.compile(r"(?<![\w.!$])([A-Za-z_\\][\w.]*)(?![\w.(!\[])")
-# An OLAP member's caption, the end of its unique name: [job_runs].[status].&[SUCCESS].
-MEMBER = re.compile(r"&\[((?:[^\]]|\]\])*)\]$")
+# The last part of an OLAP name, each ]] in it a ]: status in [job_runs].[status], or a
+# member's caption, SUCCESS in [job_runs].[status].&[SUCCESS].
+MEMBER = re.compile(r"\[((?:[^\]]|\]\])*)\]$")
 # The two kinds of a Table's column: values typed in, or a formula in at least one row.
 TYPED = "typed"
 FORMULA = "formula"
@@ -396,10 +397,10 @@ class Workbook:
     @property
     def pivot_tables(self) -> list[PivotTable]:
         """Each PivotTable of the workbook, sheet by sheet."""
-        found = []
+        pivots = []
         for sheet in self.sheets:
-            found += sheet.pivot_tables
-        return found
+            pivots += sheet.pivot_tables
+        return pivots
 
 
 class LoopError(ValueError):
@@ -419,12 +420,16 @@ def read_workbook(source: Path | bytes) -> Workbook:
         names = {name.get("name", ""): name.text or "" for name in _all(book, "definedName")
                  if name.get("localSheetId") is None}
         in_the_mashup = _mashup_queries(parts)
-        held_sheets = [sheet for sheet, _ in sheets]
-        pivot_book = _PivotBook(parts, {sheet.title: sheet for sheet in held_sheets},
-                                {table.name: table for table in _every_table(held_sheets)},
+        sheets_read = [sheet for sheet, _ in sheets]
+        pivot_book = _PivotBook(parts, {sheet.title: sheet for sheet in sheets_read},
+                                {table.name: table for table in _every_table(sheets_read)},
                                 names, connections, _model_pieces(book, connections))
-        slicers = _add_pivot_tables(pivot_book, sheets, linked, tabs)
-    sheets = held_sheets
+        slicer_caches = _slicer_caches(parts, linked)
+        pivots = _read_pivot_tables(pivot_book, sheets, slicer_caches)
+        slicers = _slicers(slicer_caches, pivots, tabs, _slicers_shown(parts, sheets))
+    _add_pivot_tables(pivots)
+    _connect_slicers(slicers, pivots)
+    sheets = sheets_read
     queries = [Query(name, m) for name, m in in_the_mashup or _take_sheet_queries(sheets)]
     tables = {table.name: table for table in _every_table(sheets)}
     for query in queries:
@@ -433,9 +438,10 @@ def read_workbook(source: Path | bytes) -> Workbook:
         for table in tables.values():
             if table.loaded_by == query.name:
                 query.loads = table.name
-    for slicer in slicers:
+    for slicer, _ in slicers:
         names.pop(slicer.name, None)
-    return Workbook(sheets, names, queries, _in_order(_pieces_read(sheets, queries)), slicers)
+    return Workbook(sheets, names, queries, _in_order(_pieces_read(sheets, queries)),
+                    [slicer for slicer, _ in slicers])
 
 
 def coordinate(row: int, column: int) -> str:
@@ -694,12 +700,12 @@ def _worksheets(parts: zipfile.ZipFile, book: ElementTree.Element,
     loads = {number: connection.query for number, connection in connections.items()}
     sheets = []
     tabs = {}
-    for held in _all(book, "sheet"):
-        kind, part = linked.get(_relationship_id(held), ("", ""))
+    for sheet_element in _all(book, "sheet"):
+        kind, part = linked.get(_relationship_id(sheet_element), ("", ""))
+        title = sheet_element.get("name", "")
         if kind == "worksheet":
-            sheets.append((_sheet(parts, held.get("name", ""), part, strings, dated, loads),
-                           part))
-            tabs[held.get("sheetId", "")] = held.get("name", "")
+            sheets.append((_sheet(parts, title, part, strings, dated, loads), part))
+            tabs[sheet_element.get("sheetId", "")] = title
     return sheets, tabs
 
 
@@ -756,19 +762,41 @@ class _PivotBook:
 
 
 @dataclass
-class _PivotCache:
-    """A pivot cache as its pivots read it: its definition, each field's name (an OLAP
-    field's caption), each field's items as its pivots number them (a grouped field's labels),
-    each calculated field's formula, each field's grouping, each field's calculated items, and
-    each Data Model measure's summary and field, by the measure's place."""
+class _CacheField:
+    """One field of a pivot cache: its name (an OLAP field's caption); its items as its
+    pivots number them (a grouped field's labels); a calculated field's formula; how it groups
+    a field; its calculated items' formulas, by the item; and, for a Data Model or OLAP
+    measure, its summary and the field it summarizes."""
 
-    held: ElementTree.Element
-    names: list[str]
-    items: list[list[object]]
-    formulas: list[str]
-    groupings: list[Grouping | None]
-    calculated_items: dict[str, dict[str, str]]
-    measures: dict[int, tuple[str, str]]
+    name: str
+    items: list[object]
+    formula: str = ""
+    grouping: Grouping | None = None
+    calculated_items: dict[str, str] = field(default_factory=dict)
+    measure: tuple[str, str] | None = None
+
+
+@dataclass
+class _PivotCache:
+    """A pivot cache as its pivots read it: its definition, and each of its fields."""
+
+    cache_definition: ElementTree.Element
+    fields: list[_CacheField]
+
+    @property
+    def names(self) -> list[str]:
+        """Each field's name, in the cache's order."""
+        return [cache_field.name for cache_field in self.fields]
+
+
+@dataclass
+class _ReadPivot:
+    """A PivotTable as read, the sheet it is on, and its cache, which its slicers read their
+    items from."""
+
+    sheet: Sheet
+    pivot: PivotTable
+    cache: _PivotCache
 
 
 def _model_pieces(book: ElementTree.Element, connections: dict[str, _Connection]
@@ -776,56 +804,109 @@ def _model_pieces(book: ElementTree.Element, connections: dict[str, _Connection]
     """The piece that loads each of the Data Model's tables, by the table's name: the Table
     its connection adds, or the query it loads."""
     by_name = {connection.name: connection for connection in connections.values()}
-    found = {}
+    pieces = {}
     for model_table in _all(book, "modelTable"):
         connection = by_name.get(model_table.get("connection", ""))
         if connection is not None and connection.table:
-            found[model_table.get("name", "")] = Piece(EXCEL_TABLE, connection.table)
+            pieces[model_table.get("name", "")] = Piece(EXCEL_TABLE, connection.table)
         elif connection is not None and connection.query:
-            found[model_table.get("name", "")] = Piece(POWER_QUERY, connection.query)
-    return found
+            pieces[model_table.get("name", "")] = Piece(POWER_QUERY, connection.query)
+    return pieces
 
 
-def _add_pivot_tables(book: _PivotBook, sheets: list[tuple[Sheet, str]],
-                      linked: dict[str, tuple[str, str]], tabs: dict[str, str]
-                      ) -> list[Slicer | Timeline]:
-    """Add each sheet's PivotTables to it, taking the cells each fills off its other cells,
-    and give back the workbook's slicers and Timelines, each added to the pivots it is
-    connected to."""
-    slicer_caches = [(kind, _xml(book.parts, path)) for kind, path in linked.values()
-                     if kind in ("slicerCache", "timelineCache")]
-    timelines = {held.get("name", "") for kind, held in slicer_caches
+def _pivot_key(sheet: str, name: str) -> str:
+    """A pivot by its sheet and name, such as Pivot!PivotTable1: a pivot's name is its own on
+    its sheet only."""
+    return f"{sheet}!{name}"
+
+
+def _unquoted_sheet(name: str) -> str:
+    """A sheet's name as a formula or a defined name quotes it, 'My sheet', unquoted."""
+    return name.removeprefix("'").removesuffix("'").replace("''", "'")
+
+
+def _olap_last_part(name: str) -> str:
+    """The last part of an OLAP name: status in [job_runs].[status], SUCCESS in the member
+    [job_runs].[status].&[SUCCESS]; a name with no brackets as it is."""
+    last_part = MEMBER.search(name)
+    if last_part is None:
+        return name
+    return last_part.group(1).replace("]]", "]")
+
+
+def _slicer_caches(parts: zipfile.ZipFile, linked: dict[str, tuple[str, str]]
+                   ) -> list[tuple[str, ElementTree.Element]]:
+    """Each slicer's and Timeline's cache, as its kind, slicerCache or timelineCache, and its
+    definition."""
+    return [(kind, _xml(parts, path)) for kind, path in linked.values()
+            if kind in ("slicerCache", "timelineCache")]
+
+
+def _read_pivot_tables(book: _PivotBook, sheets: list[tuple[Sheet, str]],
+                       slicer_caches: list[tuple[str, ElementTree.Element]]
+                       ) -> dict[str, _ReadPivot]:
+    """Each sheet's PivotTables, by their sheet and name, as `_pivot_key` gives it, each with
+    its sheet and its cache."""
+    timelines = {definition.get("name", "") for kind, definition in slicer_caches
                  if kind == "timelineCache"}
-    caches: dict[str, _PivotCache] = {}
-    pivots: dict[str, PivotTable] = {}
+    pivots = {}
     for sheet, part in sheets:
         for kind, path in _relationships(book.parts, part).values():
-            if kind != "pivotTable":
-                continue
-            cache = _pivot_cache(book, path)
-            pivot = _pivot_table(book, sheet, path, cache, timelines)
-            caches[f"{sheet.title}!{pivot.name}"] = cache
-            pivots[f"{sheet.title}!{pivot.name}"] = pivot
-            sheet.pivot_tables.append(pivot)
-            top, left, bottom, right = _pivot_bounds(pivot)
-            for row in range(top, bottom + 1):
-                for column in range(left, right + 1):
-                    sheet.cells.pop((row, column), None)
-    shown = _slicers_shown(book.parts, sheets)
+            if kind == "pivotTable":
+                cache = _pivot_cache(book, path)
+                pivot = _pivot_table(book, sheet, path, cache, timelines)
+                pivots[_pivot_key(sheet.title, pivot.name)] = _ReadPivot(sheet, pivot, cache)
+    return pivots
+
+
+def _add_pivot_tables(pivots: dict[str, _ReadPivot]) -> None:
+    """Add each pivot to its sheet, taking the cells it fills off the sheet's other cells."""
+    for read in pivots.values():
+        read.sheet.pivot_tables.append(read.pivot)
+        top, left, bottom, right = _pivot_bounds(read.pivot)
+        for row in range(top, bottom + 1):
+            for column in range(left, right + 1):
+                read.sheet.cells.pop((row, column), None)
+
+
+def _slicers(slicer_caches: list[tuple[str, ElementTree.Element]],
+             pivots: dict[str, _ReadPivot], tabs: dict[str, str],
+             shown: dict[str, tuple[str, str]]) -> list[tuple[Slicer | Timeline, list[str]]]:
+    """Each slicer and Timeline, with its caption and sheet, and the pivots it is connected
+    to, by their keys: a sheet by its id, as a slicer's cache names it, and a name."""
     slicers = []
-    for kind, held in slicer_caches:
-        connected = [f"{tabs.get(each.get('tabId', ''), '')}!{each.get('name', '')}"
-                     for each in held.iterfind("{*}pivotTables/{*}pivotTable")]
+    for kind, definition in slicer_caches:
+        keys = []
+        for connected in definition.iterfind("{*}pivotTables/{*}pivotTable"):
+            keys.append(_pivot_key(tabs.get(connected.get("tabId", ""), ""),
+                                   connected.get("name", "")))
         if kind == "slicerCache":
-            slicer = _slicer(held, [caches[name] for name in connected if name in caches])
+            caches = [pivots[key].cache for key in keys if key in pivots]
+            slicer = _slicer(definition, caches)
         else:
-            slicer = _timeline(held)
+            slicer = _timeline(definition)
         slicer.caption, slicer.sheet = shown.get(slicer.name, ("", ""))
-        for name in connected:
-            if name in pivots:
-                _connect(slicer, pivots[name])
-        slicers.append(slicer)
+        slicers.append((slicer, [key for key in keys if key in pivots]))
     return slicers
+
+
+def _connect_slicers(slicers: list[tuple[Slicer | Timeline, list[str]]],
+                     pivots: dict[str, _ReadPivot]) -> None:
+    """Connect each slicer and Timeline to the pivots it names, each to the other."""
+    for slicer, keys in slicers:
+        for key in keys:
+            pivot = pivots[key].pivot
+            slicer.pivots.append(pivot.name)
+            pivot.slicers.append(slicer)
+            if isinstance(slicer, Slicer):
+                _clear_hidden(pivot.fields, slicer.field)
+
+
+def _clear_hidden(fields: dict[str, PivotField], name: str) -> None:
+    """Clear the items hidden on the field `name`: those a Report filter or a slicer on it
+    leaves out are the filter's own, not hidden on the field, though Excel marks them so."""
+    if name in fields:
+        fields[name].hidden = []
 
 
 def _pivot_bounds(pivot: PivotTable) -> tuple[int, int, int, int]:
@@ -836,15 +917,6 @@ def _pivot_bounds(pivot: PivotTable) -> tuple[int, int, int, int]:
         top -= len(pivot.report_filters) + 1
         right = max(right, left + 1)
     return top, left, bottom, right
-
-
-def _connect(slicer: Slicer | Timeline, pivot: PivotTable) -> None:
-    """Connect a slicer or Timeline to a pivot: the items a slicer leaves out are its own,
-    not hidden on the pivot's field."""
-    slicer.pivots.append(pivot.name)
-    pivot.slicers.append(slicer)
-    if isinstance(slicer, Slicer) and slicer.field in pivot.fields:
-        pivot.fields[slicer.field].hidden = []
 
 
 def _item_value(item: ElementTree.Element) -> object:
@@ -864,66 +936,72 @@ def _item_value(item: ElementTree.Element) -> object:
 
 
 def _pivot_cache(book: _PivotBook, pivot_part: str) -> _PivotCache:
-    """The cache a pivot's part names."""
+    """The cache a pivot's part names: each field with its items, and then, as they read
+    other fields, each field's grouping, calculated items and measure."""
     path = ""
     for kind, linked_path in _relationships(book.parts, pivot_part).values():
         if kind == "pivotCacheDefinition":
             path = linked_path
-    held = _xml(book.parts, path)
-    held_fields = list(held.iterfind("{*}cacheFields/{*}cacheField"))
-    names = [held_field.get("caption") or held_field.get("name", "")
-             for held_field in held_fields]
-    items = []
-    for held_field in held_fields:
-        listed = held_field.find("{*}fieldGroup/{*}groupItems")
+    cache_definition = _xml(book.parts, path)
+    cache_fields = list(cache_definition.iterfind("{*}cacheFields/{*}cacheField"))
+    fields = []
+    for cache_field in cache_fields:
+        listed = cache_field.find("{*}fieldGroup/{*}groupItems")
         if listed is None:
-            listed = held_field.find("{*}sharedItems")
-        items.append([] if listed is None else [_item_value(item) for item in listed])
-    groupings = [_grouping(names, items, place, held_field)
-                 for place, held_field in enumerate(held_fields)]
-    return _PivotCache(held, names, items,
-                       [held_field.get("formula", "") for held_field in held_fields],
-                       groupings, _calculated_items(held, names, items),
-                       _olap_measures(held, held_fields))
+            listed = cache_field.find("{*}sharedItems")
+        items = []
+        if listed is not None:
+            items = [_item_value(item) for item in listed]
+        fields.append(_CacheField(cache_field.get("caption") or cache_field.get("name", ""),
+                                  items, cache_field.get("formula", "")))
+    for place, cache_field in enumerate(cache_fields):
+        fields[place].grouping = _grouping(fields, place, cache_field)
+    _add_calculated_items(cache_definition, fields)
+    _add_measures(cache_definition, cache_fields, fields)
+    return _PivotCache(cache_definition, fields)
 
 
 def _date_or_none(text: str | None) -> datetime.datetime | None:
-    return None if text is None else datetime.datetime.fromisoformat(text)
+    if text is None:
+        return None
+    return datetime.datetime.fromisoformat(text)
 
 
 def _number_or_none(text: str | None) -> int | float | None:
-    return None if text is None else _number(text)
+    if text is None:
+        return None
+    return _number(text)
 
 
-def _grouping(names: list[str], items: list[list[object]], place: int,
-              held_field: ElementTree.Element) -> Grouping | None:
+def _grouping(fields: list[_CacheField], place: int, cache_field: ElementTree.Element
+              ) -> Grouping | None:
     """How a cache field groups its base field, if it does: by a range of dates or numbers,
     or into groups made by hand."""
-    group = held_field.find("{*}fieldGroup")
-    if group is None:
+    field_group = cache_field.find("{*}fieldGroup")
+    if field_group is None:
         return None
-    base = int(group.get("base", str(place)))
-    grouped = names[base] if base < len(names) else ""
-    ranged = group.find("{*}rangePr")
-    if ranged is not None and ranged.get("groupBy", "range") == "range":
-        return Grouping("Number", grouped, _number_or_none(ranged.get("startNum")),
-                        _number_or_none(ranged.get("endNum")),
-                        _number(ranged.get("groupInterval", "1")))
-    if ranged is not None:
-        level = ranged.get("groupBy", "")
+    base = _value_at(fields, int(field_group.get("base", str(place))))
+    grouped = "" if base is None else base.name
+    range_group = field_group.find("{*}rangePr")
+    if range_group is not None and range_group.get("groupBy", "range") == "range":
+        return Grouping("Number", grouped, _number_or_none(range_group.get("startNum")),
+                        _number_or_none(range_group.get("endNum")),
+                        _number(range_group.get("groupInterval", "1")))
+    if range_group is not None:
+        level = range_group.get("groupBy", "")
         interval = None
         if level == "days":
-            interval = _number(ranged.get("groupInterval", "1"))
-        return Grouping(level.capitalize(), grouped, _date_or_none(ranged.get("startDate")),
-                        _date_or_none(ranged.get("endDate")), interval)
-    discrete = group.find("{*}discretePr")
-    if discrete is None:
+            interval = _number(range_group.get("groupInterval", "1"))
+        return Grouping(level.capitalize(), grouped,
+                        _date_or_none(range_group.get("startDate")),
+                        _date_or_none(range_group.get("endDate")), interval)
+    discrete = field_group.find("{*}discretePr")
+    if discrete is None or base is None:
         return None
     grouping = Grouping("Items", grouped)
-    labels = items[place]
-    for number, held in enumerate(discrete.iterfind("{*}x")):
-        label = _value_at(labels, int(held.get("v", "0")))
-        grouping.groups.setdefault(str(label), []).append(_value_at(items[base], number))
+    for number, group_of_item in enumerate(discrete.iterfind("{*}x")):
+        label = _value_at(fields[place].items, int(group_of_item.get("v", "0")))
+        grouping.groups.setdefault(str(label), []).append(_value_at(base.items, number))
     return grouping
 
 
@@ -934,175 +1012,197 @@ def _value_at(values: list[object], place: int) -> object:
     return None
 
 
-def _field_name(names: list[str], place: int) -> str:
-    """The name of a cache's field at `place`, or "" when the workbook names a place that
-    isn't there."""
-    if 0 <= place < len(names):
-        return names[place]
-    return ""
-
-
-def _calculated_items(held: ElementTree.Element, names: list[str], items: list[list[object]]
-                      ) -> dict[str, dict[str, str]]:
-    """Each calculated item's formula, by its field's name and its own."""
-    found: dict[str, dict[str, str]] = {}
-    for calculated in held.iterfind("{*}calculatedItems/{*}calculatedItem"):
+def _add_calculated_items(cache_definition: ElementTree.Element, fields: list[_CacheField]
+                          ) -> None:
+    """Add each calculated item's formula to its field, by the item."""
+    for calculated in cache_definition.iterfind("{*}calculatedItems/{*}calculatedItem"):
         reference = calculated.find("{*}pivotArea/{*}references/{*}reference")
-        if reference is None or int(reference.get("field", "0")) >= len(names):
+        if reference is None:
             continue
-        place = int(reference.get("field", "0"))
-        held_item = reference.find("{*}x")
-        number = 0 if held_item is None else int(held_item.get("v", "0"))
-        item = _value_at(items[place], number)
-        found.setdefault(names[place], {})[str(item)] = calculated.get("formula", "")
-    return found
+        cache_field = _value_at(fields, int(reference.get("field", "0")))
+        item_place = reference.find("{*}x")
+        if cache_field is None or item_place is None:
+            continue
+        item = _value_at(cache_field.items, int(item_place.get("v", "0")))
+        cache_field.calculated_items[str(item)] = calculated.get("formula", "")
 
 
-def _olap_measures(held: ElementTree.Element, held_fields: list[ElementTree.Element]
-                   ) -> dict[int, tuple[str, str]]:
-    """Each Data Model or OLAP measure's summary and field, by its place among the cache's
-    fields: one Excel made, such as "Distinct Count of job_id", by its words; any other a
-    DAX_MEASURE, by its name."""
-    hierarchies = list(held.iterfind("{*}cacheHierarchies/{*}cacheHierarchy"))
-    found = {}
-    for place, held_field in enumerate(held_fields):
-        if not held_field.get("name", "").startswith("[Measures]."):
+def _add_measures(cache_definition: ElementTree.Element,
+                  cache_fields: list[ElementTree.Element], fields: list[_CacheField]) -> None:
+    """Add each Data Model or OLAP measure's summary and field to its cache field: one Excel
+    made, such as "Distinct Count of job_id", by its words; any other a DAX_MEASURE, by its
+    name."""
+    hierarchies = list(cache_definition.iterfind("{*}cacheHierarchies/{*}cacheHierarchy"))
+    for place, cache_field in enumerate(cache_fields):
+        if not cache_field.get("name", "").startswith("[Measures]."):
             continue
-        caption = held_field.get("caption") or held_field.get("name", "")
-        hierarchy = _value_at(hierarchies, int(held_field.get("hierarchy", "-1")))
+        caption = cache_field.get("caption") or cache_field.get("name", "")
+        hierarchy = _value_at(hierarchies, int(cache_field.get("hierarchy", "-1")))
         made_by_excel = hierarchy is not None and (
             hierarchy.get("hidden") == "1"
             or hierarchy.find(".//{*}cacheHierarchy[@aggregatedColumn]") is not None)
         implicit = IMPLICIT_MEASURE.fullmatch(caption)
-        found[place] = (DAX_MEASURE, caption)
+        fields[place].measure = (DAX_MEASURE, caption)
         if implicit and made_by_excel:
-            found[place] = (implicit.group(1), implicit.group(2))
-    return found
+            fields[place].measure = (implicit.group(1), implicit.group(2))
 
 
 def _pivot_table(book: _PivotBook, sheet: Sheet, part: str, cache: _PivotCache,
                  timelines: set[str]) -> PivotTable:
     """One PivotTable, from its part on `sheet` and its cache, its stored values from the
     sheet's cells; a filter named as a Timeline is the Timeline's own."""
-    held = _xml(book.parts, part)
-    held_fields = list(held.iterfind("{*}pivotFields/{*}pivotField"))
-    fields = {}
-    indexed = []
-    for place, name in enumerate(cache.names):
-        held_field = _value_at(held_fields, place)
-        if held_field is None:
-            held_field = ElementTree.Element("pivotField")
-        fields[name], items = _pivot_field(cache, place, held_field)
-        indexed.append(items)
-    values = [_pivot_value(cache, held_value, indexed)
-              for held_value in held.iterfind("{*}dataFields/{*}dataField")]
-    report_filters = _report_filters(held, cache.names, indexed, fields)
+    pivot_table_definition = _xml(book.parts, part)
+    fields, items_by_place = _pivot_fields(pivot_table_definition, cache)
+    values = [_pivot_value(cache, data_field, items_by_place) for data_field
+              in pivot_table_definition.iterfind("{*}dataFields/{*}dataField")]
+    report_filters = _report_filters(pivot_table_definition, cache.names, items_by_place,
+                                     fields)
     for report_filter in report_filters:
-        if report_filter.field in fields:
-            fields[report_filter.field].hidden = []
-    location = held.find("{*}location")
+        _clear_hidden(fields, report_filter.field)
+    location = pivot_table_definition.find("{*}location")
+    ref = ""
+    if location is not None:
+        ref = location.get("ref", "")
     pivot = PivotTable(
-        held.get("name", ""), sheet.title, "" if location is None else location.get("ref", ""),
-        _pivot_source(book, cache, sheet.title), _axis_fields(held, "rowFields", cache.names),
-        _axis_fields(held, "colFields", cache.names), values, report_filters, fields,
-        _pivot_filters(held, cache.names, values, timelines), layout=_layout(held))
-    rows = [name for name in pivot.rows if name != VALUES]
-    columns = [name for name in pivot.columns if name != VALUES]
-    pivot.grand_total_row = held.get("colGrandTotals") != "0" and bool(rows)
-    pivot.grand_total_column = held.get("rowGrandTotals") != "0" and bool(columns)
-    pivot.subtotals = [name for name in rows[:-1] + columns[:-1] if fields[name].subtotals]
-    row_lines = _pivot_lines(held.find("{*}rowItems"), _axis_places(held, "rowFields"),
-                             cache.names, indexed)
-    column_lines = _pivot_lines(held.find("{*}colItems"), _axis_places(held, "colFields"),
-                                cache.names, indexed)
+        name=pivot_table_definition.get("name", ""), sheet=sheet.title, ref=ref,
+        source=_pivot_source(book, cache, sheet.title),
+        rows=_axis_fields(pivot_table_definition, "rowFields", cache.names),
+        columns=_axis_fields(pivot_table_definition, "colFields", cache.names),
+        values=values, report_filters=report_filters, fields=fields,
+        filters=_pivot_filters(pivot_table_definition, cache.names, values, timelines),
+        layout=_layout(pivot_table_definition))
+    _add_totals(pivot, pivot_table_definition)
+    row_lines = _pivot_lines(pivot_table_definition.find("{*}rowItems"),
+                             _axis_places(pivot_table_definition, "rowFields"), cache.names,
+                             items_by_place)
+    column_lines = _pivot_lines(pivot_table_definition.find("{*}colItems"),
+                                _axis_places(pivot_table_definition, "colFields"),
+                                cache.names, items_by_place)
     if location is not None:
         pivot.cells = _pivot_cells(location, row_lines, column_lines, values, sheet.cells)
     return pivot
 
 
-def _pivot_field(cache: _PivotCache, place: int, held_field: ElementTree.Element
+def _pivot_fields(pivot_table_definition: ElementTree.Element, cache: _PivotCache
+                  ) -> tuple[dict[str, PivotField], list[list[object]]]:
+    """Each field of a pivot's cache as the pivot holds it, by name, and each field's items
+    by their places, as the pivot's rows and columns name them."""
+    pivot_field_elements = list(
+        pivot_table_definition.iterfind("{*}pivotFields/{*}pivotField"))
+    fields = {}
+    items_by_place = []
+    for place, cache_field in enumerate(cache.fields):
+        pivot_field_element = _value_at(pivot_field_elements, place)
+        if pivot_field_element is None:
+            pivot_field_element = ElementTree.Element("pivotField")
+        fields[cache_field.name], items = _pivot_field(cache_field, pivot_field_element)
+        items_by_place.append(items)
+    return fields, items_by_place
+
+
+def _add_totals(pivot: PivotTable, pivot_table_definition: ElementTree.Element) -> None:
+    """Add to a pivot the totals it shows: its Grand Total row, with a Row field, its Grand
+    Total column, with a Column field, and each outer field's subtotals."""
+    rows = [name for name in pivot.rows if name != VALUES]
+    columns = [name for name in pivot.columns if name != VALUES]
+    pivot.grand_total_row = (pivot_table_definition.get("colGrandTotals") != "0"
+                             and bool(rows))
+    pivot.grand_total_column = (pivot_table_definition.get("rowGrandTotals") != "0"
+                                and bool(columns))
+    pivot.subtotals = [name for name in rows[:-1] + columns[:-1]
+                       if pivot.fields[name].subtotals]
+
+
+def _pivot_field(cache_field: _CacheField, pivot_field_element: ElementTree.Element
                  ) -> tuple[PivotField, list[object]]:
     """One field as a pivot holds it, and the value of each of its items by its place, as
     the pivot's rows and columns name them."""
-    name = cache.names[place]
-    pivot_field = PivotField(name, formula=cache.formulas[place],
-                             calculated_items=cache.calculated_items.get(name, {}),
-                             grouping=cache.groupings[place], subtotals=_subtotals(held_field),
-                             shows_items_with_no_data=held_field.get("showAll") != "0")
-    indexed = []
-    for item in held_field.iterfind("{*}items/{*}item"):
-        value = _value_at(cache.items[place], int(item.get("x", "-1")))
-        indexed.append(value)
+    pivot_field = PivotField(
+        cache_field.name, formula=cache_field.formula,
+        calculated_items=cache_field.calculated_items, grouping=cache_field.grouping,
+        subtotals=_subtotals(pivot_field_element),
+        shows_items_with_no_data=pivot_field_element.get("showAll") != "0")
+    items_by_place = []
+    for item in pivot_field_element.iterfind("{*}items/{*}item"):
+        value = _value_at(cache_field.items, int(item.get("x", "-1")))
+        items_by_place.append(value)
         if item.get("t", "data") != "data" or item.get("m") == "1":
             continue
         pivot_field.items.append(value)
         if item.get("h") == "1":
             pivot_field.hidden.append(value)
-    return pivot_field, indexed
+    return pivot_field, items_by_place
 
 
-def _subtotals(held_field: ElementTree.Element) -> list[str]:
+def _subtotals(pivot_field_element: ElementTree.Element) -> list[str]:
     """A field's subtotals: the functions chosen, Excel's own (AUTOMATIC), or none."""
-    chosen = [word for attribute, word in SUBTOTALS.items() if held_field.get(attribute) == "1"]
+    chosen = [word for attribute, word in SUBTOTALS.items()
+              if pivot_field_element.get(attribute) == "1"]
     if chosen:
         return chosen
-    if held_field.get("defaultSubtotal") == "0":
+    if pivot_field_element.get("defaultSubtotal") == "0":
         return []
     return [AUTOMATIC]
 
 
-def _axis_places(held: ElementTree.Element, axis: str) -> list[int]:
+def _axis_places(pivot_table_definition: ElementTree.Element, axis: str) -> list[int]:
     """The place of each of a pivot's Row or Column fields, -2 for its values."""
-    return [int(each.get("x", "0")) for each in held.iterfind(f"{{*}}{axis}/{{*}}field")]
+    return [int(axis_field.get("x", "0"))
+            for axis_field in pivot_table_definition.iterfind(f"{{*}}{axis}/{{*}}field")]
 
 
-def _axis_fields(held: ElementTree.Element, axis: str, names: list[str]) -> list[str]:
+def _axis_fields(pivot_table_definition: ElementTree.Element, axis: str, names: list[str]
+                 ) -> list[str]:
     """The name of each of a pivot's Row or Column fields, outermost first."""
-    found = []
-    for place in _axis_places(held, axis):
-        found.append(VALUES if place < 0 else _field_name(names, place))
-    return found
+    axis_fields = []
+    for place in _axis_places(pivot_table_definition, axis):
+        if place < 0:
+            axis_fields.append(VALUES)
+        else:
+            axis_fields.append(_value_at(names, place) or "")
+    return axis_fields
 
 
-def _layout(held: ElementTree.Element) -> str:
+def _layout(pivot_table_definition: ElementTree.Element) -> str:
     """A pivot's Report Layout, in Excel's words."""
-    if held.get("compact") != "0":
+    if pivot_table_definition.get("compact") != "0":
         return "Compact Form"
-    if held.get("outline") == "1":
+    if pivot_table_definition.get("outline") == "1":
         return "Outline Form"
     return "Tabular Form"
 
 
 def _pivot_source(book: _PivotBook, cache: _PivotCache, sheet: str) -> PivotSource:
     """What a pivot's cache reads."""
-    source = cache.held.find("{*}cacheSource")
-    kind = "worksheet" if source is None else source.get("type", "worksheet")
+    cache_source = cache.cache_definition.find("{*}cacheSource")
+    if cache_source is None:
+        return _worksheet_source(book, None, sheet)
+    kind = cache_source.get("type", "worksheet")
     if kind == "worksheet":
-        held = None if source is None else source.find("{*}worksheetSource")
-        return _worksheet_source(book, held, sheet)
+        return _worksheet_source(book, cache_source.find("{*}worksheetSource"), sheet)
     if kind == "external":
-        return _external_source(book, cache, source.get("connectionId", ""))
+        return _external_source(book, cache, cache_source.get("connectionId", ""))
     if kind == "consolidation":
         return PivotSource(CONSOLIDATION, "")
     return PivotSource(kind, "")
 
 
-def _worksheet_source(book: _PivotBook, held: ElementTree.Element | None, sheet: str
-                      ) -> PivotSource:
+def _worksheet_source(book: _PivotBook, worksheet_source: ElementTree.Element | None,
+                      sheet: str) -> PivotSource:
     """A source on a sheet: a Table, a range named by a defined name or by its place, read as
     the Table it would be, or a range in another workbook."""
-    if held is None:
+    if worksheet_source is None:
         return PivotSource(RANGE, "")
-    name = held.get("name", "").split("[")[0]
-    if _relationship_id(held):
-        return PivotSource(OTHER_WORKBOOK, name or held.get("ref", ""))
+    name = worksheet_source.get("name", "").split("[")[0]
+    if _relationship_id(worksheet_source):
+        return PivotSource(OTHER_WORKBOOK, name or worksheet_source.get("ref", ""))
     if name in book.tables:
         return PivotSource(EXCEL_TABLE, name, book.tables[name],
                            pieces=[Piece(EXCEL_TABLE, name)])
-    on, ref = held.get("sheet", sheet), held.get("ref", "")
+    on, ref = worksheet_source.get("sheet", sheet), worksheet_source.get("ref", "")
     if name in book.names:
-        on, _, ref = book.names[name].rpartition("!")
-        on = on.removeprefix("'").removesuffix("'").replace("''", "'")
+        quoted, _, ref = book.names[name].rpartition("!")
+        on = _unquoted_sheet(quoted)
     ref = ref.replace("$", "")
     name = name or f"{on}!{ref}"
     table = None
@@ -1117,104 +1217,105 @@ def _worksheet_source(book: _PivotBook, held: ElementTree.Element | None, sheet:
 def _external_source(book: _PivotBook, cache: _PivotCache, number: str) -> PivotSource:
     """A source through a connection: the Data Model, an OLAP cube, or other data."""
     connection = book.connections.get(number, _Connection(""))
+    cache_definition = cache.cache_definition
     if connection.is_model:
-        hierarchies = list(cache.held.iterfind("{*}cacheHierarchies/{*}cacheHierarchy"))
+        hierarchies = list(cache_definition.iterfind("{*}cacheHierarchies/{*}cacheHierarchy"))
         tables = []
-        for held_field in cache.held.iterfind("{*}cacheFields/{*}cacheField"):
-            hierarchy = _value_at(hierarchies, int(held_field.get("hierarchy", "-1")))
+        for cache_field in cache_definition.iterfind("{*}cacheFields/{*}cacheField"):
+            hierarchy = _value_at(hierarchies, int(cache_field.get("hierarchy", "-1")))
             if hierarchy is not None:
                 tables.append(hierarchy.get("measureGroup")
                               or hierarchy.get("dimensionUniqueName", "").strip("[]"))
         tables = list(dict.fromkeys(table for table in tables if table))
         pieces = [book.model[table] for table in tables if table in book.model]
         return PivotSource(DATA_MODEL, connection.name, model_tables=tables, pieces=pieces)
-    if connection.is_olap or cache.held.find("{*}cacheHierarchies") is not None:
+    if connection.is_olap or cache_definition.find("{*}cacheHierarchies") is not None:
         return PivotSource(OLAP, connection.name)
     return PivotSource(DATA_CONNECTION, connection.name)
 
 
-def _pivot_value(cache: _PivotCache, held: ElementTree.Element, indexed: list[list[object]]
-                 ) -> PivotValue:
+def _pivot_value(cache: _PivotCache, data_field: ElementTree.Element,
+                 items_by_place: list[list[object]]) -> PivotValue:
     """One value of a pivot, from its data field: its summary, Show Values As and base."""
-    place = int(held.get("fld", "0"))
-    caption = held.get("name", "")
-    summary = SUMMARIES.get(held.get("subtotal", "sum"), held.get("subtotal", ""))
-    summarized = _field_name(cache.names, place)
-    if place in cache.measures:
-        summary, summarized = cache.measures[place]
-    shown = held.get("showDataAs", "normal")
-    extended = held.find(".//{*}extLst//{*}dataField[@pivotShowAs]")
+    cache_field = _value_at(cache.fields, int(data_field.get("fld", "0")))
+    summary = SUMMARIES.get(data_field.get("subtotal", "sum"), data_field.get("subtotal", ""))
+    summarized = ""
+    if cache_field is not None:
+        summarized = cache_field.name
+    if cache_field is not None and cache_field.measure is not None:
+        summary, summarized = cache_field.measure
+    shown = data_field.get("showDataAs", "normal")
+    extended = data_field.find(".//{*}extLst//{*}dataField[@pivotShowAs]")
     if extended is not None:
         shown = extended.get("pivotShowAs", shown)
-    value = PivotValue(caption, summarized, summary, SHOWN_AS.get(shown, shown))
-    base = int(held.get("baseField", "0"))
+    value = PivotValue(data_field.get("name", ""), summarized, summary,
+                       SHOWN_AS.get(shown, shown))
+    base = int(data_field.get("baseField", "0"))
     if shown in WITH_BASE_FIELD:
-        value.base_field = _field_name(cache.names, base)
+        value.base_field = _value_at(cache.names, base) or ""
     if shown in WITH_BASE_ITEM:
-        number = int(held.get("baseItem", "0"))
+        number = int(data_field.get("baseItem", "0"))
         value.base_item = BASE_ITEMS.get(number)
-        if value.base_item is None and base < len(indexed):
-            value.base_item = _value_at(indexed[base], number)
+        if value.base_item is None and base < len(items_by_place):
+            value.base_item = _value_at(items_by_place[base], number)
     return value
 
 
-def _member(name: str, caption: str | None) -> object:
-    """An OLAP member, by its caption, or the end of its unique name."""
-    found = MEMBER.search(name)
-    if caption is not None or found is None:
-        return caption
-    return found.group(1).replace("]]", "]")
-
-
-def _report_filters(held: ElementTree.Element, names: list[str], indexed: list[list[object]],
-                    fields: dict[str, PivotField]) -> list[ReportFilter]:
+def _report_filters(pivot_table_definition: ElementTree.Element, names: list[str],
+                    items_by_place: list[list[object]], fields: dict[str, PivotField]
+                    ) -> list[ReportFilter]:
     """Each Report filter, and the items it shows: its one item, the items it doesn't hide
-    when it shows several, or none for (All)."""
-    found = []
-    for page in held.iterfind("{*}pageFields/{*}pageField"):
-        place = int(page.get("fld", "0"))
-        name = _field_name(names, place)
+    when it shows several, or none for (All); over an OLAP cube, its member, by its caption."""
+    report_filters = []
+    for page_field in pivot_table_definition.iterfind("{*}pageFields/{*}pageField"):
+        place = int(page_field.get("fld", "0"))
+        name = _value_at(names, place) or ""
+        member = page_field.get("name", "")
         report_filter = ReportFilter(name)
-        if page.get("item") is not None and place < len(indexed):
-            report_filter.selected = [_value_at(indexed[place], int(page.get("item", "0")))]
-        elif MEMBER.search(page.get("name", "")):
-            report_filter.selected = [_member(page.get("name", ""), page.get("cap"))]
+        if page_field.get("item") is not None and place < len(items_by_place):
+            item = _value_at(items_by_place[place], int(page_field.get("item", "0")))
+            report_filter.selected = [item]
+        elif "&[" in member:
+            report_filter.selected = [page_field.get("cap") or _olap_last_part(member)]
         elif name in fields and fields[name].hidden:
             report_filter.selected = [item for item in fields[name].items
                                       if item not in fields[name].hidden]
-        found.append(report_filter)
-    return found
+        report_filters.append(report_filter)
+    return report_filters
 
 
-def _pivot_filters(held: ElementTree.Element, names: list[str], values: list[PivotValue],
-                   timelines: set[str]) -> list[PivotFilter]:
+def _pivot_filters(pivot_table_definition: ElementTree.Element, names: list[str],
+                   values: list[PivotValue], timelines: set[str]) -> list[PivotFilter]:
     """Each value, label and date filter on a pivot, but a Timeline's own."""
-    found = []
-    for held_filter in held.iterfind("{*}filters/{*}filter"):
-        if held_filter.get("name") in timelines:
+    pivot_filters = []
+    for pivot_filter in pivot_table_definition.iterfind("{*}filters/{*}filter"):
+        if pivot_filter.get("name") in timelines:
             continue
-        name = _field_name(names, int(held_filter.get("fld", "0")))
-        measure = _value_at(values, int(held_filter.get("iMeasureFld", "0")))
-        by = "" if measure is None else measure.caption
-        found.append(_pivot_filter(held_filter, name, by))
-    return found
+        name = _value_at(names, int(pivot_filter.get("fld", "0"))) or ""
+        measure = _value_at(values, int(pivot_filter.get("iMeasureFld", "0")))
+        by = ""
+        if measure is not None:
+            by = measure.caption
+        pivot_filters.append(_pivot_filter(pivot_filter, name, by))
+    return pivot_filters
 
 
-def _pivot_filter(held: ElementTree.Element, name: str, by: str) -> PivotFilter:
+def _pivot_filter(pivot_filter: ElementTree.Element, name: str, by: str) -> PivotFilter:
     """One filter on the field `name`, `by` the value a value filter reads."""
-    kind = held.get("type", "")
+    kind = pivot_filter.get("type", "")
     if kind in TOP_UNITS:
-        top = held.find(".//{*}top10")
+        top = pivot_filter.find(".//{*}top10")
         test = "Top"
         count: int | float = 10
         if top is not None:
             test = "Bottom" if top.get("top") == "0" else "Top"
             count = _number(top.get("val", "10"))
         return PivotFilter(name, VALUE_FILTER, test, [count], by, TOP_UNITS[kind])
-    given = [held.get(key) for key in ("stringValue1", "stringValue2")
-             if held.get(key) is not None]
+    given = [pivot_filter.get(key) for key in ("stringValue1", "stringValue2")
+             if pivot_filter.get(key) is not None]
     if not given:
-        given = [custom.get("val", "") for custom in held.iterfind(".//{*}customFilter")]
+        given = [custom.get("val", "")
+                 for custom in pivot_filter.iterfind(".//{*}customFilter")]
     values = [_filter_value(text) for text in given]
     if kind.startswith("value"):
         return PivotFilter(name, VALUE_FILTER, FILTER_TESTS.get(kind[5:], kind), values, by)
@@ -1253,29 +1354,37 @@ def _line_total(kind: str) -> str:
     return SUBTOTAL_LINES.get(kind, kind)
 
 
-def _pivot_lines(held: ElementTree.Element | None, places: list[int], names: list[str],
-                 indexed: list[list[object]]) -> list[tuple[PivotLine | None, int]]:
-    """Each row or column of a pivot's body, in order: its line, None for a blank line, and
-    the place of the value it shows. Each names its items by their places among its fields'
-    items, after the first `r` items of the line before, which it repeats."""
-    found: list[tuple[PivotLine | None, int]] = []
+def _pivot_lines(items_element: ElementTree.Element | None, places: list[int],
+                 names: list[str], items_by_place: list[list[object]]
+                 ) -> list[tuple[PivotLine | None, int]]:
+    """Each row or column of a pivot's body, from its rowItems or colItems, in order: its
+    line, None for a blank line, and the place of the value it shows. Each names its items by
+    their places among its fields' items, after the first `r` items of the line before, which
+    it repeats."""
+    lines: list[tuple[PivotLine | None, int]] = []
+    if items_element is None:
+        return lines
     path: list[int] = []
-    for line in [] if held is None else held.iterfind("{*}i"):
+    for line in items_element.iterfind("{*}i"):
         kind = line.get("t", "data")
         value = int(line.get("i", "0"))
-        if kind in ("grand", "blank"):
-            found.append((None if kind == "blank" else PivotLine([], GRAND_TOTAL), value))
+        if kind == "blank":
+            lines.append((None, value))
             continue
-        path = path[:int(line.get("r", "0"))] + [int(each.get("v", "0"))
-                                                  for each in line.iterfind("{*}x")]
+        if kind == "grand":
+            lines.append((PivotLine([], GRAND_TOTAL), value))
+            continue
+        path = path[:int(line.get("r", "0"))] + [int(item_place.get("v", "0"))
+                                                  for item_place in line.iterfind("{*}x")]
         items = []
         for position, number in enumerate(path):
             place = _value_at(places, position)
             if place is None or place < 0:
                 continue
-            items.append((_field_name(names, place), _value_at(indexed[place], number)))
-        found.append((PivotLine(items, _line_total(kind)), value))
-    return found
+            items.append((_value_at(names, place) or "",
+                          _value_at(items_by_place[place], number)))
+        lines.append((PivotLine(items, _line_total(kind)), value))
+    return lines
 
 
 def _pivot_cells(location: ElementTree.Element, rows: list[tuple[PivotLine | None, int]],
@@ -1287,61 +1396,56 @@ def _pivot_cells(location: ElementTree.Element, rows: list[tuple[PivotLine | Non
     (top, left), _ = _range(location.get("ref", "A1"))
     first_row = top + int(location.get("firstDataRow", "1"))
     first_column = left + int(location.get("firstDataCol", "1"))
-    found = []
+    pivot_cells = []
     for row_number, (row, row_value) in enumerate(rows):
         for column_number, (column, column_value) in enumerate(columns):
             value = _value_at(values, max(row_value, column_value))
             if row is None or column is None or value is None:
                 continue
             at = (first_row + row_number, first_column + column_number)
-            found.append(PivotCell(at, value.caption, row, column, cells.get(at)))
-    return found
+            pivot_cells.append(PivotCell(at, value.caption, row, column, cells.get(at)))
+    return pivot_cells
 
 
 def _slicers_shown(parts: zipfile.ZipFile, sheets: list[tuple[Sheet, str]]
                    ) -> dict[str, tuple[str, str]]:
     """The caption of each slicer and Timeline the sheets show, and the sheet it is on, by
     its cache's name."""
-    found = {}
+    captions_and_sheets = {}
     for sheet, part in sheets:
         for kind, path in _relationships(parts, part).values():
             if kind not in ("slicer", "timeline"):
                 continue
             for shown in _xml(parts, path).iterfind(f"{{*}}{kind}"):
-                found[shown.get("cache", "")] = (shown.get("caption", ""), sheet.title)
-    return found
+                captions_and_sheets[shown.get("cache", "")] = (shown.get("caption", ""),
+                                                               sheet.title)
+    return captions_and_sheets
 
 
-def _olap_name(source: str) -> str:
-    """A field by its name: an OLAP one, such as [job_runs].[status], by its last part."""
-    found = re.search(r"\[((?:[^\]]|\]\])*)\]$", source)
-    if found is None:
-        return source
-    return found.group(1).replace("]]", "]")
-
-
-def _slicer(held: ElementTree.Element, caches: list[_PivotCache]) -> Slicer:
+def _slicer(slicer_cache: ElementTree.Element, caches: list[_PivotCache]) -> Slicer:
     """A slicer, from its cache: its field and the items it has selected, as its first
     pivot's cache names them, or, over the Data Model, by their captions."""
-    slicer = Slicer(held.get("name", ""), _olap_name(held.get("sourceName", "")))
-    tabular = held.find("{*}data/{*}tabular")
+    slicer = Slicer(slicer_cache.get("name", ""),
+                    _olap_last_part(slicer_cache.get("sourceName", "")))
+    tabular = slicer_cache.find("{*}data/{*}tabular")
     if tabular is not None and caches and slicer.field in caches[0].names:
-        items = caches[0].items[caches[0].names.index(slicer.field)]
+        items = caches[0].fields[caches[0].names.index(slicer.field)].items
         slicer.selected = [_value_at(items, int(item.get("x", "-1")))
                            for item in tabular.iterfind("{*}items/{*}i")
                            if item.get("s") == "1"]
-    captions = {item.get("n", ""): item.get("c") for item in _all(held, "i")}
-    for selection in _all(held, "selection"):
-        name = selection.get("n", "")
-        if not name.endswith(".[All]"):
-            slicer.selected.append(_member(name, captions.get(name)))
+    captions = {item.get("n", ""): item.get("c") for item in _all(slicer_cache, "i")}
+    for selection in _all(slicer_cache, "selection"):
+        member = selection.get("n", "")
+        if not member.endswith(".[All]"):
+            slicer.selected.append(captions.get(member) or _olap_last_part(member))
     return slicer
 
 
-def _timeline(held: ElementTree.Element) -> Timeline:
+def _timeline(timeline_cache: ElementTree.Element) -> Timeline:
     """A Timeline, from its cache: its field and the days it has selected."""
-    timeline = Timeline(held.get("name", ""), _olap_name(held.get("sourceName", "")))
-    selection = held.find("{*}state/{*}selection")
+    timeline = Timeline(timeline_cache.get("name", ""),
+                        _olap_last_part(timeline_cache.get("sourceName", "")))
+    selection = timeline_cache.find("{*}state/{*}selection")
     if selection is not None:
         timeline.start = _date_or_none(selection.get("startDate"))
         timeline.end = _date_or_none(selection.get("endDate"))
@@ -1411,7 +1515,7 @@ def _connections(parts: zipfile.ZipFile) -> dict[str, _Connection]:
     name = "xl/connections.xml"
     if name not in parts.namelist():
         return {}
-    found = {}
+    connections = {}
     for connection in _xml(parts, name).iterfind("{*}connection"):
         database = connection.find("{*}dbPr")
         text = database.get("connection", "") if database is not None else ""
@@ -1420,13 +1524,15 @@ def _connections(parts: zipfile.ZipFile) -> dict[str, _Connection]:
         query = ""
         if location:
             query = location.group(1) if location.group(1) is not None else location.group(2)
-        added = connection.find(".//{*}rangePr")
-        found[connection.get("id", "")] = _Connection(
-            connection.get("name", ""), query.replace('""', '"'),
-            added.get("sourceName", "") if added is not None else "",
-            connection.get("name") == "ThisWorkbookDataModel" or command == "Model",
-            connection.find("{*}olapPr") is not None)
-    return found
+        range_added = connection.find(".//{*}rangePr")
+        table = ""
+        if range_added is not None:
+            table = range_added.get("sourceName", "")
+        connections[connection.get("id", "")] = _Connection(
+            name=connection.get("name", ""), query=query.replace('""', '"'), table=table,
+            is_model=connection.get("name") == "ThisWorkbookDataModel" or command == "Model",
+            is_olap=connection.find("{*}olapPr") is not None)
+    return connections
 
 
 def _take_sheet_queries(sheets: list[Sheet]) -> list[tuple[str, str]]:
@@ -1492,22 +1598,27 @@ def _bare_names(formulas: str) -> list[str]:
 def _pivot_pieces(pivots: list[PivotTable]) -> list[Piece]:
     """Each pivot's piece: by its name, or by its sheet and name where another pivot has it."""
     names = [pivot.name for pivot in pivots]
-    return [Piece(PIVOT_TABLE, pivot.name if names.count(pivot.name) == 1
-                  else f"{pivot.sheet}!{pivot.name}") for pivot in pivots]
+    pieces = []
+    for pivot in pivots:
+        if names.count(pivot.name) == 1:
+            pieces.append(Piece(PIVOT_TABLE, pivot.name))
+        else:
+            pieces.append(Piece(PIVOT_TABLE, _pivot_key(pivot.sheet, pivot.name)))
+    return pieces
 
 
 def _pivots_read(formulas: str, sheet: str, pivots: list[PivotTable], pieces: list[Piece]
                  ) -> list[Piece]:
     """The pivot each GETPIVOTDATA in formulas on `sheet` reads, by a cell of the pivot."""
-    found = []
+    read = []
     for quoted, letters, digits in GETPIVOTDATA.findall(formulas):
-        on = quoted.removeprefix("'").removesuffix("'").replace("''", "'") or sheet
+        on = _unquoted_sheet(quoted) or sheet
         row, column = _where(letters + digits)
         for pivot, piece in zip(pivots, pieces, strict=True):
             top, left, bottom, right = _pivot_bounds(pivot)
             if pivot.sheet == on and top <= row <= bottom and left <= column <= right:
-                found.append(piece)
-    return found
+                read.append(piece)
+    return read
 
 
 def _table_reads(table: Table, sheet: str, tables: dict[str, str], query_names: set[str],

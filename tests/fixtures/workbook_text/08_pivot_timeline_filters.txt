@@ -29,21 +29,21 @@ Sheet "Pivot"
     Value "Sum of duration_mins": Sum of duration_mins, Show Values As % of Column Total
     Filter avg_retry_secs: (All)
     Items hidden on status: TEST
-    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24 00:00:00 to 2026-09-24 00:00:00; connected to PivotTable1
+    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24; connected to PivotTable1
     Totals shown: Grand Total row, Grand Total column
     Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
       B5: empty (Sum of duration_mins; Rows job_id 1; Columns status FAILED)
-      C5: 0.625 (Sum of duration_mins; Rows job_id 1; Columns status SUCCESS)
-      D5: 0.5 (Sum of duration_mins; Rows job_id 1; Columns Grand Total)
-      B6: 1 (Sum of duration_mins; Rows job_id 2; Columns status FAILED)
+      C5: 0.625 (62.50%; Sum of duration_mins; Rows job_id 1; Columns status SUCCESS)
+      D5: 0.5 (50.00%; Sum of duration_mins; Rows job_id 1; Columns Grand Total)
+      B6: 1 (100.00%; Sum of duration_mins; Rows job_id 2; Columns status FAILED)
       C6: empty (Sum of duration_mins; Rows job_id 2; Columns status SUCCESS)
-      D6: 0.2 (Sum of duration_mins; Rows job_id 2; Columns Grand Total)
+      D6: 0.2 (20.00%; Sum of duration_mins; Rows job_id 2; Columns Grand Total)
       B7: empty (Sum of duration_mins; Rows job_id 3; Columns status FAILED)
-      C7: 0.375 (Sum of duration_mins; Rows job_id 3; Columns status SUCCESS)
-      D7: 0.3 (Sum of duration_mins; Rows job_id 3; Columns Grand Total)
-      B8: 1 (Sum of duration_mins; Rows Grand Total; Columns status FAILED)
-      C8: 1 (Sum of duration_mins; Rows Grand Total; Columns status SUCCESS)
-      D8: 1 (Sum of duration_mins; Rows Grand Total; Columns Grand Total)
+      C7: 0.375 (37.50%; Sum of duration_mins; Rows job_id 3; Columns status SUCCESS)
+      D7: 0.3 (30.00%; Sum of duration_mins; Rows job_id 3; Columns Grand Total)
+      B8: 1 (100.00%; Sum of duration_mins; Rows Grand Total; Columns status FAILED)
+      C8: 1 (100.00%; Sum of duration_mins; Rows Grand Total; Columns status SUCCESS)
+      D8: 1 (100.00%; Sum of duration_mins; Rows Grand Total; Columns Grand Total)
 Order, each piece after every piece it reads:
   1. Excel Table "Parameters"
   2. Excel Table "Keys"

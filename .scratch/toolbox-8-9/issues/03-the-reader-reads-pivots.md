@@ -85,7 +85,9 @@ and Timeline. The new data types:
   naming a cell of a pivot (its body or its Report filters, on the formula's sheet or the one
   named) reads the pivot; a loop through a pivot is refused with the same LoopError, its links
   in Excel's words (`PivotTable "PivotTable1" reads Excel Table "job_runs"; Excel Table
-  "job_runs"'s formulas read PivotTable "PivotTable1"`).
+  "job_runs"'s formulas read PivotTable "PivotTable1"`). A GETPIVOTDATA in a cell outside any
+  Table adds nothing to the Order: the ticket asks for a Table formula's, and a cell outside a
+  Table is no piece (file 11's X1).
 - Read as Excel saves it, past what ticket 02's tool doesn't write: layouts by `compact` and
   `outline`, custom subtotals, label, value and date filters (`stringValue1`, custom filters,
   Q1 to Q4, M1 to M12), groups made by hand (`discretePr`), items marked missing (`m="1"`) or
@@ -112,14 +114,15 @@ charts, in Excel's words:
       Value "Sum of duration_mins": Sum of duration_mins, Show Values As % of Column Total
       Filter avg_retry_secs: (All)
       Items hidden on status: TEST
-      Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24 00:00:00 to ...; connected to PivotTable1
+      Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24; connected to PivotTable1
       Totals shown: Grand Total row, Grand Total column
       Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
-        C5: 0.625 (Sum of duration_mins; Rows job_id 1; Columns status SUCCESS)
-        D8: 1 (Sum of duration_mins; Rows Grand Total; Columns Grand Total)
+        C5: 0.625 (62.50%; Sum of duration_mins; Rows job_id 1; Columns status SUCCESS)
+        D8: 1 (100.00%; Sum of duration_mins; Rows Grand Total; Columns Grand Total)
 
 and likewise `Calculated Field "hours" = duration_mins/60`, `Calculated Item "done" on status
-= SUCCESS+FAILED`, `Field "Years" groups dt By Years, Starting at ..., Ending at ...`, `Value
+= SUCCESS+FAILED`, `Field "Years" groups dt By Years, Starting at 2026-09-23, Ending at
+2026-09-25`, `Value
 Filter on job_id: Top 2 Items by Sum of hours`, `Slicer "status" on sheet "Pivot", field
 status: selected FAILED, SUCCESS; connected to PivotTable1, runs_by_day`, `Filter status:
 (Multiple Items) SUCCESS, FAILED`, `Source: the range Runs!A1:F10, read as the Table it would
@@ -133,8 +136,70 @@ byte for byte the same.
 `tests/workers.py`) are ticket 02's own cases, so their Hive gives rows the snapshot knows;
 `tests/snapshot/known.txt` is unchanged.
 
-**Left.** A query loaded only into the Data Model still says "connection only" in the text
-(ticket 05 or 07 may say "loads into the Data Model"). Excel's Report filter layout of more
-than one column (`colPageCount` > 1) is taken as one column when the pivot's cells are taken
-off the sheet. Not run here: the code-review skill, and the beginner reader on
-`workbook_text.py`'s docstring, which now says what a pivot's text shows.
+**Left.** Two partials, known and named: a query loaded only into the Data Model still says
+"connection only" in the text (ticket 05 or 07 may say "loads into the Data Model"); and
+Excel's Report filter layout of more than one column (`colPageCount` > 1) is taken as one
+column when the pivot's cells are taken off the sheet.
+
+## Review
+
+The code-review skill (Standards and Spec) and the beginner reader, on the pivot fixtures'
+text as a person with Excel and pivot skills reads it, after the merge into dev (d7ad237a).
+Every public name, field and constant of the reader is kept (tickets 05 and 06 read them);
+only private names changed. The seven pivot fixtures' `.txt` regenerated; only 07's and 08's
+change, in the lines below.
+
+**Standards.**
+
+1. **One way per job.** A quoted sheet's name is unquoted by one function, `_unquoted_sheet`
+   (the range's defined name and GETPIVOTDATA's sheet). An OLAP name's last part, a field's or
+   a member's caption, is read by one function, `_olap_last_part`, on one pattern, `MEMBER`
+   (its value widened to any bracketed last part; a Report filter's member is told by its
+   `&[`). A pivot's key, its sheet and name, is one function, `_pivot_key`, used by the
+   pivots read, the slicers' pivots and the Order's pieces.
+2. **Names.** `_add_pivot_tables` is split: `_read_pivot_tables` gives each pivot with its sheet
+   and cache, `_add_pivot_tables` adds each to its sheet and takes its cells off, `_slicers`
+   gives each slicer and Timeline with the pivots it names, and `_connect_slicers` connects
+   them. Each XML element is named for its tag (`pivot_table_definition`, `cache_definition`,
+   `cache_field`, `pivot_field_element`, `data_field`, `page_field`, `field_group`,
+   `range_group`, `slicer_cache`, `timeline_cache`, `sheet_element`), and each list for what it
+   holds (`pivot_cells`, `report_filters`, `lines`, `connections`). `_field_name` is gone:
+   `_value_at(names, place) or ""`.
+3. **Plain expressions.** Each conditional the review named is an `if`: `_pivot_pieces`,
+   `_pivot_lines` (a blank and a Grand Total line apart, and the missing rowItems before the
+   loop), the location's ref before `PivotTable(...)`, and, the same rule, `_Connection(...)`'s
+   Table in `_connections`.
+4. **Keywords.** `PivotTable(...)` is built with keywords, and `_Connection(...)` too.
+5. **A record per field.** `_PivotCache` holds its definition and a `_CacheField` for each
+   field (name, items, formula, grouping, calculated items, measure), in place of its four
+   parallel lists and two dicts; `names` is a property. The fields of a pivot are built by
+   `_pivot_fields`, its totals added by `_add_totals`. Clearing a field's hidden items for a
+   Report filter or a slicer is one function, `_clear_hidden`, which says the rule.
+6. `_items_text` has a docstring; `_slicer_text` tests `isinstance(..., Timeline)` once, a
+   Timeline's selection written by `_timeline_selection`.
+
+**The beginner reader.**
+
+7. The docstring's sentence is split in two, and the Value field is "Value": "For each cell,
+   the text gives the number Excel last stored in it, and a percentage as Excel shows it where
+   the Value is shown as a %; then which Value it is, and the row and column items it stands
+   for."
+8. A date with no time of day is written as its day: `Timeline "dt" ...: selected 2026-09-24`,
+   one day once where its first and last are the same, and two days as `2026-09-23 to
+   2026-09-24`; a date grouping's `Starting at 2026-09-23, Ending at 2026-09-25` the same
+   (`_day_text`). A Table's own date cells keep the text openpyxl gives them, which the Excel
+   evaluation's view holds.
+9. A cell whose Value is shown as a % (any Show Values As starting "%") has the percentage
+   Excel shows, to two places, beside the stored number: `C5: 0.625 (62.50%; Sum of
+   duration_mins; ...)`.
+
+The Order's last line ("Each final's query reads the steps it needs as CTEs") is unchanged.
+
+**Spec.** A GETPIVOTDATA outside a Table adds nothing to the Order, now said in the Answer;
+the two partials stay named in **Left**.
+
+Run after the fixes: `tests/test_workbook_reader.py`, `tests/test_workbook_text.py`,
+`tests/test_workbook_pivots.py`, `tests/test_pivot_tables.py`, `tests/test_excel_eval.py`,
+`tests/test_workbook_hive.py` and the repo checks (`test_toolbox_checks`, `test_standard`,
+`test_local_paths`, `test_code_audit`, `test_offline_policy`, `test_dead_code`,
+`test_faster_suite`): 912 passed.
