@@ -200,7 +200,8 @@ def test_each_workbook_is_a_whole_package_openpyxl_loads(written: dict[str, byte
 @pytest.mark.parametrize("name", list(CASES))
 def test_each_stored_value_is_worked_out_by_hive_on_the_example_database(name: str) -> None:
     for worked in worked_pivots(CASES[name]).pivots:
-        assert worked.hive and all(hive.startswith("WITH source AS (") for hive in worked.hive)
+        assert worked.hive_statements
+        assert all(hive.startswith("WITH source AS (") for hive in worked.hive_statements)
 
 
 # --- Row and Column fields, names and totals ------------------------------------------------

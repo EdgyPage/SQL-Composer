@@ -311,7 +311,7 @@ class Line:
 class WorkedPivot:
     """A pivot worked out: its cache, its body's `rows` and `columns`, the row and column of
     its body's top left cell (`corner`), each cell it fills on its sheet with its stored
-    value, and the Hive the values were worked out by."""
+    value, and the Hive statements its values were worked out by."""
 
     pivot: Pivot
     cache: Cache
@@ -319,7 +319,26 @@ class WorkedPivot:
     columns: list[Line]
     corner: tuple[int, int]
     cells: dict[str, object]
-    hive: list[str]
+    hive_statements: list[str]
+
+
+@dataclass(frozen=True)
+class _Level:
+    """One total level of a pivot's values: how many of its Row fields and of its Column
+    fields it groups by, and which of its values, by its place among them."""
+
+    rows: int
+    columns: int
+    value: int
+
+
+@dataclass(frozen=True)
+class _Cell:
+    """Where one stored value sits in a pivot's body: the item places of its row and of its
+    column, each a Line's `path`."""
+
+    row: tuple[int, ...]
+    column: tuple[int, ...]
 
 
 @dataclass
@@ -539,7 +558,7 @@ def _key_of(cache: Cache, place: int, given: object) -> object:
     return given
 
 
-def _kept(key: str, keys: list[object]) -> str:
+def _kept_rows_hive(key: str, keys: list[object]) -> str:
     """Hive keeping the rows whose `key` is one of `keys`, a blank among them as IS NULL."""
     values = [_literal(value) for value in keys if value is not None]
     parts = []
@@ -552,7 +571,7 @@ def _kept(key: str, keys: list[object]) -> str:
     return "(" + " OR ".join(parts) + ")"
 
 
-def _dropped(key: str, keys: list[object]) -> str:
+def _dropped_rows_hive(key: str, keys: list[object]) -> str:
     """Hive dropping the rows whose `key` is one of `keys`, a blank among them as IS NULL."""
     values = [_literal(value) for value in keys if value is not None]
     if None in keys and values:
@@ -573,10 +592,10 @@ def _conditions(worked: Worked, cache: Cache, pivot: Pivot) -> list[str]:
     for name, selected in pivot.report_filters.items():
         place = _place(cache, name)
         if selected:
-            found.append(_kept(_key_sql(cache, place), _keys(cache, place, selected)))
+            found.append(_kept_rows_hive(_key_sql(cache, place), _keys(cache, place, selected)))
     for name, hidden in pivot.hidden.items():
         place = _place(cache, name)
-        found.append(_dropped(_key_sql(cache, place), _keys(cache, place, hidden)))
+        found.append(_dropped_rows_hive(_key_sql(cache, place), _keys(cache, place, hidden)))
     for slicer in worked.slicers:
         if pivot.name not in slicer.pivots:
             continue
@@ -584,7 +603,8 @@ def _conditions(worked: Worked, cache: Cache, pivot: Pivot) -> list[str]:
             found.append(f"{slicer.field} BETWEEN '{slicer.start}' AND '{slicer.end}'")
             continue
         place = _place(cache, slicer.field)
-        found.append(_kept(_key_sql(cache, place), _keys(cache, place, slicer.selected)))
+        selected = _keys(cache, place, slicer.selected)
+        found.append(_kept_rows_hive(_key_sql(cache, place), selected))
     return found
 
 
@@ -701,7 +721,8 @@ def example_database_rows(hive: str) -> list[tuple[object, ...]]:
     return found
 
 
-def _top_condition(cache: Cache, pivot: Pivot, where: list[str], ran: list[str]) -> str:
+def _top_condition(cache: Cache, pivot: Pivot, where: list[str],
+                   hive_statements: list[str]) -> str:
     """Hive keeping the items a value filter keeps, which Hive of their own works out."""
     top = pivot.top
     place = _place(cache, top.field)
@@ -711,8 +732,9 @@ def _top_condition(cache: Cache, pivot: Pivot, where: list[str], ran: list[str])
                          f"ranked AS (SELECT k0, RANK() OVER (ORDER BY v {order}) AS place "
                          "FROM grouped)"],
                  f"SELECT k0 FROM ranked WHERE place <= {top.count}")
-    ran.append(hive)
-    return _kept(_key_sql(cache, place), [row[0] for row in example_database_rows(hive)])
+    hive_statements.append(hive)
+    kept = [row[0] for row in example_database_rows(hive)]
+    return _kept_rows_hive(_key_sql(cache, place), kept)
 
 
 @dataclass(frozen=True)
@@ -752,23 +774,29 @@ def _level_hive(cache: Cache, pivot: Pivot, keys: list[int], across: int, number
                              f"SELECT {names}{shown} AS v FROM grouped"), keys), *found]
 
 
-def _level_values(cache: Cache, pivot: Pivot, level: tuple[int, int, int], where: list[str],
-                  ran: list[str]) -> dict[tuple[tuple[int, ...], tuple[int, ...]], object]:
-    """One total level's values, `level` how many Row and Column fields it groups by and
-    which value, each by its row's and its column's paths of item places."""
-    rows = [_place(cache, name) for name in pivot.rows[:level[0]]]
-    columns = [_place(cache, name) for name in pivot.columns[:level[1]]]
+def _level_values(cache: Cache, pivot: Pivot, level: _Level, where: list[str],
+                  hive_statements: list[str]) -> dict[_Cell, object]:
+    """One total level's values, each by the cell it sits in; each Hive statement run is
+    added to `hive_statements`."""
+    rows = [_place(cache, name) for name in pivot.rows[:level.rows]]
+    columns = [_place(cache, name) for name in pivot.columns[:level.columns]]
     keys = rows + columns
     found = {}
-    for level_hive in _level_hive(cache, pivot, keys, len(rows), level[2], where):
-        ran.append(level_hive.hive)
+    for level_hive in _level_hive(cache, pivot, keys, len(rows), level.value, where):
+        hive_statements.append(level_hive.hive)
         for row in example_database_rows(level_hive.hive):
             given = dict(zip(level_hive.keys, row[:-1], strict=True))
             if level_hive.item_place is not None:
                 given[level_hive.item_place] = level_hive.item
             places = [_position(cache, key, given[key]) for key in keys]
-            found[(tuple(places[:len(rows)]), tuple(places[len(rows):]))] = row[-1]
+            found[_Cell(tuple(places[:len(rows)]), tuple(places[len(rows):]))] = row[-1]
     return found
+
+
+def _level_of(row: Line, column: Line) -> _Level:
+    """The total level a row and a column meet at: their paths' lengths, and the column's
+    value."""
+    return _Level(len(row.path), len(column.path), column.value)
 
 
 def _position(cache: Cache, place: int, key: object) -> int:
@@ -899,24 +927,24 @@ def _check(pivot: Pivot) -> None:
 
 def _worked_pivot(worked: Worked, cache: Cache, pivot: Pivot) -> WorkedPivot:
     """One pivot's lines and cells, each value worked out by Hive."""
-    ran: list[str] = []
+    hive_statements: list[str] = []
     where = _conditions(worked, cache, pivot)
     if pivot.top:
-        where.append(_top_condition(cache, pivot, where, ran))
-    deepest = _level_values(cache, pivot, (len(pivot.rows), len(pivot.columns), 0), where,
-                            ran)
-    rows = _row_lines(pivot, {row for row, _ in deepest})
-    columns = _column_lines(pivot, {column for _, column in deepest})
-    values = {}
+        where.append(_top_condition(cache, pivot, where, hive_statements))
+    deepest = _level_values(cache, pivot, _Level(len(pivot.rows), len(pivot.columns), 0),
+                            where, hive_statements)
+    rows = _row_lines(pivot, {cell.row for cell in deepest})
+    columns = _column_lines(pivot, {cell.column for cell in deepest})
+    values: dict[_Level, dict[_Cell, object]] = {}
     for row in rows:
         for column in columns:
-            level = (len(row.path), len(column.path), column.value)
+            level = _level_of(row, column)
             if level not in values:
-                values[level] = _level_values(cache, pivot, level, where, ran)
+                values[level] = _level_values(cache, pivot, level, where, hive_statements)
     corner = _corner(pivot)
     cells = _filter_cells(cache, pivot, corner)
     cells.update(_body_cells(cache, pivot, rows, columns, corner, values))
-    return WorkedPivot(pivot, cache, rows, columns, corner, cells, ran)
+    return WorkedPivot(pivot, cache, rows, columns, corner, cells, hive_statements)
 
 
 def _corner(pivot: Pivot) -> tuple[int, int]:
@@ -963,7 +991,8 @@ def _filter_cells(cache: Cache, pivot: Pivot, corner: tuple[int, int]) -> dict[s
 
 
 def _body_cells(cache: Cache, pivot: Pivot, rows: list[Line], columns: list[Line],
-                corner: tuple[int, int], values: dict) -> dict[str, object]:
+                corner: tuple[int, int], values: dict[_Level, dict[_Cell, object]]
+                ) -> dict[str, object]:
     """Each cell of a pivot's body: its headers, each row's and column's label, and each
     stored value."""
     top, left = corner
@@ -983,12 +1012,13 @@ def _body_cells(cache: Cache, pivot: Pivot, rows: list[Line], columns: list[Line
     return cells
 
 
-def _stored(pivot: Pivot, values: dict, row: Line, column: Line) -> object:
+def _stored(pivot: Pivot, values: dict[_Level, dict[_Cell, object]], row: Line,
+            column: Line) -> object:
+    """The value stored where a row and a column meet, or None for a blank cell."""
     if not (_shows_values(pivot, row, pivot.rows)
             and _shows_values(pivot, column, pivot.columns)):
         return None
-    level = (len(row.path), len(column.path), column.value)
-    return values[level].get((row.path, column.path))
+    return values[_level_of(row, column)].get(_Cell(row.path, column.path))
 
 
 def _row_label(cache: Cache, pivot: Pivot, row: Line) -> object:
@@ -1215,29 +1245,30 @@ def _lines_xml(lines: list[Line]) -> str:
                    for line, repeat in zip(lines, repeats(lines), strict=True))
 
 
-def _rows_xml(wp: WorkedPivot, fields: list[int]) -> str:
+def _rows_xml(worked_pivot: WorkedPivot, fields: list[int]) -> str:
     """A pivot's Row fields, by their places among its fields, and its rows."""
     rows = "".join(f'<field x="{place}"/>' for place in fields)
     return (f'<rowFields count="{len(fields)}">{rows}</rowFields>'
-            f'<rowItems count="{len(wp.rows)}">{_lines_xml(wp.rows)}</rowItems>')
+            f'<rowItems count="{len(worked_pivot.rows)}">{_lines_xml(worked_pivot.rows)}'
+            "</rowItems>")
 
 
-def _columns_xml(wp: WorkedPivot) -> str:
+def _columns_xml(worked_pivot: WorkedPivot) -> str:
     """A pivot's Column fields and columns: its values' own, the field -2, when it has more
     than one; one column and no field when it has one value and no Column field."""
-    pivot, cache = wp.pivot, wp.cache
+    pivot, cache = worked_pivot.pivot, worked_pivot.cache
     xml = ""
     if len(pivot.values) > 1:
         xml = '<colFields count="1"><field x="-2"/></colFields>'
         columns = "".join(_line_xml(Line("item", (column.value,), column.value), 0)
-                          for column in wp.columns)
+                          for column in worked_pivot.columns)
     elif pivot.columns:
         names = "".join(f'<field x="{_place(cache, name)}"/>' for name in pivot.columns)
         xml = f'<colFields count="{len(pivot.columns)}">{names}</colFields>'
-        columns = _lines_xml(wp.columns)
+        columns = _lines_xml(worked_pivot.columns)
     else:
         columns = "<i/>"
-    return xml + f'<colItems count="{len(wp.columns)}">{columns}</colItems>'
+    return xml + f'<colItems count="{len(worked_pivot.columns)}">{columns}</colItems>'
 
 
 def _page_fields_xml(pivot: Pivot, cache: Cache) -> str:
@@ -1317,23 +1348,23 @@ def _timelines_on(worked: Worked, pivot: Pivot) -> list[Timeline]:
             if isinstance(slicer, Timeline) and pivot.name in slicer.pivots]
 
 
-def location_xml(wp: WorkedPivot) -> str:
+def location_xml(worked_pivot: WorkedPivot) -> str:
     """Where a pivot's body sits, and where its headers, values and Report filters are."""
-    pivot = wp.pivot
-    top, left = wp.corner
-    bottom = top + len(pivot.columns) + len(wp.rows)
+    pivot = worked_pivot.pivot
+    top, left = worked_pivot.corner
+    bottom = top + len(pivot.columns) + len(worked_pivot.rows)
     header = "0" if len(pivot.values) > 1 else "1"
     pages = ""
     if pivot.report_filters:
         pages = f' rowPageCount="{len(pivot.report_filters)}" colPageCount="1"'
-    return (f'<location ref="{_at(top, left)}:{_at(bottom, left + len(wp.columns))}" '
+    return (f'<location ref="{_at(top, left)}:{_at(bottom, left + len(worked_pivot.columns))}" '
             f'firstHeaderRow="{header}" firstDataRow="{1 + len(pivot.columns)}" '
             f'firstDataCol="1"{pages}/>')
 
 
-def pivot_table_xml(worked: Worked, wp: WorkedPivot) -> str:
+def pivot_table_xml(worked: Worked, worked_pivot: WorkedPivot) -> str:
     """A pivot table's definition part."""
-    pivot, cache = wp.pivot, wp.cache
+    pivot, cache = worked_pivot.pivot, worked_pivot.cache
     totals = ""
     if not pivot.grand_total_column:
         totals += ' rowGrandTotals="0"'
@@ -1344,9 +1375,11 @@ def pivot_table_xml(worked: Worked, wp: WorkedPivot) -> str:
     rows = [_place(cache, name) for name in pivot.rows]
     values = "".join(_data_field_xml(pivot, cache, value) for value in pivot.values)
     return (f'{HEAD}<pivotTableDefinition xmlns="{SPREADSHEET}" name={quoteattr(pivot.name)} '
-            f'cacheId="{cache.id}" {COMMON_PIVOT_ATTRIBUTES}{totals}>{location_xml(wp)}'
+            f'cacheId="{cache.id}" {COMMON_PIVOT_ATTRIBUTES}{totals}>'
+            f"{location_xml(worked_pivot)}"
             f'<pivotFields count="{len(cache.fields)}">{fields}</pivotFields>'
-            f"{_rows_xml(wp, rows)}{_columns_xml(wp)}{_page_fields_xml(pivot, cache)}"
+            f"{_rows_xml(worked_pivot, rows)}{_columns_xml(worked_pivot)}"
+            f"{_page_fields_xml(pivot, cache)}"
             f'<dataFields count="{len(pivot.values)}">{values}</dataFields>{STYLE}'
             f'{_filters_xml(worked, pivot, cache)}'
             f'<extLst><ext uri="{EXTENSIONS["pivotTableDefinition"]}" xmlns:x14="{X14}">'
@@ -1360,17 +1393,18 @@ def pivot_table_xml(worked: Worked, wp: WorkedPivot) -> str:
 
 def _first_pivot(worked: Worked, slicer: Slicer | Timeline) -> WorkedPivot:
     """The first pivot a slicer or Timeline filters, whose sheet it is on."""
-    for wp in worked.pivots:
-        if wp.pivot.name in slicer.pivots:
-            return wp
+    for worked_pivot in worked.pivots:
+        if worked_pivot.pivot.name in slicer.pivots:
+            return worked_pivot
     raise ValueError(f"A slicer or Timeline on {slicer.field} names no pivot of the workbook.")
 
 
 def _pivots_xml(worked: Worked, slicer: Slicer | Timeline, tabs: dict[str, int]) -> str:
     """The pivots a slicer or Timeline filters, each by its sheet's tab id and its name."""
-    found = "".join(f'<pivotTable tabId="{tabs[wp.pivot.sheet]}" '
-                    f"name={quoteattr(wp.pivot.name)}/>"
-                    for wp in worked.pivots if wp.pivot.name in slicer.pivots)
+    found = "".join(f'<pivotTable tabId="{tabs[worked_pivot.pivot.sheet]}" '
+                    f"name={quoteattr(worked_pivot.pivot.name)}/>"
+                    for worked_pivot in worked.pivots
+                    if worked_pivot.pivot.name in slicer.pivots)
     return f"<pivotTables>{found}</pivotTables>"
 
 
@@ -1461,8 +1495,8 @@ def _anchor_xml(number: int, slicer: Slicer | Timeline, place: tuple[int, int]) 
 def drawing_xml(worked: Worked, sheet: str) -> str:
     """The drawing placing each slicer and Timeline on `sheet`, to the right of its pivots,
     one under the other."""
-    right = max(wp.corner[1] + len(wp.columns) for wp in worked.pivots
-                if wp.pivot.sheet == sheet)
+    right = max(worked_pivot.corner[1] + len(worked_pivot.columns)
+                for worked_pivot in worked.pivots if worked_pivot.pivot.sheet == sheet)
     on_sheet = [slicer for slicer in worked.slicers
                 if _first_pivot(worked, slicer).pivot.sheet == sheet]
     anchors = "".join(_anchor_xml(number, slicer, (right + 1, number * (SLICER_HEIGHT + 1)))
@@ -1549,10 +1583,10 @@ def _hierarchies_xml(cache: Cache) -> str:
     return f'<cacheHierarchies count="{len(found)}">{"".join(found)}</cacheHierarchies>'
 
 
-def data_model_pivot_xml(wp: WorkedPivot) -> str:
+def data_model_pivot_xml(worked_pivot: WorkedPivot) -> str:
     """A Data Model pivot's definition part: its fields as its OLAP cache numbers them, and a
     pivot hierarchy for each of the cache's hierarchies."""
-    pivot, cache = wp.pivot, wp.cache
+    pivot, cache = worked_pivot.pivot, worked_pivot.cache
     fields = []
     for _, place, _ in _model_fields(cache):
         if place is None:
@@ -1570,9 +1604,10 @@ def data_model_pivot_xml(wp: WorkedPivot) -> str:
     usage = "".join(f'<rowHierarchyUsage hierarchyUsage="{_place(cache, name)}"/>'
                     for name in pivot.rows)
     return (f'{HEAD}<pivotTableDefinition xmlns="{SPREADSHEET}" name={quoteattr(pivot.name)} '
-            f'cacheId="{cache.id}" {COMMON_PIVOT_ATTRIBUTES}>{location_xml(wp)}'
+            f'cacheId="{cache.id}" {COMMON_PIVOT_ATTRIBUTES}>{location_xml(worked_pivot)}'
             f'<pivotFields count="{len(fields)}">{"".join(fields)}</pivotFields>'
-            f"{_rows_xml(wp, list(range(len(pivot.rows))))}{_columns_xml(wp)}"
+            f"{_rows_xml(worked_pivot, list(range(len(pivot.rows))))}"
+            f"{_columns_xml(worked_pivot)}"
             f'<dataFields count="{len(pivot.values)}">{values}</dataFields>'
             f'<pivotHierarchies count="{count}">{PIVOT_HIERARCHY * count}'
             f"</pivotHierarchies>{STYLE}"
@@ -1694,16 +1729,16 @@ def _add_caches(package: _Package, worked: Worked) -> None:
 def _add_pivot_tables(package: _Package, worked: Worked, sheets: dict[str, tuple[str, int]]
                       ) -> None:
     """Each pivot's definition, and its sheet's link to it."""
-    for number, wp in enumerate(worked.pivots, 1):
+    for number, worked_pivot in enumerate(worked.pivots, 1):
         path = f"xl/pivotTables/pivotTable{number}.xml"
-        if wp.cache.data_model:
-            package.add(path, data_model_pivot_xml(wp), "pivotTable")
+        if worked_pivot.cache.data_model:
+            package.add(path, data_model_pivot_xml(worked_pivot), "pivotTable")
         else:
-            package.add(path, pivot_table_xml(worked, wp), "pivotTable")
+            package.add(path, pivot_table_xml(worked, worked_pivot), "pivotTable")
         package.text[f"xl/pivotTables/_rels/pivotTable{number}.xml.rels"] = _relationships_of(
             [_link("rId1", "pivotCacheDefinition",
-                   f"../pivotCache/pivotCacheDefinition{wp.cache.id}.xml")])
-        package.sheet_links.setdefault(sheets[wp.pivot.sheet][0], []).append(
+                   f"../pivotCache/pivotCacheDefinition{worked_pivot.cache.id}.xml")])
+        package.sheet_links.setdefault(sheets[worked_pivot.pivot.sheet][0], []).append(
             _link(f"rIdPivotTable{number}", "pivotTable",
                   f"../pivotTables/pivotTable{number}.xml"))
 
