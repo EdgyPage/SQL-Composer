@@ -279,6 +279,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   `pivot_filters` (`ConvertedPivotFilter`, `field_values`) for ticket 08. Var and Varp written
   over STDDEV, as sqlglot writes VAR_SAMP as Hive's population VARIANCE (a fix of its own,
   proposed as a session). Merged 2026-11-19 (21d285ac).
+- [05 Power Query and totals in code](issues/05-power-query-in-code.md): `workbook_m_reader.py`
+  (M's grammar, standard library only), `workbook_power_query.py` (file 12's Q, G, S, M and X1
+  rules), `workbook_totals.py` (T1 to T4), and `lean_hive.py` (`lean_ctes` and its helpers, for
+  any query's tree, every final and pivot level put through it); all 39 query and total tasks
+  pass; ticket 04's workaround gone. Its Answer tables each place the code reads file 12 or 15
+  differently, with the line each file would need, for ticket 13. Merged 2026-11-19 (a0ec819e).
 
 ## Not yet specified
 
