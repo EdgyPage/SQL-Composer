@@ -13,9 +13,11 @@ A loop (P11) never reaches here: the reader refuses a workbook whose pieces read
 one, naming each link.
 
 Where each kind of piece's Hive comes from is one function each, below: a Table's
-(`_table_tree`), a Power Query's (`_power_query_tree`), a Total Row's (`_total_row_finals`),
-and any other kind's (`_piece_tree`), so a file writing more of them, Power Query's M or
-PivotTables, plugs in there, and adds the functions a formula may call to `_functions`.
+(`_table_tree`), a Power Query's (`_power_query_tree`, by `workbook_power_query.py`, file 12's
+rules), a Total Row's (`total_row_finals`, in `workbook_totals.py`, file 12's T2 to T4), and
+any other kind's (`_piece_tree`), so a file writing more of them, such as PivotTables, plugs in
+there, and adds the functions a formula may call to `_functions`. Each final keeps in its CTEs
+only the columns something after them reads (`lean_ctes`, in `lean_hive.py`).
 """
 
 from __future__ import annotations
@@ -47,12 +49,15 @@ from .workbook_formulas import (
     table_query,
     tables_of,
 )
+from .lean_hive import lean_ctes
+from .workbook_formula_reader import Refused
 from .workbook_pivot_hive import (
     PIVOT_FUNCTIONS,
     add_range_read,
     write_pivot_query,
     write_pivot_total_finals,
 )
+from .workbook_power_query import power_query_hive, web_source
 from .workbook_reader import (
     EXCEL_TABLE,
     PIVOT_TABLE,
@@ -64,6 +69,7 @@ from .workbook_reader import (
     Workbook,
     coordinate,
 )
+from .workbook_totals import TOTAL_ROW, WHOLE_COLUMN_FUNCTIONS, total_row_finals
 from .writing import sql_text
 
 # Each piece's role, in file 15's words.
@@ -74,8 +80,6 @@ SUMMARY_FINAL = "summary final"
 SETTINGS = "settings"
 LOADS = "loads its Table"
 LEFT_OUT = "left out"
-# What a Table's Total Row's final is named after (file 15's P9, file 12's T2).
-TOTAL_ROW = " (Total Row)"
 # The database each source is in, for the person to fill in (file 11's N1).
 DATABASE = "<database>"
 # What the map says of each kind of Note, in file 15's Output's order.
@@ -148,46 +152,52 @@ def is_summary(table: Table) -> bool:
     return bool(typed) and has_formulas and typed <= summary_matches(table)
 
 
-def workbook_hive(workbook: Workbook, database: str = DATABASE) -> WorkbookHive:
+def workbook_hive(workbook: Workbook, database: str = DATABASE,
+                  total_rows_left_out: tuple[str, ...] = ()) -> WorkbookHive:
     """A Formula workbook's Hive: each final's query, as sqlglot's tree, and what its map
     names. `database` is the database each source is in, `<database>` for the person to fill
-    in where it is left out."""
+    in where it is left out; `total_rows_left_out` names each Table whose Total Row the person
+    said no one needs kept (file 12's T3)."""
     roles = piece_roles(workbook)
     book = Book(workbook, database, _functions())
     trees: dict[Piece, exp.Query] = {}
-    # Every source first: a formula may name a Table the Order doesn't see it read, as
-    # VLOOKUP(k, jobs, 2, FALSE) does.
     for piece, role in roles.items():
         if role == SOURCE:
             book.reads[piece] = _database_table(piece.name, database)
-    for piece, role in roles.items():
-        if role in (SOURCE, SETTINGS, LEFT_OUT):
+        if role in (SOURCE, SETTINGS):
             continue
         tree = _piece_tree(piece, role, book)
         if tree is None:
             continue
         trees[piece] = tree
         book.reads[piece] = _read_of(piece, role, tree, roles)
-    finals = {}
+    tables, finals = {}, {}
     for piece, role in roles.items():
-        if role in (FINAL, SUMMARY_FINAL) and piece in trees:
-            finals[piece.name] = _with_steps(trees[piece], piece, roles, trees, workbook)
-    finals.update(_total_row_finals(workbook, finals, book))
-    finals.update(write_pivot_total_finals(workbook, finals, book))
+        if piece not in trees:
+            continue
+        written = _with_steps(trees[piece], piece, roles, trees, workbook)
+        if piece.kind == EXCEL_TABLE:
+            tables[piece.name] = written
+        if role in (FINAL, SUMMARY_FINAL):
+            finals[piece.name] = lean_ctes(written)
+    finals.update(total_row_finals(workbook, tables, book, total_rows_left_out))
+    levels = write_pivot_total_finals(workbook, finals, book)
+    finals.update({name: lean_ctes(level) for name, level in levels.items()})
     notes = book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
     return WorkbookHive(roles, finals, notes)
 
 
 def _functions() -> dict[str, Callable[[Call, Place], exp.Expression]]:
-    """The function each name a formula calls is written by: file 11's (`FUNCTIONS`); a file
-    writing more adds its own here. A copy, so adding them never changes `FUNCTIONS`, which
-    holds file 11's alone. GETPIVOTDATA reads a pivot (`workbook_pivot_hive.py`)."""
-    return {**FUNCTIONS, **PIVOT_FUNCTIONS}
+    """The function each name a formula calls is written by: file 11's (`FUNCTIONS`), file
+    12's whole-column totals (T1) and GETPIVOTDATA, which reads a pivot
+    (`workbook_pivot_hive.py`); a file writing more adds its own here. A copy, so adding them
+    never changes `FUNCTIONS`, which holds file 11's alone."""
+    return {**FUNCTIONS, **WHOLE_COLUMN_FUNCTIONS, **PIVOT_FUNCTIONS}
 
 
 def _database_table(name: str, database: str) -> exp.Table:
     """A source as `<database>.<table>` (file 15's step 4)."""
-    return exp.Table(this=identifier(name), db=exp.Identifier(this=database, quoted=False))
+    return exp.Table(this=identifier(name), db=identifier(database))
 
 
 def _cte_name(piece: Piece, roles: dict[Piece, str]) -> str:
@@ -206,7 +216,7 @@ def _read_of(piece: Piece, role: str, tree: exp.Query,
     """How another piece reads this one: a step by its CTE's name; a query loading a Table,
     as its rows, in place."""
     if role == STEP:
-        return exp.Table(this=exp.Identifier(this=_cte_name(piece, roles), quoted=False))
+        return exp.Table(this=identifier(_cte_name(piece, roles)))
     return tree
 
 
@@ -226,7 +236,7 @@ def _with_steps(tree: exp.Query, piece: Piece, roles: dict[Piece, str],
     final = tree.copy()
     for each in workbook.order:
         if each in needed:
-            final = final.with_(exp.Identifier(this=_cte_name(each, roles), quoted=False),
+            final = final.with_(identifier(_cte_name(each, roles)),
                                 as_=trees[each].copy())
     return final
 
@@ -273,22 +283,23 @@ def _table_tree(table: Table, book: Book) -> exp.Query | None:
 
 
 def _power_query_tree(piece: Piece, role: str, book: Book) -> exp.Query | None:
-    """A Power Query's rows: file 12's rules, which the code doesn't write yet, so refused and
-    named."""
-    book.notes.append(Note(REFUSED, "Q1", f"Power Query \"{piece.name}\"",
-                           "its M isn't converted by the code yet"))
-    return None
-
-
-def _total_row_finals(workbook: Workbook, finals: dict[str, exp.Query],
-                      book: Book) -> dict[str, exp.Query]:
-    """Each Table's Total Row's final, `<Table> (Total Row)` (P9, R2): file 12's T2, which the
-    code doesn't write yet, so refused and named."""
-    for table in tables_of(workbook).values():
-        if table.has_total_row:
-            book.notes.append(Note(REFUSED, "T2", table.name + TOTAL_ROW,
-                                   "a Total Row isn't converted by the code yet"))
-    return {}
+    """A Power Query's rows, by file 12's rules (`power_query_hive`); refused and named, the
+    query left out, where they can't be written. A query left out (P8) is only named, and
+    refused too where it reads the web (X1)."""
+    where = f"Power Query \"{piece.name}\""
+    if role == LEFT_OUT:
+        for query in book.workbook.queries:
+            if query.name == piece.name and web_source(query.m) is not None:
+                book.notes.append(Note(REFUSED, "X1", where, f"{web_source(query.m)} reads the "
+                                       "web, so the query is left out"))
+        return None
+    try:
+        tree, notes = power_query_hive(piece.name, book)
+    except Refused as refusal:
+        book.notes.append(Note(REFUSED, refusal.rule, where, f"left out: {refusal.why}"))
+        return None
+    book.notes += notes
+    return tree
 
 
 def summary_groups(table: Table, book: Book) -> exp.Query:
@@ -370,6 +381,9 @@ def map_text(hive: WorkbookHive, workbook: Workbook) -> str:
                            ("Settings", (SETTINGS,)), ("Queries loading a Table", (LOADS,))):
         named = [_piece_shown(piece, tables) for piece, role in hive.roles.items()
                  if role in roles]
+        if heading == "Finals":
+            named += [f"{name} ({', '.join(query.named_selects)})"
+                      for name, query in hive.finals.items() if name.endswith(TOTAL_ROW)]
         if named:
             lines.append(f"{heading}: {'; '.join(named)}")
     for kind, heading in NOTE_HEADINGS.items():

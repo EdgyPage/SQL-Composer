@@ -92,8 +92,14 @@ NAMED_REFUSALS = {
     "LET": "LET names values inside a formula, which file 11 doesn't list",
 }
 # The -IF(S) forms (file 11's F9), each by the aggregate it is.
-IFS_FORMS = {"SUMIFS": "SUM", "COUNTIFS": "COUNT", "AVERAGEIFS": "AVG", "MAXIFS": "MAX",
-             "MINIFS": "MIN", "SUMIF": "SUM", "COUNTIF": "COUNT", "AVERAGEIF": "AVG"}
+# Excel's aggregates, each as Hive's: the one table file 11's -IF(S) forms and file 12's
+# whole-column totals (T1) and Total Rows (T2) read.
+EXCEL_AGGREGATES = {"SUM": "SUM", "AVERAGE": "AVG", "COUNT": "COUNT", "COUNTA": "COUNT",
+                    "MIN": "MIN", "MAX": "MAX", "STDEV.S": "STDDEV_SAMP", "VAR.S": "VAR_SAMP"}
+IFS_FORMS = {"SUMIFS": EXCEL_AGGREGATES["SUM"], "COUNTIFS": EXCEL_AGGREGATES["COUNT"],
+             "AVERAGEIFS": EXCEL_AGGREGATES["AVERAGE"], "MAXIFS": EXCEL_AGGREGATES["MAX"],
+             "MINIFS": EXCEL_AGGREGATES["MIN"], "SUMIF": EXCEL_AGGREGATES["SUM"],
+             "COUNTIF": EXCEL_AGGREGATES["COUNT"], "AVERAGEIF": EXCEL_AGGREGATES["AVERAGE"]}
 # Excel's date letters in TEXT's format, as Hive's DATE_FORMAT writes them (file 11's F6).
 DATE_LETTERS = (("yyyy", "yyyy"), ("yy", "yy"), ("mmmm", "MMMM"), ("mmm", "MMM"),
                 ("mm", "MM"), ("m", "M"), ("dddd", "EEEE"), ("ddd", "EEE"), ("dd", "dd"),
@@ -887,10 +893,16 @@ def text_date(column: exp.Expression, header: str, place: Place) -> exp.Expressi
 
 def call_arguments(call: Call, fewest: int, most: int) -> tuple[FormulaPart, ...]:
     """A call's arguments, refused unless there are as many as file 11's form of it has."""
-    if not fewest <= len(call.args) <= most:
-        raise Refused("X1", f"{call.name} with {len(call.args)} arguments isn't a form file 11 "
-                            "lists")
+    check_argument_count(call.name, len(call.args), fewest, most)
     return call.args
+
+
+def check_argument_count(name: str, count: int, fewest: int, most: int,
+                         rules: str = "file 11") -> None:
+    """Refuse a call of `name` with `count` arguments unless `rules`' form of it, file 11's or
+    file 12's, takes as many."""
+    if not fewest <= count <= most:
+        raise Refused("X1", f"{name} with {count} arguments isn't a form {rules} lists")
 
 
 def argument_given(call: Call, number: int) -> FormulaPart | None:
@@ -1002,8 +1014,8 @@ def _least_or_greatest(call: Call, place: Place) -> exp.Expression:
     is file 12's T1."""
     parts = call_arguments(call, 1, 255)
     if len(parts) < 2 or any(isinstance(part, WholeColumn) for part in parts):
-        raise Refused("T1", f"{call.name} of a whole column is file 12's T1, which the code "
-                            "doesn't write yet")
+        raise Refused("T1", f"{call.name} of one value, or of a whole column beside other "
+                            "values, isn't a form files 11 and 12 list")
     name = "LEAST" if call.name == "MIN" else "GREATEST"
     return hive_call(name, [hive_of(part, place) for part in parts])
 
@@ -1738,8 +1750,8 @@ def _sumproduct_hive(call: Call, place: Place) -> exp.Expression:
         elif not is_number(factor, 1):
             conditions.append(_product_condition(factor, rows))
     if len(values) > 1 or not conditions:
-        raise Refused("T1", "SUMPRODUCT of whole columns is file 12's T1, which the code "
-                            "doesn't write yet")
+        raise Refused("T1", "SUMPRODUCT of whole columns beside conditions, or of no "
+                            "condition, isn't a form files 11 and 12 list")
     if values:
         total = hive_call("SUM", [exp.Case().when(all_of(conditions), values[0]).else_(
             exp.Literal.number("0"))])

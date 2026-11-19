@@ -690,9 +690,9 @@ def test_pl1_a_total_levels_final_carries_only_the_ctes_it_reads(
         built: dict[str, Workbook], stand_in: sqlite3.Connection) -> None:
     book = built["hours_step"]
     finals = finals_of(book)
-    assert finals["PivotTable1 (grand total)"].startswith(
-        "WITH job_runs AS (SELECT run_id, job_id, status, duration_mins, avg_retry_secs, dt, "
-        "duration_mins / 60 AS hours FROM db.job_runs) SELECT SUM(hours)")
+    assert finals["PivotTable1 (grand total)"] == (
+        "WITH job_runs AS (SELECT duration_mins / 60 AS hours FROM db.job_runs) "
+        "SELECT SUM(hours) AS sum_of_hours FROM job_runs")
     assert cells_differing(book, stand_in) == []
     pivot = workbook_hive.workbook_hive(book).finals["PivotTable1"]
     level = exp.select("x").from_("t")
@@ -717,9 +717,10 @@ def test_ps2_a_querys_table_is_read_as_its_cte() -> None:
         "DESC) AS item_rank FROM ok_runs GROUP BY job_id) AS ranked WHERE item_rank <= 2)")
 
 
-def test_ps2_without_its_querys_hive_the_pivot_is_refused_and_named() -> None:
-    assert ("PS1", 'PivotTable "PivotTable1"', "no final: its source, ok_runs, has no Hive"
-            ) in notes_of(fixture("06_pivot_query_sheet"), REFUSED)
+def test_ps2_a_pivot_over_a_querys_table_is_read_once_its_query_has_hive() -> None:
+    book = fixture("06_pivot_query_sheet")
+    assert [note for note in notes_of(book, REFUSED) if note[0].startswith("PS")] == []
+    assert "ok_runs AS (" in finals_of(book)["job_hours"]
 
 
 def test_ps3_a_range_is_the_table_it_would_be_to_fill_in() -> None:
