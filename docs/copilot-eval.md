@@ -192,13 +192,40 @@ folder and references/, and its warehouse holds the same tables with the same ro
 ## The Excel tasks: Copilot files 15, 11 and 12
 
 Files 15, 11 and 12 are measured the same way, on its own tasks and scorer
-(`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 84 filled-in Formula workbooks, 42 dev and
-42 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
+(`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 124 filled-in Formula workbooks, 62 dev
+and 62 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
 itself. The steps above run with `excel_eval.py` in place of `copilot_eval.py`, arms `A0` and
 `C`, `--tasks X01,X02,...` in place of `--objective`, and a proxy given five workbooks at most,
-as a person gives one to a fresh chat: a proxy given all 42 reads its message in pieces and
+as a person gives one to a fresh chat: a proxy given all 62 reads its message in pieces and
 cuts its replies short. Arm C loads files 15, 11 and 12, so a held-out task in arm C is asked
 once per version of those three.
+
+**The pivot tasks** (Toolbox 8.9), X85 to X124, hold PivotTables saved as Excel saves them:
+X85 to X104 dev, X105 to X124 held out, written before Copilot file 20. Each case the 8.9 map
+lists has a task in each split: Row and Column fields, each summary (Distinct Count in a Data
+Model pivot, X100 and X119), each Show Values As, calculated fields and items, date and number
+groups, totals shown or not, a Report filter, hidden items, a slicer on two pivots, a Timeline,
+a value filter, GETPIVOTDATA, a default and a renamed name, and a Table, a query's Table and a
+range as the source; X102 to X104 and X121 to X124 mix pivots with formulas and M, such as a
+query feeding a pivot with a slicer, read back by GETPIVOTDATA (X102). A pivot task is scored
+as the others are, and besides:
+
+- **Its finals.** A pivot's own final, and one for each total level it shows,
+  `<pivot> (grand total)` and `<pivot> (by <field>)`, are each correct when one query gives
+  their rows, its columns in any order, a number written as text the number (a Years group's
+  "2026"). A Column field is written as rows, a calculated item as a column beside the real
+  rows, a grouped field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"). A pivot a
+  Table's GETPIVOTDATA reads is a step, with no final of its own.
+- **Its Pivot filters.** Each Pivot filter is its condition, its values written in, with
+  `-- Pivot filter: <kind> <field>` above it, the kind in the glossary's words (Report filter,
+  hidden items, slicer, Timeline, value filter). The query that gives a final's rows must mark
+  each Pivot filter the final's reference marks, or the reply is not named: `unnamed` lists
+  `Pivot filter: slicer status`.
+- **Its marks.** A Column field's "written as rows", and a default name's proposed
+  `<sheet>_pivot`, are named in the reply's words, as any mark is.
+
+Each pivot final's reference gives the values the pivot stored, a test holds: a Workbook check
+in small, on the tasks' own workbooks.
 
 By hand:
 
@@ -215,7 +242,11 @@ By hand:
    already there, so delete the typed-in Table the query loads, then Close & Load To > Table
    at A1 of its sheet, and type its formula columns again beside the loaded rows. A task
    whose text ends `Also in the workbook: a PivotTable ...` has none in its file either: add
-   it with Insert > PivotTable, as the note says. Or build
+   it with Insert > PivotTable, as the note says. A pivot task's workbook holds its
+   PivotTables, slicers and Timelines, and its queries typed on a Power Query sheet, which
+   Copilot reads as they are; but a Data Model pivot's (X100, X119), which Excel can't open
+   without the model only Excel writes: make it by hand, with Insert > PivotTable and "Add this
+   data to the Data Model" ticked, as its task's text shows it. Or build
    your own two or three workbooks with Power Query, outside the repo, and score them by
    reading the replies.
 2. **A0, before the files.** In a new chat, attach the task's workbook and send
@@ -227,8 +258,9 @@ By hand:
        .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --split held_out
 
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
-Table's rows, it says which Tables are the sources and which the finals, it names what the
-task refuses, marks or leaves alone, and it invents no name. Files 15, 11 and 12 ask for no
+Table's and pivot's rows, it says which Tables are the sources and which the finals, it names
+what the task refuses, marks or leaves alone, it marks each Pivot filter, and it invents no
+name. Files 15, 11 and 12 ask for no
 Toolbox code: the convert Workflow writes it from the Hive, checked; a reply that has some
 still has it scored apart.
 

@@ -6,10 +6,23 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 84: 42 on the dev split, which Copilot files 15, 11 and 12 may be tuned on, and 42
-held out, scored once per version of the files. Every kind of formula, query or workbook in
+There are 124: 62 on the dev split, which the Copilot files may be tuned on, and 62 held out,
+scored once per version of the files. Every kind of formula, query, PivotTable or workbook in
 `COVERAGE` has a task of its own in each split, and each split has tasks that combine several
-(`combination`).
+(`combination`, and `pivot_combination` for pivots mixed with formulas and M).
+
+The pivot tasks, X85 to X124 (20 dev, X85 to X104, and 20 held out, X105 to X124, written
+before Copilot file 20), hold PivotTables saved as Excel saves them (`tools/pivot_tables.py`),
+their stored values worked out by Hive on the Example database. Their reference Hive follows
+the conversion rules of `.scratch/toolbox-8-9/map.md`, not the Hive the tool works the stored
+values out by: a pivot's final is its Row and Column fields, then its values, a Column field
+written as rows and marked; each total level the pivot shows is a final of its own,
+`<pivot> (grand total)` or `<pivot> (by <field>)`; a calculated item is a column beside the
+real rows; a grouped field's key is the label the pivot shows ("Sep", "Qtr3", "10-19"); and a
+Pivot filter is the condition it is, its values written in, with the mark
+`-- Pivot filter: <kind> <field>` above it (`pivot_filter`), which a reply's query giving the
+final must hold too. A pivot a Table's GETPIVOTDATA reads is a step, a CTE, with no
+final of its own.
 
 What a reply must do besides give the rows: name each refused piece (`refused`), each mark
 (`marks`) and each thing left alone (`ignored`), each by any of its words, since a reply may
@@ -24,6 +37,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from formula_workbook import ExcelTable, FormulaWorkbook
+from pivot_tables import Pivot, Slicer, Timeline, Top, Value
 
 # Each kind of formula, query or workbook a task covers, so that both splits cover all of them.
 COVERAGE = (
@@ -60,6 +74,22 @@ COVERAGE = (
     "loaded_table_final",
     # a query loads a Table, and another Table's formulas read it
     "query_table_formula",
+    # PivotTables: Row and Column fields, each summary, Show Values As
+    "pivot_rows", "pivot_columns", "pivot_sum", "pivot_count", "pivot_average", "pivot_max",
+    "pivot_min", "pivot_stddev", "pivot_var", "pivot_distinct_count", "pivot_percent_of_total",
+    "pivot_percent_of_row", "pivot_percent_of_column", "pivot_running_total",
+    "pivot_difference", "pivot_rank",
+    # calculated fields and items, date and number groups, the totals shown or not
+    "pivot_calculated_field", "pivot_calculated_item", "pivot_date_groups",
+    "pivot_number_bins", "pivot_grand_totals", "pivot_subtotals", "pivot_totals_off",
+    # each kind of Pivot filter
+    "pivot_report_filter", "pivot_hidden_items", "pivot_slicer_two_pivots", "pivot_timeline",
+    "pivot_value_filter",
+    # a Table's formula reading a pivot, a pivot's name, and what it reads
+    "getpivotdata", "pivot_default_name", "pivot_renamed", "pivot_source_table",
+    "pivot_source_query", "pivot_source_range",
+    # pivots mixed with formulas and M
+    "pivot_combination",
 )
 
 
@@ -1956,5 +1986,741 @@ in
                      "failed_or_test_mins FROM ops.job_runs"}),
 )
 
-TASKS = DEV + HELD_OUT
+
+# --- The pivot tasks -----------------------------------------------------------------------
+
+MINS = Value("duration_mins")
+DATED_RUNS = ExcelTable("job_runs", RUNS, rows("job_runs", RUNS), dates=("dt",))
+# The mark a pivot task with a Column field lists: the field is written as rows.
+AS_ROWS = ("written as rows", "as rows")
+
+
+def pivot_filter(kind: str, name: str) -> str:
+    """The mark above a Pivot filter's condition, on a line of its own, as a reply writes it:
+    `-- Pivot filter: slicer status`. `kind` is the Pivot filter's kind in CONTEXT.md's
+    words: "Report filter", "hidden items", "slicer", "Timeline" or "value filter"."""
+    return f"-- Pivot filter: {kind} {name}\n"
+
+
+OK_RUNS_M = f"""let
+    Source = {table("job_runs")},
+    Ok = Table.SelectRows(Source, each [status] = "SUCCESS"),
+    Kept = Table.SelectColumns(Ok, {{"run_id", "job_id", "duration_mins"}})
+in
+    Kept"""
+# Excel's bins of ten from 0 to 49, each by the label the pivot shows.
+BINS_OF_TEN = (
+    "CASE WHEN duration_mins < 0 THEN '<0' WHEN duration_mins < 10 THEN '0-9' WHEN "
+    "duration_mins < 20 THEN '10-19' WHEN duration_mins < 30 THEN '20-29' WHEN duration_mins < "
+    "40 THEN '30-39' WHEN duration_mins <= 49 THEN '40-49' ELSE '>49' END")
+BINS_OF_TWENTY = (
+    "CASE WHEN duration_mins < 0 THEN '<0' WHEN duration_mins < 20 THEN '0-19' WHEN "
+    "duration_mins <= 39 THEN '20-39' ELSE '>39' END")
+TOP_JOBS = (
+    "by_job AS (SELECT job_id, SUM(duration_mins) / 60 AS hours FROM ops.job_runs GROUP BY "
+    "job_id), ranked AS (SELECT job_id, hours, RANK() OVER (ORDER BY hours DESC) AS place FROM "
+    "by_job)")
+KEPT_RUNS = (f"WHERE {pivot_filter('Report filter', 'status')}status IN ('SUCCESS', 'FAILED') "
+             f"AND {pivot_filter('hidden items', 'job_id')}job_id <> 3")
+SLICED_RUNS = f"WHERE {pivot_filter('slicer', 'status')}status IN ('SUCCESS', 'FAILED')"
+LATE_RUNS = f"WHERE {pivot_filter('Timeline', 'dt')}dt BETWEEN '2026-09-24' AND '2026-09-24'"
+RUNS_NAMED = (
+    "runs_named AS (SELECT r.run_id, r.job_id, j.team, r.status, r.duration_mins FROM "
+    "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id)")
+NAMED_HOURS = (
+    "named_runs AS (SELECT r.run_id, r.status, j.team, r.duration_mins / 60 AS hours FROM "
+    "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id)")
+BY_JOB_DAY = (
+    "by_job_day AS (SELECT job_id, dt, SUM(duration_mins) AS mins FROM ops.job_runs GROUP BY "
+    "job_id, dt), ranked AS (SELECT job_id, RANK() OVER (ORDER BY SUM(mins) DESC) AS place "
+    "FROM by_job_day GROUP BY job_id)")
+TOP_JOB_DAYS = (f"FROM by_job_day b JOIN ranked r ON b.job_id = r.job_id WHERE "
+                f"{pivot_filter('value filter', 'job_id')}r.place <= 2")
+QUIET_STATUSES = (
+    "by_status AS (SELECT status, SUM(duration_mins) AS mins FROM ops.job_runs GROUP BY "
+    "status), ranked AS (SELECT status, mins, RANK() OVER (ORDER BY mins ASC) AS place FROM "
+    "by_status)")
+EVERY_SUMMARY = (
+    Value("duration_mins"), Value("avg_retry_secs", "count"),
+    Value("avg_retry_secs", "average"), Value("duration_mins", "max"),
+    Value("duration_mins", "min"), Value("duration_mins", "stdDev"),
+    Value("duration_mins", "var"))
+DAILY_SUMMARY = (
+    "SUM(duration_mins) AS total_mins, COUNT(avg_retry_secs) AS retries, AVG(avg_retry_secs) "
+    "AS avg_retry, MAX(duration_mins) AS longest, MIN(duration_mins) AS shortest, "
+    "STDDEV_SAMP(duration_mins) AS spread, VAR_SAMP(duration_mins) AS variance FROM "
+    "ops.job_runs")
+STATUS_SUMMARY = (
+    "SUM(duration_mins) AS total_mins, COUNT(duration_mins) AS runs, AVG(avg_retry_secs) AS "
+    "avg_retry, MAX(avg_retry_secs) AS most_retry, MIN(duration_mins) AS shortest, "
+    "STDDEV_SAMP(duration_mins) AS spread, VAR_SAMP(avg_retry_secs) AS retry_variance FROM "
+    "ops.job_runs")
+RUNS_HOURS_M = f"""let
+    Source = {table("job_runs")},
+    Hours = Table.AddColumn(Source, "hours", each [duration_mins] / 60, type number),
+    Kept = Table.SelectColumns(Hours, {{"run_id", "job_id", "status", "dt", "hours"}})
+in
+    Kept"""
+RUNS_HOURS = ("runs_hours AS (SELECT run_id, job_id, status, dt, duration_mins / 60 AS hours "
+              "FROM ops.job_runs)")
+SLICED_HOURS = f"WHERE {pivot_filter('slicer', 'status')}status IN ('FAILED', 'SUCCESS')"
+SIZED_RUNS = (
+    "sized AS (SELECT r.run_id, r.duration_mins, j.team, IF(r.duration_mins >= 20, 'long', "
+    "'short') AS size FROM ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id), "
+    "top_team AS (SELECT team FROM (SELECT team, RANK() OVER (ORDER BY SUM(duration_mins) "
+    "DESC) AS place FROM sized GROUP BY team) ranked WHERE place <= 1)")
+TOP_TEAM = (f"FROM sized WHERE {pivot_filter('value filter', 'team')}team IN (SELECT team FROM "
+            "top_team)")
+ALERT_STATUS = (
+    "alerts AS (SELECT a.alert_id, a.severity, r.status AS run_status FROM ops.run_alerts a "
+    f"LEFT JOIN ops.job_runs r ON a.run_id = r.run_id WHERE {pivot_filter('Timeline', 'dt')}"
+    "a.dt BETWEEN '2026-09-24' AND '2026-09-24')")
+RUNS_REGIONS_M = f"""let
+    Source = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Joined = Table.NestedJoin(Source, {{"job_id"}}, Jobs, {{"job_id"}}, "job", \
+JoinKind.LeftOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "job", {{"region"}}),
+    Kept = Table.SelectColumns(Expanded, {{"run_id", "status", "duration_mins", "dt", \
+"region"}})
+in
+    Kept"""
+OK_REGIONS = (
+    "runs_regions AS (SELECT r.run_id, r.status, r.duration_mins, r.dt, j.region, "
+    "r.duration_mins / 60 AS hours FROM ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = "
+    f"j.job_id), ok AS (SELECT dt, region, hours FROM runs_regions WHERE "
+    f"{pivot_filter('Report filter', 'status')}status = 'SUCCESS'), europe AS (SELECT dt, "
+    "SUM(CASE WHEN region IN ('LON', 'PAR') THEN hours END) AS europe FROM ok GROUP BY dt)")
+
+
+PIVOT_DEV = (
+    ExcelTask(
+        "X85", "dev", ("pivot_rows", "pivot_sum", "pivot_grand_totals", "pivot_source_table",
+                       "pivot_renamed"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (MINS,), name="runs_by_job", sheet="By job"),)),
+        {"runs_by_job": "SELECT job_id, SUM(duration_mins) AS mins FROM ops.job_runs GROUP BY "
+                        "job_id",
+         "runs_by_job (grand total)": "SELECT SUM(duration_mins) AS mins FROM ops.job_runs"}),
+    ExcelTask(
+        "X86", "dev", ("pivot_columns", "pivot_rows", "pivot_default_name",
+                       "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (MINS,), columns=("status",),
+                  sheet="Runs by status"),)),
+        {"PivotTable1": "SELECT job_id, status, SUM(duration_mins) AS mins FROM ops.job_runs "
+                        "GROUP BY job_id, status",
+         "PivotTable1 (by job_id)": "SELECT job_id, SUM(duration_mins) AS mins FROM "
+                                    "ops.job_runs GROUP BY job_id",
+         "PivotTable1 (by status)": "SELECT status, SUM(duration_mins) AS mins FROM "
+                                    "ops.job_runs GROUP BY status",
+         "PivotTable1 (grand total)": "SELECT SUM(duration_mins) AS mins FROM ops.job_runs"},
+        marks=(AS_ROWS, ("default name", "runs_by_status_pivot"))),
+    ExcelTask(
+        "X87", "dev", ("pivot_sum", "pivot_count", "pivot_average", "pivot_max", "pivot_min",
+                       "pivot_stddev", "pivot_var", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt",), EVERY_SUMMARY, name="daily_summary", sheet="Daily"),)),
+        {"daily_summary": f"SELECT dt, {DAILY_SUMMARY} GROUP BY dt",
+         "daily_summary (grand total)": f"SELECT {DAILY_SUMMARY}"}),
+    ExcelTask(
+        "X88", "dev", ("pivot_percent_of_total", "pivot_rank", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="percentOfTotal",
+                                                  name="share"),),
+                  name="share_by_job", sheet="Share"),
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="rank",
+                                                  base_field="job_id", name="mins_rank"),),
+                  name="rank_by_job", sheet="Rank", grand_total_row=False))),
+        {"share_by_job": "SELECT job_id, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER () "
+                         "AS share FROM ops.job_runs GROUP BY job_id",
+         "share_by_job (grand total)": "SELECT SUM(duration_mins) / SUM(duration_mins) AS "
+                                       "share FROM ops.job_runs",
+         "rank_by_job": "SELECT job_id, RANK() OVER (ORDER BY SUM(duration_mins) DESC) AS "
+                        "mins_rank FROM ops.job_runs GROUP BY job_id"}),
+    ExcelTask(
+        "X89", "dev", ("pivot_percent_of_row", "pivot_percent_of_column", "pivot_columns",
+                       "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="percentOfRow",
+                                                  name="share_of_job"),),
+                  columns=("dt",), name="job_day_share", sheet="Of job",
+                  grand_total_row=False, grand_total_column=False),
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="percentOfCol",
+                                                  name="share_of_day"),),
+                  columns=("dt",), name="day_job_share", sheet="Of day",
+                  grand_total_row=False, grand_total_column=False))),
+        {"job_day_share": "SELECT job_id, dt, SUM(duration_mins) / SUM(SUM(duration_mins)) "
+                          "OVER (PARTITION BY job_id) AS share_of_job FROM ops.job_runs GROUP "
+                          "BY job_id, dt",
+         "day_job_share": "SELECT job_id, dt, SUM(duration_mins) / SUM(SUM(duration_mins)) "
+                          "OVER (PARTITION BY dt) AS share_of_day FROM ops.job_runs GROUP BY "
+                          "job_id, dt"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X90", "dev", ("pivot_running_total", "pivot_difference", "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="runTotal",
+                                                  base_field="job_id", name="running_mins"),),
+                  name="running_by_job", sheet="Running", grand_total_row=False),
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="difference",
+                                                  base_field="job_id", base_item=1,
+                                                  name="versus_job_1"),),
+                  name="versus_first_job", sheet="Versus", grand_total_row=False))),
+        {"running_by_job": "SELECT job_id, SUM(SUM(duration_mins)) OVER (ORDER BY job_id ROWS "
+                           "BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_mins FROM "
+                           "ops.job_runs GROUP BY job_id",
+         "versus_first_job": "WITH by_job AS (SELECT job_id, SUM(duration_mins) AS mins FROM "
+                             "ops.job_runs GROUP BY job_id) SELECT job_id, IF(job_id = 1, "
+                             "NULL, mins - MAX(IF(job_id = 1, mins, NULL)) OVER ()) AS "
+                             "versus_job_1 FROM by_job"}),
+    ExcelTask(
+        "X91", "dev", ("pivot_calculated_field", "pivot_value_filter", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("hours"),), name="top_jobs", sheet="Top jobs",
+                  calculated_fields={"hours": "duration_mins/60"}, top=Top("job_id", 2)),)),
+        {"top_jobs": f"WITH {TOP_JOBS} SELECT job_id, hours FROM ranked WHERE "
+                     f"{pivot_filter('value filter', 'job_id')}place <= 2",
+         "top_jobs (grand total)": f"WITH {TOP_JOBS} SELECT SUM(hours) AS hours FROM ranked "
+                                   "WHERE "
+                                   f"{pivot_filter('value filter', 'job_id')}place <= 2"}),
+    ExcelTask(
+        "X92", "dev", ("pivot_calculated_item", "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("status",), (MINS,), name="runs_by_status", sheet="By status",
+                  calculated_items=(("status", "done", "SUCCESS+FAILED"),),
+                  grand_total_row=False),)),
+        {"runs_by_status": "SELECT status, SUM(duration_mins) AS mins, SUM(SUM(CASE WHEN "
+                           "status IN ('SUCCESS', 'FAILED') THEN duration_mins END)) OVER () "
+                           "AS done FROM ops.job_runs GROUP BY status"}),
+    ExcelTask(
+        "X93", "dev", ("pivot_date_groups", "pivot_subtotals", "pivot_grand_totals"),
+        FormulaWorkbook((DATED_RUNS,), pivots=(
+            Pivot("job_runs", ("dt", "job_id"), (MINS,), name="monthly_runs", sheet="Monthly",
+                  dates={"dt": ("months",)}),)),
+        {"monthly_runs": "SELECT DATE_FORMAT(dt, 'MMM') AS dt, job_id, SUM(duration_mins) AS "
+                         "mins FROM ops.job_runs GROUP BY DATE_FORMAT(dt, 'MMM'), job_id",
+         "monthly_runs (by dt)": "SELECT DATE_FORMAT(dt, 'MMM') AS dt, SUM(duration_mins) AS "
+                                 "mins FROM ops.job_runs GROUP BY DATE_FORMAT(dt, 'MMM')",
+         "monthly_runs (grand total)": "SELECT SUM(duration_mins) AS mins FROM ops.job_runs"}),
+    ExcelTask(
+        "X94", "dev", ("pivot_number_bins", "pivot_count", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("duration_mins",), (Value("run_id", "count", name="runs"),),
+                  name="runs_by_length", sheet="Lengths",
+                  bins={"duration_mins": (0, 49, 10)}),)),
+        {"runs_by_length": f"SELECT {BINS_OF_TEN} AS duration_mins, COUNT(run_id) AS runs FROM "
+                           f"ops.job_runs GROUP BY {BINS_OF_TEN}",
+         "runs_by_length (grand total)": "SELECT COUNT(run_id) AS runs FROM ops.job_runs"}),
+    ExcelTask(
+        "X95", "dev", ("pivot_report_filter", "pivot_hidden_items", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (MINS,), name="kept_runs", sheet="Kept",
+                  report_filters={"status": ("SUCCESS", "FAILED"), "dt": ()},
+                  hidden={"job_id": (3,)}),)),
+        {"kept_runs": "SELECT job_id, SUM(duration_mins) AS mins FROM ops.job_runs "
+                      f"{KEPT_RUNS} GROUP BY job_id",
+         "kept_runs (grand total)": f"SELECT SUM(duration_mins) AS mins FROM ops.job_runs "
+                                    f"{KEPT_RUNS}"}),
+    ExcelTask(
+        "X96", "dev", ("pivot_slicer_two_pivots", "pivot_rows", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (MINS,), name="runs_by_job"),
+            Pivot("job_runs", ("dt",), (MINS,), name="runs_by_day", at="E3",
+                  grand_total_row=False)),
+            slicers=(Slicer("status", ("runs_by_job", "runs_by_day"), ("SUCCESS", "FAILED")),)),
+        {"runs_by_job": f"SELECT job_id, SUM(duration_mins) AS mins FROM ops.job_runs "
+                        f"{SLICED_RUNS} GROUP BY job_id",
+         "runs_by_job (grand total)": f"SELECT SUM(duration_mins) AS mins FROM ops.job_runs "
+                                      f"{SLICED_RUNS}",
+         "runs_by_day": "SELECT dt, SUM(duration_mins) AS mins FROM ops.job_runs "
+                        f"{SLICED_RUNS} GROUP BY dt"}),
+    ExcelTask(
+        "X97", "dev", ("pivot_timeline", "pivot_source_range", "pivot_grand_totals"),
+        FormulaWorkbook((ExcelTable("Runs", RUNS, rows("job_runs", RUNS), dates=("dt",),
+                                    in_a_table=False),), pivots=(
+            Pivot("Runs", ("job_id",), (MINS,), name="late_runs", sheet="Late"),),
+            slicers=(Timeline("dt", ("late_runs",), "2026-09-24", "2026-09-24"),)),
+        {"late_runs": "SELECT job_id, SUM(duration_mins) AS mins FROM ops.job_runs "
+                      f"{LATE_RUNS} GROUP BY job_id",
+         "late_runs (grand total)": f"SELECT SUM(duration_mins) AS mins FROM ops.job_runs "
+                                    f"{LATE_RUNS}"},
+        names={"Runs": "job_runs"}),
+    ExcelTask(
+        "X98", "dev", ("pivot_source_query", "pivot_sum", "pivot_grand_totals"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("ok_runs", ("run_id", "job_id", "duration_mins"),
+                        "SELECT run_id, job_id, duration_mins FROM ops.job_runs WHERE status = "
+                        "'SUCCESS' ORDER BY run_id", loaded_by="ok_runs")),
+            queries=(("ok_runs", OK_RUNS_M),), queries_on_sheet=True,
+            pivots=(Pivot("ok_runs", ("job_id",), (MINS,), name="ok_by_job", sheet="Ok"),)),
+        {"ok_by_job": f"WITH {OK_RUNS} SELECT job_id, SUM(duration_mins) AS mins FROM ok GROUP "
+                      "BY job_id",
+         "ok_by_job (grand total)": f"WITH {OK_RUNS} SELECT SUM(duration_mins) AS mins FROM "
+                                    "ok"}),
+    ExcelTask(
+        "X99", "dev", ("getpivotdata", "pivot_source_table", "pivot_renamed"),
+        FormulaWorkbook(
+            (runs_table(),
+             jobs_table(("job_id", "job_name"), formulas={
+                 "mins": '=GETPIVOTDATA("Sum of duration_mins",Pivot!$A$3,"job_id",'
+                         "[@job_id])"})),
+            pivots=(Pivot("job_runs", ("job_id",), (MINS,), name="runs_by_job"),)),
+        {"jobs": "WITH runs_by_job AS (SELECT job_id, SUM(duration_mins) AS mins FROM "
+                 "ops.job_runs GROUP BY job_id) SELECT j.job_id, j.job_name, p.mins FROM "
+                 "ops.jobs j LEFT JOIN runs_by_job p ON j.job_id = p.job_id"}),
+    ExcelTask(
+        "X100", "dev", ("pivot_distinct_count", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt",), (Value("job_id", "distinctCount"),), name="jobs_by_day",
+                  sheet="Jobs", data_model=True),)),
+        {"jobs_by_day": "SELECT dt, COUNT(DISTINCT job_id) AS jobs FROM ops.job_runs GROUP BY "
+                        "dt",
+         "jobs_by_day (grand total)": "SELECT COUNT(DISTINCT job_id) AS jobs FROM "
+                                      "ops.job_runs"}),
+    ExcelTask(
+        "X101", "dev", ("pivot_totals_off", "pivot_rows", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt", "job_id"), (MINS,), name="day_job_runs", sheet="Day job",
+                  subtotals_off=("dt",)),)),
+        {"day_job_runs": "SELECT dt, job_id, SUM(duration_mins) AS mins FROM ops.job_runs "
+                         "GROUP BY dt, job_id",
+         "day_job_runs (grand total)": "SELECT SUM(duration_mins) AS mins FROM ops.job_runs"}),
+    ExcelTask(
+        "X102", "dev", ("pivot_combination", "pivot_source_query", "getpivotdata", "iferror",
+                        "m_join", "summary_table"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(),
+             ExcelTable("runs_named", ("run_id", "job_id", "team", "status", "duration_mins"),
+                        "SELECT r.run_id, r.job_id, j.team, r.status, r.duration_mins FROM "
+                        "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id ORDER BY "
+                        "r.run_id", loaded_by="runs_named"),
+             ExcelTable("team_report", ("team", "failed_mins", "failed_hours"),
+                        "SELECT DISTINCT j.team FROM ops.job_runs r JOIN ops.jobs j ON "
+                        "r.job_id = j.job_id ORDER BY j.team", {
+                            "failed_mins": '=IFERROR(GETPIVOTDATA("Sum of duration_mins",'
+                                           'Pivot!$A$3,"team",[@team]),0)',
+                            "failed_hours": "=[@failed_mins]/60"})),
+            queries=(("runs_named", f"""let
+    Source = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Joined = Table.NestedJoin(Source, {{"job_id"}}, Jobs, {{"job_id"}}, "job", \
+JoinKind.LeftOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "job", {{"team"}}),
+    Kept = Table.SelectColumns(Expanded, {{"run_id", "job_id", "team", "status", \
+"duration_mins"}})
+in
+    Kept"""),), queries_on_sheet=True,
+            pivots=(Pivot("runs_named", ("team",), (MINS,), name="team_mins"),),
+            slicers=(Slicer("status", ("team_mins",), ("FAILED",)),)),
+        {"team_report": f"WITH {RUNS_NAMED}, team_mins AS (SELECT team, SUM(duration_mins) AS "
+                        f"mins FROM runs_named WHERE {pivot_filter('slicer', 'status')}status "
+                        "= 'FAILED' GROUP BY team), teams AS (SELECT team FROM runs_named "
+                        "GROUP BY team) SELECT t.team, COALESCE(p.mins, 0) AS failed_mins, "
+                        "COALESCE(p.mins, 0) / 60 AS failed_hours FROM teams t LEFT JOIN "
+                        "team_mins p ON t.team = p.team"}),
+    ExcelTask(
+        "X103", "dev", ("pivot_combination", "xlookup", "arithmetic", "pivot_report_filter",
+                        "pivot_count", "pivot_sum"),
+        FormulaWorkbook(
+            (runs_table(("run_id", "job_id", "status", "duration_mins"), formulas={
+                "team": "=XLOOKUP([@job_id],jobs[job_id],jobs[team])",
+                "hours": "=[@duration_mins]/60"}),
+             jobs_table()),
+            pivots=(Pivot("job_runs", ("team",), (Value("hours", name="total_hours"),
+                                                  Value("run_id", "count", name="runs")),
+                          name="team_hours", sheet="Teams",
+                          report_filters={"status": ("SUCCESS",)},
+                          source_rows="SELECT r.run_id, r.job_id, r.status, r.duration_mins, "
+                                      "j.team, r.duration_mins / 60 AS hours FROM ops.job_runs "
+                                      "r LEFT JOIN ops.jobs j ON r.job_id = j.job_id ORDER BY "
+                                      "r.run_id"),)),
+        {"team_hours": f"WITH {NAMED_HOURS} SELECT team, SUM(hours) AS total_hours, "
+                       f"COUNT(run_id) AS runs FROM named_runs WHERE "
+                       f"{pivot_filter('Report filter', 'status')}status = 'SUCCESS' GROUP BY "
+                       "team",
+         "team_hours (grand total)": f"WITH {NAMED_HOURS} SELECT SUM(hours) AS total_hours, "
+                                     "COUNT(run_id) AS runs FROM named_runs WHERE "
+                                     f"{pivot_filter('Report filter', 'status')}status = "
+                                     "'SUCCESS'"}),
+    ExcelTask(
+        "X104", "dev", ("pivot_combination", "pivot_source_query", "m_group",
+                        "pivot_value_filter", "pivot_columns", "pivot_grand_totals"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("by_job_day", ("job_id", "dt", "mins"),
+                        "SELECT job_id, dt, SUM(duration_mins) AS mins FROM ops.job_runs "
+                        "GROUP BY job_id, dt ORDER BY job_id, dt", loaded_by="by_job_day")),
+            queries=(("by_job_day", f"""let
+    Source = {table("job_runs")},
+    Grouped = Table.Group(Source, {{"job_id", "dt"}}, {{{{"mins", \
+each List.Sum([duration_mins]), type number}}}})
+in
+    Grouped"""),), queries_on_sheet=True,
+            pivots=(Pivot("by_job_day", ("job_id",), (Value("mins"),), columns=("dt",),
+                          name="top_job_days", sheet="Top", top=Top("job_id", 2)),)),
+        {"top_job_days": f"WITH {BY_JOB_DAY} SELECT b.job_id, b.dt, SUM(b.mins) AS mins "
+                         f"{TOP_JOB_DAYS} GROUP BY b.job_id, b.dt",
+         "top_job_days (by job_id)": f"WITH {BY_JOB_DAY} SELECT b.job_id, SUM(b.mins) AS mins "
+                                     f"{TOP_JOB_DAYS} GROUP BY b.job_id",
+         "top_job_days (by dt)": f"WITH {BY_JOB_DAY} SELECT b.dt, SUM(b.mins) AS mins "
+                                 f"{TOP_JOB_DAYS} GROUP BY b.dt",
+         "top_job_days (grand total)": f"WITH {BY_JOB_DAY} SELECT SUM(b.mins) AS mins "
+                                       f"{TOP_JOB_DAYS}"},
+        marks=(AS_ROWS,)),
+)
+
+# Written before Copilot file 20, as 7.2's held-out tasks were written before file 11.
+PIVOT_HELD_OUT = (
+    ExcelTask(
+        "X105", "held_out", ("pivot_rows", "pivot_sum", "pivot_source_range", "pivot_renamed",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((ExcelTable("RunLog", RUNS, rows("job_runs", RUNS), in_a_table=False),),
+                        pivots=(Pivot("RunLog", ("status",), (MINS,), name="mins_by_status",
+                                      sheet="Status"),)),
+        {"mins_by_status": "SELECT status, SUM(duration_mins) AS mins FROM ops.job_runs GROUP "
+                           "BY status",
+         "mins_by_status (grand total)": "SELECT SUM(duration_mins) AS mins FROM "
+                                         "ops.job_runs"},
+        names={"RunLog": "job_runs"}),
+    ExcelTask(
+        "X106", "held_out", ("pivot_columns", "pivot_default_name", "pivot_average",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt",), (Value("duration_mins", "average"),),
+                  columns=("job_id",), sheet="Daily"),)),
+        {"PivotTable1": "SELECT dt, job_id, AVG(duration_mins) AS avg_mins FROM ops.job_runs "
+                        "GROUP BY dt, job_id",
+         "PivotTable1 (by dt)": "SELECT dt, AVG(duration_mins) AS avg_mins FROM ops.job_runs "
+                                "GROUP BY dt",
+         "PivotTable1 (by job_id)": "SELECT job_id, AVG(duration_mins) AS avg_mins FROM "
+                                    "ops.job_runs GROUP BY job_id",
+         "PivotTable1 (grand total)": "SELECT AVG(duration_mins) AS avg_mins FROM "
+                                      "ops.job_runs"},
+        marks=(AS_ROWS, ("default name", "daily_pivot"))),
+    ExcelTask(
+        "X107", "held_out", ("pivot_sum", "pivot_count", "pivot_average", "pivot_max",
+                             "pivot_min", "pivot_stddev", "pivot_var", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("status",), (
+                Value("duration_mins"), Value("duration_mins", "count"),
+                Value("avg_retry_secs", "average"), Value("avg_retry_secs", "max"),
+                Value("duration_mins", "min"), Value("duration_mins", "stdDev"),
+                Value("avg_retry_secs", "var")), name="status_summary", sheet="Summary"),)),
+        {"status_summary": f"SELECT status, {STATUS_SUMMARY} GROUP BY status",
+         "status_summary (grand total)": f"SELECT {STATUS_SUMMARY}"}),
+    ExcelTask(
+        "X108", "held_out", ("pivot_percent_of_total", "pivot_columns", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="percentOfTotal",
+                                                  name="share"),),
+                  columns=("dt",), name="share_grid", sheet="Share"),)),
+        {"share_grid": "SELECT job_id, dt, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER "
+                       "() AS share FROM ops.job_runs GROUP BY job_id, dt",
+         "share_grid (by job_id)": "SELECT job_id, SUM(duration_mins) / "
+                                   "SUM(SUM(duration_mins)) OVER () AS share FROM ops.job_runs "
+                                   "GROUP BY job_id",
+         "share_grid (by dt)": "SELECT dt, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER "
+                               "() AS share FROM ops.job_runs GROUP BY dt",
+         "share_grid (grand total)": "SELECT SUM(duration_mins) / SUM(duration_mins) AS share "
+                                     "FROM ops.job_runs"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X109", "held_out", ("pivot_percent_of_row", "pivot_rank", "pivot_columns",
+                             "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt",), (Value("duration_mins", shown_as="percentOfRow",
+                                              name="share_of_day"),),
+                  columns=("status",), name="day_status_share", sheet="Of day",
+                  grand_total_row=False, grand_total_column=False),
+            Pivot("job_runs", ("status",), (Value("duration_mins", shown_as="rank",
+                                                  base_field="status", name="mins_rank"),),
+                  name="status_ranks", sheet="Rank", grand_total_row=False))),
+        {"day_status_share": "SELECT dt, status, SUM(duration_mins) / SUM(SUM(duration_mins)) "
+                             "OVER (PARTITION BY dt) AS share_of_day FROM ops.job_runs GROUP "
+                             "BY dt, status",
+         "status_ranks": "SELECT status, RANK() OVER (ORDER BY SUM(duration_mins) DESC) AS "
+                         "mins_rank FROM ops.job_runs GROUP BY status"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X110", "held_out", ("pivot_percent_of_column", "pivot_running_total", "pivot_columns",
+                             "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("status",), (Value("duration_mins", shown_as="percentOfCol",
+                                                  name="share_of_job"),),
+                  columns=("job_id",), name="status_job_share", sheet="Of job",
+                  grand_total_row=False, grand_total_column=False),
+            Pivot("job_runs", ("job_id",), (Value("duration_mins", shown_as="runTotal",
+                                                  base_field="dt", name="mins_so_far"),),
+                  columns=("dt",), name="job_days_so_far", sheet="So far",
+                  grand_total_row=False, grand_total_column=False))),
+        {"status_job_share": "SELECT status, job_id, SUM(duration_mins) / "
+                             "SUM(SUM(duration_mins)) OVER (PARTITION BY job_id) AS "
+                             "share_of_job FROM ops.job_runs GROUP BY status, job_id",
+         "job_days_so_far": "SELECT job_id, dt, SUM(SUM(duration_mins)) OVER (PARTITION BY "
+                            "job_id ORDER BY dt ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT "
+                            "ROW) AS mins_so_far FROM ops.job_runs GROUP BY job_id, dt"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X111", "held_out", ("pivot_difference", "pivot_value_filter", "pivot_totals_off",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("dt",), (Value("duration_mins", shown_as="difference",
+                                              base_field="dt", base_item="2026-09-23",
+                                              name="versus_first_day"),),
+                  name="day_change", sheet="Change", grand_total_row=False),
+            Pivot("job_runs", ("status",), (MINS,), name="quiet_statuses", sheet="Quiet",
+                  top=Top("status", 2, bottom=True)))),
+        {"day_change": "WITH by_day AS (SELECT dt, SUM(duration_mins) AS mins FROM "
+                       "ops.job_runs GROUP BY dt) SELECT dt, IF(dt = '2026-09-23', NULL, mins "
+                       "- MAX(IF(dt = '2026-09-23', mins, NULL)) OVER ()) AS versus_first_day "
+                       "FROM by_day",
+         "quiet_statuses": f"WITH {QUIET_STATUSES} SELECT status, mins FROM ranked WHERE "
+                           f"{pivot_filter('value filter', 'status')}place <= 2",
+         "quiet_statuses (grand total)": f"WITH {QUIET_STATUSES} SELECT SUM(mins) AS mins "
+                                         "FROM ranked WHERE "
+                                         f"{pivot_filter('value filter', 'status')}"
+                                         "place <= 2"}),
+    ExcelTask(
+        "X112", "held_out", ("pivot_calculated_field", "pivot_report_filter",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("retry_share"),), name="retry_rate",
+                  sheet="Retries",
+                  calculated_fields={"retry_share": "avg_retry_secs/duration_mins"},
+                  report_filters={"dt": ("2026-09-24",)}),)),
+        {"retry_rate": "SELECT job_id, SUM(avg_retry_secs) / SUM(duration_mins) AS retry_share "
+                       f"FROM ops.job_runs WHERE {pivot_filter('Report filter', 'dt')}dt = "
+                       "'2026-09-24' GROUP BY job_id",
+         "retry_rate (grand total)": "SELECT SUM(avg_retry_secs) / SUM(duration_mins) AS "
+                                     "retry_share FROM ops.job_runs WHERE "
+                                     f"{pivot_filter('Report filter', 'dt')}dt = "
+                                     "'2026-09-24'"}),
+    ExcelTask(
+        "X113", "held_out", ("pivot_calculated_item", "pivot_columns", "pivot_totals_off"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (MINS,), columns=("status",),
+                  name="job_status_mins", sheet="Failures",
+                  calculated_items=(("status", "failed_share", "FAILED/(SUCCESS+FAILED)"),),
+                  grand_total_row=False, grand_total_column=False),)),
+        {"job_status_mins": "WITH shares AS (SELECT job_id, COALESCE(SUM(CASE WHEN status = "
+                            "'FAILED' THEN duration_mins END), 0) / (COALESCE(SUM(CASE WHEN "
+                            "status = 'SUCCESS' THEN duration_mins END), 0) + "
+                            "COALESCE(SUM(CASE WHEN status = 'FAILED' THEN duration_mins END), "
+                            "0)) AS failed_share FROM ops.job_runs GROUP BY job_id) SELECT "
+                            "r.job_id, r.status, SUM(r.duration_mins) AS mins, s.failed_share "
+                            "FROM ops.job_runs r JOIN shares s ON r.job_id = s.job_id GROUP BY "
+                            "r.job_id, r.status, s.failed_share"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X114", "held_out", ("pivot_date_groups", "pivot_subtotals", "pivot_grand_totals"),
+        FormulaWorkbook((DATED_RUNS,), pivots=(
+            Pivot("job_runs", ("Years", "dt"), (MINS,), name="quarterly_runs",
+                  sheet="Quarterly", dates={"dt": ("quarters", "years")}),)),
+        {"quarterly_runs": "SELECT YEAR(dt) AS years, CONCAT('Qtr', QUARTER(dt)) AS dt, "
+                           "SUM(duration_mins) AS mins FROM ops.job_runs GROUP BY YEAR(dt), "
+                           "CONCAT('Qtr', QUARTER(dt))",
+         "quarterly_runs (by Years)": "SELECT YEAR(dt) AS years, SUM(duration_mins) AS mins "
+                                      "FROM ops.job_runs GROUP BY YEAR(dt)",
+         "quarterly_runs (grand total)": "SELECT SUM(duration_mins) AS mins FROM "
+                                         "ops.job_runs"}),
+    ExcelTask(
+        "X115", "held_out", ("pivot_number_bins", "pivot_columns", "pivot_count",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id",), (Value("run_id", "count", name="runs"),),
+                  columns=("duration_mins",), name="job_lengths", sheet="Lengths",
+                  bins={"duration_mins": (0, 39, 20)}),)),
+        {"job_lengths": f"SELECT job_id, {BINS_OF_TWENTY} AS duration_mins, COUNT(run_id) AS "
+                        f"runs FROM ops.job_runs GROUP BY job_id, {BINS_OF_TWENTY}",
+         "job_lengths (by job_id)": "SELECT job_id, COUNT(run_id) AS runs FROM ops.job_runs "
+                                    "GROUP BY job_id",
+         "job_lengths (by duration_mins)": f"SELECT {BINS_OF_TWENTY} AS duration_mins, "
+                                           "COUNT(run_id) AS runs FROM ops.job_runs GROUP BY "
+                                           f"{BINS_OF_TWENTY}",
+         "job_lengths (grand total)": "SELECT COUNT(run_id) AS runs FROM ops.job_runs"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X116", "held_out", ("pivot_hidden_items", "pivot_slicer_two_pivots",
+                             "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("status",), (MINS,), name="status_mins",
+                  hidden={"status": ("TEST",)}),
+            Pivot("job_runs", ("dt",), (MINS,), name="day_mins", at="E3",
+                  grand_total_row=False)),
+            slicers=(Slicer("job_id", ("status_mins", "day_mins"), (1, 2)),)),
+        {"status_mins": "SELECT status, SUM(duration_mins) AS mins FROM ops.job_runs WHERE "
+                        f"{pivot_filter('hidden items', 'status')}(status IS NULL OR status <> "
+                        f"'TEST') AND {pivot_filter('slicer', 'job_id')}job_id IN (1, 2) GROUP "
+                        "BY status",
+         "status_mins (grand total)": "SELECT SUM(duration_mins) AS mins FROM ops.job_runs "
+                                      f"WHERE {pivot_filter('hidden items', 'status')}(status "
+                                      "IS NULL OR status <> 'TEST') AND "
+                                      f"{pivot_filter('slicer', 'job_id')}job_id IN (1, 2)",
+         "day_mins": "SELECT dt, SUM(duration_mins) AS mins FROM ops.job_runs WHERE "
+                     f"{pivot_filter('slicer', 'job_id')}job_id IN (1, 2) GROUP BY dt"}),
+    ExcelTask(
+        "X117", "held_out", ("pivot_timeline", "pivot_source_query", "pivot_grand_totals"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("long_runs", ("run_id", "job_id", "status", "duration_mins", "dt"),
+                        "SELECT run_id, job_id, status, duration_mins, dt FROM ops.job_runs "
+                        "WHERE duration_mins >= 15 ORDER BY run_id", loaded_by="long_runs",
+                        dates=("dt",))),
+            queries=(("long_runs", f"""let
+    Source = {table("job_runs")},
+    Long = Table.SelectRows(Source, each [duration_mins] >= 15),
+    Kept = Table.SelectColumns(Long, {{"run_id", "job_id", "status", "duration_mins", "dt"}})
+in
+    Kept"""),), queries_on_sheet=True,
+            pivots=(Pivot("long_runs", ("job_id",), (MINS,), name="first_day_long",
+                          sheet="Long", report_filters={"status": ()}),),
+            slicers=(Timeline("dt", ("first_day_long",), "2026-09-23", "2026-09-23"),)),
+        {"first_day_long": "WITH long AS (SELECT job_id, duration_mins, dt FROM ops.job_runs "
+                           "WHERE duration_mins >= 15) SELECT job_id, SUM(duration_mins) AS "
+                           f"mins FROM long WHERE {pivot_filter('Timeline', 'dt')}dt BETWEEN "
+                           "'2026-09-23' AND '2026-09-23' GROUP BY job_id",
+         "first_day_long (grand total)": "WITH long AS (SELECT job_id, duration_mins, dt FROM "
+                                         "ops.job_runs WHERE duration_mins >= 15) SELECT "
+                                         "SUM(duration_mins) AS mins FROM long WHERE "
+                                         f"{pivot_filter('Timeline', 'dt')}dt BETWEEN "
+                                         "'2026-09-23' AND '2026-09-23'"}),
+    ExcelTask(
+        "X118", "held_out", ("getpivotdata", "pivot_columns", "pivot_source_table"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("scheduler_runs", (*SCHEDULED, "mins"), rows("scheduler_runs",
+                                                                     SCHEDULED), {
+                 "mins": '=GETPIVOTDATA("Sum of duration_mins",Grid!$A$3,"job_id",[@job_id],'
+                         '"dt",[@dt])'})),
+            pivots=(Pivot("job_runs", ("job_id",), (MINS,), columns=("dt",),
+                          name="job_day_grid", sheet="Grid"),)),
+        {"scheduler_runs": "WITH job_day_grid AS (SELECT job_id, dt, SUM(duration_mins) AS "
+                           "mins FROM ops.job_runs GROUP BY job_id, dt) SELECT s.run_id, "
+                           "s.job_id, s.dt, g.mins FROM ops.scheduler_runs s LEFT JOIN "
+                           "job_day_grid g ON s.job_id = g.job_id AND s.dt = g.dt"}),
+    ExcelTask(
+        "X119", "held_out", ("pivot_distinct_count", "pivot_renamed", "pivot_grand_totals"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("status",), (Value("job_id", "distinctCount", name="jobs"),),
+                  name="jobs_per_status", sheet="Jobs", data_model=True),)),
+        {"jobs_per_status": "SELECT status, COUNT(DISTINCT job_id) AS jobs FROM ops.job_runs "
+                            "GROUP BY status",
+         "jobs_per_status (grand total)": "SELECT COUNT(DISTINCT job_id) AS jobs FROM "
+                                          "ops.job_runs"}),
+    ExcelTask(
+        "X120", "held_out", ("pivot_subtotals", "pivot_totals_off", "pivot_rows"),
+        FormulaWorkbook((runs_table(),), pivots=(
+            Pivot("job_runs", ("job_id", "status"), (MINS,), name="job_status_runs",
+                  sheet="Job status", grand_total_row=False),)),
+        {"job_status_runs": "SELECT job_id, status, SUM(duration_mins) AS mins FROM "
+                            "ops.job_runs GROUP BY job_id, status",
+         "job_status_runs (by job_id)": "SELECT job_id, SUM(duration_mins) AS mins FROM "
+                                        "ops.job_runs GROUP BY job_id"}),
+    ExcelTask(
+        "X121", "held_out", ("pivot_combination", "pivot_source_query",
+                             "pivot_slicer_two_pivots", "getpivotdata", "m_select_add"),
+        FormulaWorkbook(
+            (runs_table(),
+             jobs_table(("job_id", "job_name"), formulas={
+                 "hours": '=GETPIVOTDATA("Sum of hours",Hours!$A$3,"job_id",[@job_id])'}),
+             ExcelTable("runs_hours", ("run_id", "job_id", "status", "dt", "hours"),
+                        "SELECT run_id, job_id, status, dt, duration_mins / 60 AS hours "
+                        "FROM ops.job_runs ORDER BY run_id", loaded_by="runs_hours")),
+            queries=(("runs_hours", RUNS_HOURS_M),), queries_on_sheet=True,
+            pivots=(Pivot("runs_hours", ("job_id",), (Value("hours"),), name="hours_by_job",
+                          sheet="Hours"),
+                    Pivot("runs_hours", ("dt",), (Value("hours"),), name="hours_by_day",
+                          sheet="Hours", at="E3")),
+            slicers=(Slicer("status", ("hours_by_job", "hours_by_day"),
+                            ("FAILED", "SUCCESS")),)),
+        {"jobs": f"WITH {RUNS_HOURS}, hours_by_job AS (SELECT job_id, SUM(hours) AS hours FROM "
+                 f"runs_hours {SLICED_HOURS} GROUP BY job_id) SELECT j.job_id, j.job_name, "
+                 "p.hours FROM ops.jobs j LEFT JOIN hours_by_job p ON j.job_id = p.job_id",
+         "hours_by_day": f"WITH {RUNS_HOURS} SELECT dt, SUM(hours) AS hours FROM runs_hours "
+                         f"{SLICED_HOURS} GROUP BY dt",
+         "hours_by_day (grand total)": f"WITH {RUNS_HOURS} SELECT SUM(hours) AS hours FROM "
+                                       f"runs_hours {SLICED_HOURS}"}),
+    ExcelTask(
+        "X122", "held_out", ("pivot_combination", "vlookup", "if", "pivot_value_filter",
+                             "pivot_columns", "pivot_grand_totals"),
+        FormulaWorkbook(
+            (runs_table(("run_id", "job_id", "duration_mins"), formulas={
+                "team": "=VLOOKUP([@job_id],jobs,3,FALSE)",
+                "size": '=IF([@duration_mins]>=20,"long","short")'}),
+             jobs_table()),
+            pivots=(Pivot("job_runs", ("team",), (MINS,), columns=("size",),
+                          name="top_team_sizes", sheet="Sizes", top=Top("team", 1),
+                          source_rows="SELECT r.run_id, r.job_id, r.duration_mins, j.team, "
+                                      "IF(r.duration_mins >= 20, 'long', 'short') AS size FROM "
+                                      "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = "
+                                      "j.job_id ORDER BY r.run_id"),)),
+        {"top_team_sizes": f"WITH {SIZED_RUNS} SELECT team, size, SUM(duration_mins) AS mins "
+                           f"{TOP_TEAM} GROUP BY team, size",
+         "top_team_sizes (by team)": f"WITH {SIZED_RUNS} SELECT team, SUM(duration_mins) AS "
+                                     f"mins {TOP_TEAM} GROUP BY team",
+         "top_team_sizes (by size)": f"WITH {SIZED_RUNS} SELECT size, SUM(duration_mins) AS "
+                                     f"mins {TOP_TEAM} GROUP BY size",
+         "top_team_sizes (grand total)": f"WITH {SIZED_RUNS} SELECT SUM(duration_mins) AS mins "
+                                         f"{TOP_TEAM}"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X123", "held_out", ("pivot_combination", "xlookup", "pivot_timeline",
+                             "pivot_percent_of_total", "pivot_columns", "pivot_grand_totals"),
+        FormulaWorkbook(
+            (ExcelTable("run_alerts", (*ALERTS, "run_status"), rows("run_alerts", ALERTS), {
+                "run_status": "=XLOOKUP([@run_id],job_runs[run_id],job_runs[status])"},
+                dates=("dt",)),
+             runs_table()),
+            pivots=(Pivot("run_alerts", ("run_status",),
+                          (Value("alert_id", "count", shown_as="percentOfTotal",
+                                 name="share"),),
+                          columns=("severity",), name="late_alert_share", sheet="Alerts",
+                          source_rows="SELECT a.alert_id, a.run_id, a.severity, a.dt, "
+                                      "r.status AS run_status FROM ops.run_alerts a LEFT JOIN "
+                                      "ops.job_runs r ON a.run_id = r.run_id ORDER BY "
+                                      "a.alert_id"),),
+            slicers=(Timeline("dt", ("late_alert_share",), "2026-09-24", "2026-09-24"),)),
+        {"late_alert_share": f"WITH {ALERT_STATUS} SELECT run_status, severity, "
+                             "COUNT(alert_id) / SUM(COUNT(alert_id)) OVER () AS share FROM "
+                             "alerts GROUP BY run_status, severity",
+         "late_alert_share (by run_status)": f"WITH {ALERT_STATUS} SELECT run_status, "
+                                             "COUNT(alert_id) / SUM(COUNT(alert_id)) OVER () "
+                                             "AS share FROM alerts GROUP BY run_status",
+         "late_alert_share (by severity)": f"WITH {ALERT_STATUS} SELECT severity, "
+                                           "COUNT(alert_id) / SUM(COUNT(alert_id)) OVER () AS "
+                                           "share FROM alerts GROUP BY severity",
+         "late_alert_share (grand total)": f"WITH {ALERT_STATUS} SELECT COUNT(alert_id) / "
+                                           "COUNT(alert_id) AS share FROM alerts"},
+        marks=(AS_ROWS,)),
+    ExcelTask(
+        "X124", "held_out", ("pivot_combination", "pivot_source_query", "m_join", "arithmetic",
+                             "pivot_report_filter", "pivot_calculated_item", "pivot_columns",
+                             "pivot_totals_off"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(),
+             ExcelTable("runs_regions", ("run_id", "status", "duration_mins", "dt", "region",
+                                         "hours"),
+                        "SELECT r.run_id, r.status, r.duration_mins, r.dt, j.region FROM "
+                        "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id ORDER BY "
+                        "r.run_id", {"hours": "=[@duration_mins]/60"},
+                        loaded_by="runs_regions")),
+            queries=(("runs_regions", RUNS_REGIONS_M),), queries_on_sheet=True,
+            pivots=(Pivot("runs_regions", ("dt",), (Value("hours"),), columns=("region",),
+                          name="ok_hours_by_region", sheet="Regions",
+                          report_filters={"status": ("SUCCESS",)},
+                          calculated_items=(("region", "europe", "LON+PAR"),),
+                          grand_total_row=False, grand_total_column=False,
+                          source_rows="SELECT r.run_id, r.status, r.duration_mins, r.dt, "
+                                      "j.region, r.duration_mins / 60 AS hours FROM "
+                                      "ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = "
+                                      "j.job_id ORDER BY r.run_id"),)),
+        {"ok_hours_by_region": f"WITH {OK_REGIONS} SELECT o.dt, o.region, SUM(o.hours) AS "
+                               "hours, e.europe FROM ok o JOIN europe e ON o.dt = e.dt GROUP "
+                               "BY o.dt, o.region, e.europe"},
+        marks=(AS_ROWS,)),
+)
+
+TASKS = DEV + HELD_OUT + PIVOT_DEV + PIVOT_HELD_OUT
 BY_ID = {task.id: task for task in TASKS}
