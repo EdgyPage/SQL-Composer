@@ -43,6 +43,8 @@ GROUPS = {
     "tests/test_pivot_tables.py::written": "pivot_workbooks",
     "tests/test_workbook_hive.py::hive": "workbook_hive_stand_in_hive",
     "tests/test_workbook_pivots.py::built": "pivot_workbooks_read",
+    "tests/test_workbook_pivot_hive.py::built": "pivot_workbooks_converted",
+    "tests/test_workbook_pivot_hive.py::stand_in": "pivot_hive_stand_in_hive",
 }
 
 

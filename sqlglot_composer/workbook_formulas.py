@@ -165,6 +165,18 @@ class RowTotals:
 
 
 @dataclass
+class PivotJoin:
+    """A LEFT JOIN of a PivotTable's rows on the fields a GETPIVOTDATA names, each matched to
+    the Hive of the item it names, or a CROSS JOIN where it names none: its alias, and what it
+    reads, the pivot's CTE or the query of one of its total levels
+    (`workbook_pivot_hive.py`)."""
+
+    alias: str
+    read: exp.Expression
+    keys: list[tuple[str, exp.Expression]]
+
+
+@dataclass
 class TableQuery:
     """One Table's SELECT as it is written: the Table, the Book, the alias its FROM has, every
     alias taken in it, what its FROM reads, its joins, each formula column's Hive once written
@@ -176,7 +188,7 @@ class TableQuery:
     alias: str
     taken: set[str]
     base: exp.Expression
-    joins: list[Lookup | Totals | RowTotals] = field(default_factory=list)
+    joins: list[Lookup | Totals | RowTotals | PivotJoin] = field(default_factory=list)
     written: dict[str, exp.Expression | None] = field(default_factory=dict)
     writing: list[str] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)
@@ -233,7 +245,12 @@ def hive_name(name: str) -> str:
     `<unit_price>`."""
     if PLAIN_NAME.fullmatch(name):
         return name
-    return "<" + re.sub(r"[^0-9a-z]+", "_", name.lower()).strip("_") + ">"
+    return "<" + snake_case(name) + ">"
+
+
+def snake_case(name: str) -> str:
+    """A name in snake case, lower case words joined by `_`: `Unit Price` is `unit_price`."""
+    return re.sub(r"[^0-9a-z]+", "_", name.lower()).strip("_")
 
 
 def identifier(name: str) -> exp.Identifier:
@@ -396,10 +413,17 @@ def _without_alias(select: exp.Select, alias: str) -> exp.Select:
     return select
 
 
-def _join_hive(join: Lookup | Totals | RowTotals, query: TableQuery) -> exp.Join:
+def _join_hive(join: Lookup | Totals | RowTotals | PivotJoin, query: TableQuery) -> exp.Join:
     """A join a formula needs: a lookup's LEFT JOIN on its key (F8), a LEFT JOIN of a Table's
-    totals on its groups, or a CROSS JOIN of totals with no group (F9, I3), or a LEFT JOIN of
-    each row's totals on its key columns (I1)."""
+    totals on its groups, or a CROSS JOIN of totals with no group (F9, I3), a LEFT JOIN of
+    each row's totals on its key columns (I1), or a LEFT JOIN of a pivot's rows on the fields
+    a GETPIVOTDATA names, a CROSS JOIN where it names none (PG1)."""
+    if isinstance(join, PivotJoin):
+        if not join.keys:
+            return exp.Join(this=_aliased(join.read, join.alias), kind="CROSS")
+        on = all_of([binary(exp.EQ, value, column_hive(name, join.alias))
+                     for name, value in join.keys])
+        return exp.Join(this=_aliased(join.read, join.alias), side="LEFT", on=on)
     if isinstance(join, RowTotals):
         on = all_of([binary(exp.EQ, column_hive(key, query.alias), column_hive(key, join.alias))
                      for key in join.keys])
@@ -427,13 +451,15 @@ def _drop_unread_joins(query: TableQuery, columns: list[exp.Expression]) -> None
     """Leave out each join no column reads, such as one a refused formula added, and each
     total no column reads; a lookup whose key reads another join keeps that one."""
     read = _join_aliases_read(columns)
-    kept: list[Lookup | Totals | RowTotals] = []
+    kept: list[Lookup | Totals | RowTotals | PivotJoin] = []
     for join in reversed(query.joins):
         if join.alias not in read:
             continue
         kept.insert(0, join)
         if isinstance(join, Lookup):
             read |= _join_aliases_read([join.key])
+        elif isinstance(join, PivotJoin):
+            read |= _join_aliases_read([value for _, value in join.keys])
         elif isinstance(join, Totals):
             read |= _join_aliases_read([value for _, value in join.keys])
             names = _columns_read(columns, join.alias)
@@ -497,15 +523,19 @@ def is_formula_text(cell: object) -> bool:
 
 def check_named_refusals(part: FormulaPart, place: Place) -> None:
     """Refuse a formula holding anything file 11's X1 refuses by name, before the rest of it
-    is read: the first such part it writes names it."""
+    is read: the first such part it writes names it. A GETPIVOTDATA's cell of its pivot only
+    says which pivot it reads, so it isn't refused (`workbook_pivot_hive.py`, PG1)."""
     names = place.query.book.workbook.defined_names
+    calls = [each for each in parts_of(part) if isinstance(each, Call)]
+    pivot_cells = [call.args[1] for call in calls
+                   if call.name == "GETPIVOTDATA" and len(call.args) > 1]
     for each in parts_of(part):
         if isinstance(each, Call) and each.name in NAMED_REFUSALS:
             raise Refused("X1", NAMED_REFUSALS[each.name])
         if isinstance(each, Call) and _defined_name(each.name, names) is not None:
             raise Refused("X1", f"{each.name} is a defined name holding a formula, "
                                 f"{_defined_name(each.name, names)}")
-        if isinstance(each, CellAddress):
+        if isinstance(each, CellAddress) and not any(each is cell for cell in pivot_cells):
             raise Refused("X1", f"it reads {each.text.replace('$', '')}, a cell outside a "
                                 "Table, by its address")
         if isinstance(each, ThisRow) and is_own(each.table, place) and (
