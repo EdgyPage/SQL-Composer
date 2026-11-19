@@ -203,3 +203,5 @@ Run after the fixes: `tests/test_workbook_reader.py`, `tests/test_workbook_text.
 `tests/test_workbook_hive.py` and the repo checks (`test_toolbox_checks`, `test_standard`,
 `test_local_paths`, `test_code_audit`, `test_offline_policy`, `test_dead_code`,
 `test_faster_suite`): 912 passed.
+
+- **The beginner reader** (2026-11-19, on Opus): [its report](../reports/beginner-reader-2026-11-19-ticket-03.md). Three of its five stops fixed (96038be9); two left for the user, as the report says.
