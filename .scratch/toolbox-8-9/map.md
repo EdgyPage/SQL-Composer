@@ -230,6 +230,13 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
 
 ## Decisions so far
 
+- [01 The workbook reader](issues/01-the-workbook-reader.md): `sqlglot_composer/workbook_reader.py`,
+  standard library only, `read_workbook` giving a `Workbook` (sheets, defined names, queries, the
+  Order of `Piece`s); `workbook_text.py` puts the folder first on `sys.path` only while it imports
+  the reader, as `spec_from_file_location` is dynamic code the offline policy refuses in
+  `copilot/`; the base64 audit entry moved with it (the user's OK, 2026-11-19); the script's
+  refusal names the path it looked in. Merged 2026-11-19 (bf90f613).
+
 ## Not yet specified
 
 - The new files' names in `sqlglot_composer/`, and the public name a user calls, if any, beyond
