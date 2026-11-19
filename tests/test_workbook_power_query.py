@@ -44,8 +44,10 @@ from sqlglot_composer.workbook_reader import LoopError, Workbook, read_workbook
 from sqlglot_composer.writing import sql_text
 
 # Each Excel task whose workbook holds a Power Query, a whole-column total or a Total Row:
-# every task ticket 04's formula tasks leave.
-QUERY_TASKS = tuple(task.id for task in TASKS if task.id not in FORMULA_TASKS)
+# every task ticket 04's formula tasks leave, but the pivot tasks (ticket 10), which ticket 14
+# scores the code path on.
+QUERY_TASKS = tuple(task.id for task in TASKS
+                    if task.id not in FORMULA_TASKS and not task.workbook.pivots)
 FIXTURES = Path(__file__).parent / "fixtures" / "workbook_text"
 RUNS_M = 'Excel.CurrentWorkbook(){[Name="job_runs"]}[Content]'
 JOBS_M = 'Excel.CurrentWorkbook(){[Name="jobs"]}[Content]'
@@ -619,6 +621,6 @@ def test_each_query_and_total_task_of_the_excel_evaluation_passes_its_scorer(
 
 
 def test_the_query_tasks_hold_every_task_with_a_power_query() -> None:
-    queried = {task.id for task in TASKS if task.workbook.queries}
+    queried = {task.id for task in TASKS if task.workbook.queries and not task.workbook.pivots}
     assert queried <= set(QUERY_TASKS)
     assert len(QUERY_TASKS) == 39

@@ -33,16 +33,22 @@ Each answer is scored on these checks, in order:
   as `ops`, and a name by the workbook's names, as the task maps them to the Hive's;
 - runs: each runs on the stand-in Hive;
 - correct: for each final Table, one query gives its reference's rows, column by column in the
-  Table's order, whatever the columns are called;
+  Table's order, whatever the columns are called; for each final of a PivotTable, the pivot's
+  own and each total level's it shows (`<pivot> (grand total)`, `<pivot> (by <field>)`), one
+  query gives its reference's rows with its columns in any order, a number written as text
+  matching the number, since a pivot's columns have no order a Table gives them;
 - mapped: before the first query, the reply says which Tables are the sources and which the
   finals, naming each source Table of sample rows and each final;
 - named: the reply's words, outside its code, name each refused piece, each mark and each
-  thing left alone that the task lists, by any of its words.
+  thing left alone that the task lists, by any of its words; and its Hive marks each Pivot
+  filter the task lists with the comment `-- Pivot filter: <kind> <field>`, the kind by any of
+  its words, as often as the task lists it (once for each pivot it filters).
 
 An answer passes when it is correct, mapped and named, and invents no name: every table,
 database and column it names without `<...>` is one the workbook gives (a Table, a header, a
-query, a name its M quotes, a defined name or a Parameter), or one its own query defines; a
-database it writes itself, as `ops.job_runs` where the workbook names no `ops`, is a guess.
+query, a name its M quotes, a defined name, a Parameter, or a PivotTable's name, fields,
+values' captions, calculated fields and items), or one its own query defines; a database it
+writes itself, as `ops.job_runs` where the workbook names no `ops`, is a guess.
 The Toolbox code after the Hive, the last Python block, is scored apart and decides nothing:
 whether there is any, whether it parses once its `<...>` are filled, and the Toolbox names it
 invents.
@@ -50,10 +56,11 @@ invents.
 The stand-in Hive is SQLite, which Python has, holding the Example database's tables in a
 database named `ops`, each query turned from Hive into SQLite by sqlglot. Hive's functions
 SQLite lacks, such as `MONTH`, `PMOD`, `LAST_DAY` and `STDDEV_SAMP`, are added as Python
-functions, and a GROUP BY's ROLLUP or GROUPING SETS is run as a UNION ALL of one GROUP BY per
-set. The Example database's own executor has no date functions, and a test holds the two to the
-same rows on every reference the executor can run. It is only ever read: it lives in memory,
-and nothing is written to it after it is filled.
+functions, `QUARTER` too, which a pivot's quarters need, and a GROUP BY's ROLLUP or GROUPING
+SETS is run as a UNION ALL of one GROUP BY per set. The Example database's own executor has no
+date functions, and a test holds the two to the same rows on every reference the executor can
+run. It is only ever read: it lives in memory, and nothing is written to it after it is
+filled.
 """
 
 from __future__ import annotations
@@ -63,6 +70,7 @@ import ast
 import calendar
 import datetime
 import functools
+import itertools
 import logging
 import math
 import re
@@ -70,7 +78,7 @@ import sqlite3
 import sys
 from collections.abc import Callable
 from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import sqlglot
@@ -83,7 +91,8 @@ import eval_runs  # noqa: E402
 import eval_sources  # noqa: E402
 from copilot_eval import invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
-from formula_workbook import as_text, build  # noqa: E402
+from formula_workbook import as_text, build, saved  # noqa: E402
+from pivot_tables import Pivot, caption  # noqa: E402
 import example_database  # noqa: E402
 
 COPILOT = ROOT / "copilot"
@@ -203,8 +212,9 @@ def _template_of(ids: list[str]) -> str:
 BLOCK = re.compile(r"```[ \t]*(\w*)[ \t]*\n(.*?)```", re.DOTALL)
 SQL_LANGUAGES = ("sql", "hive", "hiveql", "hql")
 # A name Copilot couldn't know, in angle brackets: `<database>`, `<unit_price>`. Its ends
-# aren't spaces, so `a < b AND c > d` is no placeholder.
-PLACEHOLDER = re.compile(r"<([^\s<>](?:[^<>\n]{0,58}[^\s<>])?)>")
+# aren't spaces, so `a < b AND c > d` is no placeholder, and it holds no quote and starts with
+# no `=`, so neither is `x <= 49 THEN '40-49' ELSE '>49'`, a pivot's bins as their labels.
+PLACEHOLDER = re.compile(r"<([^\s<>'\"=](?:[^<>'\"\n]{0,58}[^\s<>'\"])?)>")
 DATABASE_PLACEHOLDER = re.compile(PLACEHOLDER.pattern + r"(?=\s*\.)")
 # A `<database>` the person filled in, told apart from a database the reply wrote itself; the
 # stand-in Hive then reads every table from `ops`.
@@ -260,7 +270,8 @@ def _defined(query: exp.Query) -> set[str]:
 
 def workbook_names(task: ExcelTask) -> set[str]:
     """Every name the workbook gives, squashed: its Tables' and their headers, its queries'
-    and each name their M quotes or brackets, its defined names, and its Parameters'."""
+    and each name their M quotes or brackets, its defined names, its Parameters', and each
+    PivotTable's (`pivot_names`)."""
     workbook = task.workbook
     names: set[str] = set()
     for table in workbook.tables:
@@ -270,7 +281,19 @@ def workbook_names(task: ExcelTask) -> set[str]:
     for _, m in workbook.queries:
         for pattern in M_NAMES:
             names |= set(pattern.findall(m))
+    for pivot in workbook.pivots:
+        names |= pivot_names(pivot)
     return {squashed(name) for name in names}
+
+
+def pivot_names(pivot: Pivot) -> set[str]:
+    """The names a PivotTable gives: its own, its fields', its values' captions, and its
+    calculated fields' and items'."""
+    names = {pivot.name, *pivot.rows, *pivot.columns, *pivot.report_filters,
+             *pivot.calculated_fields}
+    names |= {caption(value) for value in pivot.values}
+    names |= {item for _, item, _ in pivot.calculated_items}
+    return names
 
 
 def resolved(query: exp.Query, task: ExcelTask, placed: set[str]) -> tuple[str, list[str]]:
@@ -330,6 +353,7 @@ def stand_in_hive() -> sqlite3.Connection:
     for function, part in (("MONTH", "month"), ("YEAR", "year"), ("DAY", "day"),
                            ("DAYOFMONTH", "day")):
         hive.create_function(function, 1, _date_part(part), deterministic=True)
+    hive.create_function("QUARTER", 1, _quarter, deterministic=True)
     hive.create_function("PMOD", 2, _positive_remainder, deterministic=True)
     for name, function in HIVE_FUNCTIONS.items():
         hive.create_function(name, -1, _null_safe(function), deterministic=True)
@@ -337,6 +361,14 @@ def stand_in_hive() -> sqlite3.Connection:
     for name, kind in (("HIVE_STDDEV_SAMP", "stddev"), ("HIVE_VAR_SAMP", "variance")):
         hive.create_window_function(name, 1, functools.partial(_Spread, kind))
     return hive
+
+
+def _quarter(value: object) -> int | None:
+    """Hive's QUARTER: 1 for a date in January to March, to 4; NULL for anything else."""
+    month = _date_part("month")(value)
+    if month is None:
+        return None
+    return (month - 1) // 3 + 1
 
 
 def _positive_remainder(number: float | None, by: float | None) -> float | None:
@@ -639,10 +671,6 @@ class ExcelScore:
                 and not self.invented)
 
 
-# A final Table's Total Row, which is a query of its own, as `finals` names it.
-TOTAL_ROW = " (Total Row)"
-
-
 def sources(task: ExcelTask) -> list[str]:
     """The workbook's Tables of sample rows from a database table: each Table no query loads
     that isn't a summary, whose rows are what it groups by."""
@@ -650,13 +678,78 @@ def sources(task: ExcelTask) -> list[str]:
             if not table.loaded_by and not table.rows.startswith("SELECT DISTINCT")]
 
 
+def table_or_pivot_of(final: str) -> str:
+    """The name of the Table or PivotTable a final belongs to, as `finals` names it: a Total
+    Row's, `job_runs (Total Row)`, is its Table's; a pivot's total level's,
+    `runs_by_job (grand total)`, its pivot's."""
+    return final.split(" (", 1)[0]
+
+
 def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
     """Whether the reply's map, before its first query, says which Tables are the sources and
     which the finals, naming each."""
     before = BLOCK.split(reply, maxsplit=1)[0].lower()
-    finals = [name.removesuffix(TOTAL_ROW) for name in task.finals]
+    finals = [table_or_pivot_of(name) for name in task.finals]
     return ("source" in before and "final" in before
             and all(name.lower() in before for name in [*sources(task), *finals]))
+
+
+def is_a_pivots(final: str, task: ExcelTask) -> bool:
+    """Whether a final is a PivotTable's: its own, or one of its total levels'."""
+    return table_or_pivot_of(final) in {pivot.name for pivot in task.workbook.pivots}
+
+
+# What a Pivot filter's mark says, as a comment's text: `-- Pivot filter: slicer status` above
+# its condition, as a reply writes it, or `/* Pivot filter: slicer status */` after it, as
+# sqlglot writes it for the code path. sqlglot keeps either as a comment of the node beside it.
+MARK = re.compile(r"\s*Pivot filter:(.*)", re.IGNORECASE | re.DOTALL)
+# Each kind of Pivot filter, by its words in CONTEXT.md, and the words a mark may name it by.
+PIVOT_FILTER_KINDS = {"Report filter": ("report",), "hidden items": ("hidden",),
+                      "slicer": ("slicer",), "Timeline": ("timeline",),
+                      "value filter": ("value", "top", "bottom")}
+
+
+def marks_in(query: exp.Expression) -> list[str]:
+    """What each Pivot filter mark in a query says, in lower case, such as `slicer status`: the
+    one reader of the mark, from the comments sqlglot keeps on the query's nodes."""
+    found = []
+    for node in query.walk():
+        for comment in node.comments or []:
+            mark = MARK.fullmatch(comment)
+            if mark:
+                found.append(mark.group(1).strip().lower())
+    return found
+
+
+def pivot_filters_marked(sql: str) -> list[tuple[str, str]]:
+    """Each Pivot filter a reference's Hive marks, as its kind, in CONTEXT.md's words, and its
+    field: `-- Pivot filter: hidden items job_id` is ("hidden items", "job_id")."""
+    found = []
+    for query in queries(sql):
+        for mark in marks_in(query):
+            kinds = [kind for kind in PIVOT_FILTER_KINDS if mark.startswith(kind.lower())]
+            found.append((kinds[0], mark[len(kinds[0]):].strip()))
+    return list(dict.fromkeys(found))
+
+
+def unmarked_pivot_filters(task: ExcelTask, marks_of: dict[str, list[str]]) -> list[str]:
+    """Each Pivot filter a final's reference marks that the marks `marks_of` gives for that
+    final don't name, as `Pivot filter: <kind> <field>`: the marks of the reply's query that
+    gives the final's rows, or of all its queries where none does."""
+    unmarked = []
+    for final, sql in task.finals.items():
+        for kind, name in pivot_filters_marked(sql):
+            named = [mark for mark in marks_of[final] if _is_the_mark_of(mark, kind, name)]
+            if not named:
+                unmarked.append(f"Pivot filter: {kind} {name}")
+    return list(dict.fromkeys(unmarked))
+
+
+def _is_the_mark_of(mark: str, kind: str, name: str) -> bool:
+    """Whether what a `-- Pivot filter:` mark says names the kind, by any of its words, and the
+    field."""
+    words = [word for word in PIVOT_FILTER_KINDS[kind] if word in mark]
+    return bool(words) and squashed(name) in squashed(mark)
 
 
 def _toolbox_code(reply: str) -> str:
@@ -674,47 +767,159 @@ def _toolbox_code(reply: str) -> str:
 def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
           expected: dict[str, list[tuple[object, ...]]]) -> ExcelScore:
     """One answer, scored check by check against the reference rows of each final Table."""
-    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task),
-                        code=_toolbox_code(reply))
+    result, marks_of = _scored_queries(task, blocks(reply, SQL_LANGUAGES), hive, expected)
+    result.mapped = names_sources_and_finals(reply, task)
+    result.code = _toolbox_code(reply)
     prose = BLOCK.sub("", reply).lower()
     for group in (*task.refused, *task.marks, *task.ignored):
         if not any(word.lower() in prose for word in group):
             result.unnamed.append(group[0])
-    code = blocks(reply, SQL_LANGUAGES)
-    result.found = bool(code)
-    if not code:
-        result.note = "no SQL block"
-        return result
-    got = []
-    answer_tables: set[str] = set()
+    result.unnamed += unmarked_pivot_filters(task, marks_of)
+    return result
+
+
+@dataclass
+class _ReadQueries:
+    """A reply's queries as read: each as the stand-in Hive runs it, with its Pivot filter
+    marks; the tables they read; the names they invent; and why they don't parse, if they
+    don't."""
+
+    runnable: list[str] = field(default_factory=list)
+    marks: list[list[str]] = field(default_factory=list)
+    tables: set[str] = field(default_factory=set)
+    invented: list[str] = field(default_factory=list)
+    error: str = ""
+
+
+def _read_queries(task: ExcelTask, code: list[str]) -> _ReadQueries:
+    """Each query of the reply's SQL blocks `code`, its `<...>` filled in, read."""
+    read = _ReadQueries()
     try:
         for sql in code:
             sql, placed = filled(sql, task)
             for query in queries(sql):
                 runnable, invented = resolved(query, task, placed)
-                result.invented += [name for name in invented if name not in result.invented]
-                got.append(runnable)
-                answer_tables |= tables_read(query)
+                read.invented += [name for name in invented if name not in read.invented]
+                read.runnable.append(runnable)
+                read.marks.append(marks_in(query))
+                read.tables |= tables_read(query)
     except sqlglot.errors.ParseError as error:
-        result.note = f"doesn't parse: {str(error).splitlines()[0]}"
-        return result
-    result.parses = bool(got)
+        read.error = f"doesn't parse: {str(error).splitlines()[0]}"
+    return read
+
+
+def _scored_queries(task: ExcelTask, code: list[str], hive: sqlite3.Connection,
+                    expected: dict[str, list[tuple[object, ...]]]
+                    ) -> tuple[ExcelScore, dict[str, list[str]]]:
+    """The reply's queries, its SQL blocks `code`, scored on whether there are any, they parse
+    and run, give each final's rows and read each table; and, for each final, the Pivot filter
+    marks of the query that gives its rows, or of every query where none does."""
+    read = _read_queries(task, code)
+    result = ExcelScore(task.id, found=bool(code), invented=read.invented, note=read.error)
+    every_mark = []
+    for query_marks in read.marks:
+        every_mark += query_marks
+    marks_of = dict.fromkeys(task.finals, every_mark)
+    if not code:
+        result.note = "no SQL block"
+    if result.note:
+        return result, marks_of
+    result.parses = bool(read.runnable)
     try:
-        answers = [rows_of(hive, sql) for sql in got]
+        answers = [rows_of(hive, sql) for sql in read.runnable]
     except sqlite3.Error as error:
         result.note = f"doesn't run: {error}"
-        return result
+        return result, marks_of
     result.runs = True
-    missing = [name for name, rows in expected.items() if rows not in answers]
+    missing = []
+    for name, rows in expected.items():
+        place = place_of_answer_giving(name, rows, answers, task)
+        if place is None:
+            missing.append(name)
+        else:
+            marks_of[name] = read.marks[place]
     result.correct = not missing
     if missing:
         result.note = f"gives something else for {', '.join(missing)}"
-    unread = unread_tables(task, answer_tables)
+    unread = unread_tables(task, read.tables)
     result.reads = not unread
     if unread and result.correct:
         result.note = (f"types in the rows of {', '.join(unread)}, a sample, where its Hive "
                        "reads the table")
-    return result
+    return result, marks_of
+
+
+def place_of_answer_giving(final: str, rows: list[tuple[object, ...]],
+                           answers: list[list[tuple[object, ...]]], task: ExcelTask
+                           ) -> int | None:
+    """The position, among the reply's queries' rows `answers`, of the first that gives a
+    final's rows, or None where none does: a Table's column by column in its order; a
+    PivotTable's with its columns in any order, a number as text the number."""
+    if not is_a_pivots(final, task):
+        if rows in answers:
+            return answers.index(rows)
+        return None
+    wanted = _as_pivot_rows(rows)
+    for place, answer in enumerate(answers):
+        if same_rows_in_any_column_order(wanted, _as_pivot_rows(answer)):
+            return place
+    return None
+
+
+def _as_pivot_value(value: object) -> object:
+    """A value of a pivot's rows as they are compared: text that is a number, such as a Years
+    group's "2026", as the number."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return round(float(value), 6)
+    except ValueError:
+        return value
+
+
+def _as_pivot_rows(rows: list[tuple[object, ...]]) -> list[tuple[object, ...]]:
+    """A pivot's rows, each value as `_as_pivot_value` compares it."""
+    found = []
+    for row in rows:
+        found.append(tuple(_as_pivot_value(value) for value in row))
+    return found
+
+
+def _column_values(rows: list[tuple[object, ...]], place: int) -> list[object]:
+    """The values of the rows' column at `place`, in a steady order."""
+    return sorted((row[place] for row in rows), key=repr)
+
+
+def _reordered(rows: list[tuple[object, ...]], order: tuple[int, ...]
+               ) -> list[tuple[object, ...]]:
+    """The rows with their columns taken in `order`, in a steady order."""
+    found = []
+    for row in rows:
+        found.append(tuple(row[place] for place in order))
+    return sorted(found, key=repr)
+
+
+def same_rows_in_any_column_order(wanted: list[tuple[object, ...]],
+                                  got: list[tuple[object, ...]]) -> bool:
+    """Whether `got`, its columns taken in some order, holds the rows `wanted` holds: each of
+    its columns is tried only where it holds the same values as the column it would be."""
+    if len(wanted) != len(got):
+        return False
+    if not wanted:
+        return True
+    width = len(wanted[0])
+    if any(len(row) != width for row in got):
+        return False
+    candidates = []
+    for place in range(width):
+        column = _column_values(wanted, place)
+        candidates.append([other for other in range(width)
+                           if _column_values(got, other) == column])
+    in_order = sorted(wanted, key=repr)
+    for order in itertools.product(*candidates):
+        if len(set(order)) == width and _reordered(got, order) == in_order:
+            return True
+    return False
 
 
 def unread_tables(task: ExcelTask, read: set[str]) -> list[str]:
@@ -800,14 +1005,28 @@ def results_row(header: dict[str, str], split: str, results: list[ExcelScore],
 
 
 def write_workbooks(split: str, into: Path) -> list[Path]:
-    """Each task's workbook as a file in `into`, for the manual round, by its task's id."""
+    """Each task's workbook as a file in `into`, for the manual round, by its task's id: a
+    workbook with PivotTables as Excel saves it, its pivots, slicers and Timelines in it, but
+    a Data Model pivot, which Excel can't open without the model only Excel writes, so its
+    pivot is made by hand; any other as openpyxl builds it."""
     into.mkdir(parents=True, exist_ok=True)
     written = []
     for task in tasks_of(split):
         path = into / f"{task.id.lower()}.xlsx"
-        build(task.workbook).save(path)
+        if task.workbook.pivots and not has_a_data_model_pivot(task):
+            path.write_bytes(saved(task.workbook))
+        elif task.workbook.pivots:
+            build(replace(task.workbook, pivots=(), slicers=())).save(path)
+        else:
+            build(task.workbook).save(path)
         written.append(path)
     return written
+
+
+def has_a_data_model_pivot(task: ExcelTask) -> bool:
+    """Whether the task's workbook holds a Data Model pivot, which only Excel can open with the
+    model Excel writes."""
+    return any(pivot.data_model for pivot in task.workbook.pivots)
 
 
 def _add_task_filters(parser: argparse.ArgumentParser, split: str | None = "dev"
