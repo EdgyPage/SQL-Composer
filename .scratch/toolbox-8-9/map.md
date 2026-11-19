@@ -290,6 +290,13 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   scored in any column order; one mark reader for `-- Pivot filter:` and `/* ... */`. Baseline
   A0: 0 of 40 on Haiku and Sonnet. The code path passes 32 of 40 (eight on ticket 14). Merged
   2026-11-19 (0fad3a58).
+- [17 Hive that stays small](issues/17-memory-efficient-hive.md): six rules, each checked
+  against Hive's docs (a CTE is worked out at each read up to 4.0; 4.1 keeps one with totals read
+  over 3 times), as A11 in files 01 to 10 (`_lean.txt`, no other rule shortened), H1 to H5 and
+  C10 in file 15, and step 4 of how-to "Keep reads and joins fast"; the sweep's breaks fixed;
+  `tests/repo/test_lean_hive.py` reads every SQL piece in `docs/`, `copilot/`, the Example
+  projects, the workbook finals and the tasks' references. Files 01 to 12 and 15 changed: a
+  Copilot round for 01 to 10, and ticket 14's for 11, 12, 15. Merged 2026-11-19.
 
 ## Not yet specified
 
