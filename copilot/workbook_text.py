@@ -10,11 +10,12 @@ convert it. The text shows each sheet's Excel Tables row by row, with formulas a
 them, then the sheet's other cells and its PivotTables, each Power Query with its M, and each
 defined name. Each PivotTable is shown as `PivotTable "name"`, with what it reads (its
 Source), its Rows, Columns, Values and Filters as the PivotTable Fields pane shows them, each
-value's Summarize Values By and Show Values As, its calculated fields and items, its grouped
+Value's Summarize Values By and Show Values As, its calculated fields and items, its grouped
 fields, its hidden items, its value filters, each slicer and Timeline connected to it with what
-it has selected, the totals it shows, and each value cell: the value Excel last stored there,
-and the value and the row and column items it stands for. The M
-comes from the queries the workbook holds. A workbook that holds none, such as one whose
+it has selected, the totals it shows, and each of its cells. For each cell, the text gives the
+number Excel last stored in it, and a percentage as Excel shows it where the Value is shown as
+a %; then which Value it is, and the row and column items it stands for. The M comes from the
+queries the workbook holds. A workbook that holds none, such as one whose
 Excel couldn't add a query, gives them from its Power Query sheet: a cell "Query <its name>:"
 with the M in the cell below it.
 
@@ -39,6 +40,7 @@ download holds them. It needs nothing installed but Python, reads only the workb
 and writes only the .txt beside it. It runs nothing the workbook holds.
 """
 
+import datetime
 import re
 import sys
 import zipfile
@@ -142,6 +144,7 @@ def _item_text(item: object, typed: bool) -> str:
 
 
 def _items_text(items: list[object], typed: bool) -> str:
+    """Items of a pivot's field as text, one after the other, such as "FAILED, SUCCESS"."""
     return ", ".join(_item_text(item, typed) for item in items)
 
 
@@ -197,10 +200,18 @@ def _grouping_text(pivot_field: PivotField, typed: bool) -> str:
     if grouping.by == "Days" and grouping.interval is not None:
         line += f", Number of days {cell_text(grouping.interval, typed)}"
     if grouping.start is not None:
-        line += f", Starting at {cell_text(grouping.start, typed)}"
+        line += f", Starting at {_day_text(grouping.start, typed)}"
     if grouping.end is not None:
-        line += f", Ending at {cell_text(grouping.end, typed)}"
+        line += f", Ending at {_day_text(grouping.end, typed)}"
     return line
+
+
+def _day_text(value: object, typed: bool) -> str:
+    """A date with no time of day as its day alone, 2026-09-24, as Excel shows it; any other
+    value as its cell would show it."""
+    if isinstance(value, datetime.datetime) and value.time() == datetime.time():
+        return value.date().isoformat()
+    return cell_text(value, typed)
 
 
 def _field_lines(pivot: PivotTable, typed: bool) -> list[str]:
@@ -237,18 +248,24 @@ def _filter_text(pivot_filter: PivotFilter, typed: bool) -> str:
 def _slicer_text(slicer: Slicer | Timeline, typed: bool) -> str:
     """A slicer or Timeline: where it is, its field, what it has selected, and the pivots it
     is connected to."""
-    kind = "Slicer" if isinstance(slicer, Slicer) else "Timeline"
+    if isinstance(slicer, Timeline):
+        kind, selected = "Timeline", _timeline_selection(slicer, typed)
+    else:
+        kind, selected = "Slicer", _items_text(slicer.selected, typed) or "(All)"
     line = f'{kind} "{slicer.caption or slicer.name}"'
     if slicer.sheet:
         line += f' on sheet "{slicer.sheet}"'
-    if isinstance(slicer, Timeline) and slicer.start is None:
-        selected = "every date"
-    elif isinstance(slicer, Timeline):
-        selected = f"{cell_text(slicer.start, typed)} to {cell_text(slicer.end, typed)}"
-    else:
-        selected = _items_text(slicer.selected, typed) or "(All)"
     return (f"{line}, field {slicer.field}: selected {selected}; connected to "
             f"{', '.join(slicer.pivots)}")
+
+
+def _timeline_selection(timeline: Timeline, typed: bool) -> str:
+    """The days a Timeline has selected: one day, from one to another, or every date."""
+    if timeline.start is None:
+        return "every date"
+    if timeline.start == timeline.end:
+        return _day_text(timeline.start, typed)
+    return f"{_day_text(timeline.start, typed)} to {_day_text(timeline.end, typed)}"
 
 
 def _totals_text(pivot: PivotTable) -> str:
@@ -278,8 +295,13 @@ def _line_text(area: str, line: PivotLine, typed: bool) -> str:
 
 
 def _cell_line(pivot: PivotTable, cell: PivotCell, typed: bool) -> str:
-    """One value cell: its stored value, then its value and the items it stands for."""
+    """One value cell: what Excel stored in it, and as a percentage where its Value is shown
+    as a %, then its Value and the items it stands for."""
     parts = [cell.value]
+    shown_as = [value.shown_as for value in pivot.values if value.caption == cell.value]
+    is_a_number = isinstance(cell.stored, int | float) and not isinstance(cell.stored, bool)
+    if is_a_number and shown_as and shown_as[0].startswith("%"):
+        parts.insert(0, f"{cell.stored * 100:.2f}%")
     if any(name != workbook_reader.VALUES for name in pivot.rows):
         parts.append(_line_text("Rows", cell.row, typed))
     if any(name != workbook_reader.VALUES for name in pivot.columns):

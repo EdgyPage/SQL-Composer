@@ -129,8 +129,9 @@ def test_each_kind_of_pivot_line_in_excels_words() -> None:
     assert "    Value Filter on job_id: Top 2 Items by Sum of hours\n" in hours
     assert '    Calculated Field "hours" = duration_mins/60\n' in hours
     groups = text_of("07_pivot_groups")
-    assert ('    Field "Years" groups dt By Years, Starting at 2026-09-23 00:00:00, Ending at '
-            "2026-09-25 00:00:00\n") in groups
+    # A date is written as its day, as Excel shows it, with no time of day.
+    assert ('    Field "Years" groups dt By Years, Starting at 2026-09-23, Ending at '
+            "2026-09-25\n") in groups
     assert ('    Field "duration_mins" groups duration_mins By 10, Starting at 0, Ending at '
             "49\n") in groups
     assert ("    Totals shown: Grand Total row, Grand Total column, subtotals of Years\n"
@@ -141,10 +142,14 @@ def test_each_kind_of_pivot_line_in_excels_words() -> None:
     assert ('    Value "Sum of duration_mins": Sum of duration_mins, Show Values As % of '
             "Column Total\n") in filtered
     assert "    Filter avg_retry_secs: (All)\n    Items hidden on status: TEST\n" in filtered
-    assert ('    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24 00:00:00 to '
-            "2026-09-24 00:00:00; connected to PivotTable1\n") in filtered
+    # One day once, where the Timeline's first and last day are the same.
+    assert ('    Timeline "dt" on sheet "Pivot", field dt: selected 2026-09-24; connected to '
+            "PivotTable1\n") in filtered
     assert "      B5: empty (Sum of duration_mins; Rows job_id 1; Columns status FAILED)\n" in (
         filtered)
+    # A Value shown as a % gives the percentage Excel shows beside the number it stores.
+    assert ("      C5: 0.625 (62.50%; Sum of duration_mins; Rows job_id 1; Columns status "
+            "SUCCESS)\n") in filtered
     ranged = text_of("09_pivot_plain_range")
     assert ("    Source: the range Runs!A1:F10, read as the Table it would be: run_id | job_id "
             "| status | duration_mins | avg_retry_secs | dt\n") in ranged
