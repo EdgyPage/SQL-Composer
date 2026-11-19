@@ -483,7 +483,10 @@ WHERE
 
 No Warning, and the totals are right. The Derived table is written at the top of the Hive, as
 `WITH alerts_per_run AS (...)`. [Share Building blocks](#share_building_blocks) keeps one in a
-file of its own, for every notebook that needs it.
+file of its own, for every notebook that needs it. Hive works a Derived table out again each
+time a Statement reads it, so read each one once in a Statement, and give it only the columns
+read after it, as alerts_per_run has run_id and alerts: [Keep reads and joins
+fast](#keep_reads_and_joins_fast) gives the rules.
 
 Done when the result is 180 minutes and 9 alerts, with no Warning. Then step 11.
 

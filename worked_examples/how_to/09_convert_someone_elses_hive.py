@@ -428,6 +428,12 @@ mart.alerted_runs_ops_reports: failed, couldn't compare: The Example database ha
 mart.alerts_by_severity_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerts_by_severity_ops_reports'.
 mart.fail_history: failed, couldn't compare: The Example database has no table 'mart.fail_history'.
 
+A Conversion gives the same rows as each script, so it keeps each script's shape: a CTE a script reads
+twice, or a column a CTE carries that nothing after it reads, is in its code too. Once a table
+passes, make its logic lean by the rules in [Keep reads and joins
+fast](#keep_reads_and_joins_fast), and check its rows are unchanged as [Review and test a
+change](#review_and_test_a_change) shows.
+
 Done when each table's line says it passed, at work. Then step 14.
 
 ### 14. Promote them

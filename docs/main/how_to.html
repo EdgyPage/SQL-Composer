@@ -2333,7 +2333,7 @@ WHERE
 <tr><th>minutes</th><th>alerts</th></tr>
 <tr><td>180</td><td>9</td></tr>
 </table></div>
-<p>No Warning, and the totals are right. The Derived table is written at the top of the Hive, as <code>WITH alerts_per_run AS (...)</code>. <a href="#share_building_blocks">Share Building blocks</a> keeps one in a file of its own, for every notebook that needs it.</p>
+<p>No Warning, and the totals are right. The Derived table is written at the top of the Hive, as <code>WITH alerts_per_run AS (...)</code>. <a href="#share_building_blocks">Share Building blocks</a> keeps one in a file of its own, for every notebook that needs it. Hive works a Derived table out again each time a Statement reads it, so read each one once in a Statement, and give it only the columns read after it, as alerts_per_run has run_id and alerts: <a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a> gives the rules.</p>
 <p>Done when the result is 180 minutes and 9 alerts, with no Warning. Then step 11.</p>
 <h5>11. Find the rows with no match</h5>
 <p>Goal: the rows of one table that nothing in the other matches. A row <code>LEFT_JOIN</code> keeps for having no match has NULL in every joined column, so <code>is_null</code> on one of them keeps just those rows. Here, the jobs that never ran on the two days, from the runs counted per job first, so each job meets at most one row:</p>
@@ -2888,18 +2888,18 @@ jobs = Table(
 <pre class="python">from references import ops</pre>
 <p>Done when <code>from references import ops</code> runs without an error. Then step 2.</p>
 <h5>2. Name one step with derived</h5>
-<p>Goal: a Statement other Statements read like a table. <code>derived</code> gives a Statement a name, and gives back a Table: its columns are what its <code>SELECT</code> makes, checked like a Table reference&#x27;s. Here, each job&#x27;s runs and minutes on 2026-09-24:</p>
+<p>Goal: a Statement other Statements read like a table. <code>derived</code> gives a Statement a name, and gives back a Table: its columns are what its <code>SELECT</code> makes, checked like a Table reference&#x27;s. Here, each job&#x27;s minutes on 2026-09-24:</p>
 <pre class="python">job_runs = ops.job_runs  # -&gt; Table
 job_totals = derived(&quot;job_totals&quot;, statement(  # -&gt; Table
-    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;),
-           AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
     WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
     GROUP_BY(job_runs.job_id),
 ))
 job_totals</pre>
-<p class="label">Python shows</p><pre class="output">derived(&#x27;job_totals&#x27;, columns: job_id, runs, minutes)</pre>
-<p>Done when <code>job_totals</code> shows its columns job_id, runs and minutes. Then step 3.</p>
+<p class="label">Python shows</p><pre class="output">derived(&#x27;job_totals&#x27;, columns: job_id, minutes)</pre>
+<p>A Derived table selects only the columns the Statement after it reads, here job_id and minutes, and groups only by those: a column it groups by makes a row for each of its values, and a short step is quicker to check when a number looks wrong (<a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a> gives the rules).</p>
+<p>Done when <code>job_totals</code> shows its columns job_id and minutes. Then step 3.</p>
 <h5>3. Read the Derived table from another Statement</h5>
 <p>Goal: a Statement built on the named step. Another Statement reads it with <code>FROM</code> or <code>JOIN</code>, like any table. Here, the minutes per team. It needs no filter on the day of its own: the day is inside <code>job_totals</code>, and <code>ops.jobs</code> isn&#x27;t partitioned.</p>
 <pre class="python">per_team = statement(  # -&gt; Statement
@@ -2912,7 +2912,6 @@ text = show_hive(per_team)  # -&gt; str</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">WITH job_totals AS (
   SELECT
     job_runs.job_id,
-    COUNT(*) AS runs,
     SUM(job_runs.duration_mins) AS minutes
   FROM ops.job_runs AS job_runs
   WHERE
@@ -3171,7 +3170,7 @@ runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x
 <p>Open the file that is there, or give the new block a name of its own.</p>
 <h4>Next</h4>
 <ul><li>Save a Statement&#x27;s rows in a Saved table, from a Table notebook: <a href="#save_a_table">Save a table</a>.</li><li>Save this block&#x27;s rows in a Saved table, and follow a column through the block and the Saved tables built on it: <a href="#follow_lineage">Follow lineage</a>.</li><li>Which file may import which, and the registry: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>The gallery&#x27;s Worked example of <a href="examples.html#derived"><code>derived</code></a>, and a long Statement built in named steps: <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
-<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.check</code></p>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.check</code></p>
 </section>
 <section class="entry" id="save_a_table">
 <h3>6. Save a table <span class="badge getting-started">Getting started</span></h3>
@@ -7955,6 +7954,7 @@ What happened:  The Example database has no table &#x27;mart.fail_history&#x27;.
   Why it matters: It holds nine made-up tables, all in the database ops.
   Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>A Conversion gives the same rows as each script, so it keeps each script&#x27;s shape: a CTE a script reads twice, or a column a CTE carries that nothing after it reads, is in its code too. Once a table passes, make its logic lean by the rules in <a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a>, and check its rows are unchanged as <a href="#review_and_test_a_change">Review and test a change</a> shows.</p>
 <p>Done when each table&#x27;s line says it passed, at work. Then step 14.</p>
 <h5>14. Promote them</h5>
 <p>Goal: each table&#x27;s code in your Prod Database. Once each table has passed, <code>project.promote</code> copies their code to your Prod Database, PROD&#x27;s &quot;database&quot; in admin/databases.py, each notebook reading the others&#x27; prod copies. Fill in PROD&#x27;s &quot;database&quot; and &quot;location_root&quot;, as this page stands in for your edit. Before each compare has passed, promote refuses, naming each table:</p>
@@ -12052,19 +12052,20 @@ WHERE
 <p>It counts runs, not days: invoice_sync, job 2, doesn&#x27;t run at weekends, so its first three runs, up to 2026-09-22, span 2026-09-18 to 22, five days, and add up to 61 minutes.</p>
 <p>Done when job 2&#x27;s <code>&quot;last_3_runs&quot;</code> on 2026-09-22 is 61. Then step 8.</p>
 <h5>8. Keep only some rows, through a Derived table</h5>
-<p>Goal: the runs that were slower than the job&#x27;s run before. Hive works a Window out after it picks the rows, so a test on <code>&quot;change&quot;</code> can&#x27;t go in the WHERE of the Statement that works it out (see Common mistakes). Name that Statement with <code>derived</code>, and test it in the Statement that reads it:</p>
+<p>Goal: the runs that were slower than the job&#x27;s run before. Hive works a Window out after it picks the rows, so a test on <code>&quot;change&quot;</code> can&#x27;t go in the WHERE of the Statement that works it out (see Common mistakes). Name that Statement with <code>derived</code>, and test it in the Statement that reads it. Read a Derived table once, and give it only the columns the Statement after it reads: here the Statement shows all five of <code>with_before</code>&#x27;s, the minutes before and after beside the change (<a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a> gives the rules):</p>
 <pre class="python">changes = derived(&quot;changes&quot;, with_before)  # -&gt; Table
 slower = statement(  # -&gt; Statement
-    SELECT(changes.job_id, changes.dt, changes.change),
+    SELECT(changes.job_id, changes.dt, changes.minutes_before, changes.minutes,
+           changes.change),
     FROM(changes),
     WHERE(more_than(changes.change, 0)),
 )
 run_query(slower, query)  # -&gt; DataFrame</pre>
 <p class="label">Python shows</p><div class="scroll"><table class="result">
-<tr><th>job_id</th><th>dt</th><th>change</th></tr>
-<tr><td>1</td><td>2026-09-20</td><td>1</td></tr>
-<tr><td>1</td><td>2026-09-21</td><td>1</td></tr>
-<tr><td>1</td><td>2026-09-23</td><td>2</td></tr>
+<tr><th>job_id</th><th>dt</th><th>minutes_before</th><th>minutes</th><th>change</th></tr>
+<tr><td>1</td><td>2026-09-20</td><td>11</td><td>12</td><td>1</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>12</td><td>13</td><td>1</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>10</td><td>12</td><td>2</td></tr>
 </table></div>
 <p>Done when the result holds the three runs whose change is more than 0. Then step 9.</p>
 <h5>9. Describe the Saved table</h5>
@@ -16545,9 +16546,9 @@ rows_of(teams_today)</pre>
 </details>
 </div>
 <h4>Goal</h4>
-<p>Keep Statements, the queries you build with the Toolbox, fast on big tables: read only the Partitions you need, keep a Saved table&#x27;s files few and large, give Hive the Statistics it plans joins from, let it copy a small table to every worker, and see with <code>explain</code> what Hive will do before you run a Statement. A Partition is a slice of a table, the rows that share one value of each column it is partitioned by; a Saved table is a real table your own Statements write; Statistics are what the warehouse has counted about a table&#x27;s Partitions. Along the way, let the warehouse find a Saved table&#x27;s Partitions again with <code>repair_partitions</code>. Each of these is safe to send again.</p>
+<p>Keep Statements, the queries you build with the Toolbox, fast on big tables: read only the Partitions you need, keep each step of a Statement small, keep a Saved table&#x27;s files few and large, give Hive the Statistics it plans joins from, let it copy a small table to every worker, and see with <code>explain</code> what Hive will do before you run a Statement. A Partition is a slice of a table, the rows that share one value of each column it is partitioned by; a Saved table is a real table your own Statements write; Statistics are what the warehouse has counted about a table&#x27;s Partitions. Along the way, let the warehouse find a Saved table&#x27;s Partitions again with <code>repair_partitions</code>. Each of these is safe to send again.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If a Statement or a run of your tables gets slow, follow the steps below.</li><li>If a Saved table grows to millions of rows a Partition, follow the steps below.</li><li>If you want an index: Hive has none to add. <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> says why, under &quot;Why there are no indexes&quot;, and shows how to give a big table Partitions and Buckets; this how-to is what to do once the table exists.</li><li>If you have not joined tables or saved a table yet, do <a href="#count_join_and_stay_safe">Count, join and stay safe</a> and <a href="#save_a_table">Save a table</a> first.</li></ul>
+<ul><li>If a Statement or a run of your tables gets slow, follow the steps below.</li><li>If a Statement has no mistake in its logic but takes far longer than its rows should, check its steps against the rules in step 4.</li><li>If a Saved table grows to millions of rows a Partition, follow the steps below.</li><li>If you want an index: Hive has none to add. <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> says why, under &quot;Why there are no indexes&quot;, and shows how to give a big table Partitions and Buckets; this how-to is what to do once the table exists.</li><li>If you have not joined tables or saved a table yet, do <a href="#count_join_and_stay_safe">Count, join and stay safe</a> and <a href="#save_a_table">Save a table</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
@@ -16655,7 +16656,50 @@ job_events, job_owners = ops.job_events, ops.job_owners  # -&gt; Table, Table</p
 <h5>3. Read only the Partitions you need</h5>
 <p>Goal: each read opens as few folders as the job allows. A table&#x27;s Partitions are folders, here one per day, and a Statement that filters a partition column opens only the folders it picks. Every Statement on a partitioned table already filters one, as the Load limits, the checks that refuse a read too big for the cluster, insist. So the first rule of a fast read is one you keep anyway: filter as tightly as the job allows, a day rather than a week. On a table partitioned by two columns, such as ops.region_costs by region and then dt, a Statement that filters both opens fewer folders still.</p>
 <p>Done when each of your Statements filters its partition columns to the days the job needs. Then step 4.</p>
-<h5>4. Keep files few and large</h5>
+<h5>4. Keep each step small</h5>
+<p>Goal: Hive that does no more work than its rows need. A Derived table is written at the top of the Hive as a CTE, <code>WITH name AS (...)</code>, and Hive keeps none of a CTE&#x27;s rows: it works the CTE out again each time the Statement reads it. So each step reads its table once, keeps only the rows and columns the next step needs, and adds up before it joins. Here each team&#x27;s events on 2026-09-24, counted per job first, so the join meets one row for each job rather than one for each event:</p>
+<pre class="python">events_per_job = derived(&quot;events_per_job&quot;, statement(  # -&gt; Table
+    SELECT(job_events.job_id, AS(count_rows(), &quot;events&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.job_id),
+))
+team_events = statement(  # -&gt; Statement
+    SELECT(job_owners.team, AS(sum_of(events_per_job.events), &quot;events&quot;)),
+    FROM(events_per_job),
+    JOIN(job_owners, ON=all_of(equals(job_owners.job_id, events_per_job.job_id),
+                               equals(job_owners.dt, &quot;2026-09-24&quot;))),
+    GROUP_BY(job_owners.team),
+)
+print(to_hive(team_events))</pre>
+<p class="label">Hive</p><pre class="hive">WITH events_per_job AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS events
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt = &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  job_owners.team,
+  SUM(events_per_job.events) AS events
+FROM events_per_job
+JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job.job_id AND job_owners.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_owners.team</pre>
+<pre class="python">run_query(team_events, query)  # -&gt; DataFrame</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>events</th></tr>
+<tr><td>data</td><td>2</td></tr>
+<tr><td>finance</td><td>1</td></tr>
+</table></div>
+<p>The rules for keeping each step small, each with its reason, from Hive&#x27;s own documentation where it has one. A step here is a Derived table, which the Hive holds as a CTE:</p>
+<ul><li><strong>Read each Derived table once in a Statement.</strong> Hive&#x27;s setting hive.optimize.cte.materialize.threshold is -1, off, in Hive 2.x, 3.1 and 4.0, so a Derived table one Statement reads twice is worked out twice. From Hive 4.1 the setting is 3: a CTE with GROUP BY totals, read more than 3 times, is worked out once. Ask whoever looks after your warehouse which Hive it runs. Where one Statement needs a step&#x27;s rows twice, save the step as a Saved table, written once: <a href="#save_a_table">Save a table</a>. A Building block that several Statements import is no second read: each Statement works out its own copy once.</li><li><strong>Select in a Derived table only the columns read after it, and group it only by those.</strong> A column it groups by makes a row for each of its values, rows that every step after it carries. A column it only carries costs little where Hive works the CTE out inside the Statement, as Hive drops what nothing reads, but every column counts where Hive saves the CTE&#x27;s rows (from 4.1, above), and a short step is quicker to check when a number looks wrong. A Building block that several Statements share may carry more: each Statement reads its own columns of it.</li><li><strong>Filter and add up before joining.</strong> The WHERE, on a partition column first, goes in the step that reads the big table, and a total goes in a step before the join it feeds, as <code>events_per_job</code> does. Hive copies a join&#x27;s small side to every worker only while it is under 10 MB (hive.auto.convert.join.noconditionaltask.size); otherwise it sorts both sides, and holds every side but the last in memory.</li><li><strong>Rename or add a column in the SELECT that reads a table or step</strong>, never in a step of its own that copies every column to change one: each copy is one more step to read when a number looks wrong.</li><li><strong>ORDER_BY only with LIMIT, and only in the Statement that gives the rows.</strong> Hive sorts every row through one worker for an ORDER BY, and from Hive 3.0 drops one with no LIMIT inside a CTE or subquery (hive.remove.orderby.in.subquery), so it would sort nothing anyway.</li><li><strong>Fix a join that repeats rows in the join itself</strong>: match the whole Key, or add up the other side to one row for each key first. SELECT_DISTINCT afterwards makes every repeated row first, then sorts them all to drop the copies.</li></ul>
+<p>Done when the result is data 2 and finance 1, and the Hive names ops.job_events once, in <code>events_per_job</code>. Then step 5.</p>
+<h5>5. Keep files few and large</h5>
 <p>Goal: Partitions held in a few large files. Every file costs Hive a little to open, so a Partition held in a thousand small files reads far more slowly than the same rows in a few large ones. Small files come from writes that many workers share. A Session setting is a Hive SET line that holds for the rest of the session. The Session setting &quot;merge_small_files&quot; has each write merge its files before it finishes; &quot;statistics_on_write&quot; has each write count the Partitions it writes, for the next step. Send them before your writes, once per session:</p>
 <pre class="python">settings = hive_settings(&quot;merge_small_files&quot;, &quot;statistics_on_write&quot;)  # -&gt; SessionSettings
 print(to_hive(settings))</pre>
@@ -16671,8 +16715,8 @@ execute: SET hive.merge.tezfiles=true
 execute: SET hive.stats.autogather=true
 execute: SET hive.stats.column.autogather=true</pre>
 <p><code>run_execute</code> sends each SET line through your execute, as a call of its own, and gives back nothing; the Example database&#x27;s execute prints each one. They hold only while your query and execute keep one session across their calls.</p>
-<p>Done when your execute has been given the five SET lines. Then step 5.</p>
-<h5>5. Give Hive the Statistics it plans joins from</h5>
+<p>Done when your execute has been given the five SET lines. Then step 6.</p>
+<h5>6. Give Hive the Statistics it plans joins from</h5>
 <p>Goal: Partitions Hive has counted. Hive picks how to join two tables from their Statistics: how many rows and bytes each Partition holds. Without them it guesses, and may sort two big tables to join them where copying a small one would do. A Partition written with &quot;statistics_on_write&quot; is counted as it is written; count one written without that setting with <code>compute_statistics</code>, and add <code>columns=True</code> to count each column&#x27;s values too, which Hive reads to order several joins:</p>
 <pre class="python">count_day = compute_statistics(job_day_facts,
                                partition={&quot;dt&quot;: &quot;2026-09-24&quot;})  # -&gt; Statement
@@ -16688,8 +16732,8 @@ print(to_hive(count_day))</pre>
 <pre class="python">def count_days(days: list[str]) -&gt; None:
     for day in days:
         run_execute(compute_statistics(job_day_facts, partition={&quot;dt&quot;: day}), execute)</pre>
-<p>Done when each Partition you wrote without &quot;statistics_on_write&quot; has had its ANALYZE TABLE sent. Then step 6.</p>
-<h5>6. Let Hive copy a small table to every worker</h5>
+<p>Done when each Partition you wrote without &quot;statistics_on_write&quot; has had its ANALYZE TABLE sent. Then step 7.</p>
+<h5>7. Let Hive copy a small table to every worker</h5>
 <p>Goal: map joins where a small table meets a big one. Joining a big table to a small one, such as the events of a day to the owners of that day, is fastest when Hive copies the small table to every worker, which then joins its share of the big one without sorting it: a Map join, or broadcast join. The Session setting &quot;map_joins&quot; lets Hive choose one by itself, from the tables&#x27; Statistics, so it works best once both tables have them. Send it before your Statements, as the settings above:</p>
 <pre class="python">print(to_hive(hive_settings(&quot;map_joins&quot;)))</pre>
 <p class="label">Hive</p><pre class="hive">SET hive.auto.convert.join=true
@@ -16699,13 +16743,13 @@ SET hive.ignore.mapjoin.hint=false</pre>
 <p class="label">Python prints</p><pre class="output">execute: SET hive.auto.convert.join=true
 execute: SET hive.auto.convert.join.noconditionaltask=true
 execute: SET hive.ignore.mapjoin.hint=false</pre>
-<p>Nothing in the Statement changes: Hive decides when it plans it. Step 8 shows how to see what it decided.</p>
+<p>Nothing in the Statement changes: Hive decides when it plans it. Step 9 shows how to see what it decided.</p>
 <p>Where Hive still sorts both sides, <code>JOIN(job_owners, ON=..., broadcast=True)</code> asks it by name to copy job_owners to every worker; <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a> shows how. Hive heeds that request only after &quot;map_joins&quot;, whose last line, hive.ignore.mapjoin.hint=false, tells it to.</p>
-<p>Done when your execute has been given the three SET lines of &quot;map_joins&quot;. Then step 7.</p>
-<h5>7. Keep Buckets for big joins</h5>
+<p>Done when your execute has been given the three SET lines of &quot;map_joins&quot;. Then step 8.</p>
+<h5>8. Keep Buckets for big joins</h5>
 <p>Goal: Buckets only where they pay off. Where two big tables are joined on the same column on every run, Buckets spread each Partition&#x27;s rows into a fixed number of files by that column, so the join pairs file with file. They pay off only on tables of tens of millions of rows a Partition, and changing them means writing the table again: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> shows how.</p>
-<p>Done when you have decided, for each big join, whether its tables reach tens of millions of rows a Partition. Then step 8.</p>
-<h5>8. See Hive&#x27;s Plan with explain</h5>
+<p>Done when you have decided, for each big join, whether its tables reach tens of millions of rows a Partition. Then step 9.</p>
+<h5>9. See Hive&#x27;s Plan with explain</h5>
 <p>Goal: how Hive will run a Statement, before you run it. A Plan is that: which tables Hive reads, with which filters, and how it joins them. <code>explain</code> writes EXPLAIN before exactly the Hive <code>run_query</code> would send, and <code>run_query</code> gives back Hive&#x27;s Plan for it as text, without running the Statement. Here each team&#x27;s events on 2026-09-24, each event joined to its job&#x27;s owner that day:</p>
 <pre class="python">events_per_team = statement(  # -&gt; Statement
     SELECT(job_owners.team, AS(count_rows(), &quot;events&quot;)),
@@ -16733,8 +16777,8 @@ GROUP BY
 <p>At work, print the Plan your query gives back, <code>print(run_query(plan, query))</code>. Hive&#x27;s Plan is a tree of steps, each reading what the steps below it give. Look for:</p>
 <ul><li>&quot;TableScan&quot;, once for each table read, with the filter it reads it with;</li><li>&quot;Map Join Operator&quot; where Hive copies the small table to every worker, or &quot;Merge Join Operator&quot; where it sorts both sides first;</li><li>each step&#x27;s &quot;Statistics:&quot; line, the rows Hive expects, and &quot;Basic stats: NONE&quot; or &quot;Column stats: NONE&quot; where it has none to go by: count that table&#x27;s Partitions with <code>compute_statistics</code>, if it is yours, or ask its owner.</li></ul>
 <p>The Example database can&#x27;t give a Plan: it runs Hive on sqlglot&#x27;s own small executor, which makes none. <code>to_hive(explain(...))</code> still shows what you would send at work.</p>
-<p>Done when the Hive starts with <code>EXPLAIN SELECT</code>. Then step 9.</p>
-<h5>9. Find the Partitions a Saved table lost</h5>
+<p>Done when the Hive starts with <code>EXPLAIN SELECT</code>. Then step 10.</p>
+<h5>10. Find the Partitions a Saved table lost</h5>
 <p>Goal: every Partition of a Saved table on the warehouse&#x27;s list. The warehouse keeps a list of each table&#x27;s Partitions, and reads only the folders on it. When a table is made again where its old files stayed, since it was dropped without <code>purge=True</code>, or when files are copied into its folder, their Partitions are missing from the list until <code>repair_partitions</code> finds them:</p>
 <pre class="python">repair = repair_partitions(job_day_facts)  # -&gt; Statement
 print(to_hive(repair))</pre>
@@ -16781,7 +16825,7 @@ print(to_hive(repair))</pre>
 <p>A Session setting holds for the rest of a session. If your execute opens a new session for each call, each SET is gone before your Statement runs, and the Plan shows no change. A read goes through your query and a SET through your execute, so make both use one connection that keeps its session for every call.</p>
 <h4>Next</h4>
 <ul><li>Give a big table a second partition column, or Buckets: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Ask for a map join on one join, with <code>broadcast=True</code>: <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>.</li><li>Keep each Statement&#x27;s reads small, with Load limits: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#explain"><code>explain</code></a>, <a href="examples.html#compute_statistics"><code>compute_statistics</code></a> and <a href="examples.html#repair_partitions"><code>repair_partitions</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>all_of</code>, <code>count_rows</code>, <code>to_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>to_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code></p>
 </section>
 <section class="entry" id="declare_a_change_made_in_python">
 <h3>26. Declare a change made in Python <span class="badge intermediate">Intermediate</span></h3>

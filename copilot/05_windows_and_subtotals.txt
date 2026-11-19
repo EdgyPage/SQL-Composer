@@ -3,10 +3,10 @@
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: work out a value from the rows around each row, keep the latest or top rows of
-each group, add subtotals, or stack Statements.
-Load this file when the user asks for a rank, the latest or top N rows of each group, the
-row before or after, a running total, subtotals, or Statements stacked.
+Objective: values from the rows around each row, the latest or top rows of each group,
+subtotals, and Statements stacked.
+Load this file when the user asks for a rank, the latest or top N per group, the row before
+or after, a running total, subtotals or stacking.
 
 ## Patterns: when the user says X, do Y
 
@@ -33,12 +33,11 @@ row before or after, a running total, subtotals, or Statements stacked.
 ## Rules
 
 - **R1** `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`: the rows of each job, in order;
-  several columns as lists; `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks
-  across the 6 rows before and the row itself; `rows=(None, 0)` every row up to it.
-- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`
-  (the row before), `lead(...)` (after), `first_value`, `last_value`, `sum_of(t.minutes,
-  over=w)`, `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY
-  needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
+  `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks across the 6 rows before
+  and the row itself; `rows=(None, 0)` every row up to it.
+- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`,
+  `lead(...)`, `first_value`, `last_value`, `sum_of(t.minutes, over=w)`,
+  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
 - **R3** A window's value is tested only in a Statement reading its Derived table, never in
   its own WHERE or HAVING; it is never added up again. The latest row: row_number from the
   newest, keep `equals(d.n, 1)`; never max_of on each column, which mixes rows.
@@ -47,12 +46,12 @@ row before or after, a running total, subtotals, or Statements stacked.
 - **R5** Subtotals go inside GROUP_BY: `rollup(t.dt)` adds a total of every day;
   `cube(a, b)` every combination; `grouping_sets(...)` the sets named. A total's row is
   NULL in each column it totals over.
-- **R6** Only if the user asks for a label on a total's row:
+- **R6** Only if asked, a label on a total's row:
   `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
-- **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
-  the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
+- **R7** `UNION_ALL(s1, s2)` gives both's rows, each Statement with the same columns in order,
+  each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -61,7 +60,7 @@ row before or after, a running total, subtotals, or Statements stacked.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns; comparisons are A4's.
+  none. `+ - * /` work on Columns.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -82,6 +81,9 @@ row before or after, a running total, subtotals, or Statements stacked.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
+  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
+  no SELECT_DISTINCT after it.
 
 ## Names for this objective, with their arguments
 
@@ -175,4 +177,4 @@ s = statement(
 - [ ] **C1** Every window function has `over=` (row_number, PARTITION_BY and ORDER_BY), AS.
 - [ ] **C2** A window's value is tested only in the Statement reading its Derived table.
 - [ ] **C3** Each Statement, stacked or not, is bounded on its partitions.
-- [ ] **C4** A total's row is unlabelled unless the user asked for a label.
+- [ ] **C4** A total's row has a label only if the user asked.

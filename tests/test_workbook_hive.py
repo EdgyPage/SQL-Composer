@@ -325,12 +325,37 @@ def test_f9_an_ifs_form_over_another_table_joins_its_totals() -> None:
              '"FAILED")', "=AVERAGEIF(job_runs[job_id],[@job_id],job_runs[duration_mins])"]]
     book = workbook({**runs(), "jobs": jobs})
     check(book, "SELECT j.job_id, j.job_name, COALESCE(c.runs, 0) AS runs, "
-               "COALESCE(c2.failed_mins, 0) AS failed_mins, c.avg_mins FROM "
-               "db.jobs AS j LEFT JOIN (SELECT job_id, COUNT(*) AS runs, "
+               "COALESCE(c.failed_mins, 0) AS failed_mins, c.avg_mins FROM "
+               "db.jobs AS j LEFT JOIN (SELECT job_id, COUNT(*) AS runs, SUM(CASE WHEN "
+               "status = 'FAILED' THEN duration_mins END) AS failed_mins, "
                "AVG(duration_mins) AS avg_mins FROM db.job_runs GROUP BY job_id) AS c "
-               "ON j.job_id = c.job_id LEFT JOIN (SELECT job_id, SUM(duration_mins) AS "
-               "failed_mins FROM db.job_runs WHERE status = 'FAILED' GROUP BY job_id) "
-               "AS c2 ON j.job_id = c2.job_id", final="jobs")
+               "ON j.job_id = c.job_id", final="jobs")
+
+
+def test_f9_forms_on_one_table_s_groups_share_one_read_of_it() -> None:
+    """Ticket 17: a second read of a Table is worked out again, so forms grouped alike read it
+    once, each total over the rows its own conditions keep; alone, a form's conditions are its
+    WHERE, so fewer rows are grouped."""
+    jobs = [["job_id", "job_name", "failed_runs", "long_failed", "runs"],
+            [1, "nightly_load",
+             '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"FAILED")',
+             '=MAXIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],job_runs[status],'
+             '"FAILED")', "=COUNTIF(job_runs[job_id],[@job_id])"]]
+    book = workbook({**runs(), "jobs": jobs})
+    check(book, "SELECT j.job_id, j.job_name, COALESCE(c.failed_runs, 0) AS failed_runs, "
+               "COALESCE(c.long_failed, 0) AS long_failed, COALESCE(c.runs, 0) AS runs "
+               "FROM db.jobs AS j LEFT JOIN (SELECT job_id, COUNT(CASE WHEN status = "
+               "'FAILED' THEN 1 END) AS failed_runs, MAX(CASE WHEN status = 'FAILED' THEN "
+               "duration_mins END) AS long_failed, COUNT(*) AS runs FROM db.job_runs "
+               "GROUP BY job_id) AS c ON j.job_id = c.job_id", final="jobs")
+    alone = [["job_id", "job_name", "failed_runs"],
+             [1, "nightly_load",
+              '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"FAILED")']]
+    check(workbook({**runs(), "jobs": alone}),
+          "SELECT j.job_id, j.job_name, COALESCE(c.failed_runs, 0) AS failed_runs FROM "
+          "db.jobs AS j LEFT JOIN (SELECT job_id, COUNT(*) AS failed_runs FROM db.job_runs "
+          "WHERE status = 'FAILED' GROUP BY job_id) AS c ON j.job_id = c.job_id",
+          final="jobs")
 
 
 def test_f10_rank_is_a_rank_window() -> None:

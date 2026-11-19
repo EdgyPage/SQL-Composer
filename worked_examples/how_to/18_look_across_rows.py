@@ -219,19 +219,22 @@ Done when job 2's `"last_3_runs"` on 2026-09-22 is 61. Then step 8.
 Goal: the runs that were slower than the job's run before. Hive works a Window out after it
 picks the rows, so a test on `"change"` can't go in the WHERE of the Statement that works it
 out (see Common mistakes). Name that Statement with `derived`, and test it in the Statement
-that reads it:
+that reads it. Read a Derived table once, and give it only the columns the Statement after it
+reads: here the Statement shows all five of `with_before`'s, the minutes before and after
+beside the change ([Keep reads and joins fast](#keep_reads_and_joins_fast) gives the rules):
 
 >>> changes = derived("changes", with_before)  # -> Table
 >>> slower = statement(  # -> Statement
-...     SELECT(changes.job_id, changes.dt, changes.change),
+...     SELECT(changes.job_id, changes.dt, changes.minutes_before, changes.minutes,
+...            changes.change),
 ...     FROM(changes),
 ...     WHERE(more_than(changes.change, 0)),
 ... )
 >>> run_query(slower, query)  # -> DataFrame
-   job_id          dt  change
-0       1  2026-09-20       1
-1       1  2026-09-21       1
-2       1  2026-09-23       2
+   job_id          dt  minutes_before  minutes  change
+0       1  2026-09-20              11       12       1
+1       1  2026-09-21              12       13       1
+2       1  2026-09-23              10       12       2
 
 Done when the result holds the three runs whose change is more than 0. Then step 9.
 

@@ -97,7 +97,7 @@ s = statement(
 1. **Find.** Match the message's What happened to a Patterns row. Then step 2.
 2. **Fix.** Write the rule's fix, keeping the user's columns, tables, days and names. Then
    step 3.
-3. **Read again.** Read the code against rules A1 to A10; fix each other refusal it would
+3. **Read again.** Read the code against rules A1 to A11; fix each other refusal it would
    meet. Then step 4.
 4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
@@ -107,7 +107,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ## Self-check
 
-- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A10.
+- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A11.
 - [ ] **C2** The user's columns, tables, days and order are kept.
 - [ ] **C3** An opt-out appears only where the user asked for it.
 - [ ] **C4** Names the user's own code defines, such as `write()`, are kept.

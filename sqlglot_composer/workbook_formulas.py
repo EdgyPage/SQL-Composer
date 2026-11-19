@@ -1506,6 +1506,18 @@ def _conditional_aggregate(form: IfsForm, conditions: list[exp.Expression],
     return hive_call(form.aggregate, [value])
 
 
+def _aggregate_of_kept_rows(total: exp.Expression,
+                            condition: exp.Expression) -> exp.Expression:
+    """An -IF(S) form's aggregate of a column, or its COUNT(*), over only the rows `condition`
+    keeps: `SUM(CASE WHEN .. THEN v END)`, `COUNT(CASE WHEN .. THEN 1 END)` (F9)."""
+    kept = total.copy()
+    value = kept.this
+    if isinstance(value, exp.Star):
+        value = exp.Literal.number("1")
+    kept.set("this", exp.Case().when(condition.copy(), value))
+    return kept
+
+
 def _joined_ifs(form: IfsForm, place: Place) -> exp.Expression:
     """An -IF(S) form over another Table: a LEFT JOIN of `(SELECT a, SUM(v) AS total FROM t
     WHERE s = 'x' GROUP BY a)` on this row's a, its total COALESCE(.., 0) but for AVERAGEIFS
@@ -1536,18 +1548,26 @@ def _joined_ifs(form: IfsForm, place: Place) -> exp.Expression:
 def totals_read(table: Table, keys: list[tuple[str, exp.Expression]],
                 where: exp.Expression | None, total: exp.Expression, zero_for_none: bool,
                 place: Place) -> exp.Expression:
-    """A total of another Table, read from its join: one with the same groups and conditions,
-    or a new one. COALESCE(.., 0) where Excel gives 0 for no row (F9)."""
+    """A total of another Table, read from its join: one with the same groups, or a new one.
+    Hive works out a read of a Table each time, so totals grouped alike share one read
+    (ticket 17): its WHERE while they share their conditions, else each total over the rows
+    its own conditions keep. COALESCE(.., 0) where Excel gives 0 for no row (F9)."""
     join = None
     for each in place.query.joins:
-        if isinstance(each, Totals) and each.table is table and each.keys == keys and (
-                each.where == where):
+        if isinstance(each, Totals) and each.table is table and each.keys == keys:
             join = each
     if join is None:
         alias = free_alias("c", place.query.taken)
         place.query.taken.add(alias)
         join = Totals(alias, table, keys, where)
         place.query.joins.append(join)
+    elif join.where != where:
+        if join.where is not None:
+            for each in join.totals:
+                each.set("this", _aggregate_of_kept_rows(each.this, join.where))
+            join.where = None
+        if where is not None:
+            total = _aggregate_of_kept_rows(total, where)
     name = hive_name(place.column)
     taken = {each.alias for each in join.totals}
     number = 2

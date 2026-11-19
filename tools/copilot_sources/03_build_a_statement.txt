@@ -4,8 +4,7 @@
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
-Load this file when the user asks for rows, counts, totals, averages or a list from their
-tables.
+Load this file when the user asks for rows, counts, totals, averages or a list.
 
 ## Patterns: when the user says X, do Y
 
@@ -29,7 +28,7 @@ tables.
 
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
-- `t`: a table, as its Table reference describes it: `job_runs`.
+- `t`: a table, from its Table reference: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Rules
@@ -59,7 +58,7 @@ tables.
 
 ## Names for this objective, with their arguments
 
-{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, at_least, between, last_n_days, is_in, is_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
+{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, between, last_n_days, is_in, is_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
 
 ## Worked patterns
 
@@ -90,7 +89,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))

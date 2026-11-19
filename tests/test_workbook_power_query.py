@@ -400,9 +400,11 @@ HOURS = f"SELECT {RUN_COLUMNS}, duration_mins / 60 AS hours FROM db.job_runs"
 
 
 def test_t2_a_total_row_is_a_final_of_its_own_reading_the_tables_final_as_a_cte() -> None:
+    """Its CTE carries only the columns its totals read (ticket 17)."""
     book = workbook(runs(hours="=[@duration_mins]/60"), totals=TOTALS)
-    check(book, f"WITH job_runs AS ({HOURS}) SELECT SUM(duration_mins) AS duration_mins, "
-               "COUNT(dt) AS dt, AVG(hours) AS hours FROM job_runs",
+    check(book, "WITH job_runs AS (SELECT duration_mins, dt, duration_mins / 60 AS hours FROM "
+               "db.job_runs) SELECT SUM(duration_mins) AS duration_mins, COUNT(dt) AS dt, "
+               "AVG(hours) AS hours FROM job_runs",
           final="job_runs (Total Row)")
 
 
@@ -564,7 +566,7 @@ def test_file_12_w2_a_summarys_total_row_reading_its_final_as_a_cte() -> None:
                [2, "=COUNTIFS(job_runs[job_id],[@job_id])"]]
     book = workbook({**runs(), "by_job": summary},
                     totals={"by_job": {"runs": "=SUBTOTAL(109,by_job[runs])"}})
-    check(book, "WITH by_job AS (SELECT j.job_id, COALESCE(c.runs, 0) AS runs FROM (SELECT 1 "
+    check(book, "WITH by_job AS (SELECT COALESCE(c.runs, 0) AS runs FROM (SELECT 1 "
                "AS job_id UNION ALL SELECT 2) j LEFT JOIN (SELECT job_id, COUNT(*) AS runs "
                "FROM db.job_runs GROUP BY job_id) c ON j.job_id = c.job_id) SELECT SUM(runs) "
                "AS runs FROM by_job", final="by_job (Total Row)")

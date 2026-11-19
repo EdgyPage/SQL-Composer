@@ -64,7 +64,7 @@ table, or asks about a table's columns, partitions or Key.
   marked `# proposed` is a guess the user accepts or changes; if they doubt a Key,
   `check_key` on one Partition first (W2).
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -73,7 +73,7 @@ table, or asks about a table's columns, partitions or Key.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns; comparisons are A4's.
+  none. `+ - * /` work on Columns.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -94,6 +94,9 @@ table, or asks about a table's columns, partitions or Key.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
+  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
+  no SELECT_DISTINCT after it.
 
 ## Names for this objective, with their arguments
 

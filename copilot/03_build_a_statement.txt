@@ -4,8 +4,7 @@
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
-Load this file when the user asks for rows, counts, totals, averages or a list from their
-tables.
+Load this file when the user asks for rows, counts, totals, averages or a list.
 
 ## Patterns: when the user says X, do Y
 
@@ -29,7 +28,7 @@ tables.
 
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
-- `t`: a table, as its Table reference describes it: `job_runs`.
+- `t`: a table, from its Table reference: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Rules
@@ -55,7 +54,7 @@ tables.
 - **R9** `d = derived("d", statement(...))`, then `FROM(d)` and `d.runs`; no LIMIT inside
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -64,7 +63,7 @@ tables.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns; comparisons are A4's.
+  none. `+ - * /` work on Columns.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -85,6 +84,9 @@ tables.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
+  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
+  no SELECT_DISTINCT after it.
 
 ## Names for this objective, with their arguments
 
@@ -102,7 +104,6 @@ tables.
 - all_columns(t)
 - equals(column, value)
 - more_than(column, value)
-- at_least(column, value)
 - between(column, low, high)
 - last_n_days(column, n)
 - is_in(column, values)
@@ -151,7 +152,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))

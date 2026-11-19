@@ -48,10 +48,11 @@ def minutes_per_team() -> Statement:
 
 
 def busy_teams() -> Statement:
-    """Step 3: keep the teams with 100 minutes of runs or more, reading step 2."""
+    """Step 3: keep the teams with 100 minutes of runs or more, with their runs and minutes,
+    reading step 2."""
     per_team = derived("per_team", minutes_per_team())
     return statement(
-        SELECT(per_team.team, per_team.minutes),
+        SELECT(per_team.team, per_team.runs, per_team.minutes),
         FROM(per_team),
         # A total from step 2 is a plain column here, one per row, so WHERE can test it.
         WHERE(at_least(per_team.minutes, 100)),
