@@ -136,9 +136,11 @@ AUDITED = (
             "the Copilot scorer's guard, which refuses a process, a socket or a file written "
             "outside its temporary folder while a model's answers run; it only blocks "
             "(the user's OK, 2026-10-27)"),
-    Audited("copilot/workbook_text.py", "encoded payload", "imports base64",
+    Audited("sqlglot_composer/workbook_reader.py", "encoded payload", "imports base64",
             "decodes the DataMashup part Excel saves a workbook's Power Queries in, to read "
-            "their M as text; it runs nothing it reads (the user's OK, 2026-11-01)"),
+            "their M as text; it runs nothing it reads (the user's OK, 2026-11-01; moved "
+            "with the reader from copilot/workbook_text.py into the Toolbox's folder, the "
+            "user's OK, 2026-11-19, Toolbox 8.9 ticket 01, ADR 0016)"),
     Audited("tools/excel_queries.py", "encoded payload", "imports base64",
             "writes the DataMashup part Excel saves Power Queries in, into dev's test and "
             "evaluation workbooks (the user's OK, 2026-11-01)"),

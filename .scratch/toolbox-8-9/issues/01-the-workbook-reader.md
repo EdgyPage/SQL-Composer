@@ -81,3 +81,26 @@ Also for the user: `workbook_text.py`'s docstring now says it reads with the Too
 beside the copilot folder, and it has a new refusal for when that folder isn't there; a user who
 copied the script alone, out of the download, now needs the `sqlglot_composer` folder beside its
 folder. Both are things a beginner sees, so the beginner reader should run on them.
+
+**The code audit entry, done.** The user's OK, 2026-11-19: the entry moved to
+`sqlglot_composer/workbook_reader.py`, its reason kept and the move noted; the audit reads
+clean.
+
+## Review
+
+The code-review skill, 2026-11-19, on 4d430ccc (Standards and Spec, on Sonnet). No hard breach.
+
+- **Spec: "loads that file by its path".** It puts the folder first on `sys.path` and imports
+  the reader by name, then takes the folder off: `spec_from_file_location` is dynamic code the
+  offline policy refuses in `copilot/`, where nothing can be allowed. The effect the ticket asks
+  for holds (the Toolbox's `__init__` is never imported, nothing but Python is needed); the
+  wording is closer than the mechanism. Kept, and told the user.
+- **Spec: the third fixture pinned.** 03_loop's reader data is its refusal, pinned by
+  `test_a_loop_is_refused_naming_each_link_in_excels_words`.
+- **Spec: charts in the reader's data.** The old script read them too (its "left alone" list);
+  kept, as the text holds them.
+- **Standards: `_formulas` and `read`.** Renamed `_formulas_text` and `reads`.
+- **Standards: `_take_sheet_queries` changes the sheets it is given and returns the queries.**
+  Kept: "take ... off its sheet" says both, and its docstring says so.
+- **Standards: a hand-joined list in the reader.** The reader may import only the standard
+  library, so `shared.in_words` is out of reach; answered by the registry's rule.

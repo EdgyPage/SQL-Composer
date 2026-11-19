@@ -536,7 +536,7 @@ def _m_names(m: str) -> list[str]:
     return re.findall(r"(?<![\w.#])[A-Za-z_][\w.]*", "".join(kept)) + names
 
 
-def _formulas(table: Table) -> str:
+def _formulas_text(table: Table) -> str:
     """Every formula a Table holds, its Total Row's among them, joined by spaces."""
     formulas = []
     for column in table.columns:
@@ -548,16 +548,16 @@ def _pieces_read(sheets: list[Sheet], queries: list[Query]) -> dict[Piece, list[
     """Each Table and query, in the workbook's order, and each piece it reads."""
     tables = {table.name.lower(): table.name for table in _every_table(sheets)}
     query_names = {query.name for query in queries}
-    read: dict[Piece, list[Piece]] = {}
+    reads: dict[Piece, list[Piece]] = {}
     for table in _every_table(sheets):
         pieces = []
         if table.loaded_by in query_names:
             pieces.append(Piece(POWER_QUERY, table.loaded_by))
-        for name in TABLE_REFERENCE.findall(_formulas(table)):
+        for name in TABLE_REFERENCE.findall(_formulas_text(table)):
             other = tables.get(name.lower())
             if other and other != table.name:
                 pieces.append(Piece(EXCEL_TABLE, other))
-        read[Piece(EXCEL_TABLE, table.name)] = list(dict.fromkeys(pieces))
+        reads[Piece(EXCEL_TABLE, table.name)] = list(dict.fromkeys(pieces))
     for query in queries:
         pieces = []
         for name in READS_THE_WORKBOOK.findall(query.m):
@@ -566,8 +566,8 @@ def _pieces_read(sheets: list[Sheet], queries: list[Query]) -> dict[Piece, list[
                 pieces.append(Piece(EXCEL_TABLE, other))
         pieces += [Piece(POWER_QUERY, name) for name in _m_names(query.m)
                    if name in query_names and name != query.name]
-        read[Piece(POWER_QUERY, query.name)] = list(dict.fromkeys(pieces))
-    return read
+        reads[Piece(POWER_QUERY, query.name)] = list(dict.fromkeys(pieces))
+    return reads
 
 
 def _link(reader: Piece, read: Piece) -> str:
@@ -580,11 +580,11 @@ def _link(reader: Piece, read: Piece) -> str:
     return f"{piece_name(reader)} reads {piece_name(read)}"
 
 
-def _in_order(read: dict[Piece, list[Piece]]) -> dict[Piece, list[Piece]]:
-    """Each piece after every piece it reads, as `read` lists them where that leaves a choice,
+def _in_order(reads: dict[Piece, list[Piece]]) -> dict[Piece, list[Piece]]:
+    """Each piece after every piece it reads, as `reads` lists them where that leaves a choice,
     with what each reads; a loop is refused, naming its pieces."""
-    place = {piece: number for number, piece in enumerate(read)}
-    sorter = graphlib.TopologicalSorter(read)
+    place = {piece: number for number, piece in enumerate(reads)}
+    sorter = graphlib.TopologicalSorter(reads)
     try:
         sorter.prepare()
     except graphlib.CycleError as error:
@@ -603,4 +603,4 @@ def _in_order(read: dict[Piece, list[Piece]]) -> dict[Piece, list[Piece]]:
         ready = sorted(sorter.get_ready(), key=place.__getitem__)
         ordered += ready
         sorter.done(*ready)
-    return {piece: read[piece] for piece in ordered}
+    return {piece: reads[piece] for piece in ordered}
