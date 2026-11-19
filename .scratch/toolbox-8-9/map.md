@@ -285,6 +285,11 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   any query's tree, every final and pivot level put through it); all 39 query and total tasks
   pass; ticket 04's workaround gone. Its Answer tables each place the code reads file 12 or 15
   differently, with the line each file would need, for ticket 13. Merged 2026-11-19 (a0ec819e).
+- [10 The pivot tasks](issues/10-pivot-tasks.md): X85 to X104 dev, X105 to X124 held out, each
+  reference lean (ticket 17) and checked against the pivot's stored cells; a pivot's finals
+  scored in any column order; one mark reader for `-- Pivot filter:` and `/* ... */`. Baseline
+  A0: 0 of 40 on Haiku and Sonnet. The code path passes 32 of 40 (eight on ticket 14). Merged
+  2026-11-19 (0fad3a58).
 
 ## Not yet specified
 

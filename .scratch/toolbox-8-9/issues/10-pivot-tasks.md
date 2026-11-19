@@ -1,7 +1,7 @@
 # The pivot tasks and their baseline
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 02, 03
 Size: L
 
@@ -18,7 +18,7 @@ The Excel evaluation's pivot tasks, written before file 20 as 7.2 wrote its task
   with a slicer, read back by GETPIVOTDATA).
 - **The scorer** scores a pivot's finals and its totals' finals, and counts its Pivot filter
   marks (the `-- Pivot filter:` comment) under `named`.
-- **The baseline** (open: the lead's): each split answered without file 20, on Haiku and
+- **The baseline** (done by the lead, 2026-11-19): each split answered without file 20, on Haiku and
   Sonnet, recorded in the ledger, in `.eval-local/`.
 - `docs/copilot-eval.md`'s Excel section names the new tasks.
 
@@ -239,3 +239,19 @@ Also found while rerunning: `tests/test_workbook_text.py`'s
 openpyxl reads no PivotTable, so it failed on the 40 pivot tasks (it wasn't among the tests run
 for a1dc4d07). It now runs on the formula tasks; the pivot tasks' text is held by the reader's
 tests and the stored-values test.
+
+## The baseline (the lead, 2026-11-19)
+
+Arm A0 (no Copilot file), all 40 pivot tasks, on 171b393d, rounds `2026-11-19-x89-a0-haiku`
+and `2026-11-19-x89-a0-sonnet`, 8 proxies each, in the ledger and `.eval-local/`:
+
+| Model | Passed | Runs | Correct | Mapped | All named | Invented names |
+|---|---|---|---|---|---|---|
+| Haiku | 0 of 40 | 85% | 8% | 2% | 38% | 38% |
+| Sonnet | 0 of 40 | 50% | 2% | 0% | 38% | 0% |
+
+Without file 20 neither model writes a pivot's total levels as finals of their own, marks a
+Pivot filter, or reads a Table's rows from the database rather than typing in the sample (Sonnet's
+"circular reference: job_runs", a CTE named for the table it reads). Three Haiku proxies said
+the Read of their message carried an "MCP Server Instructions" block asking for a Claude Docs
+document, which the message file doesn't hold: the environment's, ignored by each.
