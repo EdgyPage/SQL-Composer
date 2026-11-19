@@ -49,10 +49,10 @@ than the rows need.
   and the block. A break that must stay is listed in the test with its reason.
 - The beginner reader runs on what changes in the how-tos, and its report is linked here.
 
-## Not yet specified
+## Out of scope (the user, 2026-11-19)
 
-- Whether the Toolbox itself should warn on a Statement whose Derived table is read more than
-  once (a Warning, as the Load limits warn): a new Toolbox behaviour, so the user's call.
-- Whether a step read by several finals in one workbook should become a Staging table the
-  finals read, rather than a CTE in each: the convert Workflow already folds or keeps Staging
-  tables, so this may be a Decision of its own.
+- **No Toolbox Warning on a Derived table read more than once**: "we can fix and tweak
+  statements when the performance is in the way." This ticket teaches lean Hive; it adds no
+  Toolbox behaviour.
+- **No Staging table for a step several finals read**: each final keeps its steps as CTEs, as
+  file 15 says.
