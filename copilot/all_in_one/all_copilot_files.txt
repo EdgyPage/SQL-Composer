@@ -210,7 +210,7 @@ something and see its rows.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -231,9 +231,9 @@ something and see its rows.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -400,7 +400,7 @@ table, or asks about a table's columns, partitions or Key.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -421,9 +421,9 @@ table, or asks about a table's columns, partitions or Key.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -495,7 +495,8 @@ print(v)
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
-Load this file when the user asks for rows, counts, totals, averages or a list.
+Load this file when the user asks for rows, counts, totals, averages or a list from their
+tables.
 
 ## Patterns: when the user says X, do Y
 
@@ -519,7 +520,7 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
 
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
-- `t`: a table, from its Table reference: `job_runs`.
+- `t`: a table, as its Table reference describes it: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Rules
@@ -554,7 +555,7 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -575,9 +576,8 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
@@ -595,6 +595,7 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
 - all_columns(t)
 - equals(column, value)
 - more_than(column, value)
+- at_least(column, value)
 - between(column, low, high)
 - last_n_days(column, n)
 - is_in(column, values)
@@ -741,7 +742,7 @@ match in another table, or a count of matches.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -762,9 +763,9 @@ match in another table, or a count of matches.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -861,10 +862,10 @@ s = statement(
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: values from the rows around each row, the latest or top rows of each group,
-subtotals, and Statements stacked.
-Load this file when the user asks for a rank, the latest or top N per group, the row before
-or after, a running total, subtotals or stacking.
+Objective: work out a value from the rows around each row, keep the latest or top rows of
+each group, add subtotals, or stack Statements.
+Load this file when the user asks for a rank, the latest or top N rows of each group, the
+row before or after, a running total, subtotals, or Statements stacked.
 
 ## Patterns: when the user says X, do Y
 
@@ -891,11 +892,12 @@ or after, a running total, subtotals or stacking.
 ## Rules
 
 - **R1** `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`: the rows of each job, in order;
-  `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks across the 6 rows before
-  and the row itself; `rows=(None, 0)` every row up to it.
-- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`,
-  `lead(...)`, `first_value`, `last_value`, `sum_of(t.minutes, over=w)`,
-  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
+  several columns as lists; `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks
+  across the 6 rows before and the row itself; `rows=(None, 0)` every row up to it.
+- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`
+  (the row before), `lead(...)` (after), `first_value`, `last_value`, `sum_of(t.minutes,
+  over=w)`, `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY
+  needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
 - **R3** A window's value is tested only in a Statement reading its Derived table, never in
   its own WHERE or HAVING; it is never added up again. The latest row: row_number from the
   newest, keep `equals(d.n, 1)`; never max_of on each column, which mixes rows.
@@ -904,10 +906,10 @@ or after, a running total, subtotals or stacking.
 - **R5** Subtotals go inside GROUP_BY: `rollup(t.dt)` adds a total of every day;
   `cube(a, b)` every combination; `grouping_sets(...)` the sets named. A total's row is
   NULL in each column it totals over.
-- **R6** Only if asked, a label on a total's row:
+- **R6** Only if the user asks for a label on a total's row:
   `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
-- **R7** `UNION_ALL(s1, s2)` gives both's rows, each Statement with the same columns in order,
-  each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
+- **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
+  the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
 ## Always: rules A1 to A11
 
@@ -918,7 +920,7 @@ or after, a running total, subtotals or stacking.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -939,9 +941,7 @@ or after, a running total, subtotals or stacking.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only columns read.
 
 ## Names for this objective, with their arguments
 
@@ -1035,7 +1035,7 @@ s = statement(
 - [ ] **C1** Every window function has `over=` (row_number, PARTITION_BY and ORDER_BY), AS.
 - [ ] **C2** A window's value is tested only in the Statement reading its Derived table.
 - [ ] **C3** Each Statement, stacked or not, is bounded on its partitions.
-- [ ] **C4** A total's row has a label only if the user asked.
+- [ ] **C4** A total's row is unlabelled unless the user asked for a label.
 
 ===== 06_save_a_table.txt =====
 
@@ -1110,7 +1110,7 @@ it, add to it, or write the logic cell of a Table notebook.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -1131,9 +1131,9 @@ it, add to it, or write the logic cell of a Table notebook.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1290,7 +1290,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -1311,9 +1311,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1452,7 +1452,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -1473,9 +1473,9 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1632,7 +1632,7 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -1653,9 +1653,9 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1787,7 +1787,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins, WHERE, GROUP_BY,
   HAVING, ORDER_BY, LIMIT.
 - **A3** Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs
-  none. `+ - * /` work on Columns.
+  none. `+ - * /` work on Columns; comparisons are A4's.
 - **A4** Write each Condition with a function, never Python's ==, <, >, and, or, not on a
   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
@@ -1808,9 +1808,9 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
-- **A11** Hive works a Derived table out at each read: read it once, SELECT in it only what
-  is read after it, and filter and group in it before a join. Fix a join that repeats rows;
-  no SELECT_DISTINCT after it.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -2633,13 +2633,15 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 
 ## Rules: Hive that stays small
 
-Hive works a CTE out again each time it is read and keeps none of its rows, so:
-
-- **H1** Read each step once in a final: forms grouped alike share one join (file 11's F9).
-- **H2** A CTE selects only the columns read after it, never `*`.
+- **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
+  with totals read over 3 times). Forms grouped alike share one join (file 11's F9).
+- **H2** A CTE selects only the columns read after it, never `*`: Hive drops the rest, but a
+  short CTE is quicker to check.
 - **H3** Each WHERE goes in the SELECT that reads its source, before any join.
-- **H4** Rename or add columns in the SELECT that reads a step, never in a CTE that copies it.
-- **H5** No ORDER BY without LIMIT in a CTE or subquery; no DISTINCT to undo a join's repeats.
+- **H4** For reading: rename or add columns in the SELECT that reads a step, never in a CTE
+  that only copies it.
+- **H5** No ORDER BY without LIMIT in a CTE or subquery: Hive drops it. Fix a join that
+  repeats rows in its ON, never with a DISTINCT after it.
 
 ## Steps
 

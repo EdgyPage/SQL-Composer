@@ -72,6 +72,7 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
   writes.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

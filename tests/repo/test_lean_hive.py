@@ -11,22 +11,34 @@ don't need.
 - **An ORDER BY with no LIMIT in a CTE or a subquery**: Hive sorts every row through one
   reducer for it, and from 3.0 drops it (`hive.remove.orderby.in.subquery`).
 
-What is read: each `hive` and `output` block of the pages in `docs/main/` (the how-tos, the
-Example gallery, the Example projects page and the Workflows overview), which show the Hive each
-Worked example and how-to writes; each ```sql block of `docs/` and `copilot/`; each `.hql` file
-of the Example projects; and each final the code writes for the Excel evaluation's tasks
-(`tools/excel_eval_tasks.py`, through `workbook_hive`) and for the workbook fixtures. The
-evaluation's own reference Hive is not read yet: ticket 10 is making it lean.
+What is read:
+
+- each `hive` and `output` block of the pages in `docs/main/` (the how-tos, the Example
+  gallery, the Example projects page and the Workflows overview), which show the Hive each
+  Worked example and how-to writes;
+- in each Markdown file of `docs/`, the README template among them, and each Copilot file in
+  `copilot/`: every fenced block, whatever its language, each string a ```python block holds,
+  every indented block, and every `backticked` span, each read as Hive where it starts as a
+  query does. A piece with `...` in it, such as file 07's `WITH ev AS (SELECT ...)`, is no
+  whole query and is passed over. Copilot files 20 and 21 are read once they exist;
+- each `.hql` file of the Example projects;
+- the Excel evaluation's reference Hive (`tools/excel_eval_tasks.py`'s `finals`), and each
+  final the code writes for its tasks (through `workbook_hive`) and for the workbook fixtures.
+
+The four shapes are read here on their own, apart from `sqlglot_composer/lean_hive.py`, on
+purpose: a check written a second way, so a fault in `lean_ctes` can't hide itself.
 
 A break that stays is in `KEPT`, by where it is and what it is, with the reason it stays.
 """
 
 from __future__ import annotations
 
+import ast
 import functools
 import html
 import re
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import sqlglot
@@ -40,11 +52,26 @@ from sqlglot_composer.workbook_reader import LoopError, read_workbook
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "workbook_text"
 PAGE_BLOCK = re.compile(r'<pre(?: class="(?:hive|output)")?>(.*?)</pre>', re.DOTALL)
-SQL_FENCE = re.compile(r"^```sql\n(.*?)^```", re.DOTALL | re.MULTILINE)
+FENCE = re.compile(r"^```(\w*)\n(.*?)^```", re.DOTALL | re.MULTILINE)
+INDENTED = re.compile(r"(?:^ {4}.*\n?)+", re.MULTILINE)
+SPAN = re.compile(r"`([^`\n]+)`")
 # A statement's first word, after its comments and SET lines, that makes it a query to read.
 QUERY_START = re.compile(r"(?:EXPLAIN\s+)?(WITH|SELECT|INSERT|FROM)\s", re.IGNORECASE)
 HIVE_VARIABLE = re.compile(r"\$\{[^}]*\}")
 PLACEHOLDER = re.compile(r"<(\w+)>")
+
+PF5 = ("rule PF5 (ticket 06): a Top or Bottom value filter keeps its items with an IN over a "
+       "RANK of the step's rows, read again, since a total of the kept items, an Average or a "
+       "Distinct Count, needs the kept rows before they are grouped")
+# Each pivot final a Top or Bottom value filter keeps items of, and the CTE it reads twice.
+TOP_FILTERED = [("workbook fixture 06_pivot_query_sheet", "job_hours", "ok_runs")] + [
+    (f"Excel task {task}", f"{pivot}{level}", cte)
+    for task, pivot, cte, levels in (
+        ("X104", "top_job_days", "by_job_day", ("", " (by job_id)", " (by dt)",
+                                                " (grand total)")),
+        ("X122", "top_team_sizes", "job_runs", ("", " (by team)", " (by size)",
+                                                " (grand total)")))
+    for level in levels]
 
 # Each break that stays: where it is, a file or an Excel final, and what it is, as `breaks`
 # says it, with the reason.
@@ -56,11 +83,29 @@ KEPT = {
         "step 6's check of one day reads it. Hive's column pruner, always on since 0.13 "
         "(HIVE-4113), drops runs and minutes from the CTE it works out in place; dt, which the "
         "block groups by, gives the team Statement a row a day to add up, the same totals",
-    ("workbook fixture 06_pivot_query_sheet, final job_hours", "CTE ok_runs is read 2 times"):
-        "rule PF5 (ticket 06): a Top or Bottom value filter keeps its items with an IN "
-        "over a RANK of the step's rows, read again, since a total of the kept items, an "
-        "Average or a Distinct Count, needs the kept rows before they are grouped",
+    **{(f"{where}, final {final}", f"CTE {cte} is read 2 times"): PF5
+       for where, final, cte in TOP_FILTERED},
 }
+
+# The Excel evaluation's reference Hive: each task's CTE whose unread columns stay. A task's
+# steps are one CTE text for each of its finals (`tools/excel_eval_tasks.py`'s
+# `RUNS_WITH_ALERTS`, `OK_RUNS` and the others, and its pivots' levels), so each final reads
+# its own columns of it; the scorer compares a reply's rows with the reference's rows alone,
+# and no person reads or copies the reference. Hive's pruner drops the columns a final doesn't
+# read. Making each final's copy lean is left to a ticket of its own.
+REFERENCE_STEPS = {
+    ("X67", "runs"), ("X68", "base"), ("X68", "g"), ("X69", "costs"), ("X70", "staffed"),
+    ("X70", "per_owner"), ("X71", "ok"), ("X72", "totals"), ("X73", "eu"), ("X74", "alerts"),
+    ("X75", "long"), ("X77", "high"), ("X78", "known"), ("X91", "by_job"),
+    ("X111", "by_status"),
+}
+
+
+def is_kept(where: str, each: str) -> bool:
+    """Whether a break is one that stays: in KEPT, or a reference step's unread columns."""
+    return (where, each) in KEPT or any(
+        where.startswith(f"Excel task {task}'s reference,")
+        and each.startswith(f"CTE {cte} carries ") for task, cte in REFERENCE_STEPS)
 
 
 # --- The four shapes --------------------------------------------------------------------------
@@ -90,9 +135,9 @@ def cte_breaks(cte: exp.CTE, held: exp.With) -> list[str]:
     body = cte.this
     if not isinstance(body, exp.Select) or body.args.get("distinct"):
         return found
-    read, star = names_read_after(cte, held)
-    unread = [name for name in body.named_selects if name and name not in read]
-    if unread and not star:
+    read = names_read_after(cte, held)
+    unread = [name for name in body.named_selects if name and name not in read.names]
+    if unread and not read.every_column:
         found.append(f"CTE {cte.alias} carries {', '.join(unread)}, which nothing after it "
                      "reads")
     return found
@@ -105,15 +150,22 @@ def has_star(query: exp.Expression) -> bool:
         for select in query.find_all(exp.Select) for column in select.expressions)
 
 
-def names_read_after(cte: exp.CTE, held: exp.With) -> tuple[set[str], bool]:
-    """Every column's name read after `cte`, in the CTEs after it and the query its WITH
-    starts, and whether any of them selects `*`, which reads every column."""
+@dataclass(frozen=True)
+class NamesRead:
+    """What is read after a CTE: each column's name, and whether a `*` reads every column."""
+
+    names: set[str]
+    every_column: bool
+
+
+def names_read_after(cte: exp.CTE, held: exp.With) -> NamesRead:
+    """What is read after `cte`, in the CTEs after it and the query its WITH starts."""
     after = held.expressions[held.expressions.index(cte) + 1:]
     query = held.parent.copy()
     query.set("with_", None)
     parts = [each.this for each in after] + [query]
-    read = {column.name for part in parts for column in part.find_all(exp.Column)}
-    return read, any(has_star(part) for part in parts)
+    names = {column.name for part in parts for column in part.find_all(exp.Column)}
+    return NamesRead(names, any(has_star(part) for part in parts))
 
 
 def unlimited_orders(query: exp.Expression) -> list[str]:
@@ -158,10 +210,33 @@ def sql_blocks() -> Iterator[tuple[str, int, str]]:
             yield _relative(page), number, html.unescape(re.sub(r"<[^>]+>", "", block))
     written = sorted((ROOT / "docs").rglob("*.md")) + sorted((ROOT / "copilot").glob("*.txt"))
     for path in written:
-        for number, block in enumerate(SQL_FENCE.findall(path.read_text(encoding="utf-8")), 1):
-            yield _relative(path), number, block
+        pieces = written_pieces(path.read_text(encoding="utf-8"))
+        for number, piece in enumerate(pieces, 1):
+            yield _relative(path), number, piece
     for path in sorted((ROOT / "example_projects").rglob("*.hql")):
         yield _relative(path), 1, path.read_text(encoding="utf-8")
+
+
+def written_pieces(text: str) -> list[str]:
+    """Each piece of a written doc that may hold Hive: each fenced block, or each string of a
+    ```python block; each indented block; each `backticked` span."""
+    pieces = []
+    for language, block in FENCE.findall(text):
+        pieces += python_strings(block) if language == "python" else [block]
+    prose = FENCE.sub("", text)
+    pieces += [block.replace("\n    ", "\n").strip() for block in INDENTED.findall(prose)]
+    return pieces + SPAN.findall(prose)
+
+
+def python_strings(code: str) -> list[str]:
+    """Each string Python code holds, as Hive handed to the Toolbox is; the code itself where
+    it isn't Python that parses, such as a fragment with `...`."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return [code]
+    return [node.value for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)]
 
 
 def _relative(path: Path) -> str:
@@ -170,9 +245,12 @@ def _relative(path: Path) -> str:
 
 
 def excel_finals() -> Iterator[tuple[str, exp.Query]]:
-    """Each final the code writes for each Excel evaluation task and each workbook fixture,
-    named by its task or fixture and its final."""
+    """Each Excel evaluation task's reference Hive, and each final the code writes for each
+    task and each workbook fixture, named by its task or fixture and its final."""
     for task in TASKS:
+        for name, text in task.finals.items():
+            for query in queries_of(text):
+                yield f"Excel task {task.id}'s reference, final {name}", query
         book = read_workbook(formula_workbook.saved(task.workbook))
         for name, query in workbook_hive(book).finals.items():
             yield f"Excel task {task.id}, final {name}", query
@@ -248,11 +326,19 @@ def test_a_page_shows_a_query_s_first_line_alone_and_it_is_passed_over() -> None
         "SELECT job_id FROM database.job_runs"]
 
 
+def test_a_written_doc_s_hive_is_read_in_any_block_string_or_span() -> None:
+    text = ("```text\nSELECT a FROM t\n```\n\n```python\nHIVE = \"SELECT b FROM t\"\n```\n\n"
+            "    SELECT c FROM t\n\nSee `SELECT d FROM t` and `WITH e AS (SELECT ...)`.\n")
+    read = [query.sql() for piece in written_pieces(text) for query in queries_of(piece)]
+    assert read == ["SELECT a FROM t", "SELECT b FROM t", "SELECT c FROM t", "SELECT d FROM t"]
+
+
 def test_the_blocks_read_hold_the_hive_of_each_kind_of_doc() -> None:
     files = {where for where, _, text in sql_blocks() if list(queries_of(text))}
     assert {"docs/main/how_to.html", "docs/main/examples.html",
             "docs/main/example_projects.html", "copilot/15_excel_workbook_steps.txt",
-            "copilot/12_excel_power_query.txt"} <= files
+            "copilot/12_excel_power_query.txt", "copilot/07_convert_hive.txt",
+            "copilot/08_check_and_compare.txt"} <= files
     assert any(where.startswith("example_projects/") for where in files)
 
 
@@ -264,11 +350,15 @@ def test_no_sql_block_the_repo_ships_costs_hive_more_than_its_rows_need() -> Non
 
 
 def test_the_hive_the_excel_conversion_writes_costs_hive_no_more_than_its_rows_need() -> None:
-    new = [f"{where}: {each}" for where, each in found_in_excel_finals() if (where, each)
-           not in KEPT]
+    new = sorted(f"{where}: {each}" for where, each in found_in_excel_finals()
+                 if not is_kept(where, each))
     assert not new, "\n".join(new)
 
 
 def test_each_break_kept_is_still_there() -> None:
     found = set(found_in_blocks()) | found_in_excel_finals()
     assert [key for key in KEPT if key not in found] == []
+    steps_found = {(task, cte) for task, cte in REFERENCE_STEPS for where, each in found
+                   if where.startswith(f"Excel task {task}'s reference,")
+                   and each.startswith(f"CTE {cte} carries ")}
+    assert REFERENCE_STEPS - steps_found == set()

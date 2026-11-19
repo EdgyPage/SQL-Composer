@@ -1496,20 +1496,21 @@ def _conditional_aggregate(form: IfsForm, conditions: list[exp.Expression],
                            place: Place) -> exp.Expression:
     """The aggregate of an -IF(S) form over the rows its conditions keep: COUNT(*) with none,
     else `COUNT(CASE WHEN .. THEN 1 END)`, and `SUM(CASE WHEN .. THEN v END)`."""
-    value: exp.Expression = exp.Literal.number("1")
+    total = rule_hive("COUNT(*)")
     if form.value is not None:
         value = _whole_column_hive(WholeColumn(form.table, form.value), place)
+        total = hive_call(form.aggregate, [value])
     if conditions:
-        value = exp.Case().when(all_of(conditions), value)
-    elif form.value is None:
-        return rule_hive("COUNT(*)")
-    return hive_call(form.aggregate, [value])
+        return _aggregate_of_kept_rows(total, all_of(conditions))
+    return total
 
 
 def _aggregate_of_kept_rows(total: exp.Expression,
                             condition: exp.Expression) -> exp.Expression:
     """An -IF(S) form's aggregate of a column, or its COUNT(*), over only the rows `condition`
-    keeps: `SUM(CASE WHEN .. THEN v END)`, `COUNT(CASE WHEN .. THEN 1 END)` (F9)."""
+    keeps: `SUM(CASE WHEN .. THEN v END)`, `COUNT(CASE WHEN .. THEN 1 END)` (F9). The one
+    place a total is put over the rows its conditions keep, for `_conditional_aggregate` and
+    for the totals `totals_read` merges into one join."""
     kept = total.copy()
     value = kept.this
     if isinstance(value, exp.Star):

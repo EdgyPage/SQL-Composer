@@ -57,6 +57,7 @@ something and see its rows.
 - **R8** A Windows path is typed with forward slashes, `"C:/work/my_project"`.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

@@ -72,11 +72,11 @@ Then step 4.
 ### 4. Keep each step small
 
 Goal: Hive that does no more work than its rows need. A Derived table is written at the top of
-the Hive as a CTE, `WITH name AS (...)`, and Hive keeps none of a CTE's rows: it works the CTE
-out again each time the Statement reads it. So each step reads its table once, keeps only the
-rows and columns the next step needs, and adds up before it joins. Here each team's events on
-2026-09-24, counted per job first, so the join meets one row for each job rather than one for
-each event:
+the Hive as a CTE, `WITH name AS (...)`, and up to Hive 4.0 Hive keeps none of a CTE's rows:
+it works the CTE out again each time the Statement reads it. So each step reads its table
+once, keeps only the rows and columns the next step needs, and adds up before it joins. Here
+each team's events on 2026-09-24, counted per job first, so the join meets one row for each job
+rather than one for each event:
 
 >>> events_per_job = derived("events_per_job", statement(  # -> Table
 ...     SELECT(job_events.job_id, AS(count_rows(), "events")),
@@ -128,25 +128,26 @@ where it has one. A step here is a Derived table, which the Hive holds as a CTE:
   several Statements import is no second read: each Statement works out its own copy once.
 - **Select in a Derived table only the columns read after it, and group it only by those.** A
   column it groups by makes a row for each of its values, rows that every step after it
-  carries. A column it only carries costs little where Hive works the CTE out inside the
-  Statement, as Hive drops what nothing reads, but every column counts where Hive saves the
-  CTE's rows (from 4.1, above), and a short step is quicker to check when a number looks
-  wrong. A Building block that several Statements share may carry more: each Statement reads
-  its own columns of it.
+  carries. A column it only carries is a matter of reading and checking: Hive drops what
+  nothing reads where it works the CTE out inside the Statement (though it keeps every column
+  of a CTE whose rows it saves, from 4.1, above), and a short step is quicker to check when a
+  number looks wrong. A Building block that several Statements share may carry more: each
+  Statement reads its own columns of it.
 - **Filter and add up before joining.** The WHERE, on a partition column first, goes in the
   step that reads the big table, and a total goes in a step before the join it feeds, as
   `events_per_job` does. Hive copies a join's small side to every worker only while it is under
-  10 MB (hive.auto.convert.join.noconditionaltask.size); otherwise it sorts both sides, and
-  holds every side but the last in memory.
+  10 MB (hive.auto.convert.join.noconditionaltask.size); otherwise it joins in its reducers,
+  which buffer every table of the join but the last and stream the last through.
 - **Rename or add a column in the SELECT that reads a table or step**, never in a step of its
-  own that copies every column to change one: each copy is one more step to read when a
-  number looks wrong.
+  own that copies every column to change one. This rule is for reading, not a Hive setting:
+  each copy is one more step to read when a number looks wrong.
 - **ORDER_BY only with LIMIT, and only in the Statement that gives the rows.** Hive sorts every
   row through one worker for an ORDER BY, and from Hive 3.0 drops one with no LIMIT inside a
   CTE or subquery (hive.remove.orderby.in.subquery), so it would sort nothing anyway.
 - **Fix a join that repeats rows in the join itself**: match the whole Key, or add up the
-  other side to one row for each key first. SELECT_DISTINCT afterwards makes every repeated
-  row first, then sorts them all to drop the copies.
+  other side to one row for each key first. This rule is for the rows, not a Hive setting:
+  SELECT_DISTINCT afterwards makes every repeated row first, then sorts them all to drop the
+  copies, and drops rows that were rightly alike too.
 
 Done when the result is data 2 and finance 1, and the Hive names ops.job_events once, in
 `events_per_job`. Then step 5.

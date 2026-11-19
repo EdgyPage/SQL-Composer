@@ -55,6 +55,7 @@ match in another table, or a count of matches.
   come out too big: join a Derived table of one row per value (W3). Opt-outs only if asked.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

@@ -3,10 +3,10 @@
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: values from the rows around each row, the latest or top rows of each group,
-subtotals, and Statements stacked.
-Load this file when the user asks for a rank, the latest or top N per group, the row before
-or after, a running total, subtotals or stacking.
+Objective: work out a value from the rows around each row, keep the latest or top rows of
+each group, add subtotals, or stack Statements.
+Load this file when the user asks for a rank, the latest or top N rows of each group, the
+row before or after, a running total, subtotals, or Statements stacked.
 
 ## Patterns: when the user says X, do Y
 
@@ -33,11 +33,12 @@ or after, a running total, subtotals or stacking.
 ## Rules
 
 - **R1** `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`: the rows of each job, in order;
-  `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks across the 6 rows before
-  and the row itself; `rows=(None, 0)` every row up to it.
-- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`,
-  `lead(...)`, `first_value`, `last_value`, `sum_of(t.minutes, over=w)`,
-  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
+  several columns as lists; `descending(t.minutes)` for largest first. `rows=(-6, 0)` looks
+  across the 6 rows before and the row itself; `rows=(None, 0)` every row up to it.
+- **R2** Pass it as `over=`: `rank(over=w)`, `ntile(4, over=w)`, `lag(t.minutes, over=w)`
+  (the row before), `lead(...)` (after), `first_value`, `last_value`, `sum_of(t.minutes,
+  over=w)`, `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY
+  needs rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers each group's rows.
 - **R3** A window's value is tested only in a Statement reading its Derived table, never in
   its own WHERE or HAVING; it is never added up again. The latest row: row_number from the
   newest, keep `equals(d.n, 1)`; never max_of on each column, which mixes rows.
@@ -46,12 +47,13 @@ or after, a running total, subtotals or stacking.
 - **R5** Subtotals go inside GROUP_BY: `rollup(t.dt)` adds a total of every day;
   `cube(a, b)` every combination; `grouping_sets(...)` the sets named. A total's row is
   NULL in each column it totals over.
-- **R6** Only if asked, a label on a total's row:
+- **R6** Only if the user asks for a label on a total's row:
   `AS(if_else(is_total(t.dt), "all days", t.dt), "dt")`.
-- **R7** `UNION_ALL(s1, s2)` gives both's rows, each Statement with the same columns in order,
-  each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
+- **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
+  the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
 {always}
+- **A11** Read each Derived table once; SELECT in it only columns read.
 
 ## Names for this objective, with their arguments
 
@@ -127,4 +129,4 @@ s = statement(
 - [ ] **C1** Every window function has `over=` (row_number, PARTITION_BY and ORDER_BY), AS.
 - [ ] **C2** A window's value is tested only in the Statement reading its Derived table.
 - [ ] **C3** Each Statement, stacked or not, is bounded on its partitions.
-- [ ] **C4** A total's row has a label only if the user asked.
+- [ ] **C4** A total's row is unlabelled unless the user asked for a label.

@@ -59,6 +59,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   one through as a whole job.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 

@@ -4,7 +4,8 @@
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
-Load this file when the user asks for rows, counts, totals, averages or a list.
+Load this file when the user asks for rows, counts, totals, averages or a list from their
+tables.
 
 ## Patterns: when the user says X, do Y
 
@@ -28,7 +29,7 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
 
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
-- `t`: a table, from its Table reference: `job_runs`.
+- `t`: a table, as its Table reference describes it: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Rules
@@ -55,10 +56,12 @@ Load this file when the user asks for rows, counts, totals, averages or a list.
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
 {always}
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
-{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, between, last_n_days, is_in, is_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
+{names: statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT, derived, all_columns, equals, more_than, at_least, between, last_n_days, is_in, is_null, contains, starts_with, all_of, any_of, count_rows, count_distinct, sum_of, average_of, min_of, max_of, if_else, fill_null, descending, run_query}
 
 ## Worked patterns
 

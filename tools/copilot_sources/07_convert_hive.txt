@@ -59,6 +59,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   `hivevar("NAME", default="'2026-09-24'")`, imported.
 
 {always}
+{lean}
 
 ## Names for this objective, with their arguments
 
