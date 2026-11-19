@@ -23,13 +23,16 @@ The Copilot evaluation's Excel tasks (`tools/excel_eval_tasks.py`) describe fill
 workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's
 sample rows read from the Example database, and `as_text` writes what Copilot reads in it, for
 a proxy model, which can't be given a file: the text `copilot/workbook_text.py` writes of the
-file `saved` gives, its Power Queries saved as Excel saves them (`tools/excel_queries.py`).
-openpyxl writes no PivotTable, so anything else it can't write is given as a note, in the text
-alone.
+file `saved` gives, its Power Queries saved as Excel saves them (`tools/excel_queries.py`), or
+typed on a Power Query sheet, and its PivotTables, with their slicers and Timelines, saved as
+Excel saves them (`tools/pivot_tables.py`), each pivot's cells written here with the values
+Hive works out for them on the Example database. Anything else openpyxl can't write is given as
+a note, in the text alone.
 """
 
 from __future__ import annotations
 
+import datetime
 import io
 import re
 import sys
@@ -49,6 +52,7 @@ sys.path[:0] = [str(ROOT)]
 sys.path[:0] = [str(ROOT / "copilot"), str(ROOT / "tools")]
 
 import excel_queries  # noqa: E402
+import pivot_tables  # noqa: E402
 import workbook_text  # noqa: E402
 
 EMPTY = ROOT / "copilot" / "formula_workbook.xlsx"
@@ -307,7 +311,9 @@ class ExcelTable:
     the rows `rows`, Hive, gives on the Example database, column by column. `typed_over` holds
     each value typed over a formula, by the row's first typed value and the column's header.
     `loaded_by` names the Power Query that loads the Table, if one does. `totals` is its Total
-    Row, if it has one: each cell's value or formula, as the file holds it, by header."""
+    Row, if it has one: each cell's value or formula, as the file holds it, by header. Each
+    column `dates` names holds the Hive's yyyy-MM-dd text as dates. Unless `in_a_table`, its
+    headers and rows are a plain range, with no Table, as a PivotTable may read one."""
 
     name: str
     headers: tuple[str, ...]
@@ -316,6 +322,8 @@ class ExcelTable:
     typed_over: dict[tuple[object, str], object] = field(default_factory=dict)
     loaded_by: str = ""
     totals: dict[str, str] = field(default_factory=dict)
+    dates: tuple[str, ...] = ()
+    in_a_table: bool = True
 
 
 @dataclass(frozen=True)
@@ -323,8 +331,11 @@ class FormulaWorkbook:
     """A filled-in Formula workbook: its Tables; its Parameters and Keys rows; its Power
     Queries, each (name, M); its defined names, each (name, what it refers to); cells outside
     any Table, each (sheet, cell, value); whether a sheet holds a chart; notes on what openpyxl
-    can't write, such as a PivotTable; and whether its text shows each formula as a person types
-    it (`[@units]`) or as the file holds it (`sales[[#This Row],[units]]`)."""
+    can't write; and whether its text shows each formula as a person types it (`[@units]`) or
+    as the file holds it (`sales[[#This Row],[units]]`). Its `pivots`, and the `slicers` and
+    Timelines on them, are saved as Excel saves them (`tools/pivot_tables.py`). With
+    `queries_on_sheet`, its queries are typed on a Power Query sheet, "Query <name>:" with the
+    M in the cell below, in place of saved as Excel saves them."""
 
     tables: tuple[ExcelTable, ...]
     parameters: tuple[tuple[str, object], ...] = ()
@@ -335,6 +346,9 @@ class FormulaWorkbook:
     chart: bool = False
     notes: tuple[str, ...] = ()
     as_typed: bool = False
+    pivots: tuple[pivot_tables.Pivot, ...] = ()
+    slicers: tuple[pivot_tables.Slicer | pivot_tables.Timeline, ...] = ()
+    queries_on_sheet: bool = False
 
 
 # Excel's newer functions, which its file holds with the _xlfn. prefix Excel adds.
@@ -362,16 +376,34 @@ def as_typed(formula: str) -> str:
     return HELD_THIS_ROW.sub(this_row, formula.replace("_xlfn.", ""))
 
 
-def _cell_value(value: object) -> object:
-    """A value from the Example database as a cell holds it: a plain number or text, or None
-    for a blank cell."""
-    if value is None or value != value:  # None, or a missing number
-        return None
-    return value.item() if hasattr(value, "item") else value
+def worked_pivots(described: FormulaWorkbook) -> pivot_tables.Worked:
+    """The workbook's pivots worked out, each over its source's rows: a Table's or a plain
+    range's, or, for a source holding formulas, the rows its pivot's `source_rows` gives."""
+    tables = {table.name: table for table in described.tables}
+    sources = {}
+    for pivot in described.pivots:
+        table = tables[pivot.source]
+        if table.formulas and not pivot.source_rows:
+            raise ValueError(f"Pivot {pivot.name} reads {table.name}, which holds formulas: "
+                             "give its source_rows, Hive working out each of its columns.")
+        hive = pivot.source_rows or table.rows
+        rows = tuple(pivot_tables.example_database_rows(hive))
+        ref = ""
+        if not table.in_a_table:
+            ref = f"A1:{get_column_letter(len(table.headers))}{len(rows) + 1}"
+        sources[table.name] = pivot_tables.Source(table.name, table.headers, rows, hive,
+                                                  table.dates, ref)
+    return pivot_tables.work_out(described.pivots, described.slicers, sources)
 
 
 def build(described: FormulaWorkbook) -> openpyxl.Workbook:
     """The filled-in Formula workbook `described` describes: a copy of the empty one."""
+    return _built_with(described, worked_pivots(described))
+
+
+def _built_with(described: FormulaWorkbook, worked: pivot_tables.Worked) -> openpyxl.Workbook:
+    """The filled-in Formula workbook, each pivot's cells, as `worked` gives them, on its
+    sheet."""
     workbook = empty_workbook()
     for title, rows in (("Parameters", described.parameters), ("Keys", described.keys)):
         sheet = workbook[title]
@@ -388,27 +420,48 @@ def build(described: FormulaWorkbook) -> openpyxl.Workbook:
             workbook.create_sheet(title)
         sheet = workbook[title]
         sheet[coordinate] = as_held(value, "") if isinstance(value, str) else value
+    if described.queries_on_sheet:
+        _add_query_sheet(workbook, described.queries)
+    _add_pivot_cells(workbook, worked)
     if described.chart:
         _add_chart(workbook, workbook[described.tables[0].name])
     return workbook
 
 
+def _add_pivot_cells(workbook: openpyxl.Workbook, worked: pivot_tables.Worked) -> None:
+    """Each pivot's cells, with their stored values, on its sheet, a new one if need be."""
+    for wp in worked.pivots:
+        if wp.pivot.sheet not in workbook.sheetnames:
+            workbook.create_sheet(wp.pivot.sheet)
+        for coordinate, value in wp.cells.items():
+            workbook[wp.pivot.sheet][coordinate] = value
+
+
+def _add_query_sheet(workbook: openpyxl.Workbook, queries: tuple[tuple[str, str], ...]
+                     ) -> None:
+    """A Power Query sheet: each query's "Query <name>:", its M in the cell below, then a
+    blank row."""
+    sheet = workbook.create_sheet("Power Query")
+    for number, (name, m) in enumerate(queries):
+        sheet.cell(row=3 * number + 1, column=1, value=f"Query {name}:")
+        sheet.cell(row=3 * number + 2, column=1, value=m)
+
+
 def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
     """One Excel Table on a sheet of its own: its headers, then a row for each of its sample
-    rows, each calculated column holding its formula, or the value typed over it."""
-    # Only a filled-in workbook reads the Example database: the empty one, which
-    # copilot_files.py builds, needs nothing of the Toolbox's.
-    import example_database
-
+    rows, each calculated column holding its formula, or the value typed over it; or, unless
+    it is `in_a_table`, the same as a plain range."""
     sheet = workbook.create_sheet(described.name)
     typed = [header for header in described.headers if header not in described.formulas]
-    rows = (example_database.query(described.rows).itertuples(index=False)
-            if described.rows else [])
+    rows = pivot_tables.example_database_rows(described.rows) if described.rows else []
     for column, header in enumerate(described.headers, 1):
         sheet.cell(row=1, column=column, value=header)
     count = 0
     for count, row in enumerate(rows, 1):
-        values = dict(zip(typed, (_cell_value(value) for value in row), strict=True))
+        values = dict(zip(typed, row, strict=True))
+        for header in described.dates:
+            if values[header] is not None:
+                values[header] = datetime.datetime.strptime(values[header], "%Y-%m-%d")
         first = values[typed[0]] if typed else count
         for column, header in enumerate(described.headers, 1):
             if header in values:
@@ -422,7 +475,8 @@ def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
         total_row = count + 2  # under the headers and the rows
         for column, header in enumerate(described.headers, 1):
             sheet.cell(row=total_row, column=column, value=described.totals.get(header))
-    sheet.add_table(new_table(described.name, described.headers, count, described.totals))
+    if described.in_a_table:
+        sheet.add_table(new_table(described.name, described.headers, count, described.totals))
 
 
 def _add_chart(workbook: openpyxl.Workbook, sheet: openpyxl.worksheet.worksheet.Worksheet
@@ -468,12 +522,17 @@ def built(described: FormulaWorkbook) -> bytes:
 
 
 def saved(described: FormulaWorkbook) -> bytes:
-    """The filled-in Formula workbook `described`, saved as Excel saves it: the file `built`
-    gives, then its Power Queries saved in it, each loading the Table it loads."""
-    if not described.queries:
-        return built(described)
+    """The filled-in Formula workbook `described`, saved as Excel saves it: the file `build`
+    saves, then its Power Queries saved in it, each loading the Table it loads, unless they
+    are on a Power Query sheet, and its PivotTables, slicers and Timelines."""
+    worked = worked_pivots(described)
+    held = io.BytesIO()
+    _built_with(described, worked).save(held)
+    workbook = pivot_tables.with_pivots(held.getvalue(), worked)
+    if not described.queries or described.queries_on_sheet:
+        return workbook
     loads = {table.loaded_by: table.name for table in described.tables if table.loaded_by}
-    return excel_queries.with_queries(built(described), list(described.queries), loads)
+    return excel_queries.with_queries(workbook, list(described.queries), loads)
 
 
 def as_text(described: FormulaWorkbook) -> str:

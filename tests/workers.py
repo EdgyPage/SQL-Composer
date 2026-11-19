@@ -40,6 +40,7 @@ GROUPS = {
     "tests/test_copilot_files.py::ran": "copilot_stand_in_project",
     "tests/test_example_projects.py::projects": "example_projects",
     "tests/test_excel_eval.py::hive": "excel_stand_in_hive",
+    "tests/test_pivot_tables.py::written": "pivot_workbooks",
 }
 
 
