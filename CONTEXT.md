@@ -163,7 +163,8 @@ Formula workbook, and writes the user's own code for it. Each table the scripts 
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
 that copy; a Staging table may instead be folded into the tables that read it. One query
 alone becomes a Saved table named for the batch, and in a batch of several scripts, each
-script that holds one query alone a Saved table named for its file.
+script that holds one query alone a Saved table named for its file. Each final of a Formula
+workbook is a query alone, a Saved table named for its Table or its PivotTable.
 Each gets its Table folder, whose notebook's Statement gives the same rows, its Table
 reference, and a checklist of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
 pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
@@ -177,14 +178,16 @@ _Avoid_: source table, old table
 
 **Batch**:
 One or more scripts of Hive converted together by one Conversion, with every statement in
-them ordered by what reads what. Where each script is, and the list of what each statement
-became, are kept in the convert Workflow's folder, under the batch's name: a script read from a
-file is read where it is, never copied, and only Hive given as text is kept there.
+them ordered by what reads what; a Formula workbook in it gives a script for each of its
+finals. Where each script is, and the list of what each statement became, are kept in the
+convert Workflow's folder, under the batch's name: a script read from a file, or a workbook,
+is read where it is, never copied, and only Hive given as text, or a workbook's finals' Hive,
+is kept there.
 _Avoid_: job, bundle, script set
 
 **Conversion folder**:
-A batch's index, in the convert Workflow's folder: where each script is (Hive given as text
-kept in its scripts/), their order, what each statement became and the tables that came from
+A batch's index, in the convert Workflow's folder: where each script is (Hive given as text,
+and each workbook final's Hive, kept in its scripts/), their order, what each statement became and the tables that came from
 them. What belongs to one table, the statements it came from, the scan and its checklist, is
 in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder

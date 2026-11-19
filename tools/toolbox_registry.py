@@ -54,7 +54,8 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "stacking.py", "tables.py",
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py",
-                "workbook_formula_reader.py", "workbook_formulas.py", "workbook_hive.py",
+                "workbook_conversion.py", "workbook_formula_reader.py", "workbook_formulas.py",
+                "workbook_hive.py",
                 "workbook_m_reader.py", "workbook_pivot_hive.py", "workbook_power_query.py",
                 "workbook_totals.py", "workbook_reader.py", "workflows.py", "writing.py")
 # The workbook reader (Toolbox 8.9, ticket 01; ADR 0016), the one reader of an Excel workbook,

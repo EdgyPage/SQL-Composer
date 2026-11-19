@@ -132,7 +132,11 @@ from typing import TYPE_CHECKING, NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
+from . import (converting, decisions, describe, keys, kinds, unchecked, upgrades,
+               workbook_conversion, workflows)
+from .workbook_conversion import (ConvertedWorkbook, WorkbookFinal, pivot_filter_of_record,
+                                  pivot_filter_record)
+from .workbook_pivot_hive import ConvertedPivotFilter, pivot_filter_said
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
@@ -2166,12 +2170,7 @@ def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
     for file in files:
         path = _working_folder() / Path(file)
         if not path.is_file():
-            refuse(
-                what=f"{call}: there is no file {path}.",
-                why="files= names each script of the batch, from the folder you're working in.",
-                fix="Check each path, such as files=[\"daily.hql\", \"weekly.hql\"].",
-                error=FileNotFoundError,
-            )
+            _refuse_no_file(call, path)
         if path.name in dict(scripts):
             refuse(
                 what=f"{call}: two of its files are named {path.name}.",
@@ -2182,6 +2181,93 @@ def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
             )
         scripts.append((path.name, path.read_text(encoding="utf-8")))
     return scripts
+
+
+def _scripts_and_workbooks(call: str, files: str | list[str], database: str,
+                           rename: dict[str, str]
+                           ) -> tuple[list[tuple[str, str]], list[ConvertedWorkbook]]:
+    """Each script `files` names, as _scripts_given reads it, then each final of each
+    workbook it names (Toolbox 8.9, ticket 07), as a script named for its table, its sources
+    in `database`, each named as `rename` names it, by its name in the workbook; and each
+    workbook. A final whose Hive holds a `<...>` to fill in is no script. Refused when a
+    workbook isn't there, an .xls is given, a script and a final share a name, or no final of
+    a batch of workbooks alone can be converted."""
+    named = items_of(files)
+    for file in named:
+        if Path(str(file)).suffix.lower() == workbook_conversion.OLD_WORKBOOK:
+            workbook_conversion.refuse_an_old_workbook(call, str(file))
+    hql = [str(file) for file in named if not workbook_conversion.is_workbook(str(file))]
+    scripts = _scripts_given(call, hql) if hql else []
+    workbooks = []
+    for file in named:
+        if workbook_conversion.is_workbook(str(file)):
+            path = _working_folder() / Path(str(file))
+            if not path.is_file():
+                _refuse_no_file(call, path)
+            workbooks.append(workbook_conversion.converted_workbook(call, path, database,
+                                                                    rename))
+    for final in _finals_converted(workbook_conversion.every_final(workbooks)):
+        _check_named_once(call, final, scripts)
+        scripts.append((final.script, final.hive + ";\n"))
+    if workbooks and not scripts:
+        _refuse_every_final_to_fill_in(call, workbook_conversion.every_final(workbooks))
+    return scripts, workbooks
+
+
+def _finals_converted(finals: list[WorkbookFinal]) -> list[WorkbookFinal]:
+    """The finals a Conversion converts: each but one whose Hive holds a `<...>`."""
+    return [final for final in finals if not final.to_fill_in]
+
+
+def _refuse_no_file(call: str, path: Path) -> NoReturn:
+    """Refuse a file files= names that isn't there."""
+    refuse(
+        what=f"{call}: there is no file {path}.",
+        why="files= names each script of the batch, from the folder you're working in.",
+        fix="Check each path, such as files=[\"daily.hql\", \"weekly.hql\"].",
+        error=FileNotFoundError,
+    )
+
+
+def _check_named_once(call: str, final: WorkbookFinal, scripts: list[tuple[str, str]]) -> None:
+    """Refuse a workbook's final whose script, named for its table, another script of the
+    batch has the name of, a file's or another workbook's final's."""
+    if final.script not in dict(scripts):
+        return
+    refuse(
+        what=f"{call}: {final.final} of {final.workbook} becomes the table {final.table}, and "
+        f"another script of the batch is named {final.script} too.",
+        why="A batch keeps each script by its name, and a workbook's final is kept as a script "
+        "named for its table, as a query alone in a batch is named for its file.",
+        fix=f"Name the final otherwise with rename=, by its name in the workbook, such as "
+        f'rename={{{python_literal(final.final)}: "{final.table}_book"}}, or rename the other '
+        "file, then run it again.",
+        error=ValueError,
+    )
+
+
+def _refuse_every_final_to_fill_in(call: str, finals: list[WorkbookFinal]) -> NoReturn:
+    """Refuse a batch of workbooks alone each of whose finals holds a `<...>` to fill in."""
+    each = [f"{final.final} of {final.workbook} ({in_words(final.to_fill_in)})"
+            for final in finals]
+    refuse(
+        what=f"{call}: the Hive of each final holds a name to fill in: {'; '.join(each)}.",
+        why="A Conversion reads each final's Hive to make its Saved table, and a <...> in "
+        "place of a table's or a column's name it can't read.",
+        fix="In the workbook, make each range a pivot reads an Excel Table (Insert > Table), "
+        "and name each Table and column as its table and column are named in the database; "
+        "save it, and convert it again.",
+        error=ValueError,
+    )
+
+
+def _rename_of_scripts(rename: dict[str, str],
+                       workbooks: list[ConvertedWorkbook]) -> dict[str, str]:
+    """rename= but the names it gives a workbook's finals, by their names in the workbook,
+    which each final's table is named by already: the names it gives tables the scripts
+    write."""
+    finals = {final.final for final in workbook_conversion.every_final(workbooks)}
+    return {table: name for table, name in rename.items() if table not in finals}
 
 
 def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step,
@@ -2619,8 +2705,9 @@ def _refuse_batches_reading_each_others_tables(call: str, files: list[str],
     naming the pair."""
     writes, reads = {}, {}
     for file in files:
-        statements = _batch_statements(call, _scripts_given(call, [file]), database,
-                                       f"{database}.{Path(file).stem}")
+        scripts, workbooks = _scripts_and_workbooks(call, [file], database, {})
+        statements = _batch_statements(call, scripts, database,
+                                       f"{database}.{Path(file).stem}", bool(workbooks))
         writes[file] = {each.table for each in statements
                         if each.kind in converting.MAKES and each.table}
         reads[file] = set()
@@ -2997,6 +3084,23 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     convert notebook's, in name order, and the report names each. Each file is read where it
     is, never copied, and batch.md names where.
     It reads DEV, your Dev Database, from admin/databases.py, and refuses until you fill it in.
+
+    A Formula workbook, an .xlsx, goes in files= too, alone, files=["runs.xlsx"], or beside
+    scripts. It is read where it is, and each final of it, a calculation nothing else in it
+    reads (a Table's formula columns, a Power Query's Table, or a PivotTable, with each total
+    level it shows), becomes a Saved table: its Hive, its sources in `database`, is kept in the
+    batch's scripts/ as <table>.hql, then converted as any script is. Its table is named for
+    it, a Table's or a pivot's name in snake case, but a pivot keeping Excel's default name,
+    such as PivotTable1, is named for its sheet, <sheet>_pivot, and a final named as a table
+    it reads <name>_report: each a proposal, which its checklist names, and
+    rename={"PivotTable1": "runs_by_job"}, by the name in the workbook, changes. Each mark,
+    refusal, thing left alone and <...> to fill in the workbook's map names of a final is a
+    note in its table's checklist; batch.md lists what it names of no one table. A final whose
+    Hive holds a <...>, as a pivot over a plain range's does, isn't converted, and the report
+    says why. A workbook whose pieces read each other in a loop, or with no final, is refused.
+    Each Pivot filter is recorded for its table, as the workbook gives it, or, in a script, as
+    a comment above its condition marks it, -- Pivot filter: slicer status, as Copilot writes
+    it.
     It needs your query, for DESCRIBE, only when a table it reads has no Table reference yet,
     and never your execute: it changes only files.
 
@@ -3068,9 +3172,12 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     if files == [] and hive is None and file is None:
         beside = _scripts_beside_the_notebook(call)
         files = beside
+    if file is not None and hive is None and workbook_conversion.is_workbook(file):
+        files, file = [file], None
     read_from: dict[str, str] = {}
+    workbooks: list[ConvertedWorkbook] = []
     if files:
-        scripts = _scripts_given(call, files)
+        scripts, workbooks = _scripts_and_workbooks(call, files, database, rename or {})
         read_from = _where_each_is(root, files)
     else:
         script = HIVE_GIVEN
@@ -3078,8 +3185,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
             script = Path(file).name
             read_from = _where_each_is(root, [file])
         scripts = [(script, _hive_given(call, hive, file))]
-    report = _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame,
-                            staging or {}, read_from=read_from)
+    report = _convert_batch(name, scripts, query, database,
+                            _rename_of_scripts(rename or {}, workbooks), overwrite, frame,
+                            staging or {}, read_from=read_from, workbooks=workbooks)
     if not beside:
         return report
     # After its first line, which says what it converted: the files it found to read.
@@ -3142,7 +3250,8 @@ class _BatchFiles:
     fresh one written into the batch's folder, under fresh/, at the same path, for you to
     compare; with overwrite, each is written afresh, kept in admin/removed/ first."""
 
-    def __init__(self, root: Path, index: Path, overwrite: bool, made_for: str = "") -> None:
+    def __init__(self, root: Path, index: Path, overwrite: bool, made_for: str = "",
+                 workbooks: list[ConvertedWorkbook] | None = None) -> None:
         self.root = root
         self.index = index
         self.overwrite = overwrite
@@ -3164,6 +3273,13 @@ class _BatchFiles:
         # The Workflow that made the batch when not convert's: new_table's, for a table made
         # from its query, which convert's Workflow then passes over.
         self.made_for = made_for
+        # The workbooks the batch reads (Toolbox 8.9, ticket 07), and each final of theirs it
+        # converts, by its script's name; and each Pivot filter of each table it makes, by
+        # the table, as its Hive marks it or its workbook gives it, for its Decision.
+        self.workbooks = workbooks or []
+        self.finals = {final.script: final
+                       for final in workbook_conversion.every_final(self.workbooks)}
+        self.pivot_filters: dict[str, list[ConvertedPivotFilter]] = {}
 
     def write_text(self, relative: str, text: str) -> str:
         """Write a text file, as the batch writes it: the path it went to."""
@@ -3206,6 +3322,12 @@ class _BatchFiles:
                   "files": {**self.before, **self.after}}
         if self.made_for:
             record["made_for"] = self.made_for
+        kept: dict[str, list[dict[str, object]]] = {}
+        for table, filters in self.pivot_filters.items():
+            if filters:
+                kept[table] = [pivot_filter_record(each) for each in filters]
+        if kept:
+            record["pivot_filters"] = kept
         (self.index / BATCH_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
                                                encoding="utf-8")
 
@@ -3270,18 +3392,20 @@ def _check_hive_sqlglot_can_read(call: str, statements: list[converting.BatchSta
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
                    overwrite: bool, frame: FrameType, staging: dict[str, str],
-                   made_for: str = "", read_from: dict[str, str] | None = None
-                   ) -> ProjectReport:
+                   made_for: str = "", read_from: dict[str, str] | None = None,
+                   workbooks: list[ConvertedWorkbook] | None = None) -> ProjectReport:
     """convert(...) for a batch: each script split into its statements, ordered by what reads
     what, and each table it writes a Saved table in the Dev Database, as convert says.
     `read_from` gives where each script read from a file is, by its file's name, which
-    batch.md names; one given as text, which no file holds, is kept in the batch's scripts/."""
+    batch.md names; one given as text, which no file holds, is kept in the batch's scripts/,
+    as each final of `workbooks` is, a script of the batch already."""
     call = _action_call("convert", name, ", ...")
     root = _project_root(call)
     dev = _dev_database(root, call)
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
-    statements = _batch_statements(call, scripts, database, f"{database}.{name}")
+    statements = _batch_statements(call, scripts, database, f"{database}.{name}",
+                                   bool(workbooks))
     staging_found = converting.staging_tables(statements)
     folded, unfoldable = converting.fold_staging(
         statements, _staging_choices(call, staging_found, staging, database), database)
@@ -3297,7 +3421,8 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             error=ValueError,
         )
     added, skipped = _write_missing_references(call, root, ordered, names, query)
-    files = _BatchFiles(root, index, overwrite, made_for)
+    files = _BatchFiles(root, index, overwrite, made_for, workbooks)
+    skipped += _finals_not_converted(workbook_conversion.every_final(files.workbooks))
     made, created_only = [], []
     for table in _tables_in_order(ordered):
         failure = _convert_one_table(files, table, name, ordered, names, query, database)
@@ -3314,18 +3439,56 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     registry = Registry(root)
     if not registry.listed(CONVERSION_FOLDER, name):
         registry.add([(CONVERSION_FOLDER, name)], unchecked.now())
+    _log(root, call, made, _batch_log_lines(name, scripts, made, files), frame, skipped)
+    report = _batch_report(name, scripts, statements, made, created_only, added, skipped,
+                           files, dev)
+    # After its first line, which says what it converted: each staging table, and its choice,
+    # and each name a workbook's final was given as a proposal.
+    report[1:1] = [*_staging_lines(staging_found, folded, unfoldable),
+                   *_workbook_report_lines(files.workbooks, names)]
+    return ProjectReport([*report, *_unrecorded_lines(root, call)])
+
+
+def _batch_log_lines(name: str, scripts: list[tuple[str, str]], made: list[str],
+                     files: _BatchFiles) -> list[str]:
+    """What admin's log says a batch's convert did: what it converted, the batch's folder it
+    wrote, each fresh copy of a file you changed, and each file kept before writing over it."""
     converted = (f"converted {counted(len(scripts), 'script')} into "
                  f"{counted(len(made), 'Saved table')}")
     done = [converted, f"wrote {CONVERSION_FOLDER.shown(name)}"]
     done += [f"wrote {each}, as you changed the file it is a fresh copy of"
              for each in files.fresh]
     done += [f"kept {each}, before writing over it" for each in files.archived]
-    _log(root, call, made, done, frame, skipped)
-    report = _batch_report(name, scripts, statements, made, created_only, added, skipped,
-                           files, dev)
-    # After its first line, which says what it converted: each staging table, and its choice.
-    report[1:1] = _staging_lines(staging_found, folded, unfoldable)
-    return ProjectReport([*report, *_unrecorded_lines(root, call)])
+    return done
+
+
+def _finals_not_converted(finals: list[WorkbookFinal]) -> list[str]:
+    """Each final whose Hive holds a `<...>` to fill in, with why it wasn't converted, as
+    convert's report lists what it skipped."""
+    return [f"{final.final} of {final.workbook} ({workbook_conversion.to_fill_in_said(final)})"
+            for final in finals if final.to_fill_in]
+
+
+def _workbook_report_lines(workbooks: list[ConvertedWorkbook],
+                           names: dict[str, str]) -> list[str]:
+    """What convert's report says of the batch's workbooks: each table a final was given a
+    name for as a proposal, and how to name it otherwise; and each workbook whose map names
+    what is about no one table, which batch.md lists."""
+    in_dev = {split_table_name(table)[1]: copy for table, copy in names.items()}
+    finals = _finals_converted(workbook_conversion.every_final(workbooks))
+    proposed = [final for final in finals if final.proposed and final.table in in_dev]
+    lines = []
+    if proposed:
+        said = [f"{in_dev[final.table]}, for {final.final} of {final.workbook}"
+                for final in proposed]
+        lines.append(f"Named as proposed, each in its checklist: {in_words(said)}. RENAME, by "
+                     f"the name in the workbook, such as RENAME = "
+                     f'{{{python_literal(proposed[0].final)}: "<a name>"}}, names one '
+                     "otherwise when you convert again.")
+    lines += [f"{workbook.file}: its map names {counted(len(workbook.notes), 'thing')} of no "
+              "one table, such as a chart left alone, which batch.md lists."
+              for workbook in workbooks if workbook.notes]
+    return lines
 
 
 def _staging_lines(found: dict[str, str], folded: list[str],
@@ -3432,12 +3595,14 @@ def _refuse_a_query_named_like_another(call: str,
 
 
 def _batch_statements(call: str, scripts: list[tuple[str, str]], database: str,
-                      query_table: str) -> list[converting.BatchStatement]:
-    """Each statement of the batch's scripts, as converting.batch_statements reads them;
-    refused, before anything is written, where a Script tag's shape isn't the one a
+                      query_table: str, named_for_files: bool = False
+                      ) -> list[converting.BatchStatement]:
+    """Each statement of the batch's scripts, as converting.batch_statements reads them, each
+    query alone named for its file where `named_for_files`, as a batch with a workbook's
+    finals is; refused, before anything is written, where a Script tag's shape isn't the one a
     Conversion reads, or a tag stands where no value goes."""
     try:
-        return converting.batch_statements(scripts, database, query_table)
+        return converting.batch_statements(scripts, database, query_table, named_for_files)
     except converting.ConversionRefused as why:
         refuse(
             what=f"{call} can't convert the batch: {why}.",
@@ -3690,9 +3855,44 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
         items.append(SEED_NOTE)
+    items += _note_pivot_filters_and_workbook(files, dev, pieces)
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
+
+
+def _note_pivot_filters_and_workbook(files: _BatchFiles, dev: str,
+                                     pieces: list[converting.BatchStatement]) -> list[str]:
+    """Record each Pivot filter of a dev table, for its Decision (ticket 08), and give the
+    checklist's notes of it and of its workbook: for a workbook's final, each line of its map
+    about it, its Pivot filters among them; for any other, each Pivot filter its Hive marks,
+    `-- Pivot filter: <kind> <field>`, as Copilot writes it."""
+    final = files.finals.get(pieces[0].script)
+    if final is not None:
+        files.pivot_filters[dev] = workbook_conversion.filters_of(final, dev)
+        return final.notes
+    marked: list[ConvertedPivotFilter] = []
+    for each in pieces:
+        marked += converting.pivot_filters_in(each.text, dev)
+    files.pivot_filters[dev] = list(dict.fromkeys(marked))
+    return [f"{pivot_filter_said(each)}, as its Hive marks it: a Decision of its table."
+            for each in files.pivot_filters[dev]]
+
+
+def pivot_filters_of_batch(root: Path, name: str) -> dict[str, list[ConvertedPivotFilter]]:
+    """Each Pivot filter of each table a batch made, by the table, as its written.json keeps
+    them, for the table's Decision (ticket 08): none for a batch that kept none, or isn't
+    there."""
+    for index in (CONVERSION_FOLDER.path(root, name), root / BATCHES / FINISHED / name):
+        record = index / BATCH_RECORD
+        if not record.is_file():
+            continue
+        kept = json.loads(record.read_text(encoding="utf-8")).get("pivot_filters", {})
+        found = {}
+        for table, filters in kept.items():
+            found[table] = [pivot_filter_of_record(each) for each in filters]
+        return found
+    return {}
 
 
 # The checklist's note of a table that reads itself, which the seed step fills once.
@@ -4336,23 +4536,24 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
                        database: str, dev: str, made: list[str],
                        read_from: dict[str, str] | None) -> None:
     """Write batch.md: where each script is, each table, its copy in dev and its checklist,
-    then each statement, in the order they run, and what it became. A script read from a file
-    is read where it is, which `read_from` gives by its file's name, never copied; Hive given
-    as text, with no `read_from`, is kept in the batch's scripts/, as no file holds it."""
+    what each workbook's map names of no one table, then each statement, in the order they
+    run, and what it became. A script read from a file is read where it is, which `read_from`
+    gives by its file's name, never copied; Hive given as text, with no `read_from`, is kept
+    in the batch's scripts/, as no file holds it, and so is each final of a workbook."""
     index = CONVERSION_FOLDER.shown(name)
-    if read_from:
-        where = (f"{counted(len(scripts), 'script')}, each read where it is: "
-                 f"{in_words([read_from[script] for script, _ in scripts])}.")
-    else:
-        for script, text in scripts:
-            files.write_text(f"{index}{BATCH_SCRIPTS}/{script}", text)
-        where = (f"{counted(len(scripts), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
-                 f"{in_words([script for script, _ in scripts])}.")
+    kept = [(script, text) for script, text in scripts if script not in (read_from or {})]
+    kept += [(final.script, final.hive + ";\n") for final in files.finals.values()
+             if final.to_fill_in]
+    for script, text in kept:
+        files.write_text(f"{index}{BATCH_SCRIPTS}/{script}", text)
     lines = [f"# Batch {name}", "",
-             f"{where} Each table they write is a Saved table in the Dev Database, {dev}; one "
-             "they only create has its Table reference alone.", "", "## Tables", ""]
+             f"{_scripts_where(scripts, read_from or {}, files.workbooks)} Each table they "
+             f"write is a Saved table in the Dev Database, {dev}; one they only create has its "
+             "Table reference alone.", "", "## Tables", ""]
     for table in _tables_in_order(ordered):
         lines += _table_lines(files, table, ordered, names, made)
+    for workbook in files.workbooks:
+        lines += _workbook_lines(workbook, index)
     lines += ["", "## Each statement, in the order they run", ""]
     # Each write's part in its table's write: the first piece, a later one, or replaced.
     parts: dict[int, str] = {}
@@ -4367,6 +4568,44 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
         result = _result_of(each, parts.get(id(each), ""), ordered, names, database)
         lines.append(f"{number}. {each.where()}, `{_first_words(each.text)}`: {result}")
     files.write_text(f"{index}{BATCH_LIST}", "\n".join(lines) + "\n")
+
+
+def _scripts_where(scripts: list[tuple[str, str]], read_from: dict[str, str],
+                   workbooks: list[ConvertedWorkbook]) -> str:
+    """batch.md's sentence saying where each script is: each read from a file where it is,
+    or each given as text kept in scripts/; and each workbook read where it is, each of its
+    finals kept as its Hive in scripts/."""
+    finals = {final.script for final in workbook_conversion.every_final(workbooks)}
+    files = [script for script, _ in scripts if script not in finals]
+    if not workbooks and read_from:
+        return (f"{counted(len(files), 'script')}, each read where it is: "
+                f"{in_words([read_from[script] for script in files])}.")
+    if not workbooks:
+        return (f"{counted(len(files), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
+                f"{in_words(files)}.")
+    parts = []
+    if files:
+        parts.append(f"{counted(len(files), 'script')}, each read where it is: "
+                     f"{in_words([read_from[script] for script in files])}")
+    for workbook in workbooks:
+        finals_kept = singular_or_plural(len(workbook.finals), "its final",
+                                         f"each of its {len(workbook.finals)} finals")
+        parts.append(f"{read_from[workbook.file]}, a workbook read where it is, {finals_kept} "
+                     f"kept as its Hive in {BATCH_SCRIPTS}/: "
+                     f"{in_words([each.script for each in workbook.finals])}")
+    return "; ".join(parts) + "."
+
+
+def _workbook_lines(workbook: ConvertedWorkbook, index: str) -> list[str]:
+    """batch.md's lines for a workbook: each final not converted, with why, and each line of
+    its map about no one table, such as a chart left alone or a pivot refused."""
+    lines = [f"- {final.final}, not converted, its Hive kept in {index}{BATCH_SCRIPTS}/"
+             f"{final.script}: {workbook_conversion.to_fill_in_said(final)}."
+             for final in workbook.finals if final.to_fill_in]
+    lines += [f"- {note}" for note in workbook.notes]
+    if not lines:
+        return []
+    return ["", f"## The workbook {workbook.file}", "", *lines]
 
 
 def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchStatement],
@@ -4404,7 +4643,7 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
     tables_listed = "."
     if made:
         tables_listed = f": {in_words(made)}."
-    lines = [f"Converted {name}: {counted(len(scripts), 'script')}, "
+    lines = [f"Converted {name}: {_scripts_counted(scripts, files.workbooks)}, "
              f"{counted(len(statements), 'statement')}, into "
              f"{counted(len(made), 'Saved table')} in {dev}{tables_listed}"]
     if created_only:
@@ -4438,6 +4677,19 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                  + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}",
                                proposed))
     return lines
+
+
+def _scripts_counted(scripts: list[tuple[str, str]], workbooks: list[ConvertedWorkbook]) -> str:
+    """What convert's report says it read: "2 scripts", or, with a workbook, "1 script and 3
+    finals of runs.xlsx", each final a script of the batch."""
+    finals = [_finals_converted(workbook.finals) for workbook in workbooks]
+    parts = []
+    files = len(scripts) - sum(len(each) for each in finals)
+    if files or not workbooks:
+        parts.append(counted(files, "script"))
+    parts += [f"{counted(len(each), 'final')} of {workbook.file}"
+              for workbook, each in zip(workbooks, finals, strict=True)]
+    return in_words(parts)
 
 
 def _scan_report_text(name: str, lines: list[str]) -> str:

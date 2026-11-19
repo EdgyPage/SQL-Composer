@@ -519,8 +519,7 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
               for column in own_level(pivot).columns]
     for written in pivot_filters_of(name, pivot):
         notes.append(Note(MARK, FILTER_RULES[written.kind], name,
-                          f"Pivot filter: {written.kind} {written.field}, "
-                          f"{_filter_values_text(written)}: a Decision of its table"))
+                          f"{pivot_filter_said(written)}: a Decision of its table"))
     for field_name in pivot.subtotals:
         if pivot.fields[field_name].subtotals != [AUTOMATIC]:
             chosen = in_words(pivot.fields[field_name].subtotals)
@@ -529,7 +528,18 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     return notes
 
 
+def pivot_filter_said(written: ConvertedPivotFilter) -> str:
+    """A Pivot filter in words, as the map and a checklist say it: "Pivot filter: slicer
+    status, FAILED and SUCCESS kept"; its kind and field alone where its values weren't
+    read, as from Hive whose marked condition is written otherwise."""
+    said = f"Pivot filter: {written.kind} {written.field}"
+    if not written.values:
+        return said
+    return f"{said}, {_filter_values_text(written)}"
+
+
 def _filter_values_text(written: ConvertedPivotFilter) -> str:
+    """What a Pivot filter keeps or leaves out, in words."""
     shown = [str(value) for value in written.values]
     if written.kind == HIDDEN_ITEMS:
         return f"{in_words(shown)} left out"
