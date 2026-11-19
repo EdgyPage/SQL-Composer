@@ -17,6 +17,7 @@ cube, items grouped by hand) is a read pivot with one part changed in place.
 from __future__ import annotations
 
 import copy
+import dataclasses
 import datetime
 import math
 import sqlite3
@@ -36,7 +37,7 @@ from sqlglot_composer.workbook_pivot_hive import (
     SLICER,
     TIMELINE,
     TOP_FILTER,
-    PivotFilterWritten,
+    ConvertedPivotFilter,
     PivotLevel,
     level_final_name,
     own_level,
@@ -70,6 +71,8 @@ from formula_workbook import ExcelTable, FormulaWorkbook, saved  # noqa: E402
 from pivot_tables import Pivot, Top, Value  # noqa: E402
 
 FIXTURES = ROOT / "tests" / "fixtures" / "workbook_text"
+HOURS_ROWS = ("SELECT run_id, job_id, status, duration_mins, avg_retry_secs, dt, "
+              "duration_mins / 60 AS hours FROM ops.job_runs ORDER BY run_id")
 MINS = Value("duration_mins")
 RUNS_TABLE = runs_table()
 DATED_RUNS = ExcelTable("job_runs", RUNS, rows("job_runs", RUNS), dates=("dt",))
@@ -126,6 +129,10 @@ BUILT = {
         pivots=(Pivot("job_runs", ("job_id",), (MINS,)),)),
     "data_model": FormulaWorkbook((RUNS_TABLE,), pivots=(
         Pivot("job_runs", ("dt",), (Value("job_id", "distinctCount"),), data_model=True),)),
+    # A pivot over a Table with a formula column, a step its finals read as a CTE.
+    "hours_step": FormulaWorkbook(
+        (runs_table(formulas={"hours": "=[@duration_mins]/60"}),),
+        pivots=(Pivot("job_runs", ("job_id",), (Value("hours"),), source_rows=HOURS_ROWS),)),
 }
 
 
@@ -302,8 +309,8 @@ def test_pr5_items_grouped_by_hand_are_a_case_of_their_groups() -> None:
           "SELECT CASE WHEN dt IN ('2026-09-23', '2026-09-24') THEN 'Group1' ELSE dt END AS "
           "dt, STDDEV_SAMP(duration_mins) AS stddev_of_duration_mins, "
           "POWER(STDDEV_SAMP(duration_mins), 2) AS var_of_duration_mins FROM db.job_runs "
-          "WHERE status = 'SUCCESS' GROUP BY CASE WHEN dt IN ('2026-09-23', '2026-09-24') "
-          "THEN 'Group1' ELSE dt END")
+          "WHERE (status = 'SUCCESS') /* Pivot filter: Report filter status */ GROUP BY CASE "
+          "WHEN dt IN ('2026-09-23', '2026-09-24') THEN 'Group1' ELSE dt END")
 
 
 # --- PV: values ------------------------------------------------------------------------------
@@ -491,6 +498,9 @@ def test_pl2_subtotals_of_chosen_functions_are_refused_and_named(
     assert "PivotTable1 (by dt)" not in finals_of(book)
     assert ("PL2", "PivotTable1", "the subtotals of dt are Sum and Count: no final"
             ) in notes_of(book, REFUSED)
+    hive = workbook_hive.workbook_hive(book)
+    assert ("- PivotTable1: the subtotals of dt are Sum and Count: no final (PL2)"
+            in workbook_hive.map_text(hive, book).split("Refused:")[1])
 
 
 # --- PF: Pivot filters -----------------------------------------------------------------------
@@ -499,25 +509,30 @@ def test_pl2_subtotals_of_chosen_functions_are_refused_and_named(
 def test_pf1_a_report_filter_is_its_condition_its_values_written_in(
         built: dict[str, Workbook]) -> None:
     finals = finals_of(built["report_filter"])
-    assert "WHERE status = 'SUCCESS' GROUP BY" in finals["PivotTable1"]
-    assert "WHERE status IN ('FAILED', 'SUCCESS') GROUP BY" in finals["PivotTable2"]
+    assert ("WHERE (status = 'SUCCESS') /* Pivot filter: Report filter status */ GROUP BY"
+            in finals["PivotTable1"])
+    assert ("WHERE status IN ('FAILED', 'SUCCESS') /* Pivot filter: Report filter status */ "
+            "GROUP BY" in finals["PivotTable2"])
     assert ("PF1", "PivotTable2", "Pivot filter: Report filter status, FAILED and SUCCESS "
             "kept: a Decision of its table") in notes_of(built["report_filter"], MARK)
 
 
 def test_pf2_hidden_items_are_dropped_a_blank_kept(built: dict[str, Workbook]) -> None:
-    assert "WHERE job_id <> 3 GROUP BY" in finals_of(built["hidden_items"])["PivotTable1"]
+    assert ("WHERE (job_id <> 3) /* Pivot filter: hidden items job_id */ GROUP BY"
+            in finals_of(built["hidden_items"])["PivotTable1"])
     check(fixture("08_pivot_timeline_filters"), "PivotTable1",
           "SELECT job_id, status, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER "
           "(PARTITION BY status) AS sum_of_duration_mins FROM db.job_runs WHERE (status IS "
-          "NULL OR status <> 'TEST') AND dt BETWEEN '2026-09-24' AND '2026-09-24' GROUP BY "
-          "job_id, status")
+          "NULL OR status <> 'TEST') /* Pivot filter: hidden items status */ AND dt BETWEEN "
+          "'2026-09-24' AND '2026-09-24' /* Pivot filter: Timeline dt */ GROUP BY job_id, "
+          "status")
 
 
 def test_pf2_a_hidden_blank_is_not_null() -> None:
     book = fixture("08_pivot_timeline_filters")
     book.pivot_tables[0].fields["status"].hidden = ["TEST", None]
-    assert "WHERE NOT status IS NULL AND status <> 'TEST' AND" in finals_of(book)["PivotTable1"]
+    assert ("WHERE (NOT status IS NULL AND status <> 'TEST') /* Pivot filter: hidden items "
+            "status */ AND" in finals_of(book)["PivotTable1"])
 
 
 def test_pf3_a_slicers_selection_is_on_each_pivot_it_is_connected_to() -> None:
@@ -535,34 +550,75 @@ def test_pf4_a_timelines_dates_are_between() -> None:
 def test_pf5_a_top_or_bottom_value_filter_keeps_the_items_a_rank_window_keeps(
         built: dict[str, Workbook]) -> None:
     finals = finals_of(built["top_and_bottom"])
-    ranked = ("SELECT job_id, RANK() OVER (ORDER BY SUM(duration_mins) {}) AS place FROM "
+    ranked = ("SELECT job_id, RANK() OVER (ORDER BY SUM(duration_mins) {}) AS item_rank FROM "
               "db.job_runs GROUP BY job_id")
     for name, order, count in (("PivotTable1", "DESC", 2), ("PivotTable2", "", 1)):
         assert finals[name] == normal(
             "SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins FROM db.job_runs WHERE "
-            f"job_id IN (SELECT job_id FROM ({ranked.format(order)}) AS ranked WHERE place "
-            f"<= {count}) GROUP BY job_id")
+            f"job_id IN (SELECT job_id FROM ({ranked.format(order)}) AS ranked WHERE "
+            f"item_rank <= {count}) /* Pivot filter: value filter job_id */ GROUP BY job_id")
+
+
+@pytest.mark.parametrize(("name", "marks"), [
+    ("05_pivot_slicer_two_pivots", {"PivotTable1": ["slicer status"],
+                                    "runs_by_day": ["slicer status"]}),
+    ("08_pivot_timeline_filters", {"PivotTable1": ["hidden items status", "Timeline dt"]}),
+    ("10_pivot_calculated_item_rank", {"PivotTable3": ["Report filter status"]}),
+])
+def test_each_pivot_filter_carries_the_mark_file_20_writes_in_its_hive(
+        name: str, marks: dict[str, list[str]]) -> None:
+    """`-- Pivot filter: <kind> <field>`, as ticket 10's `pivot_filter` writes it; sqlglot keeps
+    it as a comment beside the condition, at every total level too, and reads it back."""
+    book = fixture(name)
+    texts = workbook_hive.hive_texts(workbook_hive.workbook_hive(book, database="db"))
+    for final, kinds in marks.items():
+        for text_name, text in texts.items():
+            if text_name != final and not text_name.startswith(final + " ("):
+                continue
+            found = []
+            for node in read_hive(text)[0].walk():
+                found += [comment.strip() for comment in node.comments or []]
+            assert found == [f"Pivot filter: {kind}" for kind in kinds], text_name
 
 
 def test_each_pivot_filter_is_written_for_its_decision() -> None:
     assert workbook_pivot_hive.pivot_filters(fixture("08_pivot_timeline_filters")) == [
-        PivotFilterWritten("PivotTable1", HIDDEN_ITEMS, "status", ("TEST",),
-                           ("FAILED", "SUCCESS", "TEST", None)),
-        PivotFilterWritten("PivotTable1", TIMELINE, "dt", (datetime.datetime(2026, 9, 24),
-                                                           datetime.datetime(2026, 9, 24)), ())]
+        ConvertedPivotFilter("PivotTable1", HIDDEN_ITEMS, "status", ("TEST",),
+                             ("FAILED", "SUCCESS", "TEST", None)),
+        ConvertedPivotFilter("PivotTable1", TIMELINE, "dt",
+                             (datetime.datetime(2026, 9, 24), datetime.datetime(2026, 9, 24)),
+                             (datetime.date(2026, 9, 23), datetime.date(2026, 9, 24)))]
     found = workbook_pivot_hive.pivot_filters(fixture("05_pivot_slicer_two_pivots"))
-    assert [(each.pivot, each.kind, each.values) for each in found] == [
+    assert [(each.final, each.kind, each.values) for each in found] == [
         ("PivotTable1", SLICER, ("FAILED", "SUCCESS")),
         ("runs_by_day", SLICER, ("FAILED", "SUCCESS"))]
-    assert found[0].items == ("FAILED", "SUCCESS", "TEST", None)
+    assert found[0].field_values == ("FAILED", "SUCCESS", "TEST", None)
     found = workbook_pivot_hive.pivot_filters(fixture("10_pivot_calculated_item_rank"))
-    assert [(each.pivot, each.kind, each.field) for each in found] == [
+    assert [(each.final, each.kind, each.field) for each in found] == [
         ("PivotTable3", REPORT_FILTER, "status")]
+
+
+def test_each_filters_field_values_are_every_value_a_layer_takes_never_empty() -> None:
+    """A field on no axis takes its column's values in the source's rows; a grouped field its
+    groups, never Excel's labels for what falls outside its range; a calculated item is no
+    value of the data."""
+    book = fixture("08_pivot_timeline_filters")
+    pivot = book.pivot_tables[0]
+    pivot.report_filters[0].selected = [0]
+    assert workbook_pivot_hive.field_values(pivot, "avg_retry_secs") == (0, 1, 2, 3, 6, 8, None)
+    pivot.fields["avg_retry_secs"].items = []
+    assert workbook_pivot_hive.field_values(pivot, "avg_retry_secs") == (2, 0, 8, None, 1, 6, 3)
+    groups = fixture("07_pivot_groups").pivot_tables[0]
+    assert workbook_pivot_hive.field_values(groups, "duration_mins") == (
+        "0-9", "10-19", "20-29", "30-39", "40-49")
+    assert workbook_pivot_hive.field_values(groups, "Years") == ("2026",)
+    items = fixture("10_pivot_calculated_item_rank").pivot_tables[0]
+    assert "done" not in workbook_pivot_hive.field_values(items, "status")
 
 
 def test_a_value_filter_is_written_with_what_it_ranks_by(built: dict[str, Workbook]) -> None:
     found = workbook_pivot_hive.pivot_filters(built["top_and_bottom"])
-    assert [(each.kind, each.values, each.by, each.bottom) for each in found] == [
+    assert [(each.kind, each.values, each.ranked_by, each.bottom) for each in found] == [
         (TOP_FILTER, (2,), "Sum of duration_mins", False),
         (TOP_FILTER, (1,), "Sum of duration_mins", True)]
 
@@ -618,6 +674,31 @@ def test_pg2_getpivotdata_naming_fewer_fields_reads_a_total_level(
             "nothing, which the pivot doesn't show") in notes_of(book, REFUSED)
 
 
+def test_pg1_the_pivots_cte_carries_only_the_values_a_getpivotdata_reads(
+        built: dict[str, Workbook]) -> None:
+    book = copy.deepcopy(built["getpivotdata"])
+    pivot = book.pivot_tables[0]
+    pivot.values.append(dataclasses.replace(pivot.values[0], caption="Count of run_id",
+                                            field="run_id", summary="Count"))
+    hive = finals_of(book)["job_mins"]
+    assert "count_of_run_id" not in hive
+    assert hive.count("WITH PivotTable1 AS") == 1
+    assert hive.count("JOIN PivotTable1 AS") == 1
+
+
+def test_pl1_a_total_levels_final_carries_only_the_ctes_it_reads(
+        built: dict[str, Workbook], stand_in: sqlite3.Connection) -> None:
+    book = built["hours_step"]
+    finals = finals_of(book)
+    assert finals["PivotTable1 (grand total)"].startswith(
+        "WITH job_runs AS (SELECT run_id, job_id, status, duration_mins, avg_retry_secs, dt, "
+        "duration_mins / 60 AS hours FROM db.job_runs) SELECT SUM(hours)")
+    assert cells_differing(book, stand_in) == []
+    pivot = workbook_hive.workbook_hive(book).finals["PivotTable1"]
+    level = exp.select("x").from_("t")
+    assert workbook_pivot_hive.ctes_read(level, pivot.ctes) == []
+
+
 # --- PS: sources -----------------------------------------------------------------------------
 
 
@@ -629,11 +710,11 @@ def test_ps2_a_querys_table_is_read_as_its_cte() -> None:
     book = fixture("06_pivot_query_sheet")
     held = Book(book, "db", {})
     held.reads[Piece(EXCEL_TABLE, "ok_runs")] = exp.Table(this=exp.Identifier(this="ok_runs"))
-    tree = workbook_pivot_hive.pivot_tree(Piece("PivotTable", "PivotTable1"), held)
+    tree = workbook_pivot_hive.write_pivot_query(Piece("PivotTable", "PivotTable1"), held)
     assert sql_text(tree).startswith(
         "SELECT job_id, SUM(duration_mins) / 60 AS sum_of_hours FROM ok_runs WHERE job_id IN "
         "(SELECT job_id FROM (SELECT job_id, RANK() OVER (ORDER BY SUM(duration_mins) / 60 "
-        "DESC) AS place FROM ok_runs GROUP BY job_id) AS ranked WHERE place <= 2)")
+        "DESC) AS item_rank FROM ok_runs GROUP BY job_id) AS ranked WHERE item_rank <= 2)")
 
 
 def test_ps2_without_its_querys_hive_the_pivot_is_refused_and_named() -> None:
@@ -710,14 +791,15 @@ def test_px3_show_items_with_no_data_is_refused_with_no_final() -> None:
             "have no rows") in notes_of(book, REFUSED)
 
 
-@pytest.mark.parametrize(("change", "named"), [
-    ("Product", "NULL in its place: Product has no Hive aggregate here"),
-    ("Index", "NULL in its place: Show Values As Index isn't converted by the code"),
-    ("hours", "no final: dt groups dt by Hours, which the code doesn't convert"),
-    ("label", "no final: its Label Filter on job_id, begins with, isn't converted by the "
-              "code"),
+@pytest.mark.parametrize(("change", "rule", "named"), [
+    ("Product", "PX4", "NULL in its place: Product has no Hive aggregate here"),
+    ("Index", "PX4", "NULL in its place: Show Values As Index isn't converted by the code"),
+    ("label", "PX5", "no final: its Label Filter on job_id, begins with, isn't converted by "
+                     "the code"),
+    ("hours", "PX6", "no final: dt groups dt by Hours, which the code doesn't convert"),
 ])
-def test_px4_what_else_has_no_hive_is_refused_and_named(change: str, named: str) -> None:
+def test_px4_to_px6_a_value_a_filter_or_a_grouping_with_no_hive_is_refused_and_named(
+        change: str, rule: str, named: str) -> None:
     book = fixture("04_pivot_rows_columns")
     pivot = book.pivot_tables[0]
     if change == "Product":
@@ -728,7 +810,18 @@ def test_px4_what_else_has_no_hive_is_refused_and_named(change: str, named: str)
         pivot.fields["dt"].grouping = Grouping("Hours", "dt")
     else:
         pivot.filters.append(PivotFilter("job_id", "Label Filter", "begins with", ["1"]))
-    assert [text for rule, _, text in notes_of(book, REFUSED) if rule == "PX4"] == [named]
+    assert [text for found, _, text in notes_of(book, REFUSED) if found == rule] == [named]
+
+
+def test_px7_a_calculated_formula_the_code_cant_read_is_null_and_named() -> None:
+    book = fixture("10_pivot_calculated_item_rank")
+    book.pivot_tables[0].fields["status"].calculated_items = {"odd": "SUCCESS&FAILED"}
+    assert "NULL AS odd" in finals_of(book)["PivotTable1"]
+    assert ("PX7", "PivotTable1[odd]", "NULL in its place: a calculated formula of more than "
+            "names, numbers and + - * / ^") in notes_of(book, REFUSED)
+    book.pivot_tables[0].values[0].summary = "Count"
+    assert ("PX7", 'PivotTable "PivotTable1"', "no final: a calculated item beside a value "
+            "that isn't a plain Sum") in notes_of(book, REFUSED)
 
 
 def test_a_pivot_is_left_alone_no_more() -> None:

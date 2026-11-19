@@ -38,15 +38,19 @@ The rules, by their IDs:
   on the base item's row where Excel leaves it blank.
 - PV7 Rank: `RANK() OVER (PARTITION BY <other fields> ORDER BY v DESC)`, ASC for Smallest to
   Largest.
-- PV8 a Show Values As whose base field a total level doesn't group by: NULL, as Excel shows
-  it blank, marked.
+- PV8 at a total level that doesn't group by the base field of a Running Total In (PV5), a
+  Difference From, % Of or % Difference From (PV6) or a Rank (PV7): the value is NULL, as Excel
+  shows it blank, marked. It never applies to the pivot's own final, which groups by every
+  field, nor to % of a total (PV4), which has no base field.
 - PC1 a calculated item of items added up: a column beside the real rows, `SUM(SUM(CASE WHEN f
   IN (a, b) THEN v END)) OVER (PARTITION BY <the row's other fields>)`, repeated on each of
   their rows.
 - PC2 any other calculated item, such as a ratio: its formula over each item's own conditional
   sum, so a ratio of sums, never a sum of ratios.
-- PC3 at a total level without the item's field: the item added into the total, as Excel adds
-  it, marked.
+- PC3 at a total level that doesn't group by a calculated item's field, such as the grand
+  total: the item's value added into each value's total, `SUM(x) + COALESCE(<the item>, 0)`, as
+  Excel adds it, marked. At a level that groups by the field, the item is its column (PC1,
+  PC2) and adds nothing.
 - PL1 each total level the pivot shows: a final of its own, `<pivot> (grand total)` or
   `<pivot> (by <fields>)`; never a Subtotal row.
 - PL2 a pivot showing no total: its own final alone; a field's subtotals of functions it chose
@@ -56,7 +60,9 @@ The rules, by their IDs:
   `f IS NULL OR`.
 - PF3 a slicer's selection: `f IN (...)`, on each pivot it is connected to.
 - PF4 a Timeline's dates: `d BETWEEN 'start' AND 'end'`.
-- PF5 a Top or Bottom value filter of Items: `f IN` the items a RANK window keeps.
+- PF5 a Top or Bottom value filter of a number of items: `f IN` a subquery, the items a RANK
+  window over the field's grouped rows keeps, `f IN (SELECT f FROM (SELECT f, RANK() OVER (ORDER
+  BY SUM(x) DESC) AS item_rank FROM .. GROUP BY f) AS ranked WHERE item_rank <= 2)`.
   Each Pivot filter is marked "Pivot filter: <kind> <field>", for its Decision (ticket 08).
 - PG1 GETPIVOTDATA: a LEFT JOIN of the pivot, a CTE, on the fields it names; NULL where Excel
   shows #REF!, marked.
@@ -71,12 +77,21 @@ The rules, by their IDs:
 - PX1 a DAX measure: refused, NULL in its place.
 - PX2 an OLAP cube or any other outside source: refused, no final.
 - PX3 "Show items with no data" on a Row or Column field: refused, no final.
-- PX4 what else has no Hive here: refused and named, such as a Product, Show Values As Index,
-  a label or date filter, or a grouping by hours.
+- PX4 a value with no Hive here: a Product, Show Values As Index, % of a Parent Total or %
+  Running Total In, a base field that isn't a Row or Column field, the (previous) or (next)
+  base item: NULL in its place, named.
+- PX5 a filter the code doesn't write: a label or date filter, a value filter of a percent or a
+  sum, or on a field inside another: refused, no final.
+- PX6 a grouping the code doesn't write: by seconds, minutes, hours, or days of more than one,
+  or bins not labelled as Excel labels them: refused, no final.
+- PX7 a calculated formula of more than names, numbers and + - * / ^, or naming what it can't
+  read: a calculated field's value or a calculated item's column NULL in its place, named; a
+  calculated item beside a value that isn't a plain Sum: refused, no final.
 """
 
 from __future__ import annotations
 
+import datetime
 import re
 from dataclasses import dataclass
 
@@ -91,6 +106,7 @@ from .workbook_formula_reader import (
     Negative,
     Operation,
     Refused,
+    parts_of,
     read_formula,
 )
 from .workbook_formulas import (
@@ -109,9 +125,11 @@ from .workbook_formulas import (
     hive_call,
     hive_of,
     identifier,
+    is_formula_text,
     operand_hive,
     rule_hive,
     snake_case,
+    tables_of,
     window_order,
 )
 from .workbook_reader import (
@@ -167,6 +185,8 @@ FILTER_RULES = {REPORT_FILTER: "PF1", HIDDEN_ITEMS: "PF2", SLICER: "PF3", TIMELI
 OUTSIDE_SOURCES = {OLAP: "an OLAP cube", DATA_CONNECTION: "a data connection",
                    OTHER_WORKBOOK: "another workbook",
                    CONSOLIDATION: "multiple consolidation ranges"}
+# The column a value filter's subquery ranks each item in (PF5).
+ITEM_RANK = "item_rank"
 # The notes a total level's final has of its own, beside its pivot's (PV8, PC3).
 LEVEL_RULES = ("PV8", "PC3")
 # A name in a calculated formula written in quotes, such as 'Unit Price'.
@@ -183,21 +203,21 @@ class PivotLevel:
 
 
 @dataclass(frozen=True)
-class PivotFilterWritten:
-    """One Pivot filter as the Hive writes it, for its Decision (ticket 08): the final of the
-    pivot it is in, by its name in the workbook; its `kind`, REPORT_FILTER, HIDDEN_ITEMS,
-    SLICER, TIMELINE or TOP_FILTER; its field; its `values`, the items kept (a Report filter's
-    or a slicer's), the items dropped (hidden), the first and last day (a Timeline's), or how
-    many items are kept (a value filter's); every item the pivot cache holds of the field, for
-    how many tables a table per value would make; and, for a value filter, the value it ranks
-    by and whether it keeps the Bottom ones."""
+class ConvertedPivotFilter:
+    """One Pivot filter as the conversion writes it, for its Decision (ticket 08): the `final`
+    of the pivot it is in, by its name in the workbook; its `kind`, REPORT_FILTER,
+    HIDDEN_ITEMS, SLICER, TIMELINE or TOP_FILTER; its field; its `values`, the items kept (a
+    Report filter's or a slicer's), the items dropped (hidden), the first and last day (a
+    Timeline's), or how many items are kept (a value filter's); `field_values`, every value
+    the field takes, for how many tables a table per value would make (`field_values`); and,
+    for a value filter, the value it is `ranked_by` and whether it keeps the `bottom` ones."""
 
-    pivot: str
+    final: str
     kind: str
     field: str
     values: tuple[object, ...]
-    items: tuple[object, ...]
-    by: str = ""
+    field_values: tuple[object, ...]
+    ranked_by: str = ""
     bottom: bool = False
 
 
@@ -293,57 +313,115 @@ def is_read(piece: Piece, workbook: Workbook) -> bool:
     return any(piece in reads for reads in workbook.order.values())
 
 
-def pivot_tree(piece: Piece, book: Book) -> exp.Select | None:
-    """The pivot's own query, every Row and Column field its GROUP BY; None, refused and
-    named, where its rows can't be written. What its map names goes into the Book's notes."""
+def write_pivot_query(piece: Piece, book: Book) -> exp.Select | None:
+    """Write a pivot's own query, every Row and Column field its GROUP BY, and give it back;
+    add what its map names to the Book's notes. None, refused and named, where its rows can't
+    be written. A pivot a GETPIVOTDATA reads, a step, carries only the values one reads."""
     pivot = pivot_of(piece, book.workbook)
     try:
-        read = _source_read(pivot, book)
+        source_read = _source_read(pivot, book)
         check_pivot_rows(pivot)
     except Refused as refusal:
         book.notes.append(Note(REFUSED, refusal.rule, piece_name(piece),
                                f"no final: {refusal.why}"))
         return None
     book.notes += pivot_notes(piece.name, pivot, book.workbook)
-    select, notes = level_select(pivot, own_level(pivot), read, piece.name)
+    step_values = None
+    if is_read(piece, book.workbook):
+        step_values = values_read_by_getpivotdata(piece, pivot, book.workbook)
+    select, notes = level_select(pivot, own_level(pivot), source_read, piece.name,
+                                 step_values)
     book.notes += notes
     return select
 
 
-def pivot_total_finals(workbook: Workbook, finals: dict[str, exp.Query],
-                       book: Book) -> dict[str, exp.Query]:
-    """Each total level's final of each pivot that is a final, by its name (PL1), each with
-    the CTEs its pivot's final has."""
+def write_pivot_total_finals(workbook: Workbook, finals: dict[str, exp.Query],
+                             book: Book) -> dict[str, exp.Query]:
+    """Write each total level's final of each pivot that is a final, and give them back by
+    their names (PL1), each with the CTEs of its pivot's final it reads; add the notes each
+    level has of its own (PV8, PC3) to the Book's."""
     found: dict[str, exp.Query] = {}
     for piece in pivot_pieces(workbook):
         own = finals.get(piece.name)
         if own is None or is_read(piece, workbook):
             continue
         pivot = pivot_of(piece, workbook)
-        read = _source_read(pivot, book)
+        source_read = _source_read(pivot, book)
         for level in levels_shown(pivot):
             name = level_final_name(piece.name, level)
-            select, notes = level_select(pivot, level, read, name)
+            select, notes = level_select(pivot, level, source_read, name)
             book.notes += [note for note in notes if note.rule in LEVEL_RULES]
-            for cte in own.ctes:
+            for cte in ctes_read(select, own.ctes):
                 select = select.with_(cte.alias, as_=cte.this.copy())
             found[name] = select
     return found
 
 
-def level_select(pivot: PivotTable, level: PivotLevel, read: exp.Expression,
-                 where: str) -> tuple[exp.Select, list[Note]]:
+def ctes_read(select: exp.Select, ctes: list[exp.CTE]) -> list[exp.CTE]:
+    """The CTEs of `ctes`, in their order, that `select` reads, or a CTE it reads reads, at any
+    depth: a total level's final carries only these of its pivot's final."""
+    read = {table.name for table in select.find_all(exp.Table)}
+    kept = []
+    for cte in reversed(ctes):
+        if cte.alias in read:
+            kept.insert(0, cte)
+            read |= {table.name for table in cte.this.find_all(exp.Table)}
+    return kept
+
+
+def values_read_by_getpivotdata(piece: Piece, pivot: PivotTable,
+                                workbook: Workbook) -> list[PivotValue]:
+    """The pivot's values a GETPIVOTDATA reads, in each Table that reads the pivot, so its CTE
+    carries no other; every value where none names one of them."""
+    tables = tables_of(workbook)
+    named: list[str] = []
+    for reader, read in workbook.order.items():
+        if reader.kind != EXCEL_TABLE or piece not in read:
+            continue
+        for column in tables[reader.name.lower()].columns:
+            named += _getpivotdata_values(column.cells)
+    values = []
+    for value in pivot.values:
+        if any(is_value_named(value, name) for name in named):
+            values.append(value)
+    return values or list(pivot.values)
+
+
+def _getpivotdata_values(cells: list[object]) -> list[str]:
+    """The value each GETPIVOTDATA in a column's formulas names, its first argument."""
+    found = []
+    for cell in dict.fromkeys(cells):
+        if not is_formula_text(cell) or "GETPIVOTDATA" not in str(cell).upper():
+            continue
+        try:
+            parts = parts_of(read_formula(str(cell)))
+            calls = [part for part in parts if isinstance(part, Call)]
+        except Refused:
+            continue
+        for call in calls:
+            if call.name == "GETPIVOTDATA" and call.args and isinstance(call.args[0], Constant):
+                found.append(str(call.args[0].value))
+    return found
+
+
+def level_select(pivot: PivotTable, level: PivotLevel, source_read: exp.Expression,
+                 final_name: str, step_values: list[PivotValue] | None = None
+                 ) -> tuple[exp.Select, list[Note]]:
     """One level's SELECT: each field it groups by (PR1), each value (PV1 to PV8), each
-    calculated item of a field it groups by (PC1, PC2), from `read`, with every Pivot filter's
-    condition (PF1 to PF5); and what its map names, each note `where` it is."""
+    calculated item of a field it groups by (PC1, PC2), from `source_read`, with every Pivot
+    filter's condition (PF1 to PF5); and what its map names, each note on `final_name`.
+    A step's own level, which GETPIVOTDATA reads, writes only `step_values`, the values
+    a GETPIVOTDATA reads, and no calculated item, so its CTE carries no column nothing
+    reads."""
     keys = {name: field_key(pivot, name) for name in (*level.rows, *level.columns)}
     notes: list[Note] = []
     columns = [_key_column(name, key) for name, key in keys.items()]
-    for value in pivot.values:
-        columns.append(_value_column(pivot, value, level, keys, where, notes))
-    columns += _calculated_item_columns(pivot, keys)
-    select = exp.select(*columns).from_(read.copy())
-    conditions = filter_conditions(pivot, read)
+    for value in pivot.values if step_values is None else step_values:
+        columns.append(_value_column(pivot, value, level, keys, final_name, notes))
+    if step_values is None:
+        columns += _calculated_item_columns(pivot, keys, final_name, notes)
+    select = exp.select(*columns).from_(source_read.copy())
+    conditions = filter_conditions(pivot, source_read)
     if conditions:
         select = select.where(all_of(conditions))
     if keys:
@@ -370,20 +448,22 @@ def _source_read(pivot: PivotTable, book: Book) -> exp.Expression:
                              "code doesn't read")
     if not source.pieces or source.pieces[0] not in book.reads:
         raise Refused("PS1", f"its source, {source.name}, has no Hive")
-    read = book.reads[source.pieces[0]]
-    if isinstance(read, exp.Table):
-        return read.copy()
-    return exp.Subquery(this=read.copy(), alias=exp.TableAlias(this=exp.Identifier(this="s")))
+    source_read = book.reads[source.pieces[0]]
+    if isinstance(source_read, exp.Table):
+        return source_read.copy()
+    return exp.Subquery(this=source_read.copy(),
+                        alias=exp.TableAlias(this=exp.Identifier(this="s")))
 
 
-def range_read(piece: Piece, book: Book) -> None:
-    """A plain range a pivot reads, as the Table it would be (PS3): its defined name's, or its
-    sheet's, `<database>.<sheet>`, in brackets for the person to fill in; named in the map."""
-    table = piece.name.split("!")[0].strip("'")
+def add_range_read(piece: Piece, book: Book) -> None:
+    """Add to the Book how a plain range a pivot reads is read, as the Table it would be
+    (PS3): its defined name's, or its sheet's, `<database>.<sheet>`, in brackets for the person
+    to fill in; and name it in the map."""
+    range_name = piece.name
     for pivot in book.workbook.pivot_tables:
         if pivot.source.pieces == [piece] and pivot.source.table is not None:
-            table = pivot.source.table.name.split("!")[0].strip("'")
-    name = "<" + snake_case(table) + ">"
+            range_name = pivot.source.table.name
+    name = "<" + snake_case(range_name.split("!")[0].strip("'")) + ">"
     book.reads[piece] = exp.Table(this=exp.Identifier(this=name, quoted=False),
                                   db=exp.Identifier(this=book.database, quoted=False))
     book.notes.append(Note(MARK, "PS3", piece_name(piece),
@@ -393,26 +473,27 @@ def range_read(piece: Piece, book: Book) -> None:
 
 def check_pivot_rows(pivot: PivotTable) -> None:
     """Refuse a pivot whose rows the code can't write: a Row or Column field showing items
-    with no data (PX3), a grouping, a filter or a calculated item it doesn't write (PX4)."""
+    with no data (PX3), a filter (PX5), a grouping (PX6) or a calculated item (PX7) it
+    doesn't write."""
     for name in (*own_level(pivot).rows, *own_level(pivot).columns):
         if pivot.fields[name].shows_items_with_no_data:
             raise Refused("PX3", f"{name} shows items with no data, which have no rows")
         field_key(pivot, name)
     for pivot_filter in pivot.filters:
         if pivot_filter.kind != VALUE_FILTER or pivot_filter.test not in ("Top", "Bottom"):
-            raise Refused("PX4", f"its {pivot_filter.kind} on {pivot_filter.field}, "
+            raise Refused("PX5", f"its {pivot_filter.kind} on {pivot_filter.field}, "
                                  f"{pivot_filter.test}, isn't converted by the code")
         if pivot_filter.unit != "Items":
-            raise Refused("PX4", f"its value filter on {pivot_filter.field} keeps a "
+            raise Refused("PX5", f"its value filter on {pivot_filter.field} keeps a "
                                  f"{pivot_filter.unit}, not a number of items, which the code "
                                  "doesn't convert")
         outer = (*own_level(pivot).rows[:1], *own_level(pivot).columns[:1])
         if pivot_filter.field not in outer:
-            raise Refused("PX4", f"its value filter is on {pivot_filter.field}, inside another "
+            raise Refused("PX5", f"its value filter is on {pivot_filter.field}, inside another "
                                  "field, which the code doesn't convert")
     has_items = any(pivot_field.calculated_items for pivot_field in pivot.fields.values())
     if has_items and not all(_is_plain_sum(pivot, value) for value in pivot.values):
-        raise Refused("PX4", "a calculated item beside a value that isn't a plain Sum")
+        raise Refused("PX7", "a calculated item beside a value that isn't a plain Sum")
 
 
 def _is_plain_sum(pivot: PivotTable, value: PivotValue) -> bool:
@@ -439,7 +520,7 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     for written in pivot_filters_of(name, pivot):
         notes.append(Note(MARK, FILTER_RULES[written.kind], name,
                           f"Pivot filter: {written.kind} {written.field}, "
-                          f"{_filter_said(written)}: a Decision of its table"))
+                          f"{_filter_values_text(written)}: a Decision of its table"))
     for field_name in pivot.subtotals:
         if pivot.fields[field_name].subtotals != [AUTOMATIC]:
             chosen = in_words(pivot.fields[field_name].subtotals)
@@ -448,17 +529,15 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     return notes
 
 
-def _filter_said(written: PivotFilterWritten) -> str:
+def _filter_values_text(written: ConvertedPivotFilter) -> str:
     shown = [str(value) for value in written.values]
     if written.kind == HIDDEN_ITEMS:
         return f"{in_words(shown)} left out"
     if written.kind == TIMELINE:
         return f"{shown[0][:10]} to {shown[1][:10]}"
     if written.kind == TOP_FILTER:
-        return f"{'Bottom' if written.bottom else 'Top'} {shown[0]} by {written.by}"
+        return f"{'Bottom' if written.bottom else 'Top'} {shown[0]} by {written.ranked_by}"
     return f"{in_words(shown)} kept"
-
-
 
 
 # --- Each field, value and calculated item --------------------------------------------------
@@ -478,7 +557,7 @@ def field_key(pivot: PivotTable, name: str) -> exp.Expression:
         return _groups_hive(base, grouping)
     if grouping.by in DATE_GROUPS and (grouping.by != "Days" or grouping.interval == 1):
         return rule_hive(DATE_GROUPS[grouping.by], p0=base)
-    raise Refused("PX4", f"{name} groups {grouping.field} by {grouping.by}, which the code "
+    raise Refused("PX6", f"{name} groups {grouping.field} by {grouping.by}, which the code "
                          "doesn't convert")
 
 
@@ -487,7 +566,7 @@ def _bins_hive(base: exp.Expression, grouping: Grouping,
     """A number's bin, as Excel labels it: below the start, each bin `interval` wide, the
     last one up to the end, then above it (PR4)."""
     if len(labels) < 3 or not str(labels[0]).startswith("<") or grouping.start is None:
-        raise Refused("PX4", f"the bins of {grouping.field} aren't labelled as Excel labels "
+        raise Refused("PX6", f"the bins of {grouping.field} aren't labelled as Excel labels "
                              "them")
     start, interval = grouping.start, grouping.interval or 1
     branches = [(binary(exp.LT, base.copy(), constant_hive(start)), labels[0])]
@@ -507,17 +586,17 @@ def _groups_hive(base: exp.Expression, grouping: Grouping) -> exp.Expression:
 
 
 def _value_column(pivot: PivotTable, value: PivotValue, level: PivotLevel,
-                  keys: dict[str, exp.Expression], where: str, notes: list[Note]
+                  keys: dict[str, exp.Expression], final_name: str, notes: list[Note]
                   ) -> exp.Expression:
     """One value's column at a level: its aggregate, with each calculated item the level
     doesn't group by added in (PC3), as Show Values As shows it (PV4 to PV8); refused, NULL
     in its place and named."""
     try:
         aggregate = value_aggregate(pivot, value)
-        aggregate = _items_added(pivot, value, level, aggregate, where, notes)
-        shown = _shown_as_hive(pivot, value, level, keys, aggregate, where, notes)
+        aggregate = _items_added(pivot, value, level, aggregate, final_name, notes)
+        shown = _shown_as_hive(pivot, value, level, keys, aggregate, final_name, notes)
     except Refused as refusal:
-        notes.append(Note(REFUSED, refusal.rule, f"{where}[{value.caption}]",
+        notes.append(Note(REFUSED, refusal.rule, f"{final_name}[{value.caption}]",
                           f"NULL in its place: {refusal.why}"))
         shown = exp.Null()
     return exp.alias_(shown, exp.Identifier(this=value_column_name(value), quoted=False))
@@ -560,7 +639,7 @@ def _formula_part_hive(part: FormulaPart, names: dict[str, exp.Expression],
     if isinstance(part, Name):
         name = quoted.get(part.name, part.name).lower()
         if name not in names:
-            raise Refused("PX4", f"its formula names {part.name}, which isn't one it can read")
+            raise Refused("PX7", f"its formula names {part.name}, which isn't one it can read")
         return names[name].copy()
     is_number = isinstance(part, Constant) and isinstance(part.value, (int, float))
     if is_number and not isinstance(part.value, bool):
@@ -574,11 +653,12 @@ def _formula_part_hive(part: FormulaPart, names: dict[str, exp.Expression],
     if isinstance(part, Operation) and part.operator in ARITHMETIC:
         return binary(ARITHMETIC[part.operator], _formula_part_hive(part.left, names, quoted),
                       _formula_part_hive(part.right, names, quoted))
-    raise Refused("PX4", "a calculated formula of more than names, numbers and + - * / ^")
+    raise Refused("PX7", "a calculated formula of more than names, numbers and + - * / ^")
 
 
 def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
-                   keys: dict[str, exp.Expression], aggregate: exp.Expression, where: str,
+                   keys: dict[str, exp.Expression], aggregate: exp.Expression,
+                   final_name: str,
                    notes: list[Note]) -> exp.Expression:
     """A value as Show Values As shows it, a window over its aggregate (PV4 to PV7); NULL at
     a level without its base field (PV8)."""
@@ -596,7 +676,7 @@ def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
     if base not in (*own_level(pivot).rows, *own_level(pivot).columns):
         raise Refused("PX4", f"its base field {base or '(none)'} isn't a Row or Column field")
     if base not in keys:
-        notes.append(Note(MARK, "PV8", f"{where}[{value.caption}]",
+        notes.append(Note(MARK, "PV8", f"{final_name}[{value.caption}]",
                           f"{shown} {base}: blank at this total, as Excel shows it"))
         return exp.Null()
     others = [key for name, key in keys.items() if name != base]
@@ -701,11 +781,12 @@ def _item_named(pivot: PivotTable, name: str, item: str) -> object:
     return item
 
 
-def _calculated_item_columns(pivot: PivotTable, keys: dict[str, exp.Expression]
-                             ) -> list[exp.Expression]:
+def _calculated_item_columns(pivot: PivotTable, keys: dict[str, exp.Expression],
+                             final_name: str, notes: list[Note]) -> list[exp.Expression]:
     """Each calculated item of a field the level groups by: a column beside the real rows,
     each Sum in it a window over the row's other fields, repeated on each of their rows (PC1,
-    PC2); named for the item, and for the value too where the pivot has several."""
+    PC2); named for the item, and for the value too where the pivot has several. A formula
+    the code can't read is NULL in its place, named (PX7)."""
     columns = []
     for name, key in keys.items():
         others = [other for each, other in keys.items() if each != name]
@@ -714,7 +795,13 @@ def _calculated_item_columns(pivot: PivotTable, keys: dict[str, exp.Expression]
                 column = snake_case(item)
                 if len(pivot.values) > 1:
                     column += "_" + value_column_name(value)
-                item_value = _summed_over(_item_hive(pivot, name, formula, value, key), others)
+                try:
+                    item_value = _summed_over(_item_hive(pivot, name, formula, value, key),
+                                              others)
+                except Refused as refusal:
+                    notes.append(Note(REFUSED, refusal.rule, f"{final_name}[{item}]",
+                                      f"NULL in its place: {refusal.why}"))
+                    item_value = exp.Null()
                 named = exp.Identifier(this=column, quoted=False)
                 columns.append(exp.alias_(item_value, named))
     return columns
@@ -731,7 +818,8 @@ def _summed_over(item_value: exp.Expression, others: list[exp.Expression]) -> ex
 
 
 def _items_added(pivot: PivotTable, value: PivotValue, level: PivotLevel,
-                 aggregate: exp.Expression, where: str, notes: list[Note]) -> exp.Expression:
+                 aggregate: exp.Expression, final_name: str,
+                 notes: list[Note]) -> exp.Expression:
     """A value at a level without a calculated item's field, with the item added in, as Excel
     adds it to the total, an item with no rows counting 0 (PC3)."""
     grouped = {*level.rows, *level.columns}
@@ -742,7 +830,7 @@ def _items_added(pivot: PivotTable, value: PivotValue, level: PivotLevel,
             item_value = _item_hive(pivot, name, formula, value, field_key(pivot, name))
             aggregate = binary(exp.Add, aggregate,
                                hive_call("COALESCE", [item_value, exp.Literal.number(0)]))
-            notes.append(Note(MARK, "PC3", f"{where}[{value.caption}]",
+            notes.append(Note(MARK, "PC3", f"{final_name}[{value.caption}]",
                               f"calculated item {item} on {name}: added into this total, as "
                               "Excel adds it"))
     return aggregate
@@ -751,7 +839,7 @@ def _items_added(pivot: PivotTable, value: PivotValue, level: PivotLevel,
 # --- Pivot filters ---------------------------------------------------------------------------
 
 
-def pivot_filters(workbook: Workbook) -> list[PivotFilterWritten]:
+def pivot_filters(workbook: Workbook) -> list[ConvertedPivotFilter]:
     """Every Pivot filter of the workbook's pivots, as the Hive writes each, for its Decision
     (ticket 08)."""
     found = []
@@ -760,7 +848,7 @@ def pivot_filters(workbook: Workbook) -> list[PivotFilterWritten]:
     return found
 
 
-def pivot_filters_of(name: str, pivot: PivotTable) -> list[PivotFilterWritten]:
+def pivot_filters_of(name: str, pivot: PivotTable) -> list[ConvertedPivotFilter]:
     """Each Pivot filter of one pivot, its final `name`: its Report filters of some items
     (PF1), the items hidden on a field (PF2), each slicer's selection of fewer than every
     item (PF3) and each Timeline's dates (PF4) on it, and each Top or Bottom value filter
@@ -768,38 +856,81 @@ def pivot_filters_of(name: str, pivot: PivotTable) -> list[PivotFilterWritten]:
     found = []
     for report_filter in pivot.report_filters:
         if report_filter.selected:
-            found.append(PivotFilterWritten(name, REPORT_FILTER, report_filter.field,
-                                            tuple(report_filter.selected),
-                                            _field_items(pivot, report_filter.field)))
+            found.append(ConvertedPivotFilter(name, REPORT_FILTER, report_filter.field,
+                                              tuple(report_filter.selected),
+                                              field_values(pivot, report_filter.field)))
     for field_name, pivot_field in pivot.fields.items():
         if pivot_field.hidden:
-            found.append(PivotFilterWritten(name, HIDDEN_ITEMS, field_name,
-                                            tuple(pivot_field.hidden),
-                                            _field_items(pivot, field_name)))
+            found.append(ConvertedPivotFilter(name, HIDDEN_ITEMS, field_name,
+                                              tuple(pivot_field.hidden),
+                                              field_values(pivot, field_name)))
     for connected in pivot.slicers:
         found += _slicer_filters(name, pivot, connected)
     for pivot_filter in pivot.filters:
-        found.append(PivotFilterWritten(name, TOP_FILTER, pivot_filter.field,
-                                        tuple(pivot_filter.values),
-                                        _field_items(pivot, pivot_filter.field),
-                                        pivot_filter.by, pivot_filter.test == "Bottom"))
+        found.append(ConvertedPivotFilter(name, TOP_FILTER, pivot_filter.field,
+                                          tuple(pivot_filter.values),
+                                          field_values(pivot, pivot_filter.field),
+                                          pivot_filter.by, pivot_filter.test == "Bottom"))
     return found
 
 
 def _slicer_filters(name: str, pivot: PivotTable,
-                    connected: Slicer | Timeline) -> list[PivotFilterWritten]:
+                    connected: Slicer | Timeline) -> list[ConvertedPivotFilter]:
     """A slicer's selection, or a Timeline's dates, as a Pivot filter of the pivot: none when
     it keeps every item or every date."""
-    items = _field_items(pivot, connected.field)
     if isinstance(connected, Timeline):
         if connected.start is None:
             return []
-        return [PivotFilterWritten(name, TIMELINE, connected.field,
-                                   (connected.start, connected.end), items)]
-    every = {str(item) for item in items}
+        return [ConvertedPivotFilter(name, TIMELINE, connected.field,
+                                     (connected.start, connected.end),
+                                     timeline_days(pivot, connected.field))]
+    values = field_values(pivot, connected.field)
+    every = {str(value) for value in values}
     if not connected.selected or {str(item) for item in connected.selected} == every:
         return []
-    return [PivotFilterWritten(name, SLICER, connected.field, tuple(connected.selected), items)]
+    return [ConvertedPivotFilter(name, SLICER, connected.field, tuple(connected.selected),
+                                 values)]
+
+
+def field_values(pivot: PivotTable, name: str) -> tuple[object, ...]:
+    """Every value a field takes, for its Pivot filter's Decision to count tables by (ticket
+    08): a grouped field's groups, Excel's labels for what falls before or after its range
+    left out; any other field's items the pivot cache holds; or, where the cache holds none,
+    as for a field on no axis, each value of its column in the source's rows. A calculated
+    item is left out: it is no value of the data, and no table would hold its rows. A Data
+    Model pivot's source rows aren't in the workbook, so its field values are its items
+    alone."""
+    pivot_field = pivot.fields.get(name)
+    items = _field_items(pivot, name)
+    if pivot_field is not None and pivot_field.grouping is not None:
+        return tuple(item for item in items if str(item)[:1] not in ("<", ">"))
+    if items:
+        return items
+    return tuple(dict.fromkeys(_source_column(pivot, name)))
+
+
+def timeline_days(pivot: PivotTable, name: str) -> tuple[datetime.date, ...]:
+    """Each day a Timeline's date field holds in the source's rows, in order: what a Timeline
+    can select, one table a day."""
+    days = [_day_of(value) for value in _source_column(pivot, name) if value is not None]
+    return tuple(sorted(dict.fromkeys(days)))
+
+
+def _day_of(value: object) -> datetime.date:
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    return datetime.date.fromisoformat(str(value)[:10])
+
+
+def _source_column(pivot: PivotTable, name: str) -> list[object]:
+    """Each row's value of a field's column in the pivot's source, a Table or a range; none for
+    a source the workbook doesn't hold the rows of."""
+    if pivot.source.table is None:
+        return []
+    for column in pivot.source.table.columns:
+        if column.header.lower() == name.lower():
+            return list(column.cells)
+    return []
 
 
 def _field_items(pivot: PivotTable, name: str) -> tuple[object, ...]:
@@ -811,17 +942,31 @@ def _field_items(pivot: PivotTable, name: str) -> tuple[object, ...]:
     return tuple(item for item in pivot_field.items if item not in calculated)
 
 
-def filter_conditions(pivot: PivotTable, read: exp.Expression) -> list[exp.Expression]:
+def filter_conditions(pivot: PivotTable,
+                      source_read: exp.Expression) -> list[exp.Expression]:
     """Each Pivot filter's condition, in the WHERE of the pivot's read of its source, before
-    it groups: a value filter's last, reading the rows the others keep."""
+    it groups: a value filter's last, reading the rows the others keep. Each carries the mark
+    Copilot file 20 writes above it, `-- Pivot filter: <kind> <field>`, as a comment sqlglot
+    keeps on it, so the code path's Hive names each Pivot filter as the Copilot path's does
+    (ticket 10's tasks score it); a value filter's subquery reads the others unmarked."""
     written = pivot_filters_of("", pivot)
-    conditions = [_filter_condition(pivot, each) for each in written if each.kind != TOP_FILTER]
-    tops = [_top_condition(pivot, each, read, conditions) for each in written
-            if each.kind == TOP_FILTER]
-    return conditions + tops
+    others = [each for each in written if each.kind != TOP_FILTER]
+    tops = [each for each in written if each.kind == TOP_FILTER]
+    plain = [_filter_condition(pivot, each) for each in others]
+    conditions = plain + [_top_condition(pivot, each, source_read, plain) for each in tops]
+    marked = []
+    for each, condition in zip([*others, *tops], conditions, strict=True):
+        condition = condition.copy()
+        if isinstance(condition, exp.Binary):
+            # In brackets, so sqlglot writes the mark after the whole condition, never
+            # between `=` and its right side.
+            condition = exp.Paren(this=condition)
+        condition.add_comments([f"Pivot filter: {each.kind} {each.field}"])
+        marked.append(condition)
+    return marked
 
 
-def _filter_condition(pivot: PivotTable, written: PivotFilterWritten) -> exp.Expression:
+def _filter_condition(pivot: PivotTable, written: ConvertedPivotFilter) -> exp.Expression:
     """A Report filter's, a slicer's (PF1, PF3), the hidden items' (PF2) or a Timeline's
     (PF4) condition, its values written in."""
     if written.kind == TIMELINE:
@@ -830,13 +975,18 @@ def _filter_condition(pivot: PivotTable, written: PivotFilterWritten) -> exp.Exp
                            high=constant_hive(end))
     key = field_key(pivot, written.field)
     if written.kind == HIDDEN_ITEMS:
-        return _dropped_condition(key, list(written.values), written.items)
+        return _dropped_condition(key, list(written.values), written.field_values)
     return _kept_condition(key, list(written.values))
+
+
+def _values_written_in(values: list[object]) -> list[exp.Expression]:
+    """Each value but a blank, written into the Hive, as a condition's IN lists them."""
+    return [constant_hive(value) for value in values if value is not None]
 
 
 def _kept_condition(key: exp.Expression, values: list[object]) -> exp.Expression:
     """Hive keeping the rows whose `key` is one of `values`, a blank among them as IS NULL."""
-    known = [constant_hive(value) for value in values if value is not None]
+    known = _values_written_in(values)
     parts = []
     if len(known) == 1:
         parts.append(binary(exp.EQ, key.copy(), known[0]))
@@ -853,7 +1003,7 @@ def _dropped_condition(key: exp.Expression, values: list[object],
                        items: tuple[object, ...]) -> exp.Expression:
     """Hive dropping the rows whose `key` is one of `values`: a blank among them dropped with
     IS NOT NULL, or else kept with IS NULL where the field has a blank item."""
-    known = [constant_hive(value) for value in values if value is not None]
+    known = _values_written_in(values)
     not_blank = exp.Not(this=exp.Is(this=key.copy(), expression=exp.Null()))
     if not known:
         return not_blank
@@ -867,31 +1017,40 @@ def _dropped_condition(key: exp.Expression, values: list[object],
     return dropped
 
 
-def _top_condition(pivot: PivotTable, written: PivotFilterWritten, read: exp.Expression,
+def _top_condition(pivot: PivotTable, top: ConvertedPivotFilter,
+                   source_read: exp.Expression,
                    conditions: list[exp.Expression]) -> exp.Expression:
     """A Top or Bottom value filter's items, kept by a RANK window over the items' values,
-    worked out on the rows the other filters keep (PF5)."""
-    key = field_key(pivot, written.field)
-    value = value_captioned(pivot, written.by)
-    order = window_order(value_aggregate(pivot, value), descending=not written.bottom)
-    place = exp.alias_(_windowed(hive_call("RANK", []), [], order),
-                       exp.Identifier(this="place", quoted=False))
-    ranked = exp.select(_key_column(written.field, key), place).from_(read.copy())
+    worked out on the rows the other filters keep, in a subquery of its own, which reads the
+    source a second time: the totals of the kept items need them before the rows are grouped
+    (PF5)."""
+    key = field_key(pivot, top.field)
+    value = value_captioned(pivot, top.ranked_by)
+    order = window_order(value_aggregate(pivot, value), descending=not top.bottom)
+    rank_column = exp.alias_(_windowed(hive_call("RANK", []), [], order),
+                             exp.Identifier(this=ITEM_RANK, quoted=False))
+    ranked = exp.select(_key_column(top.field, key), rank_column).from_(source_read.copy())
     if conditions:
         ranked = ranked.where(all_of([condition.copy() for condition in conditions]))
     ranked = ranked.group_by(key.copy())
-    kept = exp.select(column_hive(written.field)).from_(exp.Subquery(
+    kept = exp.select(column_hive(top.field)).from_(exp.Subquery(
         this=ranked, alias=exp.TableAlias(this=exp.Identifier(this="ranked"))))
-    kept = kept.where(binary(exp.LTE, column_hive("place"), constant_hive(written.values[0])))
+    kept = kept.where(binary(exp.LTE, column_hive(ITEM_RANK), constant_hive(top.values[0])))
     return exp.In(this=key.copy(), query=exp.Subquery(this=kept))
+
+
+def is_value_named(value: PivotValue, name: str) -> bool:
+    """Whether a value is the one `name` names, as GETPIVOTDATA and a value filter name one:
+    by its caption, such as "Sum of hours", or by the field it sums, whatever the case."""
+    return name.lower() in (value.caption.lower(), value.field.lower())
 
 
 def value_captioned(pivot: PivotTable, caption: str) -> PivotValue:
     """The pivot's value by its caption, such as "Sum of hours", or by the field it sums."""
     for value in pivot.values:
-        if caption.lower() in (value.caption.lower(), value.field.lower()):
+        if is_value_named(value, caption):
             return value
-    raise Refused("PX4", f"it reads the value {caption}, which the pivot doesn't show")
+    raise Refused("PX5", f"it reads the value {caption}, which the pivot doesn't show")
 
 
 # --- GETPIVOTDATA ----------------------------------------------------------------------------
@@ -913,15 +1072,15 @@ def getpivotdata_hive(call: Call, place: Place) -> exp.Expression:
     if level == own:
         if piece not in book.reads:
             raise Refused("PG1", f"it reads {piece_name(piece)}, which has no Hive")
-        read = book.reads[piece]
+        pivot_rows = book.reads[piece]
     elif level in levels_shown(pivot):
-        read, _ = level_select(pivot, level, _source_read(pivot, book), piece.name)
+        pivot_rows, _ = level_select(pivot, level, _source_read(pivot, book), piece.name)
     else:
         fields = in_words([*level.rows, *level.columns]) or "nothing"
         raise Refused("PG2", f"it reads a total of {pivot.name} by {fields}, which the pivot "
                              "doesn't show")
     keys = [(name, named[name]) for name in (*level.rows, *level.columns)]
-    join = _pivot_join(piece, read, keys, place)
+    join = _pivot_join(piece, pivot_rows, keys, place)
     place.marks.append(Note(MARK, "PG1", f"{place.query.table.name}[{place.column}]",
                             "GETPIVOTDATA: NULL where its pivot has no such value, where "
                             "Excel shows #REF!"))
@@ -940,7 +1099,7 @@ def _pivot_value_read(data_field: FormulaPart, place: Place
             continue
         pivot = pivot_of(piece, workbook)
         for value in pivot.values:
-            if data_field.value.lower() in (value.caption.lower(), value.field.lower()):
+            if is_value_named(value, data_field.value):
                 return piece, pivot, value
     raise Refused("PG1", f"no pivot it reads shows the value {data_field.value}")
 
@@ -959,16 +1118,17 @@ def _fields_named(call: Call, pivot: PivotTable, place: Place) -> dict[str, exp.
     return named
 
 
-def _pivot_join(piece: Piece, read: exp.Expression, keys: list[tuple[str, exp.Expression]],
-                place: Place) -> PivotJoin:
+def _pivot_join(piece: Piece, pivot_rows: exp.Expression,
+                keys: list[tuple[str, exp.Expression]], place: Place) -> PivotJoin:
     """The LEFT JOIN of a pivot's rows on `keys`: one already there, or a new one."""
     query = place.query
     for join in query.joins:
-        if isinstance(join, PivotJoin) and join.read == read and join.keys == keys:
+        if isinstance(join, PivotJoin) and join.pivot_rows == pivot_rows and (
+                join.keys == keys):
             return join
     alias = free_alias(piece.name, query.taken)
     query.taken.add(alias)
-    join = PivotJoin(alias, read.copy(), keys)
+    join = PivotJoin(alias, pivot_rows.copy(), keys)
     query.joins.append(join)
     return join
 

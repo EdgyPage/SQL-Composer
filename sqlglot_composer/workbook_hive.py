@@ -47,7 +47,12 @@ from .workbook_formulas import (
     table_query,
     tables_of,
 )
-from .workbook_pivot_hive import PIVOT_FUNCTIONS, pivot_total_finals, pivot_tree, range_read
+from .workbook_pivot_hive import (
+    PIVOT_FUNCTIONS,
+    add_range_read,
+    write_pivot_query,
+    write_pivot_total_finals,
+)
 from .workbook_reader import (
     EXCEL_TABLE,
     PIVOT_TABLE,
@@ -168,8 +173,8 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE) -> WorkbookHive:
         if role in (FINAL, SUMMARY_FINAL) and piece in trees:
             finals[piece.name] = _with_steps(trees[piece], piece, roles, trees, workbook)
     finals.update(_total_row_finals(workbook, finals, book))
-    finals.update(pivot_total_finals(workbook, finals, book))
-    notes =book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
+    finals.update(write_pivot_total_finals(workbook, finals, book))
+    notes = book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
     return WorkbookHive(roles, finals, notes)
 
 
@@ -238,9 +243,9 @@ def _piece_tree(piece: Piece, role: str, book: Book) -> exp.Query | None:
     if piece.kind == POWER_QUERY:
         return _power_query_tree(piece, role, book)
     if piece.kind == PIVOT_TABLE:
-        return pivot_tree(piece, book)
+        return write_pivot_query(piece, book)
     if piece.kind == RANGE:
-        range_read(piece, book)
+        add_range_read(piece, book)
         return None
     book.notes.append(Note(REFUSED, "X1", f"{piece.kind} \"{piece.name}\"",
                            f"a {piece.kind} isn't converted by the code yet"))

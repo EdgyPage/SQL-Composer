@@ -167,12 +167,12 @@ class RowTotals:
 @dataclass
 class PivotJoin:
     """A LEFT JOIN of a PivotTable's rows on the fields a GETPIVOTDATA names, each matched to
-    the Hive of the item it names, or a CROSS JOIN where it names none: its alias, and what it
-    reads, the pivot's CTE or the query of one of its total levels
+    the Hive of the item it names, or a CROSS JOIN where it names none: its alias, the
+    `pivot_rows` it joins, the pivot's CTE or the query of one of its total levels
     (`workbook_pivot_hive.py`)."""
 
     alias: str
-    read: exp.Expression
+    pivot_rows: exp.Expression
     keys: list[tuple[str, exp.Expression]]
 
 
@@ -420,10 +420,10 @@ def _join_hive(join: Lookup | Totals | RowTotals | PivotJoin, query: TableQuery)
     a GETPIVOTDATA names, a CROSS JOIN where it names none (PG1)."""
     if isinstance(join, PivotJoin):
         if not join.keys:
-            return exp.Join(this=_aliased(join.read, join.alias), kind="CROSS")
+            return exp.Join(this=_aliased(join.pivot_rows, join.alias), kind="CROSS")
         on = all_of([binary(exp.EQ, value, column_hive(name, join.alias))
                      for name, value in join.keys])
-        return exp.Join(this=_aliased(join.read, join.alias), side="LEFT", on=on)
+        return exp.Join(this=_aliased(join.pivot_rows, join.alias), side="LEFT", on=on)
     if isinstance(join, RowTotals):
         on = all_of([binary(exp.EQ, column_hive(key, query.alias), column_hive(key, join.alias))
                      for key in join.keys])
@@ -458,10 +458,9 @@ def _drop_unread_joins(query: TableQuery, columns: list[exp.Expression]) -> None
         kept.insert(0, join)
         if isinstance(join, Lookup):
             read |= _join_aliases_read([join.key])
-        elif isinstance(join, PivotJoin):
+        elif isinstance(join, (Totals, PivotJoin)):
             read |= _join_aliases_read([value for _, value in join.keys])
-        elif isinstance(join, Totals):
-            read |= _join_aliases_read([value for _, value in join.keys])
+        if isinstance(join, Totals):
             names = _columns_read(columns, join.alias)
             join.totals = [total for total in join.totals if total.alias in names]
     query.joins = kept
@@ -527,15 +526,17 @@ def check_named_refusals(part: FormulaPart, place: Place) -> None:
     says which pivot it reads, so it isn't refused (`workbook_pivot_hive.py`, PG1)."""
     names = place.query.book.workbook.defined_names
     calls = [each for each in parts_of(part) if isinstance(each, Call)]
-    pivot_cells = [call.args[1] for call in calls
-                   if call.name == "GETPIVOTDATA" and len(call.args) > 1]
+    # Each GETPIVOTDATA's own cell of its pivot, by the part it is in the tree (id), so the same
+    # address anywhere else in the formula is still refused.
+    pivot_cells = {id(call.args[1]) for call in calls
+                   if call.name == "GETPIVOTDATA" and len(call.args) > 1}
     for each in parts_of(part):
         if isinstance(each, Call) and each.name in NAMED_REFUSALS:
             raise Refused("X1", NAMED_REFUSALS[each.name])
         if isinstance(each, Call) and _defined_name(each.name, names) is not None:
             raise Refused("X1", f"{each.name} is a defined name holding a formula, "
                                 f"{_defined_name(each.name, names)}")
-        if isinstance(each, CellAddress) and not any(each is cell for cell in pivot_cells):
+        if isinstance(each, CellAddress) and id(each) not in pivot_cells:
             raise Refused("X1", f"it reads {each.text.replace('$', '')}, a cell outside a "
                                 "Table, by its address")
         if isinstance(each, ThisRow) and is_own(each.table, place) and (
