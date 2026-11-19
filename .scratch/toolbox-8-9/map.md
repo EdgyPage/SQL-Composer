@@ -271,6 +271,14 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   `PIVOT_TABLE` and `RANGE` pieces, GETPIVOTDATA in a Table's formula reading a pivot; a Table
   named alone (`VLOOKUP(k, jobs, ...)`) now in the Order; `workbook_text.py` writes each
   `PivotTable "name"`. Merged 2026-11-19 (d7ad237a), with ticket 04 counting the list.
+- [06 PivotTables in code](issues/06-pivots-in-code.md): `workbook_pivot_hive.py`; rule IDs PR1
+  to PR5, PV1 to PV8, PC1 to PC3, PL1, PL2, PF1 to PF5, PG1, PG2, PS1 to PS4, PN1, PN2, PX1 to
+  PX7, each a test and stated in the Answer for file 20; each total level shown its own final;
+  every pivot fixture's finals give its stored cells; each Pivot filter's condition carries
+  `/* Pivot filter: <kind> <field> */`; `pivot_table_names` for ticket 07 and
+  `pivot_filters` (`ConvertedPivotFilter`, `field_values`) for ticket 08. Var and Varp written
+  over STDDEV, as sqlglot writes VAR_SAMP as Hive's population VARIANCE (a fix of its own,
+  proposed as a session). Merged 2026-11-19 (21d285ac).
 
 ## Not yet specified
 
