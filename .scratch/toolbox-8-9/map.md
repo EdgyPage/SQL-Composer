@@ -243,6 +243,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   two values across a Column field, label, date and "greater than" value filters. **Open for the
   user:** six fixtures opened in Excel by hand, as the ticket lists. Merged 2026-11-19
   (9ee84ae3).
+- [04 Formulas in code](issues/04-formulas-in-code.md): `workbook_formula_reader.py` (the
+  parser, standard library only), `workbook_formulas.py` (file 11's rules by ID, `table_query`,
+  `FUNCTIONS`, `Note`) and `workbook_hive.py` (`piece_roles`, `workbook_hive`, `hive_texts`,
+  `map_text`); no public name; all 45 formula-only Excel tasks pass. M1 and I1 follow file 11;
+  P11 and I1's last limits left for ticket 13. The seam for 05 and 06 is in its Answer.
+  Merged 2026-11-19 (c6a9bf0d).
 
 ## Not yet specified
 
