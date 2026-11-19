@@ -236,6 +236,13 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   the reader, as `spec_from_file_location` is dynamic code the offline policy refuses in
   `copilot/`; the base64 audit entry moved with it (the user's OK, 2026-11-19); the script's
   refusal names the path it looked in. Merged 2026-11-19 (bf90f613).
+- [02 Pivot workbooks](issues/02-pivot-workbooks.md): `tools/pivot_tables.py` (`Pivot`, `Value`,
+  `Top`, `Slicer`, `Timeline`; `work_out`, `with_pivots`) on `formula_workbook.saved`; stored
+  values from the tool's own Hive on the Example database; fixtures 04 to 10 in
+  `tests/fixtures/workbook_text/`; a Data Model pivot (Distinct Count) only in memory; refused:
+  two values across a Column field, label, date and "greater than" value filters. **Open for the
+  user:** six fixtures opened in Excel by hand, as the ticket lists. Merged 2026-11-19
+  (9ee84ae3).
 
 ## Not yet specified
 
