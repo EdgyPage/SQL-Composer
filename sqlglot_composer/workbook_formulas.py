@@ -2,10 +2,11 @@
 (Toolbox 8.9, ticket 04; ADR 0016).
 
 A formula is read as the workbook saves it, `=job_runs[[#This Row],[duration_mins]]/60`, or as
-a person types it, `=[@duration_mins]/60`, into a small tree of its parts (`read_formula`).
-Each part is then written as sqlglot's tree of the Hive that file 11's rule with its ID gives:
-converted (F1 to F10, I1 to I6, V1, V2), converted with its mark (M1 to M5), or refused (X1),
-NULL in its place and named, with the names in the Hive written as N1 and N2 say.
+a person types it, `=[@duration_mins]/60`, into a small tree of its parts (`read_formula`, in
+`workbook_formula_reader.py`). Each part is then written as sqlglot's tree of the Hive that
+file 11's rule with its ID gives: converted (F1 to F10, I1 to I6, V1, V2), converted with its
+mark (M1 to M5), or refused (X1), NULL in its place and named, with the names in the Hive
+written as N1 and N2 say.
 `table_query` writes one Table's SELECT: each typed column read from what the Table reads, each
 formula column by its rule, and each lookup and total it needs as a join.
 
@@ -20,12 +21,31 @@ from __future__ import annotations
 import datetime
 import functools
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
 from sqlglot import exp
 
 from .shared import in_words
+from .workbook_formula_reader import (
+    AnyOf,
+    Call,
+    CellAddress,
+    Constant,
+    FormulaPart,
+    Name,
+    Negative,
+    Omitted,
+    Operation,
+    Percent,
+    Refused,
+    TablePart,
+    ThisRow,
+    WholeColumn,
+    WholeTable,
+    parts_of,
+    read_formula,
+)
 from .workbook_reader import TYPED, Column, Piece, Table, Workbook
 from .writing import read_hive
 
@@ -42,20 +62,9 @@ PARAMETERS = "Parameters"
 KEYS = "Keys"
 # A name file 11's N1 keeps as it is: letters, digits and `_`.
 PLAIN_NAME = re.compile(r"[A-Za-z0-9_]+")
-# Excel's prefixes on its newer functions, read past (file 11's Terms).
-PREFIXES = re.compile(r"^(?:_xlfn\.|_xlws\.)+", re.IGNORECASE)
 # A date written in a cell as text: ISO, as 2026-09-24, or 8 digits, as 20260911 (file 11's M3).
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 TEXT_DATE = re.compile(r"(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])")
-# The pieces of a formula, as `read_formula` reads them, in the order they are tried.
-FORMULA_TOKEN = re.compile(r"""
-    (?P<number>\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+)
-  | (?P<cell>(?:(?:'(?:[^']|'')+'|[A-Za-z_][\w.]*)!)?\$?[A-Z]{1,3}\$?\d+
-        (?::\$?[A-Z]{1,3}\$?\d+)?(?![\w(\[.!]))
-  | (?P<word>[A-Za-z_\\][\w.\\]*)
-  | (?P<operator><>|<=|>=|[-+*/^&=<>%(),])
-  | (?P<other>.)
-""", re.VERBOSE)
 COMPARISONS = {"=": exp.EQ, "<>": exp.NEQ, "<": exp.LT, ">": exp.GT, "<=": exp.LTE,
                ">=": exp.GTE}
 ARITHMETIC = {"+": exp.Add, "-": exp.Sub, "*": exp.Mul, "/": exp.Div}
@@ -103,367 +112,6 @@ class Note:
     text: str
 
 
-class Refused(Exception):
-    """A formula, or a part of one, with no Hive by file 11's rules: the rule that refuses it,
-    and why, in a few words."""
-
-    def __init__(self, rule: str, why: str) -> None:
-        super().__init__(why)
-        self.rule = rule
-        self.why = why
-
-
-# --- A formula, read into its tree ----------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class FormulaPart:
-    """One part of a formula, read into its tree."""
-
-
-@dataclass(frozen=True)
-class Constant(FormulaPart):
-    """A number, a text, or TRUE or FALSE, as the formula writes it."""
-
-    value: str | int | float | bool
-
-
-@dataclass(frozen=True)
-class ThisRow(FormulaPart):
-    """One column of the same row, `[@units]` or `sales[[#This Row],[units]]`; its Table is ""
-    where the formula doesn't name it."""
-
-    table: str
-    column: str
-
-
-@dataclass(frozen=True)
-class WholeColumn(FormulaPart):
-    """A Table's whole column, `sales[units]`."""
-
-    table: str
-    column: str
-
-
-@dataclass(frozen=True)
-class WholeTable(FormulaPart):
-    """A whole Table, as in `VLOOKUP(k, jobs, 2, FALSE)`."""
-
-    table: str
-
-
-@dataclass(frozen=True)
-class TablePart(FormulaPart):
-    """A part of a Table read by its place, such as its headers, `t[[#Headers],[x]]`."""
-
-    table: str
-    text: str
-
-
-@dataclass(frozen=True)
-class CellAddress(FormulaPart):
-    """A cell or range by its address, such as `Summary!$C$2`."""
-
-    text: str
-
-
-@dataclass(frozen=True)
-class Name(FormulaPart):
-    """A name: a defined name, or a Table's."""
-
-    name: str
-
-
-@dataclass(frozen=True)
-class Call(FormulaPart):
-    """A function called, its name in capitals with Excel's prefix read past, and its
-    arguments."""
-
-    name: str
-    args: tuple[FormulaPart, ...]
-
-
-@dataclass(frozen=True)
-class Operation(FormulaPart):
-    """An operator between two parts, such as `+`, `&` or `<>`."""
-
-    operator: str
-    left: FormulaPart
-    right: FormulaPart
-
-
-@dataclass(frozen=True)
-class Negative(FormulaPart):
-    """A part with `-` before it."""
-
-    operand: FormulaPart
-
-
-@dataclass(frozen=True)
-class Percent(FormulaPart):
-    """A part with `%` after it."""
-
-    operand: FormulaPart
-
-
-@dataclass(frozen=True)
-class Omitted(FormulaPart):
-    """An argument left empty, as in `IF(a,,b)`."""
-
-
-@dataclass(frozen=True)
-class AnyOf(FormulaPart):
-    """The values two -IFS forms added match on in one place (file 11's I2), as one form's
-    condition: `s IN ('x', 'y')`."""
-
-    values: tuple[Constant, ...]
-
-
-def read_formula(formula: str) -> FormulaPart:
-    """A formula's tree, read from its text with or without its "=", Excel's operators in
-    Excel's order: `-` before a part, then `%`, `^`, `*` and `/`, `+` and `-`, `&`, and the
-    comparisons. A formula that can't be read is refused."""
-    reader = FormulaReader(formula_tokens(formula.removeprefix("=")))
-    part = reader.comparison()
-    if reader.at < len(reader.tokens):
-        raise Refused("X1", f"its formula can't be read past {reader.tokens[reader.at][1]}")
-    return part
-
-
-def formula_tokens(formula: str) -> list[tuple[str, str]]:
-    """A formula's pieces in order, each as its kind and its text: a number, a text, a cell's
-    address, a word (a name, or a function's before its "("), a Table's part in brackets, or an
-    operator."""
-    tokens = []
-    at = 0
-    while at < len(formula):
-        if formula[at].isspace():
-            at += 1
-        elif formula[at] == '"':
-            end = _text_end(formula, at)
-            tokens.append(("text", formula[at + 1:end].replace('""', '"')))
-            at = end + 1
-        elif formula[at] == "[":
-            end = _bracket_end(formula, at)
-            tokens.append(("structured", formula[at:end]))
-            at = end
-        else:
-            found = FORMULA_TOKEN.match(formula, at)
-            kind, text = found.lastgroup, found.group()
-            at = found.end()
-            if kind == "word" and formula.startswith("[", at):
-                end = _bracket_end(formula, at)
-                kind, text = "structured", text + formula[at:end]
-                at = end
-            tokens.append((kind, text))
-    return tokens
-
-
-def _text_end(formula: str, at: int) -> int:
-    """Where the text starting with the `"` at `at` ends: its closing `"`, past each `""`."""
-    at += 1
-    while at < len(formula):
-        if formula.startswith('""', at):
-            at += 2
-        elif formula[at] == '"':
-            return at
-        else:
-            at += 1
-    raise Refused("X1", "its formula has a text with no closing quote")
-
-
-def _bracket_end(formula: str, at: int) -> int:
-    """Just past the `]` that closes the `[` at `at`, past each `'`-escaped bracket."""
-    depth = 0
-    while at < len(formula):
-        if formula[at] == "'":
-            at += 2
-            continue
-        if formula[at] == "[":
-            depth += 1
-        elif formula[at] == "]":
-            depth -= 1
-            if depth == 0:
-                return at + 1
-        at += 1
-    raise Refused("X1", "its formula has a [ with no ] to close it")
-
-
-class FormulaReader:
-    """Reads one formula's pieces into its tree, one level of Excel's operators a method."""
-
-    def __init__(self, tokens: list[tuple[str, str]]) -> None:
-        self.tokens = tokens
-        self.at = 0
-
-    def peek(self) -> str:
-        """The next piece's text if it is an operator, else ""."""
-        if self.at < len(self.tokens) and self.tokens[self.at][0] == "operator":
-            return self.tokens[self.at][1]
-        return ""
-
-    def take(self) -> tuple[str, str]:
-        """The next piece, taken; past the end, a refusal."""
-        if self.at >= len(self.tokens):
-            raise Refused("X1", "its formula ends where it needs more")
-        token = self.tokens[self.at]
-        self.at += 1
-        return token
-
-    def comparison(self) -> FormulaPart:
-        part = self.concatenation()
-        while self.peek() in COMPARISONS:
-            part = Operation(self.take()[1], part, self.concatenation())
-        return part
-
-    def concatenation(self) -> FormulaPart:
-        part = self.addition()
-        while self.peek() == "&":
-            part = Operation(self.take()[1], part, self.addition())
-        return part
-
-    def addition(self) -> FormulaPart:
-        part = self.multiplication()
-        while self.peek() in ("+", "-"):
-            part = Operation(self.take()[1], part, self.multiplication())
-        return part
-
-    def multiplication(self) -> FormulaPart:
-        part = self.power()
-        while self.peek() in ("*", "/"):
-            part = Operation(self.take()[1], part, self.power())
-        return part
-
-    def power(self) -> FormulaPart:
-        part = self.unary()
-        while self.peek() == "^":
-            part = Operation(self.take()[1], part, self.unary())
-        return part
-
-    def unary(self) -> FormulaPart:
-        if self.peek() == "-":
-            self.take()
-            return Negative(self.unary())
-        if self.peek() == "+":
-            self.take()
-            return self.unary()
-        part = self.primary()
-        while self.peek() == "%":
-            self.take()
-            part = Percent(part)
-        return part
-
-    def primary(self) -> FormulaPart:
-        kind, text = self.take()
-        if kind == "number":
-            return Constant(float(text) if re.search(r"[.eE]", text) else int(text))
-        if kind == "text":
-            return Constant(text)
-        if kind == "structured":
-            return structured_part(text)
-        if kind == "cell":
-            return CellAddress(text)
-        if kind == "word":
-            return self.word(text)
-        if text == "(":
-            part = self.comparison()
-            self.closing()
-            return part
-        raise Refused("X1", f"its formula holds {text}, which file 11 doesn't list")
-
-    def word(self, text: str) -> FormulaPart:
-        """A word: a function called, TRUE or FALSE, or a name."""
-        if self.peek() == "(":
-            self.take()
-            return Call(PREFIXES.sub("", text).upper(), self.arguments())
-        if text.upper() in ("TRUE", "FALSE"):
-            return Constant(text.upper() == "TRUE")
-        return Name(text)
-
-    def arguments(self) -> tuple[FormulaPart, ...]:
-        """A function's arguments, after its "(" up to its ")"."""
-        args: list[FormulaPart] = []
-        if self.peek() == ")":
-            self.take()
-            return ()
-        while True:
-            if self.peek() in (",", ")"):
-                args.append(Omitted())
-            else:
-                args.append(self.comparison())
-            _, text = self.take()
-            if text == ")":
-                return tuple(args)
-            if text != ",":
-                raise Refused("X1", f"its formula holds {text} where a , or ) goes")
-
-    def closing(self) -> None:
-        if self.take()[1] != ")":
-            raise Refused("X1", "its formula has a ( with no ) to close it")
-
-
-def structured_part(text: str) -> FormulaPart:
-    """A Table's part in brackets, `t[x]`, `t[[#This Row],[x]]`, `[@x]` or `[@[A b]]`, as the
-    part it is."""
-    table, _, inside = text.partition("[")
-    inside = inside[:-1]
-    if inside.startswith("@"):
-        return ThisRow(table, _bracketed_column_name(inside[1:]))
-    items = _bracket_items(inside)
-    specials = [item for item in items if item.startswith("#")]
-    columns = [item for item in items if not item.startswith("#")]
-    part: FormulaPart = TablePart(table, text)
-    if not items or (specials == ["#Data"] and not columns):
-        part = WholeTable(table)
-    elif len(columns) != 1 or ":" in columns[0]:
-        part = TablePart(table, text)
-    elif specials == ["#This Row"]:
-        part = ThisRow(table, columns[0])
-    elif specials in ([], ["#Data"]):
-        part = WholeColumn(table, columns[0])
-    return part
-
-
-def _bracket_items(inside: str) -> list[str]:
-    """The items of a Table's part between its outer brackets, each without its own brackets:
-    `[#This Row],[x]` is `#This Row` and `x`, and `x` alone is `x`."""
-    if not inside.startswith("["):
-        return [_bracketed_column_name(inside)] if inside else []
-    items = []
-    at = 0
-    while at < len(inside):
-        if inside[at] == "[":
-            end = _bracket_end(inside, at)
-            items.append(_bracketed_column_name(inside[at:end]))
-            at = end
-        else:
-            at += 1
-    return items
-
-
-def _bracketed_column_name(text: str) -> str:
-    """A column's name as a Table's part writes it, without its brackets or Excel's `'`
-    escapes."""
-    text = text.strip()
-    if text.startswith("[") and text.endswith("]"):
-        text = text[1:-1]
-    return re.sub(r"'(.)", r"\1", text)
-
-
-def parts_of(part: FormulaPart) -> Iterator[FormulaPart]:
-    """A part, then each part inside it, at any depth, in the order the formula writes them."""
-    yield part
-    inner: tuple[FormulaPart, ...] = ()
-    if isinstance(part, Call):
-        inner = part.args
-    elif isinstance(part, Operation):
-        inner = (part.left, part.right)
-    elif isinstance(part, (Negative, Percent)):
-        inner = (part.operand,)
-    for each in inner:
-        yield from parts_of(each)
-
-
 # --- What a formula reads ------------------------------------------------------------------
 
 
@@ -506,16 +154,29 @@ class Totals:
 
 
 @dataclass
+class RowTotals:
+    """A LEFT JOIN of a total worked out for each row of a Table (file 11's I1): its alias, the
+    SELECT giving each row's key columns and its total, and those key columns, matched back to
+    the row."""
+
+    alias: str
+    totals: exp.Select
+    keys: list[str]
+
+
+@dataclass
 class TableQuery:
     """One Table's SELECT as it is written: the Table, the Book, the alias its FROM has, every
-    alias taken in it, its joins, each formula column's Hive once written (None once refused),
+    alias taken in it, what its FROM reads, its joins, each formula column's Hive once written
+    (None once refused),
     the formula columns being written, for a loop between them, and what its map names."""
 
     table: Table
     book: Book
     alias: str
     taken: set[str]
-    joins: list[Lookup | Totals] = field(default_factory=list)
+    base: exp.Expression
+    joins: list[Lookup | Totals | RowTotals] = field(default_factory=list)
     written: dict[str, exp.Expression | None] = field(default_factory=dict)
     writing: list[str] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)
@@ -524,13 +185,15 @@ class TableQuery:
 @dataclass
 class Place:
     """Where one formula is written: its Table's SELECT, its column's header, the marks it has
-    made so far, and the Table whose whole columns read as one row's cells, inside SUMPRODUCT
-    or an -IFS form."""
+    made so far, the Table whose whole columns read as one row's cells, inside SUMPRODUCT or an
+    -IFS form, and whether a blank is read as it is, as inside an -IF(S) form or ISBLANK
+    (M1)."""
 
     query: TableQuery
     column: str
     marks: list[Note]
     row_table: str = ""
+    blank_as_is: bool = False
 
 
 def tables_of(workbook: Workbook) -> dict[str, Table]:
@@ -594,30 +257,30 @@ def constant_hive(value: object) -> exp.Expression:
     if isinstance(value, bool):
         return exp.Boolean(this=value)
     if isinstance(value, (int, float)):
-        return exp.Literal.number(_written_number(value))
+        return exp.Literal.number(value_text(value))
     if isinstance(value, datetime.datetime):
         return exp.Literal.string(value.date().isoformat())
     return exp.Literal.string(str(value))
 
 
-def _written_number(value: int | float) -> str:
+def value_text(value: object) -> str:
+    """A value as the map and the Hive write it: a whole number with no `.0`."""
     if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
         return str(int(value))
     return str(value)
 
 
-def new_alias(name: str, taken: set[str]) -> str:
-    """A short alias for a table, taken: the first letter of its name's last word, as file
-    15's W1 writes `job_runs r`, else of its first, else that letter and a number."""
+def free_alias(name: str, taken: set[str]) -> str:
+    """A short alias for a table that `taken` doesn't hold: the first letter of its name's last
+    word, as file 15's W1 writes `job_runs r`, else of its first, else that letter and a
+    number."""
     words = re.findall(r"[a-z]+", name.lower()) or ["t"]
     for letter in (words[-1][0], words[0][0]):
         if letter not in taken:
-            taken.add(letter)
             return letter
     number = 2
     while f"{words[-1][0]}{number}" in taken:
         number += 1
-    taken.add(f"{words[-1][0]}{number}")
     return f"{words[-1][0]}{number}"
 
 
@@ -629,7 +292,7 @@ def _rule_tree(text: str) -> exp.Expression:
     return read_hive(f"SELECT {text}")[0].expressions[0]
 
 
-def written(text: str, **parts: exp.Expression) -> exp.Expression:
+def rule_hive(text: str, **parts: exp.Expression) -> exp.Expression:
     """The Hive of a rule as file 11 writes it, such as `SUBSTR(p0, 1, p1)`, each placeholder
     column in it, p0, p1 and so on, replaced by its part, bracketed where an operator holds
     it. sqlglot reads the rule's text, so the tree is the one it reads the same Hive into."""
@@ -637,7 +300,7 @@ def written(text: str, **parts: exp.Expression) -> exp.Expression:
         if isinstance(node, exp.Column) and not node.table and node.name in parts:
             part = parts[node.name].copy()
             if isinstance(node.parent, (exp.Binary, exp.Not, exp.Neg)):
-                return bracketed(part, type(node.parent))
+                return operand_hive(part, type(node.parent))
             return part
         return node
     return _rule_tree(text).transform(put)
@@ -647,10 +310,10 @@ def hive_call(name: str, args: list[exp.Expression]) -> exp.Expression:
     """Hive's function `name` called on `args`, as sqlglot reads `NAME(a, b)`."""
     places = ", ".join(f"p{number}" for number in range(len(args)))
     parts = {f"p{number}": arg for number, arg in enumerate(args)}
-    return written(f"{name}({places})", **parts)
+    return rule_hive(f"{name}({places})", **parts)
 
 
-def bracketed(side: exp.Expression, holder: type[exp.Expression],
+def operand_hive(side: exp.Expression, holder: type[exp.Expression],
               right: bool = False) -> exp.Expression:
     """`side` as an operator `holder` holds it: in brackets where it holds its own sides less
     tightly, or as tightly on the right but for `+`, `*`, AND and OR, which may chain."""
@@ -667,7 +330,7 @@ def bracketed(side: exp.Expression, holder: type[exp.Expression],
 def binary(kind: type[exp.Expression], left: exp.Expression,
            right: exp.Expression) -> exp.Expression:
     """Two sides joined by Hive's operator `kind`, each bracketed where it must be."""
-    return kind(this=bracketed(left, kind), expression=bracketed(right, kind, right=True))
+    return kind(this=operand_hive(left, kind), expression=operand_hive(right, kind, right=True))
 
 
 def all_of(conditions: list[exp.Expression]) -> exp.Expression:
@@ -686,8 +349,8 @@ def table_query(table: Table, base: exp.Expression, book: Book) -> exp.Select:
     what the Table reads (`<database>.<table>`, a step's CTE, or a query's or a summary's
     rows), each formula column by file 11's rule or `NULL AS` its header, and each join its
     formulas need. What its map names goes into the Book's notes."""
-    taken: set[str] = set()
-    query = TableQuery(table, book, new_alias(table.name, taken), taken)
+    alias = free_alias(table.name, set())
+    query = TableQuery(table, book, alias, {alias}, base)
     for column in table.columns:
         if column.kind != TYPED and column.header not in query.written:
             write_formula_column(column, query)
@@ -695,7 +358,7 @@ def table_query(table: Table, base: exp.Expression, book: Book) -> exp.Select:
     _drop_unread_joins(query, columns)
     select = exp.select(*columns).from_(_aliased(base, query.alias))
     for join in query.joins:
-        select = select.join(_join_hive(join, book))
+        select = select.join(_join_hive(join, query))
     if not query.joins and isinstance(base, exp.Table):
         select = _without_alias(select, query.alias)
     book.notes += query.notes
@@ -733,10 +396,15 @@ def _without_alias(select: exp.Select, alias: str) -> exp.Select:
     return select
 
 
-def _join_hive(join: Lookup | Totals, book: Book) -> exp.Join:
-    """A join a formula needs: a lookup's LEFT JOIN on its key (F8), or a LEFT JOIN of a
-    Table's totals on its groups, or a CROSS JOIN of totals with no group (F9, I3)."""
-    read = book.reads[Piece(EXCEL_TABLE, join.table.name)]
+def _join_hive(join: Lookup | Totals | RowTotals, query: TableQuery) -> exp.Join:
+    """A join a formula needs: a lookup's LEFT JOIN on its key (F8), a LEFT JOIN of a Table's
+    totals on its groups, or a CROSS JOIN of totals with no group (F9, I3), or a LEFT JOIN of
+    each row's totals on its key columns (I1)."""
+    if isinstance(join, RowTotals):
+        on = all_of([binary(exp.EQ, column_hive(key, query.alias), column_hive(key, join.alias))
+                     for key in join.keys])
+        return exp.Join(this=_aliased(join.totals, join.alias), side="LEFT", on=on)
+    read = query.book.reads[Piece(EXCEL_TABLE, join.table.name)]
     if isinstance(join, Lookup):
         on = binary(exp.EQ, join.key, column_hive(join.column, join.alias))
         return exp.Join(this=_aliased(read, join.alias), side="LEFT", on=on)
@@ -759,14 +427,14 @@ def _drop_unread_joins(query: TableQuery, columns: list[exp.Expression]) -> None
     """Leave out each join no column reads, such as one a refused formula added, and each
     total no column reads; a lookup whose key reads another join keeps that one."""
     read = _join_aliases_read(columns)
-    kept: list[Lookup | Totals] = []
+    kept: list[Lookup | Totals | RowTotals] = []
     for join in reversed(query.joins):
         if join.alias not in read:
             continue
         kept.insert(0, join)
         if isinstance(join, Lookup):
             read |= _join_aliases_read([join.key])
-        else:
+        elif isinstance(join, Totals):
             read |= _join_aliases_read([value for _, value in join.keys])
             names = _columns_read(columns, join.alias)
             join.totals = [total for total in join.totals if total.alias in names]
@@ -852,6 +520,27 @@ def _defined_name(name: str, names: dict[str, str]) -> str | None:
     return None
 
 
+def row_cell_hive(header: str, place: Place) -> exp.Expression:
+    """A column of the row as a formula reads it (M1): as `this_row` gives it, but a typed
+    column with a blank in the workbook is COALESCE(x, 0), or COALESCE(x, '') for a column of
+    text, as Excel reads a blank, marked "blank"; inside an -IF(S) form or ISBLANK, which skip
+    a blank as SUM and AVG skip NULL, as it is."""
+    expression = this_row(header, place)
+    column = column_named(place.query.table, header)
+    if place.blank_as_is or column.kind != TYPED or None not in column.cells:
+        return expression
+    blank: str | int = ""
+    if all(isinstance(cell, (int, float)) and not isinstance(cell, bool)
+           for cell in column.cells if cell is not None):
+        blank = 0
+    shown = "''" if blank == "" else "0"
+    place.marks.append(Note(MARK, "M1", f"{place.query.table.name}[{place.column}]",
+                            f"blank: {column.header} has a blank in the workbook, which Excel "
+                            f"reads as {shown} and Hive as NULL, so it is "
+                            f"COALESCE({hive_name(column.header)}, {shown})"))
+    return hive_call("COALESCE", [expression, constant_hive(blank)])
+
+
 def this_row(header: str, place: Place) -> exp.Expression:
     """A column of the formula's own row: a typed column as its Table reads it, a formula
     column as its own Hive, written in its place (file 11's I6: never a name AS made)."""
@@ -877,24 +566,25 @@ def typed_over_hive(column: Column, typed: list[tuple[int, object]],
     """A formula column with values typed over it: a CASE on each such row, matched on the
     columns its Keys row names (V1), or else on every typed column of the row, said (V2)."""
     table = place.query.table
-    keys = _key_columns(table, place)
+    keys = key_columns(table, place)
     where = f"{table.name}[{column.header}]"
     if not keys:
-        keys = [other.header for other in table.columns if other.kind == TYPED]
+        keys = [other for other in table.columns if other.kind == TYPED]
         place.marks.append(Note(MARK, "V2", where, "no Keys row names its Table, so each "
                                 "typed-over value is matched on every typed column of its "
                                 "row"))
     case = exp.Case()
     for row, value in typed:
-        match = all_of([_matched(key, row, place) for key in keys])
+        match = all_of([_key_match_condition(key, row, place) for key in keys])
         case = case.when(match, constant_hive(value))
-        shown = in_words([f"{key} is {_cell_of(table, key, row)}" for key in keys])
+        shown = in_words([f"{key.header} is {value_text(key.cells[row])}" for key in keys])
         place.query.notes.append(Note(TYPED_OVER, "V1", where,
-                                      f"{_shown(value)} typed over its formula where {shown}"))
+                                      f"{value_text(value)} typed over its formula where "
+                                      f"{shown}"))
     return case.else_(expression)
 
 
-def _key_columns(table: Table, place: Place) -> list[str]:
+def key_columns(table: Table, place: Place) -> list[Column]:
     """The columns the Keys Table's row for `table` names, each one the Table has."""
     keys = tables_of(place.query.book.workbook).get(KEYS.lower())
     if keys is None or len(keys.columns) < 2:
@@ -902,25 +592,16 @@ def _key_columns(table: Table, place: Place) -> list[str]:
     for name, columns in zip(keys.columns[0].cells, keys.columns[1].cells, strict=True):
         if str(name or "").lower() == table.name.lower():
             found = [column_named(table, key.strip()) for key in str(columns).split(",")]
-            return [column.header for column in found if column is not None]
+            return [column for column in found if column is not None]
     return []
 
 
-def _cell_of(table: Table, header: str, row: int) -> object:
-    return column_named(table, header).cells[row]
-
-
-def _matched(header: str, row: int, place: Place) -> exp.Expression:
-    value = _cell_of(place.query.table, header, row)
+def _key_match_condition(key: Column, row: int, place: Place) -> exp.Expression:
+    """Whether a row is row `row` of the workbook by its key column `key`'s value there."""
+    value = key.cells[row]
     if value is None:
-        return written("p0 IS NULL", p0=this_row(header, place))
-    return binary(exp.EQ, this_row(header, place), constant_hive(value))
-
-
-def _shown(value: object) -> str:
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return str(value)
+        return rule_hive("p0 IS NULL", p0=this_row(key.header, place))
+    return binary(exp.EQ, this_row(key.header, place), constant_hive(value))
 
 
 # --- Each part of a formula ----------------------------------------------------------------
@@ -933,7 +614,7 @@ def hive_of(part: FormulaPart, place: Place) -> exp.Expression:
     if isinstance(part, ThisRow):
         if not is_own(part.table, place):
             raise Refused("X1", f"it reads one row of {part.table} by its place")
-        return this_row(part.column, place)
+        return row_cell_hive(part.column, place)
     if isinstance(part, WholeColumn):
         return _whole_column_hive(part, place)
     if isinstance(part, Call):
@@ -946,7 +627,7 @@ def hive_of(part: FormulaPart, place: Place) -> exp.Expression:
 def _other_part_hive(part: FormulaPart, place: Place) -> exp.Expression:
     """A part with `-` before it or `%` after it, or a name; any other part is refused."""
     if isinstance(part, Negative):
-        return exp.Neg(this=bracketed(hive_of(part.operand, place), exp.Neg))
+        return exp.Neg(this=operand_hive(hive_of(part.operand, place), exp.Neg))
     if isinstance(part, Percent):
         return binary(exp.Div, hive_of(part.operand, place), exp.Literal.number("100"))
     if isinstance(part, Name):
@@ -999,7 +680,8 @@ def _name_hive(part: Name, place: Place) -> exp.Expression:
     if value is None:
         raise Refused("X1", f"{part.name} is a defined name holding a formula, {refers_to}")
     place.marks.append(Note(MARK, "M5", f"{place.query.table.name}[{place.column}]",
-                            f"defined name {part.name}: its value, {_shown(value)}, written in "
+                            f"defined name {part.name}: its value, {value_text(value)}, "
+                            "written in "
                             "from its cell; move it to Parameters, so a change to it is "
                             "read by name"))
     return constant_hive(value)
@@ -1034,34 +716,11 @@ def operation_hive(part: Operation, place: Place) -> exp.Expression:
     if special is not None:
         return special
     if part.operator == "&":
-        sides = [_blank_as(each, place, "") for each in _concatenated(part)]
-        return hive_call("CONCAT", sides)
+        return hive_call("CONCAT", [hive_of(each, place) for each in _concatenated(part)])
     if part.operator == "^":
         return hive_call("POWER", [hive_of(part.left, place), hive_of(part.right, place)])
-    if part.operator in ARITHMETIC:
-        left = _blank_as(part.left, place, 0)
-        if part.operator == "/":
-            right = hive_of(part.right, place)
-        else:
-            right = _blank_as(part.right, place, 0)
-        return binary(ARITHMETIC[part.operator], left, right)
-    blank = _blank_in_comparison(part)
-    if blank is None:
-        return binary(COMPARISONS[part.operator], hive_of(part.left, place),
-                      hive_of(part.right, place))
-    return binary(COMPARISONS[part.operator], _blank_as(part.left, place, blank),
-                  _blank_as(part.right, place, blank))
-
-
-def _blank_in_comparison(part: Operation) -> str | int | None:
-    """What a blank reads as in a comparison with a constant, as Excel reads it: "" against a
-    text, 0 against a number; None with no constant, where the column is as it is."""
-    for side in (part.left, part.right):
-        if isinstance(side, Constant) and isinstance(side.value, str):
-            return ""
-        if isinstance(side, Constant):
-            return 0
-    return None
+    kind = ARITHMETIC.get(part.operator) or COMPARISONS[part.operator]
+    return binary(kind, hive_of(part.left, place), hive_of(part.right, place))
 
 
 def _concatenated(part: FormulaPart) -> list[FormulaPart]:
@@ -1069,23 +728,6 @@ def _concatenated(part: FormulaPart) -> list[FormulaPart]:
     if isinstance(part, Operation) and part.operator == "&":
         return _concatenated(part.left) + _concatenated(part.right)
     return [part]
-
-
-def _blank_as(part: FormulaPart, place: Place, value: object) -> exp.Expression:
-    """A part as Hive; where it is a typed column of the row with a blank in the workbook,
-    COALESCE(x, 0) or COALESCE(x, ''), as Excel reads a blank there, marked "blank" (M1)."""
-    expression = hive_of(part, place)
-    if not isinstance(part, ThisRow) or not is_own(part.table, place):
-        return expression
-    column = column_named(place.query.table, part.column)
-    if column.kind != TYPED or None not in column.cells:
-        return expression
-    shown = "''" if value == "" else str(value)
-    place.marks.append(Note(MARK, "M1", f"{place.query.table.name}[{place.column}]",
-                            f"blank: {column.header} has a blank in the workbook, which Excel "
-                            f"reads as {shown} here and Hive as NULL, so it is "
-                            f"COALESCE({hive_name(column.header)}, {shown})"))
-    return hive_call("COALESCE", [expression, constant_hive(value)])
 
 
 def _pattern_hive(part: Operation, place: Place) -> exp.Expression | None:
@@ -1122,12 +764,12 @@ def _month_or_week_start(part: Operation, place: Place) -> exp.Expression | None
     left = part.left
     if isinstance(left, Call) and left.name == "EOMONTH" and len(left.args) == 2 and (
             is_number(left.args[1], -1)):
-        return written("CAST(TRUNC(p0, 'MM') AS STRING)", p0=as_date(left.args[0], place))
+        return rule_hive("CAST(TRUNC(p0, 'MM') AS STRING)", p0=as_date(left.args[0], place))
     if isinstance(left, Operation) and left.operator == "-" and isinstance(left.right, Call):
         weekday = left.right
         if weekday.name == "WEEKDAY" and len(weekday.args) == 2 and (
                 is_number(weekday.args[1], 2) and weekday.args[0] == left.left):
-            return written("CAST(NEXT_DAY(DATE_ADD(p0, 7 * -1), 'MO') AS STRING)",
+            return rule_hive("CAST(NEXT_DAY(DATE_ADD(p0, 7 * -1), 'MO') AS STRING)",
                            p0=as_date(left.left, place))
     return None
 
@@ -1190,7 +832,7 @@ def as_date(part: FormulaPart, place: Place) -> exp.Expression:
     if isinstance(part, ThisRow) and is_own(part.table, place):
         column = column_named(place.query.table, part.column)
         if column is not None and column.kind == TYPED and _holds_text_dates(column):
-            return text_date(this_row(part.column, place), column.header, place)
+            return text_date(row_cell_hive(part.column, place), column.header, place)
     return hive_of(part, place)
 
 
@@ -1205,14 +847,14 @@ def text_date(column: exp.Expression, header: str, place: Place) -> exp.Expressi
     place.marks.append(Note(MARK, "M3", f"{place.query.table.name}[{place.column}]",
                             f"text date: {header} holds dates as text, such as 20260911, made "
                             "a date only inside this formula"))
-    return written("CONCAT(SUBSTR(p0, 1, 4), '-', SUBSTR(p0, 5, 2), '-', SUBSTR(p0, 7, 2))",
+    return rule_hive("CONCAT(SUBSTR(p0, 1, 4), '-', SUBSTR(p0, 5, 2), '-', SUBSTR(p0, 7, 2))",
                    p0=column)
 
 
 # --- The functions file 11 lists -------------------------------------------------------------
 
 
-def arguments(call: Call, fewest: int, most: int) -> tuple[FormulaPart, ...]:
+def call_arguments(call: Call, fewest: int, most: int) -> tuple[FormulaPart, ...]:
     """A call's arguments, refused unless there are as many as file 11's form of it has."""
     if not fewest <= len(call.args) <= most:
         raise Refused("X1", f"{call.name} with {len(call.args)} arguments isn't a form file 11 "
@@ -1220,39 +862,51 @@ def arguments(call: Call, fewest: int, most: int) -> tuple[FormulaPart, ...]:
     return call.args
 
 
-def given(call: Call, number: int) -> FormulaPart | None:
+def argument_given(call: Call, number: int) -> FormulaPart | None:
     """A call's argument `number`, counting from 0, or None where it is left out."""
     if number < len(call.args) and not isinstance(call.args[number], Omitted):
         return call.args[number]
     return None
 
 
-# Functions Hive has, as they are or under another name (F4, F5, F6), by their Excel name: the
-# Hive name and how many arguments Excel's form of it has.
+@dataclass(frozen=True)
+class HiveTwin:
+    """A function Hive has as Excel's: its name in Hive, and the fewest and most arguments
+    Excel's form of it takes."""
+
+    name: str
+    fewest: int
+    most: int
+
+
+# Functions Hive has, as they are or under another name (F4, F5), by their Excel name.
 SAME_IN_HIVE = {
-    "ROUND": ("ROUND", 2, 2), "ABS": ("ABS", 1, 1), "POWER": ("POWER", 2, 2),
-    "SQRT": ("SQRT", 1, 1), "MOD": ("PMOD", 2, 2), "INT": ("FLOOR", 1, 1),
-    "LEN": ("LENGTH", 1, 1), "SUBSTITUTE": ("REPLACE", 3, 3), "PROPER": ("INITCAP", 1, 1),
-    "UPPER": ("UPPER", 1, 1), "LOWER": ("LOWER", 1, 1), "TRIM": ("TRIM", 1, 1),
-    "IFERROR": ("COALESCE", 2, 2), "IFNA": ("COALESCE", 2, 2),
+    "ROUND": HiveTwin("ROUND", 2, 2), "ABS": HiveTwin("ABS", 1, 1),
+    "POWER": HiveTwin("POWER", 2, 2), "SQRT": HiveTwin("SQRT", 1, 1),
+    "MOD": HiveTwin("PMOD", 2, 2), "INT": HiveTwin("FLOOR", 1, 1),
+    "LEN": HiveTwin("LENGTH", 1, 1), "SUBSTITUTE": HiveTwin("REPLACE", 3, 3),
+    "PROPER": HiveTwin("INITCAP", 1, 1), "UPPER": HiveTwin("UPPER", 1, 1),
+    "LOWER": HiveTwin("LOWER", 1, 1), "TRIM": HiveTwin("TRIM", 1, 1),
+    "IFERROR": HiveTwin("COALESCE", 2, 2), "IFNA": HiveTwin("COALESCE", 2, 2),
 }
 
 
 def _same_in_hive(call: Call, place: Place) -> exp.Expression:
     """A function Hive has as Excel's: MOD as PMOD, INT as FLOOR, IFERROR as COALESCE, as a
     divide by 0 is NULL (F4); LEN as LENGTH, SUBSTITUTE as REPLACE, PROPER as INITCAP (F5)."""
-    name, fewest, most = SAME_IN_HIVE[call.name]
-    return hive_call(name, [hive_of(arg, place) for arg in arguments(call, fewest, most)])
+    twin = SAME_IN_HIVE[call.name]
+    args = call_arguments(call, twin.fewest, twin.most)
+    return hive_call(twin.name, [hive_of(arg, place) for arg in args])
 
 
 def _and_hive(call: Call, place: Place) -> exp.Expression:
     """AND(a, b, c): `a AND b AND c` (F2)."""
-    return all_of([hive_of(arg, place) for arg in arguments(call, 1, 255)])
+    return all_of([hive_of(arg, place) for arg in call_arguments(call, 1, 255)])
 
 
 def _or_hive(call: Call, place: Place) -> exp.Expression:
     """OR(a, b): `(a OR b)`, bracketed, as AND joins before OR (F2)."""
-    sides = [hive_of(arg, place) for arg in arguments(call, 1, 255)]
+    sides = [hive_of(arg, place) for arg in call_arguments(call, 1, 255)]
     joined = sides[0]
     for side in sides[1:]:
         joined = binary(exp.Or, joined, side)
@@ -1261,22 +915,22 @@ def _or_hive(call: Call, place: Place) -> exp.Expression:
 
 def _not_hive(call: Call, place: Place) -> exp.Expression:
     """NOT(x): `NOT x` (F2)."""
-    (part,) = arguments(call, 1, 1)
-    return exp.Not(this=bracketed(hive_of(part, place), exp.Not))
+    (part,) = call_arguments(call, 1, 1)
+    return exp.Not(this=operand_hive(hive_of(part, place), exp.Not))
 
 
 def _if_hive(call: Call, place: Place) -> exp.Expression:
     """IF as it is; with no third argument, FALSE where Excel gives it (F3)."""
-    arguments(call, 2, 3)
-    parts = [hive_of(call.args[0], place), _branch(given(call, 1), place)]
+    call_arguments(call, 2, 3)
+    parts = [hive_of(call.args[0], place), _if_value_hive(argument_given(call, 1), place)]
     if len(call.args) == 3:
-        parts.append(_branch(given(call, 2), place))
+        parts.append(_if_value_hive(argument_given(call, 2), place))
     else:
         parts.append(exp.Boolean(this=False))
     return hive_call("IF", parts)
 
 
-def _branch(part: FormulaPart | None, place: Place) -> exp.Expression:
+def _if_value_hive(part: FormulaPart | None, place: Place) -> exp.Expression:
     """An IF's value; one left empty is 0, as Excel gives it."""
     if part is None:
         return exp.Literal.number("0")
@@ -1285,7 +939,7 @@ def _branch(part: FormulaPart | None, place: Place) -> exp.Expression:
 
 def _ifs_case_hive(call: Call, place: Place) -> exp.Expression:
     """IFS(c1, v1, c2, v2): `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 END` (F3)."""
-    parts = arguments(call, 2, 254)
+    parts = call_arguments(call, 2, 254)
     if len(parts) % 2:
         raise Refused("X1", "IFS has a condition with no value")
     case = exp.Case()
@@ -1296,7 +950,7 @@ def _ifs_case_hive(call: Call, place: Place) -> exp.Expression:
 
 def _switch_hive(call: Call, place: Place) -> exp.Expression:
     """SWITCH(x, "a", 1, 0): `CASE x WHEN 'a' THEN 1 ELSE 0 END` (F3)."""
-    parts = arguments(call, 3, 254)
+    parts = call_arguments(call, 3, 254)
     case = exp.Case(this=hive_of(parts[0], place))
     pairs = parts[1:]
     for number in range(0, len(pairs) - 1, 2):
@@ -1308,14 +962,14 @@ def _switch_hive(call: Call, place: Place) -> exp.Expression:
 
 def _isblank_hive(call: Call, place: Place) -> exp.Expression:
     """ISBLANK(x): `x IS NULL` (F4), the column as it is (M1)."""
-    (part,) = arguments(call, 1, 1)
-    return written("p0 IS NULL", p0=hive_of(part, place))
+    (part,) = call_arguments(call, 1, 1)
+    return rule_hive("p0 IS NULL", p0=hive_of(part, replace(place, blank_as_is=True)))
 
 
 def _least_or_greatest(call: Call, place: Place) -> exp.Expression:
     """MIN(a, b) and MAX(a, b) of one row's cells: LEAST and GREATEST (F4). A whole column's
     is file 12's T1."""
-    parts = arguments(call, 1, 255)
+    parts = call_arguments(call, 1, 255)
     if len(parts) < 2 or any(isinstance(part, WholeColumn) for part in parts):
         raise Refused("T1", f"{call.name} of a whole column is file 12's T1, which the code "
                             "doesn't write yet")
@@ -1326,25 +980,25 @@ def _least_or_greatest(call: Call, place: Place) -> exp.Expression:
 def _left_or_right(call: Call, place: Place) -> exp.Expression:
     """LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); n is 1 when it is left out
     (F5)."""
-    arguments(call, 1, 2)
+    call_arguments(call, 1, 2)
     text = hive_of(call.args[0], place)
     count = exp.Literal.number("1")
-    if given(call, 1) is not None:
+    if argument_given(call, 1) is not None:
         count = hive_of(call.args[1], place)
     if call.name == "LEFT":
         return hive_call("SUBSTR", [text, exp.Literal.number("1"), count])
-    return written("SUBSTR(p0, -p1)", p0=text, p1=count)
+    return rule_hive("SUBSTR(p0, -p1)", p0=text, p1=count)
 
 
 def _mid_hive(call: Call, place: Place) -> exp.Expression:
     """MID(x, s, n): SUBSTR(x, s, n) (F5)."""
-    return hive_call("SUBSTR", [hive_of(part, place) for part in arguments(call, 3, 3)])
+    return hive_call("SUBSTR", [hive_of(part, place) for part in call_arguments(call, 3, 3)])
 
 
 def _find_hive(call: Call, place: Place) -> exp.Expression:
     """FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a)), a text written in
     lower case (F5)."""
-    sought, text = arguments(call, 2, 2)
+    sought, text = call_arguments(call, 2, 2)
     if call.name == "FIND":
         return hive_call("INSTR", [hive_of(text, place), hive_of(sought, place)])
     lowered = hive_call("LOWER", [hive_of(sought, place)])
@@ -1355,24 +1009,24 @@ def _find_hive(call: Call, place: Place) -> exp.Expression:
 
 def _isnumber_hive(call: Call, place: Place) -> exp.Expression:
     """ISNUMBER(FIND(..)) and ISNUMBER(SEARCH(..)): `INSTR(..) > 0` (F5)."""
-    (part,) = arguments(call, 1, 1)
+    (part,) = call_arguments(call, 1, 1)
     if not isinstance(part, Call) or part.name not in ("FIND", "SEARCH"):
         raise Refused("X1", "ISNUMBER of anything but FIND or SEARCH isn't a form file 11 "
                             "lists")
-    return written("p0 > 0", p0=_find_hive(part, place))
+    return rule_hive("p0 > 0", p0=_find_hive(part, place))
 
 
 def _concat_hive(call: Call, place: Place) -> exp.Expression:
     """CONCATENATE and CONCAT: CONCAT (F5), a blank as '' (M1)."""
-    parts = arguments(call, 1, 255)
+    parts = call_arguments(call, 1, 255)
     if any(isinstance(part, (WholeColumn, WholeTable)) for part in parts):
         raise Refused("X1", f"{call.name} of a whole column spills an array")
-    return hive_call("CONCAT", [_blank_as(part, place, "") for part in parts])
+    return hive_call("CONCAT", [hive_of(part, place) for part in parts])
 
 
 def _textjoin_hive(call: Call, place: Place) -> exp.Expression:
     """TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b) (F5)."""
-    parts = arguments(call, 3, 255)
+    parts = call_arguments(call, 3, 255)
     if parts[1] != Constant(True):
         raise Refused("X1", "TEXTJOIN keeping empty cells isn't a form file 11 lists")
     return hive_call("CONCAT_WS", [hive_of(parts[0], place),
@@ -1381,20 +1035,20 @@ def _textjoin_hive(call: Call, place: Place) -> exp.Expression:
 
 def _value_hive(call: Call, place: Place) -> exp.Expression:
     """VALUE(x): CAST(x AS DOUBLE) (F5)."""
-    (part,) = arguments(call, 1, 1)
-    return written("CAST(p0 AS DOUBLE)", p0=hive_of(part, place))
+    (part,) = call_arguments(call, 1, 1)
+    return rule_hive("CAST(p0 AS DOUBLE)", p0=hive_of(part, place))
 
 
 def _date_part_hive(call: Call, place: Place) -> exp.Expression:
     """YEAR, MONTH, DAY as they are (F6), a text date made one (M3)."""
-    (part,) = arguments(call, 1, 1)
+    (part,) = call_arguments(call, 1, 1)
     return hive_call(call.name, [as_date(part, place)])
 
 
 def _date_hive(call: Call, place: Place) -> exp.Expression:
     """DATE(2026,9,1): '2026-09-01' (F6); DATE(YEAR(d), MONTH(d), 1), the first of d's month
     (F7); DATE(LEFT(x,4), MID(x,5,2), RIGHT(x,2)), a text date (M3)."""
-    year, month, day = arguments(call, 3, 3)
+    year, month, day = call_arguments(call, 3, 3)
     if all(isinstance(part, Constant) and isinstance(part.value, int)
            for part in (year, month, day)):
         try:
@@ -1404,11 +1058,11 @@ def _date_hive(call: Call, place: Place) -> exp.Expression:
             raise Refused("X1", "its DATE is no day of the calendar") from None
     if (isinstance(year, Call) and isinstance(month, Call) and year.name == "YEAR"
             and month.name == "MONTH" and year.args == month.args and is_number(day, 1)):
-        return written("CAST(TRUNC(p0, 'MM') AS STRING)", p0=as_date(year.args[0], place))
+        return rule_hive("CAST(TRUNC(p0, 'MM') AS STRING)", p0=as_date(year.args[0], place))
     text = _split_text_date(year, month, day)
     if text is not None:
         column = column_named(place.query.table, text.column)
-        return text_date(this_row(text.column, place), column.header, place)
+        return text_date(row_cell_hive(text.column, place), column.header, place)
     raise Refused("X1", "this form of DATE isn't one file 11 lists")
 
 
@@ -1429,26 +1083,26 @@ def _split_text_date(year: FormulaPart, month: FormulaPart,
 
 def _today_hive(call: Call, place: Place) -> exp.Expression:
     """TODAY(): CURRENT_DATE (F6)."""
-    arguments(call, 0, 0)
-    return written("CURRENT_DATE")
+    call_arguments(call, 0, 0)
+    return rule_hive("CURRENT_DATE")
 
 
 def _datedif_hive(call: Call, place: Place) -> exp.Expression:
     """DATEDIF(a, b, "d"): DATEDIFF(b, a); "m": FLOOR(MONTHS_BETWEEN(b, a)); "y":
     FLOOR(MONTHS_BETWEEN(b, a) / 12) (F6)."""
-    start, end, unit = arguments(call, 3, 3)
+    start, end, unit = call_arguments(call, 3, 3)
     days = {"d": "DATEDIFF(p1, p0)", "m": "FLOOR(MONTHS_BETWEEN(p1, p0))",
             "y": "FLOOR(MONTHS_BETWEEN(p1, p0) / 12)"}
     if not isinstance(unit, Constant) or str(unit.value).lower() not in days:
         raise Refused("X1", "DATEDIF in any unit but \"d\", \"m\" or \"y\" isn't a form file "
                             "11 lists")
-    return written(days[str(unit.value).lower()], p0=as_date(start, place),
+    return rule_hive(days[str(unit.value).lower()], p0=as_date(start, place),
                    p1=as_date(end, place))
 
 
 def _eomonth_hive(call: Call, place: Place) -> exp.Expression:
     """EOMONTH(d, 0): LAST_DAY(d) (F6)."""
-    day, months = arguments(call, 2, 2)
+    day, months = call_arguments(call, 2, 2)
     if not is_number(months, 0):
         raise Refused("X1", "EOMONTH of any month but d's own isn't a form file 11 lists")
     return hive_call("LAST_DAY", [as_date(day, place)])
@@ -1456,7 +1110,7 @@ def _eomonth_hive(call: Call, place: Place) -> exp.Expression:
 
 def _edate_hive(call: Call, place: Place) -> exp.Expression:
     """EDATE(d, n): ADD_MONTHS(d, n), marked: a month's last day stays one (F6)."""
-    day, months = arguments(call, 2, 2)
+    day, months = call_arguments(call, 2, 2)
     place.marks.append(Note(MARK, "F6", f"{place.query.table.name}[{place.column}]",
                             "EDATE: Hive's ADD_MONTHS keeps a month's last day the last day, "
                             "as Excel's EDATE doesn't: 28 February and a month is 31 March "
@@ -1466,8 +1120,8 @@ def _edate_hive(call: Call, place: Place) -> exp.Expression:
 
 def _weekday_hive(call: Call, place: Place) -> exp.Expression:
     """WEEKDAY(d): DAYOFWEEK(d), Sunday 1 in both (F6)."""
-    arguments(call, 1, 2)
-    if given(call, 1) is not None and not is_number(call.args[1], 1):
+    call_arguments(call, 1, 2)
+    if argument_given(call, 1) is not None and not is_number(call.args[1], 1):
         raise Refused("X1", "WEEKDAY counting from any day but Sunday isn't a form file 11 "
                             "lists")
     return hive_call("DAYOFWEEK", [as_date(call.args[0], place)])
@@ -1475,7 +1129,7 @@ def _weekday_hive(call: Call, place: Place) -> exp.Expression:
 
 def _text_hive(call: Call, place: Place) -> exp.Expression:
     """TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM') (F6)."""
-    day, shown = arguments(call, 2, 2)
+    day, shown = call_arguments(call, 2, 2)
     if not isinstance(shown, Constant) or not isinstance(shown.value, str):
         raise Refused("X1", "TEXT with a format that isn't a text isn't a form file 11 lists")
     pattern = shown.value
@@ -1507,15 +1161,15 @@ def _hive_date_format(pattern: str) -> str:
 def _xlookup_hive(call: Call, place: Place) -> exp.Expression:
     """XLOOKUP(k, t[a], t[b]): LEFT JOIN t ON k = t.a, then t.b; its fourth argument, v:
     COALESCE(.., v) (F4, F8)."""
-    parts = arguments(call, 3, 6)
+    parts = call_arguments(call, 3, 6)
     key, match, result = parts[:3]
-    if given(call, 4) is not None or given(call, 5) is not None:
+    if argument_given(call, 4) is not None or argument_given(call, 5) is not None:
         raise Refused("X1", "XLOOKUP with a match or search mode isn't a form file 11 lists")
     if not isinstance(match, WholeColumn) or not isinstance(result, WholeColumn) or (
             match.table.lower() != result.table.lower()):
         raise Refused("X1", "XLOOKUP is read from two columns of one Table")
-    value = looked_up(key, match.table, match.column, result.column, place)
-    fallback = given(call, 3)
+    value = lookup_hive(key, match.table, match.column, result.column, place)
+    fallback = argument_given(call, 3)
     if fallback is not None:
         value = hive_call("COALESCE", [value, hive_of(fallback, place)])
     return value
@@ -1524,7 +1178,7 @@ def _xlookup_hive(call: Call, place: Place) -> exp.Expression:
 def _vlookup_hive(call: Call, place: Place) -> exp.Expression:
     """VLOOKUP(k, t, n, FALSE): t's column n, joined on its first (F8); with TRUE, 1 or no
     fourth argument, the exact match, marked "approximate" (M2)."""
-    key, table_part, number = arguments(call, 3, 4)[:3]
+    key, table_part, number = call_arguments(call, 3, 4)[:3]
     table = None
     if isinstance(table_part, WholeTable):
         table = table_named(table_part.table, place)
@@ -1535,37 +1189,37 @@ def _vlookup_hive(call: Call, place: Place) -> exp.Expression:
     if not 1 <= number.value <= len(table.columns):
         raise Refused("X1", f"VLOOKUP reads column {number.value} of {table.name}, which "
                             "it doesn't have")
-    exact = given(call, 3)
+    exact = argument_given(call, 3)
     if exact is None or not (exact == Constant(False) or is_number(exact, 0)):
-        _approximate(place)
-    return looked_up(key, table.name, table.columns[0].header,
+        _mark_approximate(place)
+    return lookup_hive(key, table.name, table.columns[0].header,
                      table.columns[number.value - 1].header, place)
 
 
 def _index_hive(call: Call, place: Place) -> exp.Expression:
     """INDEX(t[b], MATCH(k, t[a], 0)): as XLOOKUP (F8); MATCH with 1 or none, the exact
     match, marked "approximate" (M2)."""
-    result, row = arguments(call, 2, 2)
+    result, row = call_arguments(call, 2, 2)
     if not isinstance(row, Call) or row.name != "MATCH" or not isinstance(result, WholeColumn):
         raise Refused("X1", "INDEX is read with MATCH, as INDEX(t[b], MATCH(k, t[a], 0))")
-    key, match = arguments(row, 2, 3)[:2]
-    kind = given(row, 2)
+    key, match = call_arguments(row, 2, 3)[:2]
+    kind = argument_given(row, 2)
     if kind is not None and is_number(kind, -1):
         raise Refused("X1", "MATCH with -1 isn't a form file 11 lists")
     if kind is None or not is_number(kind, 0):
-        _approximate(place)
+        _mark_approximate(place)
     if not isinstance(match, WholeColumn) or match.table.lower() != result.table.lower():
         raise Refused("X1", "INDEX and MATCH are read from two columns of one Table")
-    return looked_up(key, match.table, match.column, result.column, place)
+    return lookup_hive(key, match.table, match.column, result.column, place)
 
 
-def _approximate(place: Place) -> None:
+def _mark_approximate(place: Place) -> None:
     place.marks.append(Note(MARK, "M2", f"{place.query.table.name}[{place.column}]",
                             "approximate: its lookup matches the nearest smaller key in Excel, "
                             "and is written as the exact match"))
 
 
-def looked_up(key: FormulaPart, table_name: str, match: str, result: str,
+def lookup_hive(key: FormulaPart, table_name: str, match: str, result: str,
               place: Place) -> exp.Expression:
     """Column `result` of the Table `table_name`'s row whose `match` is this row's `key`: a
     LEFT JOIN of it, one a key (F8), marked "repeated key" where its key repeats in the
@@ -1596,7 +1250,9 @@ def _lookup_join(table: Table, match: str, key: exp.Expression, query: TableQuer
         if isinstance(join, Lookup) and join.table is table and join.column == match and (
                 join.key == key):
             return join
-    join = Lookup(new_alias(table.name, query.taken), table, match, key)
+    alias = free_alias(table.name, query.taken)
+    query.taken.add(alias)
+    join = Lookup(alias, table, match, key)
     query.joins.append(join)
     return join
 
@@ -1612,8 +1268,8 @@ def parameter_value(key: FormulaPart, place: Place) -> exp.Expression:
         if str(name).lower() == str(key.value).lower():
             place.query.notes.append(Note(
                 WRITTEN_IN, "F8", f"{place.query.table.name}[{place.column}]",
-                f"{name}, {_shown(value)}, from Parameters: change it in Parameters and the "
-                "table won't follow"))
+                f"{name}, {value_text(value)}, from Parameters: change it in Parameters and "
+                "the table won't follow"))
             return constant_hive(value)
     raise Refused("X1", f"Parameters has no value named {key.value}")
 
@@ -1639,13 +1295,13 @@ def read_ifs(call: Call) -> IfsForm:
     args = list(call.args)
     value: FormulaPart | None = None
     if call.name in ("SUMIF", "AVERAGEIF"):
-        arguments(call, 2, 3)
+        call_arguments(call, 2, 3)
         value = args[2] if len(args) == 3 else args[0]
         args = args[:2]
     elif call.name == "COUNTIF":
-        arguments(call, 2, 2)
+        call_arguments(call, 2, 2)
     elif call.name != "COUNTIFS":
-        arguments(call, 3, 255)
+        call_arguments(call, 3, 255)
         value, args = args[0], args[1:]
     if not args or len(args) % 2:
         raise Refused("X1", f"{call.name} has a column with no criteria")
@@ -1664,9 +1320,10 @@ def _ifs_form_hive(call: Call, place: Place) -> exp.Expression:
     row's (F9), ordered on one compared with this row's for a running total (I5); over another,
     a LEFT JOIN of its totals by group (F9). COALESCE(.., 0) but for AVERAGEIFS."""
     form = read_ifs(call)
+    as_is = replace(place, blank_as_is=True)
     if is_own(form.table, place):
-        return _window_ifs(form, place)
-    return _joined_ifs(form, place)
+        return _window_ifs(form, as_is)
+    return _joined_ifs(form, as_is)
 
 
 def criteria_condition(column: exp.Expression, criteria: FormulaPart,
@@ -1675,10 +1332,8 @@ def criteria_condition(column: exp.Expression, criteria: FormulaPart,
     comparison; "<>x" `(s <> 'x' OR s IS NULL)`; "<>" alone `s IS NOT NULL`; a wildcard
     `LOWER(s) LIKE` (I4); two values `s IN (..)` (I2)."""
     if isinstance(criteria, AnyOf):
-        return written("p0 IN (" + ", ".join(f"p{number + 1}" for number in range(
-            len(criteria.values))) + ")", p0=column, **{
-            f"p{number + 1}": constant_hive(value.value)
-            for number, value in enumerate(criteria.values)})
+        return exp.In(this=column, expressions=[constant_hive(value.value)
+                                                for value in criteria.values])
     value = _criteria_value(criteria, place)
     if not isinstance(value, str):
         return binary(exp.EQ, column, constant_hive(value))
@@ -1687,13 +1342,13 @@ def criteria_condition(column: exp.Expression, criteria: FormulaPart,
         raise Refused("X1", "a criteria with ~ isn't a form file 11 lists")
     if not text:
         if operator == "<>":
-            return written("p0 IS NOT NULL", p0=column)
+            return rule_hive("p0 IS NOT NULL", p0=column)
         raise Refused("X1", "a criteria matching a blank isn't a form file 11 lists")
     if "*" in text or "?" in text:
-        return _wildcard(column, operator, text)
+        return _wildcard_condition(column, operator, text)
     literal = _criteria_literal(text)
     if operator == "<>":
-        return written("(p0 <> p1 OR p0 IS NULL)", p0=column, p1=literal)
+        return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=column, p1=literal)
     return binary(COMPARISONS[operator or "="], column, literal)
 
 
@@ -1703,7 +1358,7 @@ def _criteria_value(criteria: FormulaPart, place: Place) -> object:
         return criteria.value
     joined = _concatenated(criteria)
     if len(joined) > 1 and all(isinstance(part, Constant) for part in joined):
-        return "".join(_shown(part.value) for part in joined)
+        return "".join(value_text(part.value) for part in joined)
     expression = hive_of(criteria, place)
     if isinstance(expression, exp.Literal):
         return expression.this if expression.is_string else float(expression.this)
@@ -1716,13 +1371,14 @@ def _criteria_literal(text: str) -> exp.Expression:
     return exp.Literal.string(text)
 
 
-def _wildcard(column: exp.Expression, operator: str | None, text: str) -> exp.Expression:
+def _wildcard_condition(column: exp.Expression, operator: str | None,
+                        text: str) -> exp.Expression:
     """A wildcard, "*ail*": `LOWER(s) LIKE '%ail%'`, as Excel ignores case (I4)."""
     if operator not in (None, "="):
         raise Refused("X1", "a wildcard with a comparison isn't a form file 11 lists")
     pattern = text.lower().replace("%", "\\%").replace("_", "\\_")
     pattern = pattern.replace("*", "%").replace("?", "_")
-    return written("LOWER(p0) LIKE p1", p0=column, p1=exp.Literal.string(pattern))
+    return rule_hive("LOWER(p0) LIKE p1", p0=column, p1=exp.Literal.string(pattern))
 
 
 def _this_row_compared(criteria: FormulaPart) -> tuple[str, FormulaPart] | None:
@@ -1745,24 +1401,24 @@ def _is_this_row_value(criteria: FormulaPart) -> bool:
 
 def _window_ifs(form: IfsForm, place: Place) -> exp.Expression:
     """An -IF(S) form over its own Table: `SUM(CASE WHEN s = 'x' THEN v END) OVER (PARTITION
-    BY a)` (F9); `t[d], "<="&[@d]` a running total, ties included (I5)."""
+    BY a)` (F9); `t[d], "<="&[@d]` a running total, ties included (I5). Any other criteria
+    comparing a row with this one is I1's, joined (`_compared_ifs`)."""
+    if not _is_window_form(form, place):
+        return _compared_ifs(form, place.query.table, place)
     rows = replace(place, row_table=place.query.table.name)
     partitions, conditions, order = [], [], None
     for header, criteria in form.pairs:
         compared = _this_row_compared(criteria)
         if compared is not None:
-            order = _running_order(header, compared, order)
+            order = window_order(this_row(header, place), compared[0] == ">=")
         elif _is_this_row_value(criteria):
-            if not _is_matched_cell(criteria, header, place):
-                raise Refused("X1", f"it matches {header} on another column of its row")
             partitions.append(this_row(header, place))
         else:
             conditions.append(criteria_condition(this_row(header, place), criteria, rows))
     total = _conditional_aggregate(form, conditions, rows)
     window = exp.Window(this=total, partition_by=partitions or None, over="OVER")
     if order is not None:
-        window.set("order", exp.Order(expressions=[ordered(this_row(order[0], place),
-                                                           order[1])]))
+        window.set("order", exp.Order(expressions=[order]))
         window.set("spec", exp.WindowSpec(kind="RANGE", start="UNBOUNDED",
                                           start_side="PRECEDING", end="CURRENT ROW"))
         return window
@@ -1777,16 +1433,20 @@ def _is_matched_cell(criteria: FormulaPart, header: str, place: Place) -> bool:
             and criteria.column.lower() == header.lower())
 
 
-def _running_order(header: str, compared: tuple[str, FormulaPart],
-                   order: tuple[str, bool] | None) -> tuple[str, bool]:
-    """The column a running total is ordered on, and whether DESC: "<="&[@d] counts each row up
-    to this one, ">="&[@d] each from it (I5)."""
-    operator, part = compared
-    if order is not None or operator not in ("<=", ">=") or not isinstance(part, ThisRow) or (
-            part.column.lower() != header.lower()):
-        raise Refused("X1", "a criteria compared with this row is a form file 11 lists only "
-                            "as a running total, t[d], \"<=\"&[@d]")
-    return header, operator == ">="
+def _is_window_form(form: IfsForm, place: Place) -> bool:
+    """Whether an -IF(S) form over its own Table is a window: each column matched on this
+    row's own cell of it (F9), and at most one compared with this row's, "<=" or ">=" on the
+    same column, a running total (I5)."""
+    compared = 0
+    for header, criteria in form.pairs:
+        found = _this_row_compared(criteria)
+        if found is not None:
+            compared += 1
+            if found[0] not in ("<=", ">=") or not _is_matched_cell(found[1], header, place):
+                return False
+        elif _is_this_row_value(criteria) and not _is_matched_cell(criteria, header, place):
+            return False
+    return compared <= 1
 
 
 def _conditional_aggregate(form: IfsForm, conditions: list[exp.Expression],
@@ -1799,7 +1459,7 @@ def _conditional_aggregate(form: IfsForm, conditions: list[exp.Expression],
     if conditions:
         value = exp.Case().when(all_of(conditions), value)
     elif form.value is None:
-        return written("COUNT(*)")
+        return rule_hive("COUNT(*)")
     return hive_call(form.aggregate, [value])
 
 
@@ -1819,8 +1479,7 @@ def _joined_ifs(form: IfsForm, place: Place) -> exp.Expression:
             raise Refused("X1", f"it reads {table.name}[{header}], which {table.name} doesn't "
                                 "have")
         if _this_row_compared(criteria) is not None:
-            raise Refused("X1", "a criteria comparing another Table with this row isn't a "
-                                "form file 11 lists")
+            return _compared_ifs(form, table, place)
         column = column_named(table, header).header
         if _is_this_row_value(criteria):
             keys.append((column, hive_of(criteria, place)))
@@ -1842,7 +1501,9 @@ def totals_read(table: Table, keys: list[tuple[str, exp.Expression]],
                 each.where == where):
             join = each
     if join is None:
-        join = Totals(new_alias("c", place.query.taken), table, keys, where)
+        alias = free_alias("c", place.query.taken)
+        place.query.taken.add(alias)
+        join = Totals(alias, table, keys, where)
         place.query.joins.append(join)
     name = hive_name(place.column)
     taken = {each.alias for each in join.totals}
@@ -1858,6 +1519,95 @@ def totals_read(table: Table, keys: list[tuple[str, exp.Expression]],
     return read
 
 
+def _compared_ifs(form: IfsForm, table: Table, place: Place) -> exp.Expression:
+    """An -IF(S) form whose criteria compare `table`'s rows with this row, as `t[d],
+    ">="&[@d]` does, where no window can (I1): `(SELECT k.id, SUM(u.v) AS total FROM <this
+    Table> k JOIN t u ON u.d >= k.d GROUP BY k.id)`, joined back to this row on its key
+    columns, COALESCE(.., 0) but for AVERAGEIFS."""
+    query = place.query
+    own = table is query.table
+    if not own and Piece(EXCEL_TABLE, table.name) not in query.book.reads:
+        raise Refused("X1", f"it reads {table.name}, which has no Hive")
+    keys = row_keys(place)
+    conditions = [_paired_condition(header, criteria, table, own, place)
+                  for header, criteria in form.pairs]
+    total = rule_hive("COUNT(*)")
+    if form.value is not None:
+        total = hive_call(form.aggregate, [_paired_column(table, form.value, own)])
+    name = exp.Identifier(this=hive_name(place.column), quoted=False)
+    groups = [column_hive(key.header, "k") for key in keys]
+    read = query.base if own else query.book.reads[Piece(EXCEL_TABLE, table.name)]
+    totals = exp.select(*groups, exp.alias_(total, name)).from_(_aliased(query.base, "k"))
+    totals = totals.join(exp.Join(this=_aliased(read, "u"), on=all_of(conditions)))
+    alias = free_alias("c", query.taken)
+    query.taken.add(alias)
+    query.joins.append(RowTotals(alias, totals.group_by(*[group.copy() for group in groups]),
+                                 [key.header for key in keys]))
+    found = exp.Column(this=name.copy(), table=exp.Identifier(this=alias))
+    if form.aggregate == "AVG":
+        return found
+    return hive_call("COALESCE", [found, exp.Literal.number("0")])
+
+
+def row_keys(place: Place) -> list[Column]:
+    """The columns that tell a Table's rows apart, to match a total back to its row (I1): its
+    Keys row's (V1), or else every typed column, said (V2). Refused where the workbook's rows
+    repeat on them, as a total can't be matched back to one row."""
+    table = place.query.table
+    keys = key_columns(table, place)
+    if not keys:
+        keys = [column for column in table.columns if column.kind == TYPED]
+        place.marks.append(Note(MARK, "V2", f"{table.name}[{place.column}]",
+                                "no Keys row names its Table, so its total is matched back to "
+                                "each row on every typed column"))
+    rows = list(zip(*[key.cells for key in keys], strict=True))
+    if not keys or len(set(rows)) != len(rows):
+        raise Refused("I1", f"its rows repeat on {in_words([key.header for key in keys])}, so "
+                            "a total comparing rows with this one can't be matched back to one "
+                            "row")
+    return keys
+
+
+def _paired_condition(header: str, criteria: FormulaPart, table: Table, own: bool,
+                      place: Place) -> exp.Expression:
+    """One criteria of a joined -IF(S) form, on `table`'s column `header` as `u`: compared
+    with this row's typed column as `k` (I1), matched on it, or a condition (I1, I4)."""
+    column = _paired_column(table, header, own)
+    compared = _this_row_compared(criteria)
+    if compared is not None:
+        operator, part = compared
+        value = _paired_row_column(part, place)
+        if operator == "<>":
+            return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=column, p1=value)
+        return binary(COMPARISONS[operator], column, value)
+    if _is_this_row_value(criteria):
+        return binary(exp.EQ, column, _paired_row_column(criteria, place))
+    return criteria_condition(column, criteria, place)
+
+
+def _paired_column(table: Table, header: str, own: bool) -> exp.Column:
+    """`table`'s column `header` as a joined -IF(S) form reads it, as `u`: of its own Table, a
+    typed column alone, as its FROM holds no other."""
+    column = column_named(table, header)
+    if column is None:
+        raise Refused("X1", f"it reads {table.name}[{header}], which {table.name} doesn't have")
+    if own and column.kind != TYPED:
+        raise Refused("I1", f"it compares rows of its own formula column {column.header} with "
+                            "this row's, which the code writes only for a typed column")
+    return column_hive(column.header, "u")
+
+
+def _paired_row_column(part: FormulaPart, place: Place) -> exp.Column:
+    """This row's value a joined -IF(S) form compares with, as `k`: one of its typed columns."""
+    column = None
+    if isinstance(part, ThisRow) and is_own(part.table, place):
+        column = column_named(place.query.table, part.column)
+    if column is None or column.kind != TYPED:
+        raise Refused("I1", "it compares rows with a value of this row that isn't one of its "
+                            "typed columns, which the code doesn't write")
+    return column_hive(column.header, "k")
+
+
 def merged_ifs(part: Operation) -> Call | None:
     """Two or more -IFS forms added that differ in one value only, as one form matching any of
     those values (I2); else None."""
@@ -1868,7 +1618,8 @@ def merged_ifs(part: Operation) -> Call | None:
     if first.name not in IFS_FORMS or any(call.name != first.name or len(call.args) != len(
             first.args) for call in calls):
         return None
-    differing = [number for number in range(len(first.args)) if _differs(calls, number)]
+    differing = [number for number in range(len(first.args))
+                 if _is_differing_argument(calls, number)]
     if len(differing) != 1:
         return None
     values = tuple(call.args[differing[0]] for call in calls)
@@ -1880,7 +1631,7 @@ def merged_ifs(part: Operation) -> Call | None:
     return Call(first.name, tuple(args))
 
 
-def _differs(calls: list[Call], number: int) -> bool:
+def _is_differing_argument(calls: list[Call], number: int) -> bool:
     """Whether the calls' argument `number` differs between any two of them."""
     return len({call.args[number] for call in calls}) > 1
 
@@ -1907,7 +1658,7 @@ def countifs_rank(call: Call, place: Place) -> exp.Expression:
         compared = _this_row_compared(criteria)
         if compared is not None and order is None and compared[0] in (">", "<") and (
                 compared[1] == ThisRow(compared[1].table, header)):
-            order = ordered(this_row(header, place), compared[0] == ">")
+            order = window_order(this_row(header, place), compared[0] == ">")
         elif isinstance(criteria, ThisRow) and criteria.column.lower() == header.lower():
             partitions.append(this_row(header, place))
         else:
@@ -1915,11 +1666,11 @@ def countifs_rank(call: Call, place: Place) -> exp.Expression:
                                 "lists")
     if order is None:
         raise Refused("X1", "a COUNTIFS rank compares one column with this row's")
-    return exp.Window(this=written("RANK()"), partition_by=partitions or None,
+    return exp.Window(this=rule_hive("RANK()"), partition_by=partitions or None,
                       order=exp.Order(expressions=[order]), over="OVER")
 
 
-def ordered(expression: exp.Expression, descending: bool) -> exp.Ordered:
+def window_order(expression: exp.Expression, descending: bool) -> exp.Ordered:
     """A window's ORDER BY on `expression`, as sqlglot reads `x` or `x DESC` in Hive."""
     if descending:
         return exp.Ordered(this=expression, desc=True, nulls_first=False)
@@ -1929,13 +1680,13 @@ def ordered(expression: exp.Expression, descending: bool) -> exp.Ordered:
 def _rank_hive(call: Call, place: Place) -> exp.Expression:
     """RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third argument,
     ASC (F10)."""
-    value, column = arguments(call, 2, 3)[:2]
-    ascending = given(call, 2) is not None and not is_number(call.args[2], 0)
+    value, column = call_arguments(call, 2, 3)[:2]
+    ascending = argument_given(call, 2) is not None and not is_number(call.args[2], 0)
     if not isinstance(column, WholeColumn) or not is_own(column.table, place) or not (
             isinstance(value, ThisRow) and value.column.lower() == column.column.lower()):
         raise Refused("X1", f"{call.name} ranks a row's value in its own Table's column")
-    order = ordered(this_row(column.column, place), not ascending)
-    return exp.Window(this=written("RANK()"), order=exp.Order(expressions=[order]),
+    order = window_order(this_row(column.column, place), not ascending)
+    return exp.Window(this=rule_hive("RANK()"), order=exp.Order(expressions=[order]),
                       over="OVER")
 
 
@@ -1945,7 +1696,7 @@ def _sumproduct_hive(call: Call, place: Place) -> exp.Expression:
     0 END)`, with none `COUNT(CASE WHEN .. THEN 1 END)`; over its own Table `.. OVER ()`, over
     another a CROSS JOIN of its total (I3). Of whole columns alone, file 12's T1."""
     factors = []
-    for product in arguments(call, 1, 255):
+    for product in call_arguments(call, 1, 255):
         factors += _multiplied(product)
     table = _sumproduct_table(factors, place)
     rows = replace(place, row_table=table.name)
@@ -1997,7 +1748,7 @@ def _product_condition(factor: FormulaPart, place: Place) -> exp.Expression:
         sides = _added(factor.left)
     elif isinstance(factor, Operation) and factor.operator == "+":
         sides = _added(factor)
-        if not _exclusive(sides):
+        if not _is_exclusive(sides):
             raise Refused("X1", "SUMPRODUCT adds conditions that can both hold; write it "
                                 "((..)+(..)>0)")
     else:
@@ -2010,7 +1761,7 @@ def _product_condition(factor: FormulaPart, place: Place) -> exp.Expression:
     return exp.Paren(this=joined)
 
 
-def _exclusive(sides: list[FormulaPart]) -> bool:
+def _is_exclusive(sides: list[FormulaPart]) -> bool:
     """Whether conditions can't both hold: each `t[s] = "x"` on one column, with another
     value."""
     if not all(isinstance(side, Operation) and side.operator == "=" and isinstance(

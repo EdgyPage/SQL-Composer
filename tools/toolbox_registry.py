@@ -52,8 +52,8 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "stacking.py", "tables.py",
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py",
-                "workbook_formulas.py", "workbook_hive.py", "workbook_reader.py",
-                "workflows.py", "writing.py")
+                "workbook_formula_reader.py", "workbook_formulas.py", "workbook_hive.py",
+                "workbook_reader.py", "workflows.py", "writing.py")
 # The workbook reader (Toolbox 8.9, ticket 01; ADR 0016), the one reader of an Excel workbook,
 # and the one file outside the folder that loads it. That file writes a workbook as text for a
 # Copilot chat with nothing but Python, so it loads the reader alone, by the folder's path,

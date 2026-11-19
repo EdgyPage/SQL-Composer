@@ -356,6 +356,50 @@ def test_i1_each_criteria_is_its_condition() -> None:
                "FROM db.job_runs")
 
 
+def test_i1_a_comparison_with_this_row_over_its_own_table_is_joined_back_by_its_keys(
+        ) -> None:
+    book = workbook(runs(longer='=COUNTIFS(job_runs[duration_mins],">"&[@duration_mins])'),
+                    keys=(("job_runs", "run_id"),))
+    check(book, "SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.dt, "
+               "COALESCE(c.longer, 0) AS longer FROM db.job_runs AS r LEFT JOIN (SELECT "
+               "k.run_id, COUNT(*) AS longer FROM db.job_runs AS k JOIN db.job_runs AS u ON "
+               "u.duration_mins > k.duration_mins GROUP BY k.run_id) AS c ON r.run_id = "
+               "c.run_id")
+
+
+def test_i1_a_comparison_with_this_row_over_another_table_is_joined_back_by_its_row(
+        ) -> None:
+    jobs = [["job_id", "from_run", "later_mins"],
+            [1, 2, '=SUMIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],'
+                   'job_runs[run_id],">="&[@from_run])']]
+    book = workbook({**runs(), "jobs": jobs})
+    check(book, "SELECT j.job_id, j.from_run, COALESCE(c.later_mins, 0) AS later_mins FROM "
+               "db.jobs AS j LEFT JOIN (SELECT k.job_id, k.from_run, SUM(u.duration_mins) AS "
+               "later_mins FROM db.jobs AS k JOIN db.job_runs AS u ON u.job_id = k.job_id AND "
+               "u.run_id >= k.from_run GROUP BY k.job_id, k.from_run) AS c ON j.job_id = "
+               "c.job_id AND j.from_run = c.from_run", final="jobs")
+    assert rules_of(book, MARK) == ["V2"]
+
+
+@pytest.mark.parametrize(("formula", "why"), [
+    ('=COUNTIFS(job_runs[duration_mins],">"&[@hours])', "isn't one of its typed columns"),
+    ('=COUNTIFS(job_runs[hours],">"&[@duration_mins])', "own formula column hours"),
+])
+def test_i1_what_a_joined_comparison_still_refuses(formula: str, why: str) -> None:
+    book = workbook(runs(hours="=[@duration_mins]/60", a=formula),
+                    keys=(("job_runs", "run_id"),))
+    (note,) = notes_of(book, REFUSED)
+    assert (note.rule, why in note.text) == ("I1", True)
+
+
+def test_i1_a_joined_comparison_refuses_rows_that_repeat_on_their_keys() -> None:
+    tables = runs(longer='=COUNTIFS(job_runs[duration_mins],">"&[@duration_mins])')
+    tables["job_runs"][2][0] = 1
+    book = workbook(tables, keys=(("job_runs", "run_id"),))
+    (note,) = notes_of(book, REFUSED)
+    assert (note.rule, "its rows repeat on run_id" in note.text) == ("I1", True)
+
+
 def test_i2_conditions_join_with_and_and_two_forms_added_are_in() -> None:
     book = workbook(runs(
         a='=COUNTIFS(job_runs[duration_mins],">10",job_runs[duration_mins],"<=20")',
@@ -451,17 +495,20 @@ def test_v2_with_no_keys_row_every_typed_column_matches_and_is_said() -> None:
 # --- File 11: marks ---------------------------------------------------------------------
 
 
-def test_m1_a_blank_is_coalesced_but_in_an_ifs_form_or_isblank() -> None:
+def test_m1_a_blank_is_coalesced_wherever_read_but_in_an_ifs_form_or_isblank() -> None:
     tables = runs(secs="=[@duration_mins]*60", label='=[@status]&"!"',
-                  failed='=COUNTIFS(job_runs[status],"FAILED")', none="=ISBLANK([@status])")
+                  failed='=COUNTIFS(job_runs[status],"FAILED")', none="=ISBLANK([@status])",
+                  copy="=[@status]", upper="=UPPER([@status])",
+                  per="=[@job_id]/[@duration_mins]")
     tables["job_runs"][1][3] = None
     tables["job_runs"][2][2] = None
     book = workbook(tables)
     check(book, f"SELECT {RUN_COLUMNS}, COALESCE(duration_mins, 0) * 60 AS secs, "
                "CONCAT(COALESCE(status, ''), '!') AS label, COUNT(CASE WHEN status = "
-               "'FAILED' THEN 1 END) OVER () AS failed, status IS NULL AS none "
-               "FROM db.job_runs")
-    assert rules_of(book, MARK) == ["M1", "M1"]
+               "'FAILED' THEN 1 END) OVER () AS failed, status IS NULL AS none, "
+               "COALESCE(status, '') AS copy, UPPER(COALESCE(status, '')) AS upper, "
+               "job_id / COALESCE(duration_mins, 0) AS per FROM db.job_runs")
+    assert rules_of(book, MARK) == ["M1"] * 5
     assert all("blank" in note.text for note in notes_of(book, MARK))
 
 

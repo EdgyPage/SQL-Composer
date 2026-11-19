@@ -29,22 +29,24 @@ Hive (file 11's rules), written by the Toolbox (ADR 0016).
 
 ## Answer
 
-**Built.** Two new files in the Toolbox's folder, both in the registry's `PYTHON_FILES` and
-`LIBRARY_FILES` (they name sqlglot's trees), no public name (nothing in `public.py` or
-`__init__`):
+**Built.** Three new files in the Toolbox's folder, all in the registry's `PYTHON_FILES`, the
+two that name sqlglot's trees in `LIBRARY_FILES` too, and no public name (nothing in
+`public.py` or `__init__`):
 
+- `sqlglot_composer/workbook_formula_reader.py` (standard library alone): `read_formula(text)`
+  reads a formula, held (`t[[#This Row],[x]]`, `_xlfn.`) or typed (`[@x]`, `[@[A b]]`), into a
+  small tree (`Constant`, `ThisRow`, `WholeColumn`, `WholeTable`, `TablePart`, `CellAddress`,
+  `Name`, `Call`, `Operation`, `Negative`, `Percent`, `Omitted`, `AnyOf`), Excel's operators
+  in Excel's order, through `formula_tokens` and `FormulaReader`; `parts_of` walks a tree;
+  `Refused(rule, why)` is a refusal, an internal signal turned into a Note.
 - `sqlglot_composer/workbook_formulas.py`: each formula written as file 11's rule with its ID.
-  `read_formula(text)` reads a formula, held (`t[[#This Row],[x]]`, `_xlfn.`) or typed
-  (`[@x]`, `[@[A b]]`), into a small tree (`Constant`, `ThisRow`, `WholeColumn`, `WholeTable`,
-  `TablePart`, `CellAddress`, `Name`, `Call`, `Operation`, `Negative`, `Percent`, `Omitted`,
-  `AnyOf`), Excel's operators in Excel's order. `table_query(table, base, book)` writes one
-  Table's SELECT: typed columns from `base`, each formula column by its rule or `NULL AS` its
-  header, and the joins its formulas need (`Lookup`, F8; `Totals`, F9 and I3), one per key,
-  joins and totals nothing reads dropped. `FUNCTIONS` maps each function name file 11 lists to
-  the function writing it; `Refused(rule, why)` is a refusal; `Note(kind, rule, where, text)`
-  is one line of the map, `kind` one of `WRITTEN_IN`, `TYPED_OVER`, `MARK`, `REFUSED`,
-  `LEFT_ALONE`, `TO_FILL_IN` (file 15's Output's words), `rule` its ID, so ticket 13 can tie
-  each to its test.
+  `table_query(table, base, book)` writes one Table's SELECT: typed columns from `base`, each
+  formula column by its rule or `NULL AS` its header, and the joins its formulas need
+  (`Lookup`, F8; `Totals`, F9 and I3; `RowTotals`, I1's comparison with this row), one per
+  key, joins and totals nothing reads dropped. `FUNCTIONS` maps each function name file 11
+  lists to the function writing it; `Note(kind, rule, where, text)` is one line of the map,
+  `kind` one of `WRITTEN_IN`, `TYPED_OVER`, `MARK`, `REFUSED`, `LEFT_ALONE`, `TO_FILL_IN`
+  (file 15's Output's words), `rule` its ID, so ticket 13 can tie each to its test.
 - `sqlglot_composer/workbook_hive.py`: roles and each final. `piece_roles(workbook)` gives
   each Piece its role from the reader's Order (`SOURCE`, `STEP`, `FINAL`, `SUMMARY_FINAL`,
   `SETTINGS`, `LOADS` for a query loading a Table nothing else reads, `LEFT_OUT`).
@@ -53,15 +55,15 @@ Hive (file 11's rules), written by the Toolbox (ADR 0016).
   `notes`. `hive_texts(hive)` writes each final's Hive (through `writing.sql_text`);
   `map_text(hive, workbook)` writes file 15's Map. `is_summary(table)` is P4.
 
-**Tested** in `tests/test_workbook_hive.py`, 106 tests: one or more per rule ID, each named for
+**Tested** in `tests/test_workbook_hive.py`, 111 tests: one or more per rule ID, each named for
 it (N1, N2, F1 to F10, I1 to I6, V1, V2, M1 to M5, X1 with 15 refusals and the left-alone
 names; P1 to P11, R1, R3), compared as sqlglot writes both; file 15's W1, W2 (roles), W3 and
 file 11's W1; and **every formula-only task of the Excel evaluation**, 45 of them (dev and
 held out), read from the workbook file `formula_workbook.saved` gives and scored by
 `excel_eval.score` itself, rows on the stand-in Hive, map, tables read and names: all 45 pass.
 The only change to a task is leaving out the PivotTable a note in the text names, which the
-file doesn't hold. 86 hashes join `tests/snapshot/known.txt` for the Hive these tests write.
-`tests/workers.py` groups the new stand-in Hive fixture.
+file doesn't hold. `tests/snapshot/known.txt` knows the Hive these tests write (88 hashes after
+the review). `tests/workers.py` groups the new stand-in Hive fixture.
 
 **The seam for tickets 05 and 06.** Each adds a file of its own (to `PYTHON_FILES` and
 `LIBRARY_FILES`) and touches `workbook_hive.py` only in the function for its kind of piece,
@@ -86,21 +88,39 @@ plus one line in `_functions()`:
   touches that file.
 - **A function's writer** is `Callable[[Call, Place], exp.Expression]`; it raises
   `Refused(rule, why)` and adds marks to `place.marks`, notes to `place.query.notes`. What it
-  can call: `hive_of`, `this_row`, `looked_up`, `totals_read`, `written` (a rule's Hive as
-  text with p0, p1 placeholders), `hive_call`, `binary`, `all_of`, `constant_hive`,
-  `identifier`, `hive_name`.
+  can call: `hive_of`, `row_cell_hive` (a column of the row as a formula reads it, M1's
+  COALESCE in), `this_row` (the same with no COALESCE), `lookup_hive`, `totals_read`,
+  `rule_hive` (a rule's Hive as text with p0, p1 placeholders), `hive_call`, `binary`,
+  `operand_hive`, `all_of`, `constant_hive`, `identifier`, `hive_name`, `call_arguments`,
+  `argument_given`, `window_order`, `free_alias`. A formula's parts and `read_formula` come
+  from `workbook_formula_reader.py`.
 
 **Read differently from the files, and why:**
 
-- **P11:** the reader refuses the whole workbook with its LoopError (ticket 01), so no final
-  converts, where file 15 refuses only the finals in the loop. The test holds the reader's
-  refusal.
-- **I1, `">="&[@d]` against this row:** converted only as I5's running total over its own
-  Table (`"<="` ascending, `">="` descending); any other comparison with this row, and any over
-  another Table, is refused, as no GROUP BY join holds it.
-- **M1:** COALESCE where Excel's blank changes the result: an arithmetic operand but a divisor
-  (Excel's #DIV/0! and Hive's NULL agree there), `&` and CONCAT (`''`), and a comparison with a
-  constant (`0` or `''`); elsewhere the column is as it is.
+- **P11 (for ticket 13):** file 15's P11 and the reader disagree. File 15 refuses only the
+  finals in a loop and converts the rest; the reader (ticket 01) refuses the whole workbook
+  with its LoopError, naming each link, so no final converts, and the code is as it is (the
+  test holds the reader's refusal). To agree, either file 15's P11 says the workbook is
+  refused as a whole, naming each link, as the reader does; or the reader gives back the
+  Order of every piece outside the loop with the loop's pieces beside it, and
+  `workbook_hive` refuses only each final reading a piece in it.
+- **I1, `">="&[@d]` against this row:** over its own Table, I5's running total where it is
+  one (`"<="` ascending, `">="` descending, one such criteria on the same column); any other
+  comparison with this row, over its own Table or another, is a LEFT JOIN of a total worked
+  out for each row: `(SELECT k.id, SUM(u.v) AS total FROM <this Table> k JOIN t u ON u.d >=
+  k.d .. GROUP BY k.id)`, joined back on the Table's Keys row, or else every typed column
+  (marked V2), COALESCE(.., 0) but for AVERAGEIFS. Checked on the Example database's
+  job_runs against an independent count. **Still refused, for ticket 13** (file 11's I1
+  says "against this row's d" with no limit, so either it names these or the code learns
+  them): a comparison with a value of this row that isn't one of its typed columns (a formula
+  column, a lookup's result, an expression); over its own Table, a comparison reading one of
+  its own formula columns; and a Table whose rows repeat on their key columns, where a total
+  can't be matched back to one row. A row whose key column is blank matches nothing, so its
+  total is 0 where Excel gives it one.
+- **M1:** as file 11 says: COALESCE wherever a formula reads a typed column of its row with a
+  blank in the workbook, a bare `=[@x]`, a function's argument and a divisor included
+  (`x / COALESCE(y, 0)` gives NULL as `x / NULL` does), but inside an -IF(S) form or ISBLANK.
+  `COALESCE(x, 0)` where the column's other cells are numbers, `COALESCE(x, '')` else.
 - **F9:** COALESCE(.., 0) on a window's SUM, MAX and MIN, as the file says (never COUNT, which
   is never NULL), but none on I5's running totals, as I5 writes them. Some evaluation
   references leave it off a MINIFS (X41); the rows agree on the Example database.
@@ -121,4 +141,39 @@ Power Query (05: named as refused, Q1, and the Tables it loads, P7), T1's whole-
 Order doesn't see a Table named bare, as `VLOOKUP(k, jobs, 3, FALSE)` names jobs
 (`TABLE_REFERENCE` wants `jobs[`). `workbook_hive` reads every source before any Table, so a
 source read that way converts (X07, X13); a step read only that way would be given the wrong
-role and order. The code-review skill hasn't run on this ticket.
+role and order. 
+
+## Review
+
+The code review (2026-11-19), its Standards and Spec findings, each answered:
+
+1. **M1 everywhere:** fixed, as the Answer's M1 says; the M1 test adds a bare `=[@status]`,
+   `UPPER([@status])` and a divisor.
+2. **I1 beyond the running total:** fixed: `_compared_ifs`, `RowTotals`, `row_keys`, three
+   tests of it (own Table, another Table, what still refuses, rows repeating on their keys).
+   What still can't convert is listed for ticket 13 in the Answer.
+3. **P11:** the code is as it was; the Answer says, for ticket 13, how file 15's P11 and the
+   reader disagree and what each would need to agree.
+4. **The parser split out:** `workbook_formula_reader.py`, standard library alone, in
+   `PYTHON_FILES` (not `LIBRARY_FILES`: it imports no sqlglot). Its `arguments` method is
+   `read_arguments`.
+5. **Names:** `written` is `rule_hive`, `given` `argument_given`, `ordered` `window_order`,
+   `arguments` `call_arguments`, `bracketed` `operand_hive`, `looked_up` `lookup_hive`,
+   `_wildcard` `_wildcard_condition`, `_shown` `value_text`, `_matched`
+   `_key_match_condition`, `_branch` `_if_value_hive`, `_approximate` `_mark_approximate`,
+   `_differs` `_is_differing_argument`, `_exclusive` `_is_exclusive`; `new_alias` is
+   `free_alias`, which only gives one, and each caller adds it to `taken`. The seam list in
+   the Answer has the new names.
+6. **One way per job:** `value_text` alone writes an integral float as an integer (it was
+   `_shown` and `_written_number`); the IN list is `exp.In` itself, so no placeholders are
+   built by hand.
+7. **`_cte_name`:** plain `if` statements.
+8. **`SAME_IN_HIVE`:** each entry a `HiveTwin(name, fewest, most)`.
+9. **`Refused`:** a comment says it is never shown to the user, so not `refusals.refuse`, and
+   is turned into a Note. **`_functions()`:** its docstring says it copies so a file adding
+   its writers never changes `FUNCTIONS`, which holds file 11's alone.
+10. **`_cell_of`:** gone: `key_columns` gives Columns, so each key's cell is read from its own
+    column.
+11. **Spec: R2 and P9's Total Row final, and P7's Tables a query loads:** deferred to ticket
+    05, as the Answer's "Left for later" says: each is named as refused today (T2, Q1, P7),
+    and `_total_row_finals` and `_power_query_tree` are where 05's Hive goes.

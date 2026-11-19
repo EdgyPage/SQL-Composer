@@ -163,7 +163,8 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE) -> WorkbookHive:
 
 def _functions() -> dict[str, Callable[[Call, Place], exp.Expression]]:
     """The function each name a formula calls is written by: file 11's (`FUNCTIONS`); a file
-    writing more adds its own here."""
+    writing more adds its own here. A copy, so adding them never changes `FUNCTIONS`, which
+    holds file 11's alone."""
     return dict(FUNCTIONS)
 
 
@@ -176,9 +177,11 @@ def _cte_name(piece: Piece, roles: dict[Piece, str]) -> str:
     """A step's CTE's name: its own (N1, N2), a query's with `_query` after it where a Table
     of its name is a step too, as a query and the Table it loads are two pieces."""
     name = hive_name(piece.name)
-    if piece.kind == POWER_QUERY and roles.get(Piece(EXCEL_TABLE, piece.name)) == STEP:
-        return name.removesuffix(">") + "_query" + (">" if name.endswith(">") else "")
-    return name
+    if piece.kind != POWER_QUERY or roles.get(Piece(EXCEL_TABLE, piece.name)) != STEP:
+        return name
+    if name.endswith(">"):
+        return name[:-1] + "_query>"
+    return name + "_query"
 
 
 def _read_of(piece: Piece, role: str, tree: exp.Query,
