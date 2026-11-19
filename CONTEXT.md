@@ -158,8 +158,8 @@ Toolbox version ships the step from the one before.
 _Avoid_: migration, port, conversion, update script
 
 **Conversion**:
-A Project action that reads Hive someone else wrote, one query or one or more scripts, and
-writes the user's own code for it. Each table the scripts write becomes a Saved table in the
+A Project action that reads Hive someone else wrote, one query or one or more scripts, or a
+Formula workbook, and writes the user's own code for it. Each table the scripts write becomes a Saved table in the
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
 that copy; a Staging table may instead be folded into the tables that read it. One query
 alone becomes a Saved table named for the batch, and in a batch of several scripts, each
@@ -361,6 +361,15 @@ each column's last cell. A Formula workbook totals a Table with it, never with a
 typed in; Copilot writes it as a query of its own, one row, never as a Subtotal row in the
 Table's query, since a Saved table refuses one.
 _Avoid_: totals row, summary row
+
+**Pivot filter**:
+What a PivotTable leaves out, as the workbook was last saved: its Report filter, the items
+hidden on a Row or Column field, a slicer's selection, a Timeline's dates, or a value filter
+such as Top 10. It is converted as the condition it is, its values written in. Keeping it is a
+Decision of the table it ends up in, whose other answers keep every slice instead: the filtered
+column becomes part of what one row is, each value is written as its own batch, or each value
+gets a table of its own, as many tables as the filter has values.
+_Avoid_: slicer filter, page filter, applied filter, sliced view
 
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
@@ -614,8 +623,9 @@ _Avoid_: sample data, test data, dataset
 
 **Formula workbook**:
 An Excel workbook laid out so its formulas can be read as SQL: a sample of raw data in Excel
-Tables, each calculation in a Table's formulas or a Power Query step, and fixed values in a Table
-of their own. A Table's typed columns stand for the database table it samples; which Tables
+Tables, each calculation in a Table's formulas, a Power Query step or a PivotTable, in any mix,
+and fixed values in a Table of their own. What reads what decides each piece's part, so which
+of them a calculation uses doesn't matter. A Table's typed columns stand for the database table it samples; which Tables
 are final is read from what reads what, never declared; and the Tables keep whatever names they
 have. A person moves a presentation workbook's
 data and formulas into one, so Copilot can turn it into Hive without anyone explaining the
@@ -655,5 +665,13 @@ _Avoid_: project gallery, sample projects page
 
 **Excel path**:
 The way from a Formula workbook to Saved tables: a person fills in the workbook, Copilot
-turns it into Hive, and the convert Workflow makes that Hive the Toolbox's own.
+turns it into Hive or the convert Workflow reads the workbook itself, and the convert Workflow
+makes the result the Toolbox's own.
 _Avoid_: Excel workflow, spreadsheet import
+
+**Workbook check**:
+A Conversion's check of a Formula workbook's Hive, whoever wrote it: each final's rows worked out
+from the workbook's own Tables, on this computer, and compared with the values Excel last stored.
+It never reads the warehouse, whose rows have moved on from the workbook's. A difference is
+listed, cell by cell, and stops nothing.
+_Avoid_: offline check, sample test, workbook test

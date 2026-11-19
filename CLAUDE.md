@@ -77,7 +77,11 @@ working one of its tickets. Toolbox 8.8 (Effective logic, the Lineage state a Pr
 in `admin/lineage/lineage_state.csv` each time a table or Table reference changes, and the
 Lineage difference, which shows each Own and Inherited change and when it reached the data) is
 charted through `.scratch/toolbox-8-8/map.md`; read its Notes before working one of its
-tickets. The evaluation system (dev-only, no version: the testing pipelines on
+tickets. Toolbox 8.9 (a Formula workbook converted in code by the convert Workflow, beside the
+Copilot files, as two equal paths (ADR 0016); PivotTables and Pivot filters converted, Copilot
+files 20 and 21; and the Workbook check, offline on the workbook's own Tables) is charted
+through `.scratch/toolbox-8-9/map.md`; read its Notes before working one of its tickets. The
+evaluation system (dev-only, no version: the testing pipelines on
 one module, `tools/eval_runs.py`, rounds run by script, a local token ledger and cost report,
 sources tied to doc ids, records kept out of git in `.eval-local/`, and the history scrubbed of
 local paths) is charted through `.scratch/eval-system/map.md`; read its Notes before working one
