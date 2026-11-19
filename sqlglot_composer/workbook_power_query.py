@@ -1,5 +1,5 @@
-"""A Formula workbook's Power Queries, whole-column totals and Total Rows written as Hive, by
-Copilot file 12's rules (Toolbox 8.9, ticket 05; ADR 0016).
+"""A Formula workbook's Power Queries written as Hive, by Copilot file 12's rules (Toolbox 8.9,
+ticket 05; ADR 0016).
 
 A query's M is read into its tree (`read_m`, in `workbook_m_reader.py`), then each step it gives
 is written into the SELECT it builds (`Rows`): a filter into its WHERE, or its HAVING after a
@@ -10,14 +10,13 @@ rename or add a column is one SELECT; where they don't, as a filter after a Firs
 is read in brackets. A step file 12 doesn't list is refused: NULL in place of a column it
 makes, or else the query left out, each named with why (file 12's Terms, X1).
 
-`power_query_hive` gives a query's SELECT; `WHOLE_COLUMN_FUNCTIONS` writes a formula's total of
-a whole column (T1); `total_row_finals` writes each Table's Total Row as a final of its own,
-reading the Table's final as a CTE (T2 to T4); `lean_ctes` leaves out of each CTE the columns
-nothing after it reads. `workbook_hive.py` calls each in its place.
+`power_query_hive` gives a query's SELECT, which `workbook_hive.py` puts in its place; file 12's
+whole-column totals and Total Rows are `workbook_totals.py`'s.
 """
 
 from __future__ import annotations
 
+import copy
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -25,34 +24,27 @@ from dataclasses import dataclass, field
 from sqlglot import exp
 
 from .shared import in_words
-from .workbook_formula_reader import Call, Constant, Refused, WholeColumn, read_formula
+from .workbook_formula_reader import Refused
 from .workbook_formulas import (
     ARITHMETIC,
     COMPARISONS,
     EXCEL_TABLE,
-    FUNCTIONS,
-    LEFT_ALONE,
     MARK,
     REFUSED,
     Book,
     Note,
-    Place,
     all_of,
     binary,
+    check_argument_count,
     column_hive,
-    column_named,
     constant_hive,
     free_alias,
     hive_call,
     hive_name,
     identifier,
-    is_own,
     operand_hive,
     rule_hive,
-    table_named,
     tables_of,
-    this_row,
-    totals_read,
     value_text,
     window_order,
 )
@@ -73,10 +65,8 @@ from .workbook_m_reader import (
     MValue,
     read_m,
 )
-from .workbook_reader import POWER_QUERY, Piece, Query, Table, Workbook
+from .workbook_reader import POWER_QUERY, Piece, Query
 
-# What a Table's Total Row's final is named after (file 15's P9, file 12's T2).
-TOTAL_ROW = " (Total Row)"
 # A source outside the workbook that file 12's M1 reads the table of: a database, by its M.
 DATABASE_SOURCES = ("Sql.Database", "Oracle.Database", "PostgreSQL.Database", "MySQL.Database")
 # A query reading the web, which file 12's X1 leaves out.
@@ -109,11 +99,6 @@ PIVOT_AGGREGATES = {"List.Sum": "SUM", "List.Count": "SUM", "List.Max": "MAX",
                     "List.Min": "MIN", "List.Average": "AVG"}
 # M's JoinKinds (file 12's G2), each as the join it is.
 JOIN_KINDS = ("LeftOuter", "Inner", "RightOuter", "FullOuter", "LeftAnti", "RightAnti")
-# A whole column's totals in a formula column (file 12's T1), by the formula's function.
-COLUMN_TOTALS = {"SUM": "SUM", "AVERAGE": "AVG", "COUNT": "COUNT", "COUNTA": "COUNT",
-                 "MIN": "MIN", "MAX": "MAX", "STDEV.S": "STDDEV_SAMP", "VAR.S": "VAR_SAMP"}
-# A Total Row's SUBTOTAL, by its function number (file 12's T2).
-SUBTOTALS = {109: "SUM", 101: "AVG", 102: "COUNT", 103: "COUNT", 104: "MAX", 105: "MIN"}
 
 
 @dataclass
@@ -258,7 +243,7 @@ def named_rows(name: str, reading: Reading) -> Rows:
                 reading.done[name] = rows_of(reading.steps[name], reading)
             finally:
                 reading.reading.pop()
-        return copied_rows(reading.done[name])
+        return copy.deepcopy(reading.done[name])
     if any(query.name == name for query in reading.book.workbook.queries):
         return query_read(name, reading.book)
     raise Refused("X1", f"it reads {name}, which is no step of it, nor a query")
@@ -271,31 +256,6 @@ def resolved(part: MPart, reading: Reading) -> MPart:
         seen.append(part.name)
         part = reading.steps[part.name]
     return part
-
-
-def copied_rows(rows: Rows) -> Rows:
-    """A copy of `rows`, each expression in it copied, for a step to change."""
-    group = None
-    if rows.group is not None:
-        group = [each.copy() for each in rows.group]
-    nested = {name: Nested(copied_columns(each.columns), dict(each.samples))
-              for name, each in rows.nested.items()}
-    return Rows(rows.name, copied(rows.source), copied_columns(rows.columns), rows.all_known,
-                rows.alias, set(rows.taken), [each.copy() for each in rows.joins],
-                [each.copy() for each in rows.where], group,
-                [each.copy() for each in rows.having], [each.copy() for each in rows.order],
-                rows.order_used, rows.limit, rows.distinct, nested, dict(rows.samples),
-                copied(rows.set_query), rows.exact)
-
-
-def copied(expression: exp.Expression | None) -> exp.Expression | None:
-    if expression is None:
-        return None
-    return expression.copy()
-
-
-def copied_columns(columns: dict[str, exp.Expression]) -> dict[str, exp.Expression]:
-    return {name: expression.copy() for name, expression in columns.items()}
 
 
 # --- What a query reads (Q1, M1) -------------------------------------------------------------
@@ -350,8 +310,7 @@ def outside_read(source: MCall, name: str, reading: Reading) -> Rows:
     if len(source.args) > 2:
         raise Refused("X1", f"{source.function.name} with a query of its own isn't a source "
                             "file 12 lists")
-    database = exp.Identifier(this=reading.book.database, quoted=False)
-    table = exp.Table(this=identifier(name), db=database)
+    table = exp.Table(this=identifier(name), db=identifier(reading.book.database))
     reading.notes.append(Note(MARK, "M1", reading.where,
                               f"{source.function.name}: it reads {name}, a table outside the "
                               f"workbook, as {reading.book.database}.{hive_name(name)}"))
@@ -535,8 +494,7 @@ def names_of(part: MPart, reading: Reading) -> list[str]:
 def step_arguments(args: tuple[MPart, ...], fewest: int, most: int,
                    name: str) -> tuple[MPart, ...]:
     """A step's arguments, refused unless there are as many as file 12's form of it has."""
-    if not fewest <= len(args) <= most:
-        raise Refused("X1", f"{name} with {len(args)} arguments isn't a form file 12 lists")
+    check_argument_count(name, len(args), fewest, most, "file 12")
     return args
 
 
@@ -666,8 +624,24 @@ def m_call_hive(call: MCall, rows: Rows, reading: Reading,
             for number, arg in enumerate(call.args)}
     for text in M_TWINS[name]:
         if len(set(re.findall(r"\bp\d\b", text))) == len(args):
-            return rule_hive(text, **args)
+            return folded_numbers(rule_hive(text, **args))
     raise Refused("X1", f"{name} with {len(args)} arguments isn't a form file 12 lists")
+
+
+def folded_numbers(expression: exp.Expression) -> exp.Expression:
+    """A twin's Hive with each sum or product of two numbers the M gives worked out, as
+    `SUBSTR(status, 2, 2)` for Text.Middle([status], 1, 2) and `ADD_MONTHS(dt, 24)` for
+    Date.AddYears([dt], 2) (Q7): lean Hive, as ticket 17 asks."""
+    def fold(node: exp.Expression) -> exp.Expression:
+        sides = (node.args.get("this"), node.args.get("expression"))
+        if not isinstance(node, (exp.Add, exp.Mul)) or not all(
+                isinstance(side, exp.Literal) and side.is_number for side in sides):
+            return node
+        left, right = (float(side.this) for side in sides)
+        if isinstance(node, exp.Add):
+            return exp.Literal.number(value_text(left + right))
+        return exp.Literal.number(value_text(left * right))
+    return expression.transform(fold)
 
 
 def like_hive(call: MCall, rows: Rows, reading: Reading,
@@ -836,7 +810,7 @@ def duplicate_column(args: tuple[MPart, ...], reading: Reading) -> Rows:
     return rows
 
 
-def unchanged(args: tuple[MPart, ...], reading: Reading) -> Rows:
+def types_buffer_or_headers(args: tuple[MPart, ...], reading: Reading) -> Rows:
     """Table.TransformColumnTypes, Table.Buffer, Table.PromoteHeaders: nothing (Q5)."""
     if not args:
         raise Refused("X1", "a step reads no table")
@@ -1037,7 +1011,7 @@ def indexed_groups(rows: Rows, keys: list[str], aggregate: tuple[str, MPart],
     window = exp.Window(this=rule_hive("ROW_NUMBER()"),
                         partition_by=[query_column(rows, key) for key in keys],
                         order=exp.Order(expressions=order), over="OVER")
-    columns = copied_columns(rows.columns)
+    columns = copy.deepcopy(rows.columns)
     columns[text_of(index, reading)] = index_hive(window, numbering, reading)
     rows.nested = {name: Nested(columns, dict(rows.samples))}
     rows.columns = {key: query_column(rows, key) for key in keys}
@@ -1108,10 +1082,10 @@ def exact_join(left: Rows, right: Rows, keys: list[str], other_keys: list[str],
             and len(keys) == len(left.columns) == len(right.columns)):
         return None
     paired = dict(zip(keys, other_keys, strict=True))
-    lined_up = copied_rows(right)
+    lined_up = copy.deepcopy(right)
     lined_up.columns = {paired[name]: right.columns[paired[name]] for name in left.columns}
     operation = "INTERSECT" if kind == "Inner" else "EXCEPT"
-    return operation, select_of(copied_rows(left)), select_of(lined_up)
+    return operation, select_of(copy.deepcopy(left)), select_of(lined_up)
 
 
 def expand_table_column(args: tuple[MPart, ...], reading: Reading) -> Rows:
@@ -1241,7 +1215,7 @@ def unpivoted_rows(args: tuple[MPart, ...], reading: Reading, others: bool) -> R
     attribute, value = text_of(attribute, reading), text_of(value, reading)
     stacked = None
     for name in turned:
-        part = copied_rows(rows)
+        part = copy.deepcopy(rows)
         part.columns = {each: rows.columns[each].copy() for each in kept}
         part.columns[attribute] = exp.Literal.string(name)
         part.columns[value] = rows.columns[name].copy()
@@ -1384,8 +1358,9 @@ TABLE_STEPS: dict[str, Callable[[tuple[MPart, ...], Reading], Rows]] = {
     "Table.SelectRows": select_rows, "Table.SelectColumns": select_columns,
     "Table.RemoveColumns": remove_columns, "Table.RenameColumns": rename_columns,
     "Table.ReorderColumns": reorder_columns, "Table.DuplicateColumn": duplicate_column,
-    "Table.TransformColumnTypes": unchanged, "Table.Buffer": unchanged,
-    "Table.PromoteHeaders": unchanged, "Table.AddColumn": add_column,
+    "Table.TransformColumnTypes": types_buffer_or_headers,
+    "Table.Buffer": types_buffer_or_headers, "Table.PromoteHeaders": types_buffer_or_headers,
+    "Table.AddColumn": add_column,
     "Table.TransformColumns": transform_columns, "Table.ReplaceValue": replace_value,
     "Table.Group": group_rows, "Table.NestedJoin": nested_join,
     "Table.ExpandTableColumn": expand_table_column, "Table.Combine": combine,
@@ -1395,214 +1370,3 @@ TABLE_STEPS: dict[str, Callable[[tuple[MPart, ...], Reading], Rows]] = {
     "Table.FirstN": first_rows, "Table.AddIndexColumn": add_index_column,
     "Table.FillDown": fill_down, "Table.FillUp": fill_down,
 }
-
-
-# --- A whole column's total in a formula (T1) ------------------------------------------------
-
-
-def column_total_hive(call: Call, place: Place) -> exp.Expression:
-    """SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX, STDEV.S and VAR.S of a whole column in a
-    formula column: over its own Table `SUM(v) OVER ()`, COUNTA as COUNT(v), STDEV.S
-    STDDEV_SAMP, VAR.S VAR_SAMP; over another Table, a CROSS JOIN of its total (T1). MIN and
-    MAX of a row's cells are file 11's."""
-    if len(call.args) != 1 or not isinstance(call.args[0], WholeColumn):
-        if call.name in FUNCTIONS:
-            return FUNCTIONS[call.name](call, place)
-        raise Refused("T1", f"{call.name} of anything but one whole column isn't a form file "
-                            "12 lists")
-    (column,) = call.args
-    return whole_table_total(column.table, [column.column], COLUMN_TOTALS[call.name], place)
-
-
-def sumproduct_total_hive(call: Call, place: Place) -> exp.Expression:
-    """SUMPRODUCT(t[a], t[b]) of whole columns alone: `SUM(a * b) OVER ()` (T1); over
-    conditions, file 11's I3."""
-    columns = call.args
-    if not columns or not all(isinstance(each, WholeColumn) for each in columns) or len(
-            {each.table.lower() for each in columns}) > 1:
-        return FUNCTIONS["SUMPRODUCT"](call, place)
-    return whole_table_total(columns[0].table, [each.column for each in columns], "SUM", place)
-
-
-def whole_table_total(table_name: str, headers: list[str], aggregate: str,
-                      place: Place) -> exp.Expression:
-    """An aggregate of a Table's whole columns, multiplied: over its own Table a window over
-    every row, `SUM(v) OVER ()`; over another, its total, a CROSS JOIN (T1)."""
-    table = table_named(table_name, place)
-    if is_own(table_name, place):
-        values = [this_row(header, place) for header in headers]
-    else:
-        if Piece(EXCEL_TABLE, table.name) not in place.query.book.reads:
-            raise Refused("X1", f"it reads {table.name}, which has no Hive")
-        values = [other_column(table, header) for header in headers]
-    product = values[0]
-    for each in values[1:]:
-        product = binary(exp.Mul, product, each)
-    total = hive_call(aggregate, [product])
-    if aggregate == "VAR_SAMP":
-        # sqlglot writes its sample variance as Hive's VARIANCE, which is the population's.
-        total = exp.Anonymous(this="VAR_SAMP", expressions=[product])
-    if is_own(table_name, place):
-        return exp.Window(this=total, over="OVER")
-    return totals_read(table, [], None, total, False, place)
-
-
-def other_column(table: Table, header: str) -> exp.Column:
-    column = column_named(table, header)
-    if column is None:
-        raise Refused("X1", f"it reads {table.name}[{header}], which {table.name} doesn't have")
-    return column_hive(column.header)
-
-
-# Each function a whole column's total calls (T1), by its name, and the function writing it.
-WHOLE_COLUMN_FUNCTIONS: dict[str, Callable[[Call, Place], exp.Expression]] = {
-    **dict.fromkeys(COLUMN_TOTALS, column_total_hive), "SUMPRODUCT": sumproduct_total_hive,
-}
-
-
-# --- A Table's Total Row (T2 to T4) ----------------------------------------------------------
-
-
-def total_row_finals(workbook: Workbook, queries: dict[str, exp.Query], book: Book,
-                     left_out: tuple[str, ...] = ()) -> dict[str, exp.Query]:
-    """Each Table's Total Row as a final of its own, `<Table> (Total Row)`: one row, a column
-    for each cell holding a total, in the Table's order, reading the Table's query, `queries`
-    by its name, as a CTE (T2); none for a Table `left_out` names, as the person said no one
-    needs it kept, named as left out (T3). The Table's own final holds only its rows (T4)."""
-    finals = {}
-    unneeded = {name.lower() for name in left_out}
-    for table in tables_of(workbook).values():
-        where = table.name + TOTAL_ROW
-        if not table.has_total_row:
-            continue
-        if table.name.lower() in unneeded:
-            book.notes.append(Note(LEFT_ALONE, "T3", where, "no one needs it kept: left out"))
-            continue
-        source = book.reads.get(Piece(EXCEL_TABLE, table.name))
-        if table.name not in queries and not isinstance(source, exp.Table):
-            book.notes.append(Note(REFUSED, "T2", where, f"{table.name} has no Hive"))
-            continue
-        totals = total_cells(table, where, book)
-        if not totals:
-            book.notes.append(Note(LEFT_ALONE, "T2", where, "it holds no total, only labels"))
-        elif table.name in queries:
-            finals[where] = over_its_table(queries[table.name], table, totals)
-        else:
-            # A Table of typed columns alone is a source: its rows are its database table's.
-            finals[where] = exp.select(*totals).from_(source.copy())
-    return finals
-
-
-def total_cells(table: Table, where: str, book: Book) -> list[exp.Expression]:
-    """A Total Row's totals, each a column AS its header: SUBTOTAL(109, ..) a SUM, 101 AVG, 102
-    or 103 COUNT, 104 MAX, 105 MIN; none for an empty cell or a label; any other formula NULL,
-    named (T2)."""
-    totals: list[exp.Expression] = []
-    for column in table.columns:
-        cell = column.total
-        if not isinstance(cell, str) or not cell.startswith("="):
-            continue
-        try:
-            total = subtotal_hive(read_formula(cell), table)
-        except Refused as refusal:
-            book.notes.append(Note(REFUSED, refusal.rule, f"{where}[{column.header}]",
-                                   f"NULL in its place: {refusal.why}"))
-            total = exp.Null()
-        totals.append(exp.alias_(total, identifier(column.header)))
-    return totals
-
-
-def subtotal_hive(part: object, table: Table) -> exp.Expression:
-    """A Total Row cell's SUBTOTAL(n, t[c]) as its aggregate of c (T2)."""
-    if not isinstance(part, Call) or part.name != "SUBTOTAL" or len(part.args) != 2:
-        raise Refused("T2", "a Total Row's total is a SUBTOTAL file 12 lists")
-    code, column = part.args
-    number = code.value if isinstance(code, Constant) else None
-    if not isinstance(number, (int, float)) or int(number) not in SUBTOTALS:
-        raise Refused("T2", "its SUBTOTAL's number isn't one file 12 lists")
-    if not isinstance(column, WholeColumn) or column.table.lower() not in (
-            "", table.name.lower()) or column_named(table, column.column) is None:
-        raise Refused("T2", f"its SUBTOTAL reads no column of {table.name}")
-    return hive_call(SUBTOTALS[int(number)], [column_hive(column_named(table, column.column)
-                                                          .header)])
-
-
-def over_its_table(query: exp.Query, table: Table,
-                   totals: list[exp.Expression]) -> exp.Query:
-    """A Total Row's final: its totals over the Table's query, read as a CTE named for the
-    Table, after the CTEs that query reads (file 12's W2)."""
-    body = query.copy()
-    held = body.args.get("with_")
-    ctes = []
-    if held is not None:
-        ctes = list(held.expressions)
-        body.set("with_", None)
-    name = hive_name(table.name)
-    while name in {cte.alias for cte in ctes}:
-        name = f"{name.strip('<>')}_rows"
-    final = exp.select(*totals).from_(exp.Table(this=exp.Identifier(this=name, quoted=False)))
-    for cte in ctes:
-        final = final.with_(exp.Identifier(this=cte.alias, quoted=False), as_=cte.this)
-    # W2 reads the Table's final whole, as file 12 writes it, every column of it kept.
-    return lean_ctes(final.with_(exp.Identifier(this=name, quoted=False), as_=body), (name,))
-
-
-# --- Lean CTEs (ticket 17) -------------------------------------------------------------------
-
-
-def lean_ctes(query: exp.Query, whole: tuple[str, ...] = ()) -> exp.Query:
-    """A final's query with each CTE's columns that nothing after it reads left out, last CTE
-    first, so Hive carries no more than the rows need; a CTE whose rows its columns decide, a
-    DISTINCT or a UNION, kept whole, and so is each CTE `whole` names."""
-    lean = passed_through(query.copy())
-    held = lean.args.get("with_")
-    if held is None:
-        return lean
-    ctes = list(held.expressions)
-    for number in reversed(range(len(ctes))):
-        cte = ctes[number]
-        body = cte.this
-        if cte.alias in whole or not isinstance(body, exp.Select) or body.args.get("distinct"):
-            continue
-        read = columns_read_after(lean, cte)
-        kept = [each for each in body.expressions if each.alias_or_name in read]
-        if kept and len(kept) < len(body.expressions):
-            body.set("expressions", kept)
-    return lean
-
-
-def passed_through(query: exp.Query) -> exp.Query:
-    """A query that only reads its last CTE's every column, as it is, as a Table a query loads
-    does (file 15's W2): that CTE's own query, after the CTEs before it."""
-    held = query.args.get("with_")
-    if held is None or not isinstance(query, exp.Select):
-        return query
-    last = held.expressions[-1]
-    source = query.args.get("from_")
-    parts = ("joins", "where", "group", "having", "order", "limit", "distinct")
-    if source is None or not isinstance(source.this, exp.Table) or (
-            source.this.name != last.alias) or source.this.alias or any(
-            query.args.get(part) for part in parts):
-        return query
-    if [each.sql() for each in query.expressions] != last.this.named_selects:
-        return query
-    folded = last.this.copy()
-    for cte in held.expressions[:-1]:
-        folded = folded.with_(exp.Identifier(this=cte.alias, quoted=False), as_=cte.this)
-    return folded
-
-
-def columns_read_after(query: exp.Query, cte: exp.CTE) -> set[str]:
-    """Every column's name the query reads outside `cte` and the CTEs before it: a name read
-    from any table, so a column is left out only where nothing of that name is read."""
-    before = True
-    read: set[str] = set()
-    held = query.args["with_"]
-    for each in held.expressions:
-        if not before:
-            read |= {column.name for column in each.this.find_all(exp.Column)}
-        if each is cte:
-            before = False
-    body = query.copy()
-    body.set("with_", None)
-    return read | {column.name for column in body.find_all(exp.Column)}

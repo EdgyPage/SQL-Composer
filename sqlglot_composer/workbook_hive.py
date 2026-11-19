@@ -14,10 +14,10 @@ one, naming each link.
 
 Where each kind of piece's Hive comes from is one function each, below: a Table's
 (`_table_tree`), a Power Query's (`_power_query_tree`, by `workbook_power_query.py`, file 12's
-rules), a Total Row's (`_total_row_finals`, the same file's), and any other kind's
-(`_piece_tree`), so a file writing more of them, such as PivotTables, plugs in there, and adds
-the functions a formula may call to `_functions`. Each final keeps in its CTEs only the columns
-something after them reads (`lean_ctes`).
+rules), a Total Row's (`total_row_finals`, in `workbook_totals.py`, file 12's T2 to T4), and
+any other kind's (`_piece_tree`), so a file writing more of them, such as PivotTables, plugs in
+there, and adds the functions a formula may call to `_functions`. Each final keeps in its CTEs
+only the columns something after them reads (`lean_ctes`, in `lean_hive.py`).
 """
 
 from __future__ import annotations
@@ -49,16 +49,11 @@ from .workbook_formulas import (
     table_query,
     tables_of,
 )
+from .lean_hive import lean_ctes
 from .workbook_formula_reader import Refused
-from .workbook_power_query import (
-    TOTAL_ROW,
-    WHOLE_COLUMN_FUNCTIONS,
-    lean_ctes,
-    power_query_hive,
-    total_row_finals,
-    web_source,
-)
+from .workbook_power_query import power_query_hive, web_source
 from .workbook_reader import EXCEL_TABLE, POWER_QUERY, TYPED, Piece, Table, Workbook, coordinate
+from .workbook_totals import TOTAL_ROW, WHOLE_COLUMN_FUNCTIONS, total_row_finals
 from .writing import sql_text
 
 # Each piece's role, in file 15's words.
@@ -169,7 +164,7 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE,
             tables[piece.name] = written
         if role in (FINAL, SUMMARY_FINAL):
             finals[piece.name] = lean_ctes(written)
-    finals.update(_total_row_finals(workbook, tables, book, total_rows_left_out))
+    finals.update(total_row_finals(workbook, tables, book, total_rows_left_out))
     notes = book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
     return WorkbookHive(roles, finals, notes)
 
@@ -183,7 +178,7 @@ def _functions() -> dict[str, Callable[[Call, Place], exp.Expression]]:
 
 def _database_table(name: str, database: str) -> exp.Table:
     """A source as `<database>.<table>` (file 15's step 4)."""
-    return exp.Table(this=identifier(name), db=exp.Identifier(this=database, quoted=False))
+    return exp.Table(this=identifier(name), db=identifier(database))
 
 
 def _cte_name(piece: Piece, roles: dict[Piece, str]) -> str:
@@ -202,7 +197,7 @@ def _read_of(piece: Piece, role: str, tree: exp.Query,
     """How another piece reads this one: a step by its CTE's name; a query loading a Table,
     as its rows, in place."""
     if role == STEP:
-        return exp.Table(this=exp.Identifier(this=_cte_name(piece, roles), quoted=False))
+        return exp.Table(this=identifier(_cte_name(piece, roles)))
     return tree
 
 
@@ -222,7 +217,7 @@ def _with_steps(tree: exp.Query, piece: Piece, roles: dict[Piece, str],
     final = tree.copy()
     for each in workbook.order:
         if each in needed:
-            final = final.with_(exp.Identifier(this=_cte_name(each, roles), quoted=False),
+            final = final.with_(identifier(_cte_name(each, roles)),
                                 as_=trees[each].copy())
     return final
 
@@ -280,13 +275,6 @@ def _power_query_tree(piece: Piece, role: str, book: Book) -> exp.Query | None:
         return None
     book.notes += notes
     return tree
-
-
-def _total_row_finals(workbook: Workbook, tables: dict[str, exp.Query], book: Book,
-                      left_out: tuple[str, ...]) -> dict[str, exp.Query]:
-    """Each Table's Total Row's final, `<Table> (Total Row)` (P9, R2), reading the Table's
-    query, `tables` by its name, as a CTE: file 12's T2 to T4 (`total_row_finals`)."""
-    return total_row_finals(workbook, tables, book, left_out)
 
 
 def summary_groups(table: Table, book: Book) -> exp.Query:

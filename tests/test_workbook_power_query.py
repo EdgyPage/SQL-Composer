@@ -199,6 +199,14 @@ def test_q5_column_steps_are_the_select_list_and_types_change_nothing() -> None:
                      "db.job_runs")
 
 
+@pytest.mark.parametrize("step", [
+    'Table.TransformColumnTypes(Source, {{"dt", type date}})', "Table.Buffer(Source)",
+    "Table.PromoteHeaders(Source)"])
+def test_q5_types_buffer_and_promote_headers_each_give_nothing(step: str) -> None:
+    assert_converted(m_of(SOURCE, f"Same = {step}"), RUNS,
+                     f"SELECT {RUN_COLUMNS} FROM db.job_runs")
+
+
 def test_q6_add_transform_and_replace_a_column() -> None:
     m = m_of(SOURCE, 'Sized = Table.AddColumn(Source, "size", each if [duration_mins] >= 20 '
                      'then "long" else "short", type text)',
@@ -221,7 +229,8 @@ def test_q6_add_transform_and_replace_a_column() -> None:
     ("Text.Trim([status])", "TRIM(status)"), ("Text.Length([status])", "LENGTH(status)"),
     ("Text.Start([status], 2)", "SUBSTR(status, 1, 2)"),
     ("Text.End([status], 2)", "SUBSTR(status, -2)"),
-    ("Text.Middle([status], 1, 2)", "SUBSTR(status, 1 + 1, 2)"),
+    ("Text.Middle([status], 1, 2)", "SUBSTR(status, 2, 2)"),
+    ("Text.Middle([status], [job_id], 2)", "SUBSTR(status, job_id + 1, 2)"),
     ('Text.Replace([status], "S", "s")', "REPLACE(status, 'S', 's')"),
     ("Text.Proper([status])", "INITCAP(status)"),
     ('Text.Combine({[status], [dt]}, "-")', "CONCAT_WS('-', status, dt)"),
@@ -234,7 +243,8 @@ def test_q6_add_transform_and_replace_a_column() -> None:
     ("Date.Year([dt])", "YEAR(dt)"), ("Date.Month([dt])", "MONTH(dt)"),
     ("Date.Day([dt])", "DAY(dt)"), ("Date.AddDays([dt], 1)", "DATE_ADD(dt, 1)"),
     ("Date.AddMonths([dt], 1)", "ADD_MONTHS(dt, 1)"),
-    ("Date.AddYears([dt], 2)", "ADD_MONTHS(dt, 12 * 2)"),
+    ("Date.AddYears([dt], 2)", "ADD_MONTHS(dt, 24)"),
+    ("Date.AddYears([dt], [job_id])", "ADD_MONTHS(dt, 12 * job_id)"),
     ("Date.EndOfMonth([dt])", "LAST_DAY(dt)"),
     ("Date.StartOfMonth([dt])", "CAST(TRUNC(dt, 'MM') AS STRING)")])
 def test_q7_m_functions_as_their_twins(m: str, hive: str) -> None:
@@ -498,6 +508,7 @@ def test_m2_a_pivot_is_a_conditional_sum_per_value_in_the_sample_marked() -> Non
 @pytest.mark.parametrize(("step", "why"), [
     ('Table.AddIndexColumn(Source, "n", 1, 1)', "no Table.Sort before it"),
     ('Table.FillDown(Source, {"n"})', "FillDown"),
+    ('Table.FillUp(Source, {"n"})', "FillUp"),
     ('Table.AddColumn(Source, "n", each Text.PadStart([status], 9))', "Text.PadStart"),
     ('Table.Group(Source, {"run_id"}, {{"n", each List.Median([job_id])}})', "List.Median")])
 def test_x1_a_column_a_refused_step_makes_is_null_and_named(step: str, why: str) -> None:
