@@ -44,7 +44,7 @@ PUBLIC = set(sqlglot_composer.__all__)
 # and its project module, which a how-to may name in prose, such as `project.check()`.
 OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project", "warehouse", "query", "execute",
                  # what the page gives the steps, as main holds neither (Toolbox 8.7).
-                 "conn", "example_project",
+                 "conn", "example_project", "example_workbook",
                  # warehouse.py's own, which how-to 01's query written over a cursor calls.
                  "_check_connected", "_connection"}
 

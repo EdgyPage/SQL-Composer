@@ -126,29 +126,47 @@ PROGRAM_FLOW = ("""flowchart TD
                   "project.convert writes one from someone else's Hive, and "
                   "project.run_tables runs each write() in order",
                   "project.run_tables(execute=execute)")])
-# From an Excel workbook to prod: a chart and its steps.
+# From an Excel workbook to prod: a chart and its steps, both ways into convert, the workbook
+# itself or the Hive Copilot writes from it (Toolbox 8.9).
 EXCEL_FLOW = ("""flowchart TD
-    workbook("a Formula workbook")
-    copilot{{"Copilot, given files 15, 11 and 12: the workbook as Hive"}}
+    workbook("a Formula workbook: its data and formulas in Tables, a Power Query, a PivotTable")
+    code["the workbook itself in FILES: convert reads it in code"]
+    copilot{{"Copilot, given files 15, 11 and 12, and 23, 20 and 24 as it needs: its Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
+    check[["the Workbook check: each table's Hive over the workbook's own Tables"]]
+    decisions{"each table's Decisions: a PivotTable's name and each Pivot filter"}
     dev[["each table created, seeded and written in dev"]]
     compare[["project.compare_batch: each against its query"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
-    workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod""",
-              [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is", ""),
-               ("Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as "
-                "Hive, a query for each final Table", ""),
-               ("Fill in each name it writes in angle brackets, save each query as a .hql "
-                "file named for the table it becomes (its final Table's name, unless you want "
-                "another), and convert them as one batch in the convert Workflow, with DEV "
-                "filled in, in admin/databases.py: each becomes a Saved table named for its "
-                "file, or, when the batch is one file, for the batch",
-                'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
-               ("Answer each table's Decisions, then create, seed and write each in dev, as "
-                "the Workflow's steps say", ""),
-               ("Compare each with its query, the Hive Copilot wrote",
+    workbook --> code --> convert
+    workbook --> copilot --> scripts --> convert
+    convert --> check --> decisions --> dev --> compare --> promote --> prod""",
+              [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is: "
+                "your data and each formula in an Excel Table, and any Power Query and "
+                "PivotTable reading them", ""),
+               ("Save it in admin/workflows/convert/, beside the convert notebook, and give it "
+                "to convert in FILES: convert reads the workbook itself, each calculation "
+                "that nothing else in it reads becoming a Saved table, a PivotTable one table "
+                "of its rows, its totals left out",
+                'project.convert("budget", files=["budget.xlsx"], query=query, '
+                'database="sales")'),
+               ("Or give Copilot files 15, 11 and 12 with the workbook's text, and 23 for "
+                "a total, 20 for a PivotTable and 24 for its filter, as "
+                "copilot/00_start_here.txt's Index says: it writes a Hive query for each "
+                "final; fill in each name it writes in angle brackets, "
+                "save each query as a .hql file named for the table it becomes, and convert "
+                "them beside the workbook as one batch, each query standing for its final",
+                'project.convert("budget", files=["budget.xlsx", "region_budgets.hql"], '
+                "query=query)"),
+               ("Read the Workbook check, in convert's report and the batch's batch.md: each "
+                "table's Hive, run on this computer over the workbook's own Tables, against "
+                "the values the workbook shows", ""),
+               ("Answer each table's Decisions, a PivotTable's name and each Pivot filter "
+                "among them, then create, seed and write each in dev, as the Workflow's steps "
+                "say", ""),
+               ("Compare each with its query, the Hive it was converted from",
                 'project.compare_batch("budget", query=query)'),
                ("Promote them, and create and write each in prod, through the promote Workflow",
                 "project.promote([...])")])

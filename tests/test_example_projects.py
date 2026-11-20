@@ -132,6 +132,11 @@ def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, name
     assert example_project.project_files(tmp_path / name) == example_project.project_files(
         committed)
     for relative in example_project.project_files(committed):
+        if relative.endswith(example_project.BINARY_SUFFIXES):
+            # A workbook, its every time pinned: the same bytes.
+            assert (tmp_path / name / relative).read_bytes() == (
+                committed / relative).read_bytes(), relative
+            continue
         written = (tmp_path / name / relative).read_text(encoding="utf-8")
         assert written == (committed / relative).read_text(encoding="utf-8"), relative
     memo.keep()

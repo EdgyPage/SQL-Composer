@@ -93,14 +93,14 @@ def test_each_workflows_steps_are_its_steps_in_workflows_py() -> None:
 def test_the_excel_paths_steps_are_workflow_graphs() -> None:
     assert steps_shown("excel") == [
         "Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is",
-        "Give Copilot files 15, 11 and 12 with the workbook",
-        "Fill in each name it writes in angle brackets, save each query as a .hql file named "
-        "for the table it becomes (its final Table's name, unless you want another), and "
-        "convert them as one batch in the convert Workflow, with DEV filled in, in "
-        "admin/databases.py",
-        "Answer each table's Decisions, then create, seed and write each in dev, as the "
-        "Workflow's steps say",
-        "Compare each with its query, the Hive Copilot wrote",
+        "Save it in admin/workflows/convert/, beside the convert notebook, and give it to "
+        "convert in FILES",
+        "Or give Copilot files 15, 11 and 12 with the workbook's text, and 23 for a total, 20 "
+        "for a PivotTable and 24 for its filter, as copilot/00_start_here.txt's Index says",
+        "Read the Workbook check, in convert's report and the batch's batch.md",
+        "Answer each table's Decisions, a PivotTable's name and each Pivot filter among them, "
+        "then create, seed and write each in dev, as the Workflow's steps say",
+        "Compare each with its query, the Hive it was converted from",
         "Promote them, and create and write each in prod, through the promote Workflow"]
 
 

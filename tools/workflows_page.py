@@ -63,7 +63,8 @@ class Box(NamedTuple):
 BOXES = (
     Box("references", "references", "Table references from DESCRIBE", 0, 0.6, "workflow",
         "add_your_tables_references"),
-    Box("excel", "the Excel path", "a Formula workbook, as Hive", 0, 1.9, "excel", ""),
+    Box("excel", "the Excel path", "a workbook, in code or by Copilot", 0, 1.9, "excel",
+        "convert_an_excel_workbook"),
     Box("new_table", "new_table", "a new Saved table, in dev", 1, 0, "workflow",
         "save_a_table"),
     Box("convert", "convert", "someone else's Hive, into dev", 1, 1.3, "workflow",
@@ -90,7 +91,8 @@ class HandOff(NamedTuple):
 HAND_OFFS = (
     HandOff("references", "new_table", "a Table reference for each table its logic reads"),
     HandOff("references", "convert", "a Table reference for each table its scripts read"),
-    HandOff("excel", "convert", "the workbook's Hive, saved as .hql files, as one batch"),
+    HandOff("excel", "convert", "the workbook itself, or its Hive from Copilot saved as .hql "
+            "files beside it, as one batch"),
     HandOff("new_table", "promote", "tables in dev, each Decision made"),
     HandOff("convert", "promote", "tables in dev, each Decision made and each compared"),
     HandOff("promote", "schedule", "Saved tables, for a run to write on your scheduler's "
@@ -185,8 +187,20 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "Each `UPGRADE` mark names a change only you can make: make it, then delete the mark.",
     ),
     "excel": (
-        "Give Copilot all three files, 15, 11 and 12, from the `copilot/` folder, with the "
-        "workbook.",
+        "Name the workbook in `FILES`, such as `FILES = [\"costs.xlsx\"]`: `FILES` left `[]` "
+        "reads only the .hql files beside the notebook.",
+        "Read the Workbook check at the end of convert's report: it runs each table's Hive "
+        "over the workbook's own Tables, never the warehouse, and lists each cell that "
+        "differs.",
+        "A PivotTable's slicer or filter is a Decision: `\"keep\"` keeps its selection; to tab "
+        "through each value later, as with the slicer, `\"fold\"` keeps every value in one "
+        "table.",
+        "Give Copilot files 15, 11 and 12 from the `copilot/` folder with the workbook, and "
+        "23 for a total, 20 for a PivotTable and 24 for its filter, as `00_start_here.txt`'s "
+        "Index says; to grow a converted PivotTable later, file 21, and file 22 for its Pivot "
+        "filters at scale.",
+        "A PivotTable becomes one table of its rows, each Row and Column field a column: its "
+        "Grand Totals and subtotals are left out, each named in the table's checklist.",
         "Check each name Copilot leaves in angle brackets, such as `<database>`, against your "
         "sheet's notes before you fill it in.",
         "A Table's Total Row, its sums under its last row, becomes a query of its own: a "
@@ -198,8 +212,9 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
 }
 
 # What the Excel path is, as its part of the panel says it.
-EXCEL_ABOUT = ("Turns a Formula workbook into Hive through Copilot, then into Saved tables "
-               "through the convert Workflow, and on to prod through promote.")
+EXCEL_ABOUT = ("Turns a Formula workbook into Saved tables through the convert Workflow, "
+               "which reads the workbook itself, or the Hive Copilot writes from it, then on "
+               "to prod through promote.")
 
 # How a Workflow notebook's four cells run, as the README's "The Workflows" says it, for the
 # panel's first part.

@@ -85,6 +85,10 @@ since main doesn't hold it (Toolbox 8.7, ticket 13). Its tables are shown instea
 how-to's title, each table of the Example database its Hive reads, sent to query or execute or
 built in a Statement it makes, with its columns, their types and its first rows.
 
+A how-to that converts an Excel workbook saves one with `example_workbook("site_hours.xlsx")`,
+a copy of the Intermediate Example project's, given to the steps as `example_project` is: main
+holds no workbook to convert.
+
 A how-to links only to how-tos and the Example gallery, and check_links refuses any other link.
 It names the Example projects in prose, by their folder, which main's Example projects page,
 beside this one in docs/, shows.
@@ -176,7 +180,8 @@ GROUPS = (
           "Lineage, the Project's upkeep and a Conversion of someone else's Hive"),
     Group("Intermediate", "intermediate",
           "a menu, each starting from the Intermediate Example project: one job each, such as "
-          "rewriting some partitions, rollups, Keys, quality checks and testing"),
+          "rewriting some partitions, rollups, Keys, quality checks, testing and converting an "
+          "Excel workbook"),
 )
 GROUP_NAMED = {group.name: group for group in GROUPS}
 # What a lineage written on the page says of when, from which commit and with which Toolbox.
@@ -554,6 +559,19 @@ def example_project(name: str) -> None:
                     ignore=shutil.ignore_patterns("__pycache__"))
 
 
+# Where an Example project keeps a workbook it converts, beside its convert notebook.
+CONVERT_FOLDER = Path("admin") / "workflows" / "convert"
+
+
+def example_workbook(name: str) -> None:
+    """Save a copy of the Intermediate Example project's workbook `name`, such as
+    "site_hours.xlsx", beside the convert notebook of the Project the steps run in, as a
+    how-to that converts a workbook does: main holds no workbook to convert, so the page gives
+    its steps this, as it gives them `example_project`."""
+    shutil.copyfile(EXAMPLE_PROJECTS / "intermediate" / CONVERT_FOLDER / name,
+                    CONVERT_FOLDER / name)
+
+
 @contextlib.contextmanager
 def team_connection_given() -> Iterator[None]:
     """While it lasts, `from team_connection import conn`, as a notebook a how-to shows writes
@@ -566,8 +584,9 @@ def team_connection_given() -> Iterator[None]:
 
 def given_names() -> dict[str, object]:
     """What a how-to's steps use that main doesn't hold, given to them before they run:
-    `conn`, the Example database's connection, and `example_project`."""
-    return {CONNECTION: example_database, "example_project": example_project}
+    `conn`, the Example database's connection, `example_project` and `example_workbook`."""
+    return {CONNECTION: example_database, "example_project": example_project,
+            "example_workbook": example_workbook}
 # Each table of the Example database, by its full name, such as ops.job_runs.
 EXAMPLE_TABLES = tuple(f"ops.{name}" for name, value in example_database.doctest_names().items()
                        if isinstance(value, sqlglot_composer.Table))
@@ -1031,7 +1050,8 @@ take their place, and <code>connect(conn)</code> gives your team's connection, w
 gave the Example database's. An Intermediate how-to starts with
 <code>example_project("intermediate")</code>, a line of this page alone, not a Toolbox name: it
 copies the Intermediate Example project, which the Example projects page shows, into the folder
-the page runs in, and in your own Project you leave it out. Under each how-to's title, each
+the page runs in, and in your own Project you leave it out; <code>example_workbook(...)</code>,
+which saves a copy of its Excel workbook, is the same. Under each how-to's title, each
 table it reads opens to show its columns, their types and its first rows. Every Hive, result,
 refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and

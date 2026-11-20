@@ -23,4 +23,9 @@ reference,mart.job_notes,2026-09-25 06:00:00,
 reference,mart.team_failures,2026-09-25 06:00:00,
 table_folder,mart.team_failures,2026-09-25 06:00:00,
 conversion_folder,team_failures,2026-09-25 06:00:00,
+reference,mart.teams_pivot,2026-09-25 06:00:00,2026-09-25 06:00:00
+table_folder,mart.teams_pivot,2026-09-25 06:00:00,2026-09-25 06:00:00
+conversion_folder,job_hours,2026-09-25 06:00:00,
+reference,mart.job_hours,2026-09-25 06:00:00,
+table_folder,mart.job_hours,2026-09-25 06:00:00,
 scheduled_run,weekly_team,2026-09-25 06:00:00,

@@ -99,6 +99,13 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 AWAITING_ITS_STEP: tuple[str, ...] = (
     # 8.9's ticket 07: the convert notebook's FILES and RENAME take a workbook.
     "admin/workflows/convert/convert.ipynb",
+    # 8.9's ticket 15: the intermediate's finished Conversion of an Excel workbook, made by
+    # hand, which no Upgrade makes: its workbook, its batch, its Saved table, the Database
+    # module, the Reference sheet and the registry that name it, and its README. Ticket 16
+    # moves these to GAINED_BY_HAND's "8.9", for the intermediate, when it writes the step.
+    "admin/workflows/convert/job_hours.xlsx", "admin/workflows/convert/finished/job_hours/",
+    "tables/mart__job_hours/", "references/mart__job_hours.py", "references/mart.py",
+    "references/reference_sheet.csv", "admin/registry.csv", "README.md",
 )
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
@@ -662,10 +669,12 @@ def test_a_name_given_under_an_upgrade_mark_stays_given(
 
 
 def hive_files(name: str) -> list[str]:
-    """Each Table folder of an Example project whose Hive file its notebook's cell writes."""
+    """Each Table folder of an Example project whose Hive file its notebook's cell writes, of
+    those its 8.1 copy, which the test upgrades, has too."""
     folder = ROOT / "example_projects" / name / "tables"
     return [f"{name}/{path.parent.name}" for path in sorted(folder.glob("*/*.hql"))
-            if path.stem == path.parent.name]
+            if path.stem == path.parent.name
+            and (UPGRADE_FROM / "8.1" / name / "tables" / path.parent.name).is_dir()]
 
 
 @pytest.mark.parametrize("table", hive_files("starter") + hive_files("intermediate"))

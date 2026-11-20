@@ -119,6 +119,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert("job_hours", ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch("job_hours")`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run("weekly_team")`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit

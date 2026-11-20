@@ -15,6 +15,9 @@ mart.job_day_facts,minutes,bigint,,,,the minutes of the runs that ended that day
 mart.job_day_facts,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
 mart.job_events_checks,row_count,bigint,,,,ops.job_events' rows that day,2026-09-25 06:00:00
 mart.job_events_checks,dt,string,yes,yes,,"the day counted, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.job_hours,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.job_hours,team,string,,yes,,,2026-09-25 06:00:00
+mart.job_hours,sum_of_hours,double,,,,,2026-09-25 06:00:00
 mart.job_notes,job_id,bigint,,,,a job the team owned on the day the note was written,2026-09-25 06:00:00
 mart.job_notes,team,string,,,,,2026-09-25 06:00:00
 mart.job_notes,note,string,,,,,2026-09-25 06:00:00

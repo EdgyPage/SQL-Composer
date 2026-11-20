@@ -45,7 +45,8 @@ take their place, and <code>connect(conn)</code> gives your team's connection, w
 gave the Example database's. An Intermediate how-to starts with
 <code>example_project("intermediate")</code>, a line of this page alone, not a Toolbox name: it
 copies the Intermediate Example project, which the Example projects page shows, into the folder
-the page runs in, and in your own Project you leave it out. Under each how-to's title, each
+the page runs in, and in your own Project you leave it out; <code>example_workbook(...)</code>,
+which saves a copy of its Excel workbook, is the same. Under each how-to's title, each
 table it reads opens to show its columns, their types and its first rows. Every Hive, result,
 refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
@@ -91,7 +92,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 </ul>
 </div>
 <div>
-<p><b><a href="#intermediate">Intermediate</a></b>: a menu, each starting from the Intermediate Example project: one job each, such as rewriting some partitions, rollups, Keys, quality checks and testing.</p>
+<p><b><a href="#intermediate">Intermediate</a></b>: a menu, each starting from the Intermediate Example project: one job each, such as rewriting some partitions, rollups, Keys, quality checks, testing and converting an Excel workbook.</p>
 <ul>
 <li data-for="describe_a_table_by_hand"><a href="#describe_a_table_by_hand">10. Describe a table by hand</a></li>
 <li data-for="latest_row_of_each_group"><a href="#latest_row_of_each_group">11. The latest row of each group, and the top N</a></li>
@@ -116,6 +117,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <li data-for="set_your_database_settings"><a href="#set_your_database_settings">30. Set your Database settings</a></li>
 <li data-for="schedule_a_run"><a href="#schedule_a_run">31. Schedule a run</a></li>
 <li data-for="find_what_changed_a_column"><a href="#find_what_changed_a_column">32. Find what changed a column</a></li>
+<li data-for="convert_an_excel_workbook"><a href="#convert_an_excel_workbook">33. Convert an Excel workbook</a></li>
 </ul>
 </div>
 </nav>
@@ -8099,7 +8101,7 @@ except ValueError as refused:
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8114,6 +8116,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -8124,8 +8132,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -8141,6 +8153,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -8171,6 +8184,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -8232,13 +8255,14 @@ job_day = Table(
   references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)
 The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook&#x27;s cell 5, export_hive(), records the whole Project too.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/mart__job_day.py.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_hours, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -8360,6 +8384,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -8396,8 +8452,8 @@ is reached as mart.budget_overruns.job_id.
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day
 (references/mart__job_day.py), job_day_costs (references/mart__job_day_costs.py), job_day_facts
 (references/mart__job_day_facts.py), job_events_checks (references/mart__job_events_checks.py),
-job_notes (references/mart__job_notes.py), team_days (references/mart__team_days.py),
-team_failures (references/mart__team_failures.py).
+job_hours (references/mart__job_hours.py), job_notes (references/mart__job_notes.py), team_days
+(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -8412,13 +8468,14 @@ from references.mart__job_day import job_day
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
 from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -8521,6 +8578,7 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>Before you go on, check that:</p>
 <ul><li><code>check_table_reference</code> says the table matches its Table reference;</li><li>the Hive of <code>create_table(job_day)</code> holds dt under PARTITIONED BY and your LOCATION;</li><li><code>project.check()</code> says every Table reference is registered.</li></ul>
@@ -8622,7 +8680,7 @@ run_query(wrong_day, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8637,6 +8695,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -8647,8 +8711,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -8664,6 +8732,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -8694,6 +8763,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -9114,7 +9193,7 @@ run_query(first_runs, query)  # -&gt; DataFrame</pre>
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9129,6 +9208,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -9139,8 +9224,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -9156,6 +9245,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -9186,6 +9276,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -9781,7 +9881,7 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, &quot;2026-09-23&quot;,
 <h5>1. Copy the Intermediate Example project</h5>
 <p>Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout, and an Example project is one made for the Example database&#x27;s tables, to read. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9796,6 +9896,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -9806,8 +9912,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -9823,6 +9933,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -9853,6 +9964,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -10217,7 +10338,7 @@ run_query(with_dashes, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, with the snapshot table&#x27;s Table reference, the file that describes the table, already written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10232,6 +10353,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -10242,8 +10369,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -10259,6 +10390,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -10289,6 +10421,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -10591,7 +10733,7 @@ run_query(runs_per_team_now, query)  # -&gt; DataFrame</pre>
 <p>Goal: a Project to work in, its Table references and Building blocks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10606,6 +10748,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -10616,8 +10764,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -10633,6 +10785,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -10663,6 +10816,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -11116,7 +11279,7 @@ statement(
 <p>Goal: a Project to work in, its Table references and Table notebooks written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11131,6 +11294,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -11141,8 +11310,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -11158,6 +11331,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -11188,6 +11362,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -11483,7 +11667,7 @@ len(per_day)</pre>
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11498,6 +11682,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -11508,8 +11698,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -11525,6 +11719,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -11555,6 +11750,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -11826,7 +12031,7 @@ WHERE
 <p>Goal: a Project to work in, its Table references written. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Table reference is the file that describes one table.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11841,6 +12046,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -11851,8 +12062,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -11868,6 +12083,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -11898,6 +12114,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -12090,7 +12316,7 @@ run_changes = Table(
 )</pre>
 <pre class="python">_ = project.register(&quot;mart.run_changes&quot;)</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12212,6 +12438,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -12247,9 +12505,10 @@ is reached as mart.budget_overruns.job_id.
 
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
-job_events_checks (references/mart__job_events_checks.py), job_notes
-(references/mart__job_notes.py), run_changes (references/mart__run_changes.py), team_days
-(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
+job_events_checks (references/mart__job_events_checks.py), job_hours
+(references/mart__job_hours.py), job_notes (references/mart__job_notes.py), run_changes
+(references/mart__run_changes.py), team_days (references/mart__team_days.py), team_failures
+(references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -12263,6 +12522,7 @@ from references.mart__budget_overruns import budget_overruns
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__run_changes import run_changes
 from references.mart__team_days import team_days
@@ -12270,7 +12530,7 @@ from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_changes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;run_changes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -12483,7 +12743,7 @@ Duplicates in right:
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12498,6 +12758,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -12508,8 +12774,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -12525,6 +12795,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -12555,6 +12826,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -13389,7 +13670,7 @@ result.to_dict(&quot;records&quot;) == most_first.to_dict(&quot;records&quot;)</
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13404,6 +13685,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -13414,8 +13701,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -13431,6 +13722,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -13461,6 +13753,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -13491,7 +13793,7 @@ project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13613,6 +13915,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -13702,8 +14036,8 @@ job_region_costs = Table(
 <h5>4. Refresh the Database module and import the tables</h5>
 <p>Goal: the new table, by its name. <code>project.refresh_reference_sheet()</code> writes the Database module references/mart.py again from the Table references, so <code>from references import mart</code> gives the new table:</p>
 <pre class="python">project.refresh_reference_sheet()</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 54 rows, 13 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
+<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 57 rows, 14 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_hours, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
@@ -13713,9 +14047,10 @@ is reached as mart.budget_overruns.job_id.
 
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
-job_events_checks (references/mart__job_events_checks.py), job_notes
-(references/mart__job_notes.py), job_region_costs (references/mart__job_region_costs.py),
-team_days (references/mart__team_days.py), team_failures (references/mart__team_failures.py).
+job_events_checks (references/mart__job_events_checks.py), job_hours
+(references/mart__job_hours.py), job_notes (references/mart__job_notes.py), job_region_costs
+(references/mart__job_region_costs.py), team_days (references/mart__team_days.py),
+team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -13729,6 +14064,7 @@ from references.mart__budget_overruns import budget_overruns
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__job_region_costs import job_region_costs
 from references.mart__team_days import team_days
@@ -13736,7 +14072,7 @@ from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;job_region_costs&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;job_region_costs&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -13858,7 +14194,7 @@ GROUP BY
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 155 lines</summary>
+<details><summary>Show its 187 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13975,6 +14311,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14238,7 +14606,7 @@ Problems:
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14253,6 +14621,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -14263,8 +14637,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -14280,6 +14658,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -14310,6 +14689,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -14350,7 +14739,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14472,6 +14861,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -14553,8 +14974,8 @@ job_day_events = Table(
 <h5>6. Refresh the Database module</h5>
 <p>Goal: the new table, by its name. <code>project.refresh_reference_sheet()</code> writes the Database module references/mart.py again from the Table references, as it does once you fill one in, so <code>from references import mart</code> gives the new table by its name:</p>
 <pre class="python">project.refresh_reference_sheet()</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 54 rows, 13 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
+<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 57 rows, 14 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks, mart.job_hours, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
@@ -14565,8 +14986,9 @@ is reached as mart.budget_overruns.job_id.
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_events (references/mart__job_day_events.py),
 job_day_facts (references/mart__job_day_facts.py), job_events_checks
-(references/mart__job_events_checks.py), job_notes (references/mart__job_notes.py), team_days
-(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
+(references/mart__job_events_checks.py), job_hours (references/mart__job_hours.py), job_notes
+(references/mart__job_notes.py), team_days (references/mart__team_days.py), team_failures
+(references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -14581,13 +15003,14 @@ from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_events import job_day_events
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
 from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_events&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_events&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -15035,7 +15458,7 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p>Goal: a Project to work in. An Example project is a Project made for the Example database&#x27;s tables, filled in, to read.</p>
 <p>Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15050,6 +15473,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -15060,8 +15489,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -15077,6 +15510,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -15107,6 +15541,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -15142,7 +15586,7 @@ To accept every proposed Key, write in the decisions cell: &quot;all_tables&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -15259,6 +15703,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15741,7 +16217,7 @@ with_one + without</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15756,6 +16232,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -15766,8 +16248,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -15783,6 +16269,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -15813,6 +16300,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -16085,7 +16582,7 @@ admin.move_to_own_folder(ops.job_events, query=query_at_work)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16100,6 +16597,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -16110,8 +16613,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -16127,6 +16634,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -16157,6 +16665,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -16190,7 +16708,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -16307,6 +16825,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16553,7 +17103,7 @@ rows_of(teams_today)</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, holding a Saved table. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16568,6 +17118,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -16578,8 +17134,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -16595,6 +17155,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -16625,6 +17186,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -16857,7 +17428,7 @@ print(to_hive(repair))</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to make the change in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16872,6 +17443,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -16882,8 +17459,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -16899,6 +17480,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -16929,6 +17511,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -16964,7 +17556,7 @@ job_events = ops.job_events  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 146 lines</summary>
+<details><summary>Show its 178 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17081,6 +17673,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17225,7 +17849,7 @@ changed</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 154 lines</summary>
+<details><summary>Show its 186 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17342,6 +17966,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -17534,10 +18190,10 @@ speed_step</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__slow_runs.py: project.reference_from_logic writes it.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_hours, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 162 lines</summary>
+<details><summary>Show its 194 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -17659,6 +18315,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -17709,9 +18397,10 @@ is reached as mart.budget_overruns.job_id.
 
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
-job_events_checks (references/mart__job_events_checks.py), job_notes
-(references/mart__job_notes.py), run_speed (references/mart__run_speed.py), team_days
-(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
+job_events_checks (references/mart__job_events_checks.py), job_hours
+(references/mart__job_hours.py), job_notes (references/mart__job_notes.py), run_speed
+(references/mart__run_speed.py), team_days (references/mart__team_days.py), team_failures
+(references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -17725,6 +18414,7 @@ from references.mart__budget_overruns import budget_overruns
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__run_speed import run_speed
 from references.mart__team_days import team_days
@@ -17732,7 +18422,7 @@ from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_speed&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;run_speed&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -18093,7 +18783,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project, your folder of scripts at work, to write the Hive in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18108,6 +18798,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -18118,8 +18814,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -18135,6 +18835,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -18165,6 +18866,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -18198,7 +18909,7 @@ To accept it, write in the decisions cell: &quot;ops.jobs&quot;: {&quot;key&quot
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -18315,6 +19026,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -18804,7 +19547,7 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <pre class="python">import shutil
 from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -18819,6 +19562,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -18829,8 +19578,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -18846,6 +19599,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -18876,6 +19630,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -19676,7 +20440,7 @@ project.run_workflow(&quot;schedule&quot;)</pre>
 <p>Goal: a Project, your folder of scripts at work, whose settings to fill in. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">from pathlib import Path
 example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -19691,6 +20455,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -19701,8 +20471,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -19718,6 +20492,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -19748,6 +20523,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -19803,7 +20588,7 @@ PROD = {&quot;database&quot;: &quot;mart_prod&quot;, &quot;location_root&quot;: 
 admin/templates/saved_table.py.
 Wrote references/mart__weekly_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 147 lines</summary>
+<details><summary>Show its 179 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -19920,6 +20705,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -20084,7 +20901,7 @@ except ValueError as refused:
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project with Saved tables for a run to write. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -20099,6 +20916,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -20109,8 +20932,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -20126,6 +20953,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -20156,6 +20984,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -20204,7 +21042,7 @@ def team_day_from_job_events(day: str) -&gt; Statement:
 <p class="label">Python prints</p><pre class="output">Made scheduled_runs/team_day/: team_day.ipynb, from admin/templates/scheduled_run.py.
 Fill in its &lt;...&gt;: its parameters, its connection and the Statements it runs.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 146 lines</summary>
+<details><summary>Show its 178 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -20321,6 +21159,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -20651,7 +21521,7 @@ print(project.export_run_hive(&quot;team_day&quot;))</pre>
 <h5>1. Start from the Intermediate Example project</h5>
 <p>Goal: a Project whose Saved tables read one another, with its Lineage state recorded. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in. It is a line of this page alone, not a Toolbox name, as <code>conn</code> is this page&#x27;s connection: in your own Project leave it out.</p>
 <pre class="python">example_project(&quot;intermediate&quot;)</pre>
-<p class="label">It writes 89 files</p>
+<p class="label">It writes 110 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -20666,6 +21536,12 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
 admin/run_tables.ipynb
 admin/scheduled_runs.ipynb
 admin/sent.csv
@@ -20676,8 +21552,12 @@ admin/templates/saved_table_reference.py
 admin/templates/scheduled_run.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
 admin/workflows/convert/finished/team_failures/batch.md
 admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
 admin/workflows/convert/team_failures.hql
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -20693,6 +21573,7 @@ references/mart__budget_overruns.py
 references/mart__job_day_costs.py
 references/mart__job_day_facts.py
 references/mart__job_events_checks.py
+references/mart__job_hours.py
 references/mart__job_notes.py
 references/mart__team_days.py
 references/mart__team_failures.py
@@ -20723,6 +21604,16 @@ tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.h
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
 tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
 tables/mart__job_notes/mart__job_notes.hql
@@ -20797,6 +21688,7 @@ ends_a_run = is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;,
 <p class="label">Python prints</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 The Lineage state is behind: 3 columns&#x27; logic differs from its last recording, in mart.job_day_facts, mart.team_days and weekly_team.week_totals. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook&#x27;s cell 5, export_hive(), records the whole Project too.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>weekly_team.week_totals is the Scheduled run weekly_team&#x27;s Statement week_totals: the Lineage state names a run&#x27;s Statement &lt;run&gt;.&lt;result&gt;, as the run&#x27;s results name it. The last lines are about a batch the Example project converted earlier, which needs nothing from you.</p>
 <p>Done when <code>project.check()</code> names the tables whose logic differs. Then step 3.</p>
@@ -20805,7 +21697,7 @@ Done: each convert batch below.
 <pre class="python">print(project.record_lineage_state())</pre>
 <p class="label">Python prints</p><pre class="output">Lineage state: 3 columns changed (1 own, 2 inherited): project.export_lineage_difference() shows them.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 146 lines</summary>
+<details><summary>Show its 178 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -20922,6 +21814,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -20967,7 +21891,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <pre class="python">print(project.export_lineage_difference(tables=&quot;mart.team_days&quot;))  # doctest: +ELLIPSIS</pre>
 <p class="label">Python prints</p><pre class="output">Wrote admin/lineage/20260925-090000-difference.html and its Markdown twin, 20260925-090000-difference.md: 2 tables changed, since the recording of 2026-09-25 07:00:00, to the newest, of 2026-09-25 09:00:00: 2 columns (1 own, 1 inherited).</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 154 lines</summary>
+<details><summary>Show its 186 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -21084,6 +22008,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -21273,6 +22229,790 @@ Not written since the change (admin/sent.csv).
 <h4>Next</h4>
 <ul><li><a href="#follow_lineage">Follow lineage</a>: a Statement&#x27;s Lineage, column by column, within its own Statement.</li><li><a href="#schedule_a_run">Schedule a run</a>: a Scheduled run, whose Statements&#x27; columns the Lineage state records too.</li></ul>
 <p class="names">Toolbox names used: <code>run_execute</code>, <code>project.check</code>, <code>project.load</code>, <code>project.record_lineage_state</code>, <code>project.export_lineage_difference</code></p>
+</section>
+<section class="entry" id="convert_an_excel_workbook">
+<h3>33. Convert an Excel workbook <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+<details class="table" data-table="ops.job_owners"><summary><code>ops.job_owners</code>: 4 columns, partitioned by dt, 56 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>team</td><td>string</td><td></td></tr>
+<tr><td>owner</td><td>string</td><td>NULL when nobody owns the job</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 56</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-12</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>data</td><td>ana</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
+<h4>Goal</h4>
+<p>Turn an Excel workbook&#x27;s calculations into your own code: its formulas, its Power Query and its PivotTable, each a Saved table in your Dev Database, the database where you create and write tables of your own. You give the workbook to the convert Workflow, beside or in place of Hive scripts, and it reads what reads what in the workbook. Each calculation that nothing else in the workbook reads, here the PivotTable, is a final: it becomes a Saved table, its Hive built from the formulas and the query it reads. The Workbook check then runs that Hive on this computer, over the workbook&#x27;s own rows, and compares what it gives with the values the workbook shows. What only you can decide, such as the table&#x27;s name and what to do with the PivotTable&#x27;s slicer, is a Decision, answered in the convert notebook&#x27;s decisions cell. The other way in is Copilot: it writes the same Hive from the workbook&#x27;s text, and you convert that, as step 11 shows.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>If a report lives in an Excel workbook, with its data pasted into Tables, formulas in them, a Power Query and a PivotTable, convert the workbook as the steps below do.</li><li>If the PivotTable keeps Excel&#x27;s default name, such as PivotTable1, answer its name, as step 7 does: convert proposes one from its sheet, Teams gives teams_pivot.</li><li>If the PivotTable has a slicer, a Report filter or items it hides, decide what the table keeps, as step 7 does: the selection as the workbook was last saved, or every value, in one table, a Partition each or a table each.</li><li>If you can&#x27;t run Python, or your team converts with Copilot, have Copilot write the Hive and convert it beside the workbook, as step 11 says: the same Decisions and the same Workbook check follow.</li><li>If you want more from the table later than the PivotTable showed, such as each team&#x27;s share of a job&#x27;s hours, change the table&#x27;s logic in its Table notebook, as Copilot file 21, which grows a converted PivotTable, says, with files 03, 05 and 06: never the workbook, which is a one-time way in. To weigh a Pivot filter&#x27;s answers at scale, Copilot file 22, with files 06 and 17, says how many tables each makes.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first, and if you haven&#x27;t converted Hive before, read <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: this page takes the same Workflow&#x27;s steps, from a workbook.</li></ul>
+<h4>Steps</h4>
+<h5>1. Start from the Starter Example project</h5>
+<p>Goal: a Project to convert into. Work in your own Project, at its top. This page uses a copy of the Starter Example project, which the download&#x27;s Example projects page shows file by file, made in the folder the page runs in by <code>example_project(&quot;starter&quot;)</code>, a line you leave out in your own Project. The Intermediate Example project holds this page&#x27;s batch converted and finished already, which the same page shows. The Starter&#x27;s Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart. Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows, so each table&#x27;s folder is placed for you and is no Decision; this page stands in for your edit:</p>
+<pre class="python">from pathlib import Path
+example_project(&quot;starter&quot;)</pre>
+<p class="label">It writes 55 files</p>
+<pre class="file">README.md
+admin/admin_log.md
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/databases.py
+admin/lineage.ipynb
+admin/lineage/lineage_state.csv
+admin/new_block.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove.ipynb
+admin/run_tables.ipynb
+admin/scheduled_runs.ipynb
+admin/sent.csv
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/workflows/convert/convert.ipynb
+admin/workflows/new_table/new_table.ipynb
+admin/workflows/promote/promote.ipynb
+admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
+admin/workflows/upgrade/upgrade.ipynb
+building_blocks/runs_per_job.py
+references/mart.py
+references/mart__alerts_per_job.py
+references/mart__alerts_per_severity.py
+references/mart__daily_job_runs.py
+references/mart__team_day.py
+references/ops.py
+references/ops__job_runs.py
+references/ops__jobs.py
+references/ops__run_alerts.py
+references/reference_sheet.csv
+tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.html
+tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.md
+tables/mart__alerts_per_job/mart__alerts_per_job.hql
+tables/mart__alerts_per_job/mart__alerts_per_job.ipynb
+tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.html
+tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.md
+tables/mart__alerts_per_severity/mart__alerts_per_severity.hql
+tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb
+tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.html
+tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.md
+tables/mart__daily_job_runs/mart__daily_job_runs.hql
+tables/mart__daily_job_runs/mart__daily_job_runs.ipynb
+tables/mart__team_day/lineage/20260925-060000-mart__team_day.html
+tables/mart__team_day/lineage/20260925-060000-mart__team_day.md
+tables/mart__team_day/mart__team_day.hql
+tables/mart__team_day/mart__team_day.ipynb
+warehouse.py</pre>
+<pre class="python">from sqlglot_composer import project, run_execute, run_query, show_hive
+from warehouse import connect, execute, query
+connect(conn)
+databases = Path(&quot;admin/databases.py&quot;)
+_ = databases.write_text(databases.read_text(encoding=&quot;utf-8&quot;).replace(
+    &#x27;&quot;&lt;DEV_LOCATION_ROOT&gt;&quot;&#x27;, &#x27;&quot;/data/dev&quot;&#x27;), encoding=&quot;utf-8&quot;)</pre>
+<p class="label">It writes admin/databases.py</p>
+<pre class="python">&quot;&quot;&quot;databases - the settings of the two Databases you own: DEV, where
+you build and check tables, and PROD, where tables other people rely on are written. Set each
+once; the Workflows read them.
+
+&quot;database&quot; is the Database&#x27;s name, such as &quot;mart_dev&quot;. &quot;location_root&quot; is the folder its
+tables&#x27; files go under: a table with no folder of its own goes in
+&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;, such as /data/your_team/dev/mart_dev.db/daily_runs.
+Any other setting is yours, such as &quot;run_as&quot;, the account your connection runs as: give it
+in both, each its own value, and database_settings(&quot;mart_dev&quot;) gives DEV&#x27;s to your code.
+&quot;&quot;&quot;
+
+DEV = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot;/data/dev&quot;}
+PROD = {&quot;database&quot;: &quot;&lt;PROD_DATABASE&gt;&quot;, &quot;location_root&quot;: &quot;&lt;PROD_LOCATION_ROOT&gt;&quot;}</pre>
+<p>Done when <code>connect(conn)</code> runs without an error. Then step 2.</p>
+<h5>2. Add the Table references of the tables the workbook samples</h5>
+<p>Goal: a Table reference, with its Key, for each warehouse table the workbook&#x27;s rows were pasted from: ops.job_events and ops.job_owners. Convert reads each table through its Table reference, and a join it can check needs each table&#x27;s Key, the columns whose values name one row. The references Workflow, admin/workflows/references/references.ipynb, makes them, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows; this page runs its two calls, the second accepting each Key it proposes:</p>
+<pre class="python">print(project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;], query=query))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote references/ops__job_events.py and references/ops__job_owners.py: fill in their TODO lines.
+ops.job_events: its Key proposed, (event_id), checked with check_key:
+  ops.job_events: the key (event_id) holds where job_events.dt IN (&#x27;2026-09-23&#x27;, &#x27;2026-09-24&#x27;).
+ops.job_owners: its Key proposed, (job_id, dt), checked with check_key:
+  ops.job_owners: the key (job_id) repeats where job_owners.dt IN (&#x27;2026-09-23&#x27;, &#x27;2026-09-24&#x27;). Keys with more than one row:
+   job_id  copies
+        1       2
+        2       2
+        3       2
+        4       2
+  ops.job_owners: the key (job_id, dt) holds where job_owners.dt IN (&#x27;2026-09-23&#x27;, &#x27;2026-09-24&#x27;).
+To accept every proposed Key, write in the decisions cell: &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;}
+Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.jobs and ops.run_alerts.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
+- Tables named: ops.jobs, ops.job_runs, ops.run_alerts
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;runs_per_job&quot;)`
+- Files: created building_blocks/runs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_severity&quot;)`
+- Tables named: mart.alerts_per_severity
+- Files: created tables/mart__alerts_per_severity/ (mart__alerts_per_severity.ipynb, lineage/); created references/mart__alerts_per_severity.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.daily_job_runs&quot;)`
+- Tables named: mart.daily_job_runs
+- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_job&quot;)`
+- Tables named: mart.alerts_per_job
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_day&quot;)`
+- Tables named: mart.team_day
+- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; wrote references/ops.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_events.event_id.
+
+Its tables: job_events (references/ops__job_events.py), job_owners
+(references/ops__job_owners.py), job_runs (references/ops__job_runs.py), jobs
+(references/ops__jobs.py), run_alerts (references/ops__run_alerts.py).
+
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_events import job_events
+from references.ops__job_owners import job_owners
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+from references.ops__run_alerts import run_alerts
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
+# `from references.ops import *` gives, too.
+__all__ = [&quot;job_events&quot;, &quot;job_owners&quot;, &quot;job_runs&quot;, &quot;jobs&quot;, &quot;run_alerts&quot;]
+_TABLES = __all__
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
+<p class="label">It writes references/ops__job_events.py</p>
+<pre class="python">&quot;&quot;&quot;ops.job_events - One row per event_id.&quot;&quot;&quot;  # proposed from its Key
+from sqlglot_composer import Table
+
+job_events = Table(
+    &quot;ops.job_events&quot;,
+    columns={
+        &quot;event_id&quot;: &quot;bigint&quot;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;event_type&quot;: &quot;string&quot;,
+        &quot;minutes&quot;: &quot;int&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=None,  # TODO: proposed [&quot;event_id&quot;], checked: accept it in the decisions cell
+    does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
+    descriptions={
+        &quot;event_type&quot;: &quot;start / finish / retry / fail&quot;,
+        &quot;minutes&quot;: &quot;minutes since the run started&quot;,
+    },
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.ops__job_events import job_events, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_events.event_type
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_events.event_type, &lt;value&gt;)</pre>
+<p class="label">It writes references/ops__job_owners.py</p>
+<pre class="python">&quot;&quot;&quot;ops.job_owners - One row per job_id and dt.&quot;&quot;&quot;  # proposed from its Key
+from sqlglot_composer import Table
+
+job_owners = Table(
+    &quot;ops.job_owners&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;owner&quot;: &quot;string&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=None,  # TODO: proposed [&quot;job_id&quot;, &quot;dt&quot;], checked: accept it in the decisions cell
+    does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
+    descriptions={
+        &quot;owner&quot;: &quot;NULL when nobody owns the job&quot;,
+    },
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.ops__job_owners import job_owners, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_owners.team
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_owners.team, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/lineage/lineage_state.csv</code> too.</p>
+<p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<pre class="python">print(project.write_decisions({&quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;}},
+                              tables=[&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;]))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote 1 answer into references/ops__job_events.py.
+Each Decision of ops.job_events is made.
+Wrote 1 answer into references/ops__job_owners.py.
+Each Decision of ops.job_owners is made.
+all_tables: key &quot;proposed&quot;: accepted the proposed Key of ops.job_events and ops.job_owners, each written as if typed.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
+- Tables named: ops.jobs, ops.job_runs, ops.run_alerts
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;runs_per_job&quot;)`
+- Files: created building_blocks/runs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_severity&quot;)`
+- Tables named: mart.alerts_per_severity
+- Files: created tables/mart__alerts_per_severity/ (mart__alerts_per_severity.ipynb, lineage/); created references/mart__alerts_per_severity.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.daily_job_runs&quot;)`
+- Tables named: mart.daily_job_runs
+- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_job&quot;)`
+- Tables named: mart.alerts_per_job
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_day&quot;)`
+- Tables named: mart.team_day
+- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; wrote references/ops.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: wrote references/ops__job_events.py; wrote references/ops__job_owners.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+<p class="label">It writes references/ops__job_events.py</p>
+<pre class="python">&quot;&quot;&quot;ops.job_events - One row per event_id.&quot;&quot;&quot;  # proposed from its Key
+from sqlglot_composer import Table
+
+job_events = Table(
+    &quot;ops.job_events&quot;,
+    columns={
+        &quot;event_id&quot;: &quot;bigint&quot;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;event_type&quot;: &quot;string&quot;,
+        &quot;minutes&quot;: &quot;int&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;event_id&quot;],
+    does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
+    descriptions={
+        &quot;event_type&quot;: &quot;start / finish / retry / fail&quot;,
+        &quot;minutes&quot;: &quot;minutes since the run started&quot;,
+    },
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.ops__job_events import job_events, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_events.event_type
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_events.event_type, &lt;value&gt;)</pre>
+<p class="label">It writes references/ops__job_owners.py</p>
+<pre class="python">&quot;&quot;&quot;ops.job_owners - One row per job_id and dt.&quot;&quot;&quot;  # proposed from its Key
+from sqlglot_composer import Table
+
+job_owners = Table(
+    &quot;ops.job_owners&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;owner&quot;: &quot;string&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+    does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
+    descriptions={
+        &quot;owner&quot;: &quot;NULL when nobody owns the job&quot;,
+    },
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.ops__job_owners import job_owners, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_owners.team
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_owners.team, &lt;value&gt;)</pre>
+<p>Done when references/ holds ops__job_events.py and ops__job_owners.py, each Key accepted. Then step 3.</p>
+<h5>3. Save the workbook</h5>
+<p>Goal: the workbook where the convert Workflow reads it. Save it as it is, an .xlsx file beside the convert Workflow&#x27;s notebook, in admin/workflows/convert/: convert reads it where it is, never copied. Here <code>example_workbook(&quot;job_hours.xlsx&quot;)</code> saves a copy of the Intermediate Example project&#x27;s, a line of this page alone, as <code>example_project</code> is:</p>
+<pre class="python">example_workbook(&quot;job_hours.xlsx&quot;)</pre>
+<p class="note">It writes <code>admin/workflows/convert/job_hours.xlsx</code> too.</p>
+<p>It holds what a workbook of yours may hold, each on a sheet of its own:</p>
+<ul><li>a Table, job_events, of ops.job_events&#x27; rows pasted in, with a formula column, <code>hours = [@minutes]/60</code>;</li><li>a Table, job_owners, of ops.job_owners&#x27; rows: the team that owned each job each day;</li><li>a Power Query, run_hours, typed on its Power Query sheet, which keeps each run&#x27;s finish event, joins it to job_owners on job_id and dt for its team, and loads its rows into a Table, run_hours;</li><li>a PivotTable over run_hours on the Teams sheet, keeping Excel&#x27;s default name, PivotTable1: the Sum of hours of each job, with a slicer on team, the data team selected.</li></ul>
+<p>Each formula is in a Table, never in loose cells: a formula outside a Table is refused, as the workbook&#x27;s rows are only a sample of the warehouse&#x27;s. The Example projects page shows the workbook as text, as copilot/workbook_text.py writes it.</p>
+<p>Done when admin/workflows/convert/job_hours.xlsx is there. Then step 4.</p>
+<h5>4. Convert it</h5>
+<p>Goal: a Saved table for each final of the workbook. Open admin/workflows/convert/convert.ipynb and fill in its names cell: the batch&#x27;s name as NAME, <code>&quot;job_hours&quot;</code>, the workbook as FILES, <code>[&quot;job_hours.xlsx&quot;]</code>, and DATABASE, <code>&quot;ops&quot;</code>, the database of the tables the workbook samples. A workbook is named in FILES by its path: FILES left [] reads only the .hql files beside the notebook. Save the cell, and run &quot;Run up to your Decisions&quot;, which runs this call from the notebook&#x27;s folder, then stops at the Decisions. Here is its report, up to its next step:</p>
+<pre class="python">import os
+os.chdir(&quot;admin/workflows/convert&quot;)  # where the notebook runs: this page stands in
+said = repr(project.convert(&quot;job_hours&quot;, files=[&quot;job_hours.xlsx&quot;], query=query,
+                            database=&quot;ops&quot;))</pre>
+<p class="label">It writes 13 files</p>
+<pre class="file">admin/admin_log.md
+admin/lineage/lineage_state.csv
+admin/registry.csv
+admin/workflows/convert/job_hours/batch.md
+admin/workflows/convert/job_hours/scripts/teams_pivot.hql
+admin/workflows/convert/job_hours/written.json
+references/mart.py
+references/mart__teams_pivot.py
+tables/mart__teams_pivot/conversion/checklist.md
+tables/mart__teams_pivot/conversion/in_dev.hql
+tables/mart__teams_pivot/conversion/scan.md
+tables/mart__teams_pivot/conversion/statement.hql
+tables/mart__teams_pivot/mart__teams_pivot.ipynb</pre>
+<pre class="python">os.chdir(&quot;../../..&quot;)  # back to the Project&#x27;s folder, where the rest of this page runs
+print(said.split(&quot;\nNext:&quot;)[0])</pre>
+<p class="label">Python prints</p><pre class="output">Converted job_hours: 1 final of job_hours.xlsx, 1 statement, into 1 Saved table in mart: mart.teams_pivot.
+Named as proposed, a Decision of each in its checklist: mart.teams_pivot, for PivotTable1 of job_hours.xlsx. Answer &quot;name&quot; in the decisions cell: &quot;proposed&quot; keeps it, or a name of your own renames the table.
+Kept each Pivot filter as converted, so each of these tables holds only the rows the PivotTable&#x27;s filter or slicer selected when the workbook was last saved: mart.teams_pivot, where the slicer on team keeps data. Each is a Decision of its table, which can keep every value instead: answer &quot;pivot_filters&quot; in the decisions cell, as each table&#x27;s checklist says, with how many tables each answer makes.
+admin/workflows/convert/job_hours/batch.md lists each statement, in the order they run, and what it became.
+The Workbook check of job_hours.xlsx ran the Hive of each table the workbook gave, on this computer, over the workbook&#x27;s own Tables, and compared its rows with the values the workbook shows, as last saved. A difference means the Hive doesn&#x27;t give what the workbook&#x27;s formula, query or PivotTable gave on the same rows: look at each one, though none stops anything. The workbook&#x27;s rows are an old sample, so the warehouse&#x27;s rows will differ from them: this compares the Hive with the workbook alone, never with the warehouse.
+mart.teams_pivot, from PivotTable &quot;PivotTable1&quot;: every cell matches the workbook, 2 cells compared.</pre>
+<p>The workbook&#x27;s one final is the PivotTable: the formula Table and the query are steps of it, each read by the next piece, so neither is a table of its own. A PivotTable becomes one table of its rows, at its finest grain: each Row and Column field a column, and each value a column. Its Grand Totals and subtotals, which Excel shows by default, are not converted: each is named in the table&#x27;s checklist with the GROUP BY that gives it from the table&#x27;s rows. This workbook&#x27;s PivotTable has its Grand Total turned off, so it has none to name. The &quot;Next:&quot; after the report names the steps to come, and the DECISIONS to paste, which step 7 fills in.</p>
+<p>Done when the report starts <code>Converted job_hours:</code>. Then step 5.</p>
+<h5>5. Read the Hive and the Workbook check</h5>
+<p>Goal: know what the workbook became, and whether its Hive gives what the workbook shows. The batch keeps each final&#x27;s Hive in admin/workflows/convert/job_hours/scripts/, as convert wrote it from the workbook, and converts it as any script&#x27;s Hive. Each piece is a CTE, a named query read by the next: the formula is <code>minutes / 60 AS hours</code>, the Power Query a WHERE and a LEFT JOIN, and the PivotTable a GROUP BY of its Row field, job_id, with its slicer&#x27;s selection a WHERE, marked as a Pivot filter:</p>
+<pre class="python">print(Path(&quot;admin/workflows/convert/job_hours/scripts/teams_pivot.hql&quot;).read_text(
+    encoding=&quot;utf-8&quot;))</pre>
+<p class="label">Python prints</p><pre class="output">WITH job_events AS (
+  SELECT
+    job_id,
+    event_type,
+    dt,
+    minutes / 60 AS hours
+  FROM ops.job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  job_id,
+  SUM(hours) AS sum_of_hours
+FROM run_hours
+WHERE
+  (
+    team = &#x27;data&#x27;
+  ) /* Pivot filter: slicer team */
+GROUP BY
+  job_id;</pre>
+<p>The Workbook check, at the end of convert&#x27;s report and in batch.md, ran that Hive on this computer, over the workbook&#x27;s own Tables standing in for ops.job_events and ops.job_owners, and compared each cell of the PivotTable with the row the Hive gave for it. It never reads the warehouse: the workbook&#x27;s rows are an old sample, and the warehouse&#x27;s will differ:</p>
+<pre class="python">batch = Path(&quot;admin/workflows/convert/job_hours/batch.md&quot;).read_text(encoding=&quot;utf-8&quot;)
+print(batch.split(&quot;## The Workbook check&quot;)[1].split(&quot;## Each statement&quot;)[0].strip())</pre>
+<p class="label">Python prints</p><pre class="output">of job_hours.xlsx
+
+It ran the Hive of each table the workbook gave, on this computer, over the workbook&#x27;s own Tables, and compared its rows with the values the workbook shows, as last saved. A difference means the Hive doesn&#x27;t give what the workbook&#x27;s formula, query or PivotTable gave on the same rows: look at each one, though none stops anything. The workbook&#x27;s rows are an old sample, so the warehouse&#x27;s rows will differ from them: this compares the Hive with the workbook alone, never with the warehouse.
+
+- mart.teams_pivot, from PivotTable &quot;PivotTable1&quot;: every cell matches the workbook, 2 cells compared.</pre>
+<p>The 2 cells are the PivotTable&#x27;s two jobs. A difference would be a line of its own under the table, such as <code>job_id 3: Excel 1.18, Hive 1.15</code>, to look at, though none stops anything. A cell where the workbook shows an Excel error, such as #REF!, and the Hive gives NULL, is listed apart, neither a match nor a difference; a piece the check can&#x27;t run on this computer is named, with how to compare it by hand.</p>
+<p>Done when the Workbook check says every cell matches. Then step 6.</p>
+<h5>6. Read the table&#x27;s open Decisions</h5>
+<p>Goal: know what only you can decide. mart.teams_pivot has two Decisions: its name, proposed from its sheet, as PivotTable1 is Excel&#x27;s default, and its Pivot filter, the slicer on team. Its folder is placed under DEV&#x27;s &quot;location_root&quot;, so it is no Decision. project.check() names each, with each answer of the Pivot filter and how many tables each makes:</p>
+<pre class="python">said = repr(project.check())  # -&gt; str
+for line in said.splitlines():
+    if line.strip().startswith(&quot;mart.teams_pivot:&quot;):
+        print(line.strip())</pre>
+<p class="label">Python prints</p><pre class="output">mart.teams_pivot: name: teams_pivot, proposed for PivotTable1 of job_hours.xlsx: keep it with &quot;proposed&quot;, or answer a name of your own, which renames the table
+mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance). Answer &quot;keep&quot; to keep its selection as converted, or &quot;fold&quot;, &quot;batch&quot; or &quot;tables&quot; to keep every value instead, as its checklist says</pre>
+<p>Its checklist, tables/mart__teams_pivot/conversion/checklist.md, says what the table shows, what each answer makes of it, in Excel&#x27;s words where Excel has them, and which to pick:</p>
+<pre class="python">checklist = Path(&quot;tables/mart__teams_pivot/conversion/checklist.md&quot;).read_text(
+    encoding=&quot;utf-8&quot;)
+print(next(line for line in checklist.splitlines() if &quot;Which to pick&quot; in line))</pre>
+<p class="label">Python prints</p><pre class="output">- Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as &quot;pivot_filters&quot;: {&quot;team&quot;: ...}: &quot;keep&quot;, proposed: 1 table, that selection alone. &quot;fold&quot;: like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. &quot;batch&quot;: 1 table written one team at a time, each run writing its own team&#x27;s rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under &quot;tags&quot; with the Run value proposed there. &quot;tables&quot;: like Excel&#x27;s Show Report Filter Pages: a table per team, named mart.teams_pivot_&lt;value&gt;, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and &quot;at least&quot; as these are the values the PivotTable&#x27;s cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, &quot;fold&quot; keeps every team in one table to slice later; &quot;batch&quot; when each team is written on its own schedule; &quot;tables&quot; only for a handful; &quot;keep&quot; when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.</pre>
+<p>Done when you know the two Decisions. Then step 7.</p>
+<h5>7. Answer each Decision in the decisions cell</h5>
+<p>Goal: an answer for each open Decision. &quot;Run up to your Decisions&quot; printed a whole DECISIONS to paste into the decisions cell, directly under it. This page stands in for the cell, filled in:</p>
+<pre class="python">DECISIONS = {
+    &quot;mart.teams_pivot&quot;: {&quot;name&quot;: &quot;job_hours&quot;, &quot;pivot_filters&quot;: {&quot;team&quot;: &quot;fold&quot;}},
+}</pre>
+<p>Each answer, by its kind:</p>
+<ul><li>&quot;name&quot;: a name of your own, &quot;job_hours&quot;, renames the table, mart.job_hours, its Table folder, its Table reference and its placed folder, /data/dev/mart.db/job_hours, with it; &quot;proposed&quot; keeps teams_pivot.</li><li>&quot;pivot_filters&quot;: the slicer keeps the data team. &quot;keep&quot;, proposed, keeps that selection alone. &quot;fold&quot; is like dragging team from Filters to Rows in the PivotTable: one table, a row for each job and team, every team in it. &quot;batch&quot; writes one team at a time, each into a Partition of its own. &quot;tables&quot; makes a table per team, as Excel&#x27;s Show Report Filter Pages makes a sheet per item. Here, to tab through each team in a presentation, as with the slicer, &quot;fold&quot; keeps every team in one table, to slice later, as the checklist&#x27;s &quot;Which to pick&quot; says. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.</li></ul>
+<p>Done when DECISIONS holds the name and the Pivot filter&#x27;s answer. Then step 8.</p>
+<h5>8. Write each answer in</h5>
+<p>Goal: each Decision made in the table&#x27;s files. Run &quot;Run the rest&quot;, under the decisions cell: its first step writes each answer into the Table reference, renames the table, and writes its logic again for the Pivot filter&#x27;s answer, from the Hive it was converted from. The files of mart.teams_pivot go to admin/removed/. This page runs the step&#x27;s own cell:</p>
+<pre class="python">print(project.write_decisions(DECISIONS, tables=project.batch_tables(&quot;job_hours&quot;)))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__teams_pivot.py.
+mart.teams_pivot: 2 TODO lines left in references/mart__teams_pivot.py, which wait on nothing: fill each in when you like.
+  line 1: mart.teams_pivot - TODO: say in one line what one row is.
+  line 12: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+Renamed mart.teams_pivot to mart.job_hours: its Table folder is tables/mart__job_hours/ now, its Table reference references/mart__job_hours.py, and its batch names it so.
+mart.job_hours: wrote its logic, its Table reference and its conversion/ Hive again for its Pivot filters&#x27; answers: every team, team part of what one row is.
+Each Decision of mart.job_hours is made.</pre>
+<p class="label">It writes 19 files</p>
+<pre class="file">admin/admin_log.md
+admin/registry.csv
+admin/removed/20260925-090000-mart__teams_pivot.py
+admin/removed/20260925-090000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-090000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-090000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-090000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-090000-mart__teams_pivot/mart__teams_pivot.ipynb
+admin/workflows/convert/job_hours/batch.md
+admin/workflows/convert/job_hours/scripts/job_hours.hql
+admin/workflows/convert/job_hours/written.json
+references/mart.py
+references/mart__job_hours.py
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/mart__job_hours.ipynb</pre>
+<p>The rename places the table&#x27;s folder again, for its new name:</p>
+<pre class="python">reference = Path(&quot;references/mart__job_hours.py&quot;).read_text(encoding=&quot;utf-8&quot;)
+print(next(line.strip() for line in reference.splitlines() if &quot;location=&quot; in line))</pre>
+<p class="label">Python prints</p><pre class="output">location=&quot;/data/dev/mart.db/job_hours&quot;,  # under its Database&#x27;s location_root, in admin/databases.py</pre>
+<p>Done when it says <code>Each Decision of mart.job_hours is made.</code> Then step 9.</p>
+<h5>9. See what the table holds now</h5>
+<p>Goal: the rows the table writes, checked before anything is written. Folded, the slicer&#x27;s WHERE is gone and team is part of what one row is: a row for each job and team, the finance team&#x27;s too. Its proposed Key is now job_id and team, marked # proposed in its Table reference, which blocks nothing. Run its notebook&#x27;s preview(), here on the Example database:</p>
+<pre class="python">text = show_hive(project.load(&quot;mart.job_hours&quot;).preview())  # -&gt; str</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH job_events AS (
+  SELECT
+    job_events.job_id,
+    job_events.event_type,
+    job_events.dt,
+    job_events.minutes / 60 AS hours
+  FROM ops.job_events AS job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  run_hours.job_id,
+  run_hours.team,
+  SUM(run_hours.hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  run_hours.job_id,
+  run_hours.team;</pre>
+<pre class="python">run_query(project.load(&quot;mart.job_hours&quot;).preview(), query)</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>sum_of_hours</th></tr>
+<tr><td>1</td><td>data</td><td>2.95</td></tr>
+<tr><td>2</td><td>finance</td><td>2.8166666666666664</td></tr>
+<tr><td>3</td><td>data</td><td>1.1833333333333333</td></tr>
+<tr><td>3</td><td>finance</td><td>0.55</td></tr>
+</table></div>
+<p>The PivotTable&#x27;s two cells, job 1&#x27;s 2.95 hours and job 3&#x27;s 1.183333, are the data team&#x27;s rows. Job 3, report_build, moved from data to finance on 2026-09-18, so it has a row for each team. A reader who wants the data team&#x27;s alone, as the slicer showed it, reads the table with a WHERE on team.</p>
+<p>Done when the preview gives a row for each job and team. Then step 10.</p>
+<h5>10. Create, write and compare it in dev</h5>
+<p>Goal: mart.job_hours made and written in your Dev Database, and compared with its query. The notebook&#x27;s next steps are calls to the warehouse, yours to run, each a cell of the notebook: create each table, write each, and compare each with its original, which for a workbook&#x27;s table is its query, the rows its Hive gives. Here execute is the Example database&#x27;s, which prints the first line of each Hive it is given and changes nothing:</p>
+<pre class="python">for table in project.batch_tables(&quot;job_hours&quot;):
+    run_execute(project.load(table).create(), execute)</pre>
+<p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_hours (</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<pre class="python">print(project.run_tables(tables=project.batch_tables(&quot;job_hours&quot;), execute=execute))</pre>
+<p class="label">Python prints</p><pre class="output">execute: WITH job_events AS (
+1 of 1: mart.job_hours  worked
+Wrote 1 table, in order.</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<pre class="python">print(project.compare_batch(&quot;job_hours&quot;, query=query, partitions=[]))</pre>
+<p class="label">Python prints</p><pre class="output">mart.job_hours: failed, couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.job_hours.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
+- Tables named: ops.jobs, ops.job_runs, ops.run_alerts
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;runs_per_job&quot;)`
+- Files: created building_blocks/runs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_severity&quot;)`
+- Tables named: mart.alerts_per_severity
+- Files: created tables/mart__alerts_per_severity/ (mart__alerts_per_severity.ipynb, lineage/); created references/mart__alerts_per_severity.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.daily_job_runs&quot;)`
+- Tables named: mart.daily_job_runs
+- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_job&quot;)`
+- Tables named: mart.alerts_per_job
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_day&quot;)`
+- Tables named: mart.team_day
+- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; wrote references/ops.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: wrote references/ops__job_events.py; wrote references/ops__job_owners.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+<p class="label">It writes tables/mart__job_hours/conversion/compare.md</p>
+<pre class="file"># mart.job_hours against its query, in conversion/statement.hql
+
+Below, the Statement is mart.job_hours&#x27;s rows, and the original its query&#x27;s.
+
+## Every row
+
+Failed: couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.job_hours.
+Compared at 2026-09-25 09:00:00.
+
+What happened:  The Example database couldn&#x27;t run this Hive: it has no table mart.job_hours.
+  Why it matters: Most often a table, column or hive_function(...) name is spelt wrong, which your warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but the Example database&#x27;s small executor doesn&#x27;t.
+  Usual fix:      Check the names: the tables are ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets and ops.team_notes, and all_columns(...) of one, such as all_columns(ops.jobs), lists its columns, as the table alone on a cell&#x27;s last line does. If they&#x27;re right, see the Hive with to_hive(...), and run it at work with your own query.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>The Example database holds no Dev Database, so the compare couldn&#x27;t read the dev table; at work, once it passes, the batch is finished, and the promote Workflow carries the table to your Prod Database, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</p>
+<p>Done when the compare says it passed, at work. Then step 11.</p>
+<h5>11. Or have Copilot write the Hive</h5>
+<p>Goal: the same table from the Hive Copilot writes, for whoever converts a workbook with Copilot. At work, and nothing on this page runs it:</p>
+<ol start="1"><li>Write the workbook as text: in a terminal in the download&#x27;s top folder, run <code>python copilot/workbook_text.py &quot;admin/workflows/convert/job_hours.xlsx&quot;</code>, with your workbook&#x27;s path, which writes job_hours.txt beside it: each Table and formula, the Power Query&#x27;s M, the PivotTable, its fields, its slicer and its cells, and the order each piece reads the others in.</li><li>In a new chat, attach <code>copilot/15_excel_workbook_steps.txt</code>, <code>copilot/11_excel_formula_workbooks.txt</code>, <code>copilot/12_excel_power_query.txt</code>, <code>copilot/20_excel_pivot_tables.txt</code>, for a PivotTable, and <code>copilot/24_excel_pivot_filters.txt</code>, for its slicer, as <code>copilot/00_start_here.txt</code>&#x27;s Index says, then job_hours.txt, and send &quot;Convert this workbook&quot;. A workbook with a Total Row or a whole-column total takes <code>copilot/23_excel_totals.txt</code> too. Copilot answers with a map of the workbook and a Hive query for each final, its slicer&#x27;s condition under <code>-- Pivot filter: slicer team</code>, the mark convert reads.</li><li>Save the query beside the workbook, named for its table, as job_hours.hql, and convert it into the same batch, the workbook beside it, <code>FILES = [&quot;job_hours.xlsx&quot;, &quot;job_hours.hql&quot;]</code>:</li></ol>
+<pre class="python">project.convert(&quot;job_hours&quot;, files=[&quot;job_hours.xlsx&quot;, &quot;job_hours.hql&quot;], query=query,
+                database=&quot;ops&quot;)</pre>
+<p>The .hql stands for the PivotTable&#x27;s final: it is converted in place of the workbook&#x27;s own Hive, and convert&#x27;s report says so. Its mark gives the same Pivot filter Decision, each answer written in already is kept, and the Workbook check checks Copilot&#x27;s Hive against the same cells, saying <code>job_hours.hql, Copilot&#x27;s Hive of PivotTable &quot;PivotTable1&quot;: every cell matches the workbook</code>. A difference there is Copilot&#x27;s to fix: paste it into the chat.</p>
+<p>Done when convert&#x27;s report, at work, names job_hours.hql as the PivotTable&#x27;s Hive and the Workbook check says every cell matches. Then check it worked, below.</p>
+<h4>Check it worked</h4>
+<p>Before you go on, check that:</p>
+<ul><li>the Workbook check in admin/workflows/convert/job_hours/batch.md says every cell matches;</li><li>references/mart__job_hours.py names the table mart.job_hours, its folder under /data/dev, and <code>&quot;team&quot;: &quot;fold&quot;</code> under PIVOT_FILTERS;</li><li>the preview of mart.job_hours gives a row for each job and team;</li><li>at work, its compare in tables/mart__job_hours/conversion/compare.md says &quot;Passed:&quot;.</li></ul>
+<h4>Common mistakes</h4>
+<h5>A formula outside a Table</h5>
+<p>A formula in loose cells reads by position, which no query can, so the conversion refuses it. Put the data and each formula into an Excel Table, Insert &gt; Table, and convert again.</p>
+<h5>Answering &quot;tables&quot; for a field of many values</h5>
+<p>&quot;tables&quot; makes a table per value the PivotTable&#x27;s cache held, and the warehouse may hold more: a slicer over 100 sites makes at least 100 tables. Its checklist says how many each answer makes. For more than a handful, answer &quot;fold&quot; or &quot;batch&quot;.</p>
+<h5>Changing the workbook after it is converted</h5>
+<p>The workbook is a one-time way in. Once its table is in your Project, change the table&#x27;s logic in its Table notebook, never the workbook and a convert again: an edit made to the table would be written over.</p>
+<h5>Naming Copilot&#x27;s .hql for nothing</h5>
+<p>A .hql named neither for a final&#x27;s table, job_hours.hql, nor for its name in the workbook, pivottable1.hql, is a script of its own: it becomes a second table beside the workbook&#x27;s, named for the file. Name it for the table it stands for.</p>
+<h4>Next</h4>
+<ul><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: the same Workflow from Hive scripts, with Script tags, seeds and promotion.</li><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li></ul>
+<p class="names">Toolbox names used: <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.write_decisions</code></p>
 </section>
 </main>
 <script>

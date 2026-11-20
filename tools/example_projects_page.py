@@ -17,6 +17,9 @@ in place of their code. For each Example project, `example_projects/<name>/`, th
   gave (a result table for a DataFrame), or the message it stopped with, after which no cell
   runs. A Workflow's notebook starts with its names cell empty, so run as it is, it stops at
   the first step that needs a name;
+- each Excel workbook as its text, folded, as `copilot/workbook_text.py` writes it for a
+  Copilot chat: its Tables, formulas, PivotTables and Power Queries, and the order each reads
+  the others in;
 - each other text file, folded, to open;
 - each lineage page, linked: it ships beside this page, in docs/example_projects/, at the path
   `toolbox_registry.lineage_pages` gives it.
@@ -55,6 +58,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "copilot"))
 
 import how_to_page  # noqa: E402
 import toolbox_registry  # noqa: E402
@@ -62,6 +66,7 @@ from example_gallery import cell_html, run_step  # noqa: E402
 from example_project import PINNED_COMMIT, PINNED_TIME  # noqa: E402
 from how_to_page import project_on_the_path, times_pinned  # noqa: E402
 from notebook_runner import code_cells  # noqa: E402
+from workbook_text import workbook_text  # noqa: E402
 
 from sqlglot_composer import conditions, html_page  # noqa: E402
 
@@ -344,6 +349,10 @@ def notebook_html(notebook: Path, ran: list[Ran]) -> str:
     return "\n".join(shown)
 
 
+# An Excel workbook's suffix: the page shows one as its text.
+WORKBOOK_SUFFIX = ".xlsx"
+
+
 def is_lineage(path: str) -> bool:
     """Whether a file is one of a Lineage's two, its page or its Markdown twin."""
     return "/lineage/" in f"/{path}"
@@ -351,7 +360,7 @@ def is_lineage(path: str) -> bool:
 
 def file_html(project: str, path: str) -> str:
     """One file of the Project at its place on the page: a notebook's cells and what each
-    gave, a lineage page's link, or any other file's text, folded."""
+    gave, a lineage page's link, a workbook's text, or any other file's text, folded."""
     source = EXAMPLE_PROJECTS / project / path
     heading = f'<h3 id="{escape(anchor(project, path))}"><code>{escape(path)}</code></h3>'
     if path.endswith(".ipynb"):
@@ -368,6 +377,12 @@ def file_html(project: str, path: str) -> str:
         page = lineage_link(project, path.removesuffix(".md") + ".html")
         shown = (f'<p>The Markdown twin of the Lineage page <a href="{escape(page)}">beside '
                  "it</a>: the same text, without the drawing.</p>")
+    elif path.endswith(WORKBOOK_SUFFIX):
+        text = workbook_text(source)
+        shown = ("<p>An Excel workbook, shown as its text, as <code>python "
+                 "copilot/workbook_text.py</code> writes it for a Copilot chat.</p>"
+                 f"<details><summary>Show its {len(text.splitlines())} lines</summary>"
+                 f"<pre>{escape(text)}</pre></details>")
     else:
         text = shown_as_yours(source.read_text(encoding="utf-8"))
         shown = (f"<details><summary>Show its {len(text.splitlines())} lines</summary>"

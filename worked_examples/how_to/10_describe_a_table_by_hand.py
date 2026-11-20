@@ -135,13 +135,15 @@ The Lineage state is behind: 6 columns' logic differs from its last recording, i
     mart.job_day. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a Table
     notebook's cell 5, export_hive(), records the whole Project too.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its
+    compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 >>> project.register("mart.job_day")  # -> a report, printed
 Registered references/mart__job_day.py.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day,
-    mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes,
-    mart.team_days and mart.team_failures.
+    mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_hours,
+    mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 Done when `project.register` prints `Registered references/mart__job_day.py.` Then step 6.
@@ -277,6 +279,8 @@ Project knows the file:
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its
+    compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 
