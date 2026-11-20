@@ -317,6 +317,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   workbook refused; I1's limits named; Q2's `<>` and `=` null-safe; COUNT of text refused, COUNTA
   suggested; PV8's all-NULL total one row; PV5's text order A to Z). Two file lines wait for
   ticket 14's split of files 12 and 20: Q2's `=` and PV5's text order. Merged 2026-11-19.
+- [09 The Workbook check](issues/09-the-workbook-check.md): `workbook_check.py` and
+  `hive_executor.py` (the Example database's executor moved whole; ADR 0016 amended), run at the
+  end of a workbook's convert, its report in convert's output and batch.md: each final's rows
+  over the workbook's own Tables against what the workbook shows, within 1e-9 (a 1e-12 floor
+  at zero); an Excel error listed apart; M1's blank read as the Answer says; what the executor
+  can't run named, never guessed; never the warehouse. Merged 2026-11-19 (1206f89a).
 
 ## Not yet specified
 
