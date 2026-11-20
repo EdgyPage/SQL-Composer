@@ -536,6 +536,7 @@ any item is open.
 - [x] D525 | 88ca65f | docstring | `tools/copilot_eval.py`'s new `files_loaded` docstring (lines 372-373) says it gives "none in the arms that load no file of ids", and `docs/copilot-eval.md` line 106 says "Arms that load no file of ids (A0, A1, R) keep nothing"; but arm R loads `copilot/00_start_here.txt` (`shared_text`, `name = "00" if arm == "R"`), which defines ids by the very form `eval_sources.DEFINITIONS` reads, its Index rows `| P1 | ... | 01 |` to `| P8 | ...` (lines 15-22). R keeps nothing because its reply names the files to load and its message asks for no `Used:` line (`proxy_message` adds it only `if arm == "C"`), not because file 00 has no ids. Say e.g. "and none in the other arms: A0 and A1 load no Copilot file, and R's reply names files, so its message asks for no Used line" in the docstring, and "Arms A0 and A1, which load no Copilot file, and R, whose reply names files, keep nothing." at line 106 - fixed in 1ade6b74
 - [x] D526 | f9a7f2d | docstring | this commit has the report read each round's pass count from `.eval-local/rounds.csv` (`main` passes `eval_runs.read_rounds(given.local)` to `page_text`), so a round the memo answered whole, with no ledger row, now shows from that file alone; but the page's own note, in the `page_text` the commit changed (`tools/eval_report.py` lines 416-417), still says it is "Built from the ledger, the kept sources and the commits file", and the module docstring's first line (line 1) "one local HTML page from the ledger and the attribution records". Say e.g. "Built from the ledger, the kept sources, the rounds each score kept and the commits file" in the note, and "from the ledger, the rounds each score kept and the attribution records" in the docstring - fixed in fbf6a290
 - [x] D527 | 560c0aa | standing-docs | docs/clean-branch-readme.md's "In admin/" list (about line 177) says admin/lineage/ holds only the Project lineage, "Made by `project.export_project_lineage()`", and "you fill in nothing"; since 8.8 it also holds lineage_state.csv (written by Project actions, cell 5 and `record_lineage_state()`) and each Lineage difference page and its Markdown twin (`export_lineage_difference`), and `admin/lineage.ipynb` is a top-level admin notebook not named there. Say so in that bullet. - closed by c9c4ce1
+- [x] D528 | 68a0c58 | standing-docs | CLAUDE.md's Maintainer paragraph (Toolbox 7.2) says ticket 20 split Copilot file 11 into "its Power Query and totals into file 12", but 8.9 moved whole-column totals and Total Rows into the new file 23_excel_totals.txt (and Pivot filters into 24); change it to "its Power Query into file 12, and since 8.9 its totals into file 23" - fixed in fa6ab7c
 
 ## Reviewed commits
 
@@ -1213,3 +1214,34 @@ any item is open.
 - e2bd39b: clean
 - c9c4ce1: clean
 - b40c82c: clean
+- 14fcce2: clean
+- bf90f61: clean
+- c6a9bf0: clean
+- d7ad237: clean
+- 22f177b: clean
+- 21d285a: clean
+- a0ec819: clean
+- 0fad3a5: clean
+- 171b393: clean
+- 192d4b9: clean
+- 778cadd: clean
+- cedec7f: clean
+- a81a709: clean
+- ad941a7: clean
+- 02e87c0: clean
+- 1206f89: clean
+- dad8855: clean
+- d43fa9a: clean
+- 90e291d: clean
+- 14f989b: clean
+- 452867f: clean
+- 5a64229: clean
+- 68a0c58: D528
+- a9fa794: clean
+- 3d7e883: clean
+- 27fe53e: clean
+- 3e478d7: clean
+- 20fed6c: clean
+- c6d9725: clean
+- 2e89f4b: clean
+- fa6ab7c: clean
