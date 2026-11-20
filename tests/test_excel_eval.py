@@ -77,6 +77,20 @@ def test_there_are_124_tasks_62_on_each_split_each_covering_everything() -> None
     assert {kind for task in TASKS for kind in task.covers} <= set(COVERAGE)
 
 
+def test_arm_c_loads_file_20_only_for_a_workbook_with_a_pivot() -> None:
+    # Toolbox 8.9, ticket 11's review: as file 00 says, so a formula task's memo key stays.
+    assert excel_eval.files_of(BY_ID["X01"]) == ("15", "11", "12")
+    assert excel_eval.files_of(BY_ID["X85"]) == ("15", "11", "12", "20")
+    formula, pivot = excel_eval.shared_text("C", BY_ID["X01"]), excel_eval.shared_text(
+        "C", BY_ID["X85"])
+    assert "Copilot file 20" not in formula and "Copilot file 20" in pivot
+    assert pivot.startswith(formula)
+    assert list(excel_eval.files_loaded("C", "X85")) == ["15", "11", "12", "20"]
+    groups = excel_eval.proxy_groups("C", ["X01", "X85", "X02", "X86"])
+    assert sorted(groups.values()) == [["X01", "X02"], ["X85", "X86"]]
+    assert excel_eval.proxy_groups("A0", ["X01", "X85"]) == {"a0-1": ["X01", "X85"]}
+
+
 @pytest.mark.parametrize("task", TASKS, ids=lambda task: task.id)
 def test_each_reference_scores_a_pass(task: ExcelTask, hive: sqlite3.Connection) -> None:
     result = scored(task, reference_reply(task), hive)

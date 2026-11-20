@@ -28,7 +28,8 @@ file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a Pivot
 
 ## Terms
 
-- **Table**: an Excel Table, shown as `Excel Table "name"`, its rows and any Total Row.
+- **Table**: an Excel Table, shown as `Excel Table "name"`, its headers, rows and any Total
+  Row.
 - **Typed column**: a column whose cells hold values; a **formula column** holds formulas.
 - **Query**: a Power Query, listed after the sheets as `Power Query "name"`, its M below. A
   query and the Table it loads are two pieces, even with one name. A query's name in
@@ -42,8 +43,8 @@ file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a Pivot
 
 ## Rules
 
-- **R1** A summary is a Table whose only typed columns are the ones its -IFS forms or
-  GETPIVOTDATA match on. Its final is a GROUP BY of the Table it reads, its typed rows kept,
+- **R1** A summary is a Table whose only typed columns are the ones its SUMIFS, COUNTIFS,
+  AVERAGEIFS, MAXIFS, MINIFS or GETPIVOTDATA match on. Its final is a GROUP BY of the Table it reads, its typed rows kept,
   written into the Hive and named in the map, since a later day or team won't be in the
   table; it keeps the summary Table's own name.
 - **R2** A Total Row's final has a column for each Total Row cell holding a total, no other.
@@ -104,8 +105,8 @@ Reply with these parts, in this order, and nothing else:
 ### W1: a lookup into a typed Table
 
 Table jobs (job_id, job_name), typed. Table job_runs (run_id, job_id, duration_mins) adds
-job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs (its
-typed columns). Finals job_runs (run_id, job_id, duration_mins, job_name).
+job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs. Finals
+job_runs.
 
 ```sql
 SELECT r.run_id, r.job_id, r.duration_mins, j.job_name

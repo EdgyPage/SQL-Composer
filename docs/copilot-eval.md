@@ -98,7 +98,7 @@ asks a model only the tasks whose text changed. A reply's key is:
 - the model, `copilot-web` for Copilot's web chat;
 - the hash of exactly the text the task loads before the prompt: nothing in A0, the README's
   opening in A1, the task's objective file in C, file 00 and the file the reply names in R, and
-  files 15, 11, 12 and 20 for an Excel task in C.
+  the Excel files for an Excel task in C.
 
 Dev and held-out tasks are kept alike. A held-out task is asked once per version of the text
 it loads (an edit to another file leaves it), and `--fresh` doesn't ask it again. Each memo file
@@ -189,16 +189,18 @@ create, write and compare included, runs to the end. It is correct when it leave
 files as the reference's cells, each with the same text, under tables/, the Workflow's own
 folder and references/, and its warehouse holds the same tables with the same rows.
 
-## The Excel tasks: Copilot files 15, 11, 12 and 20
+## The Excel tasks: the Excel files
 
-Files 15, 11, 12 and 20 are measured the same way, on its own tasks and scorer
-(`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 124 filled-in Formula workbooks, 62 dev
+The Excel files are Copilot files 15, 11 and 12 and, for a workbook with a PivotTable, file
+20, as `excel_eval.files_of` gives them. They are measured the same way, on their own tasks and
+scorer (`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 124 filled-in Formula workbooks, 62 dev
 and 62 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
 itself. The steps above run with `excel_eval.py` in place of `copilot_eval.py`, arms `A0` and
 `C`, `--tasks X01,X02,...` in place of `--objective`, and a proxy given five workbooks at most,
 as a person gives one to a fresh chat: a proxy given all 62 reads its message in pieces and
-cuts its replies short. Arm C loads files 15, 11, 12 and 20, so a held-out task in arm C is asked
-once per version of those four.
+cuts its replies short. Arm C loads each task's Excel files, so a held-out task in arm C is asked
+once per version of them, and a task with no PivotTable is unchanged by file 20. Each proxy is
+given tasks that load the same files.
 
 **The pivot tasks** (Toolbox 8.9), X85 to X124, hold PivotTables saved as Excel saves them:
 X85 to X104 dev, X105 to X124 held out, written before Copilot file 20. Each case the 8.9 map
@@ -265,7 +267,7 @@ By hand:
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
 Table's and pivot's rows, it says which Tables are the sources and which the finals, it names
 what the task refuses, marks or leaves alone, it marks each Pivot filter, and it invents no
-name. Files 15, 11, 12 and 20 ask for no
+name. The Excel files ask for no
 Toolbox code: the convert Workflow writes it from the Hive, checked; a reply that has some
 still has it scored apart.
 

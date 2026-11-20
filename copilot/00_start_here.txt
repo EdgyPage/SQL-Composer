@@ -44,8 +44,8 @@ write that Python, so you can ask it in plain words.
   Scheduled run's own value of it: 18.
 - **R5** Your chatbot's Hive (file 19's end): as Toolbox code, 07; as a Saved table, saved
   as a .hql file, 14.
-- **R6** For an Excel workbook, attach files 15, 11 and 12, and 20 if it has a PivotTable
-  (or paste each as a message), then the workbook: a chat holds one file, but for this task.
+- **R6** A workbook is the one task with several files in a chat: attach files 15, 11 and
+  12, and 20 if it has a PivotTable (or paste each as a message), then the workbook.
 - **R7** Two tasks: a new chat for each, with each task's file.
 - **R8** One file each: a request that ends "and run it with my query", or reads "using my
   Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
