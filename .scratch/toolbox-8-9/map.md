@@ -297,6 +297,14 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   `tests/repo/test_lean_hive.py` reads every SQL piece in `docs/`, `copilot/`, the Example
   projects, the workbook finals and the tasks' references. Files 01 to 12 and 15 changed: a
   Copilot round for 01 to 10, and ticket 14's for 11, 12, 15. Merged 2026-11-19.
+- [07 convert reads a workbook](issues/07-convert-reads-a-workbook.md): `project.convert(files=[...])`
+  takes an `.xlsx` beside `.hql`; each final's Hive kept in `scripts/` and converted as any
+  batch's; each map note in its table's checklist with its rule, the Copilot file explaining it
+  and a "Next:"; the proposed name a Decision (the user, 2026-11-19), the `NAME` kind,
+  answering it renames the table through `project.rename_converted_tables`; a plain range's
+  table the `SOURCES` kind; `written.json`'s `"workbook_finals"` (`final_origins_of_batch`) for
+  ticket 09; Pivot filter records in `pivot_filters.py`, both paths, a Copilot `.hql` named for
+  a final taking `field_values` from the workbook in its batch. Merged 2026-11-19 (cedec7f3).
 
 ## Not yet specified
 
