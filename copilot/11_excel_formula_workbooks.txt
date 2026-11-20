@@ -5,8 +5,8 @@ Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply), file 12 (Power Query and totals) and, for a
-PivotTable, file 20.
+file 15 (the steps, the map and the reply), 12 (Power Query), 23 (totals) and, for a
+PivotTable, 20.
 
 ## Patterns: when the formula has X, look up Y
 

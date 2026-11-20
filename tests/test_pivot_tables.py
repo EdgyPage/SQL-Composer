@@ -518,6 +518,21 @@ def test_a_data_model_pivot_counts_distinct_values_through_its_connection(
     assert [finding.name for finding in found] == ["xl/connections.xml"]
 
 
+
+def test_a_renamed_data_model_value_keeps_the_measure_excel_made_named_as_excel_names_it(
+        ) -> None:
+    # Renaming a value in a Data Model pivot renames its data field, the pivot's caption, but
+    # not the implicit measure Excel made for it, whose name says its summary.
+    workbook = saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("dt",), (Value("job_id", "distinctCount", name="jobs"),),
+              data_model=True),)))
+    cache = part(workbook, "xl/pivotCache/pivotCacheDefinition1.xml")
+    assert 'name="[Measures].[Distinct Count of job_id]"' in cache
+    assert 'uniqueName="[Measures].[Distinct Count of job_id]"' in cache
+    assert "jobs" not in cache
+    assert '<dataField name="jobs"' in part(workbook, "xl/pivotTables/pivotTable1.xml")
+    assert column(cells(workbook), "B") == ["jobs", 3, 3, 3]
+
 # --- What the tool refuses ------------------------------------------------------------------
 
 

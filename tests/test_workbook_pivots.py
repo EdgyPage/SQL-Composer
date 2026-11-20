@@ -192,6 +192,13 @@ def test_a_data_model_measure_excel_didnt_make_is_a_dax_measure(
     assert (value.summary, value.field) == ("DAX measure", "Jobs run")
 
 
+
+def test_a_renamed_data_model_value_is_its_measures_summary_under_its_own_caption() -> None:
+    workbook = workbook_reader.read_workbook(saved(FormulaWorkbook((runs_table(),), pivots=(
+        Pivot("job_runs", ("status",), (Value("job_id", "distinctCount", name="jobs"),),
+              data_model=True),))))
+    assert pivot_of(workbook).values == [PivotValue("jobs", "job_id", "Distinct Count")]
+
 # --- Fields, values and their summaries -----------------------------------------------------
 
 

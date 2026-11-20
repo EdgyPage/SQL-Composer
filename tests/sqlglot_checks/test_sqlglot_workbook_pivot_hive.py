@@ -31,7 +31,7 @@ from sqlglot import exp
 
 from sqlglot_composer import workbook_hive, workbook_pivot_hive
 from sqlglot_composer.workbook_check import FinalHive, check_workbook
-from sqlglot_composer.workbook_formulas import MARK, REFUSED, Book, Note
+from sqlglot_composer.workbook_formulas import MARK, REFUSED, WRITTEN_IN, Book, Note
 from sqlglot_composer.workbook_pivot_hive import (
     HIDDEN_ITEMS,
     REPORT_FILTER,
@@ -421,11 +421,24 @@ def test_pc2_a_ratio_item_is_the_ratio_of_the_conditional_sums(
     book = fixture("10_pivot_calculated_item_rank")
     book.pivot_tables[0].fields["status"].calculated_items = {"rate": "SUCCESS/FAILED"}
     check(book, "PivotTable1",
-          "SELECT status, SUM(duration_mins) AS sum_of_duration_mins, SUM(SUM(CASE WHEN "
-          "status = 'SUCCESS' THEN duration_mins END)) OVER () / SUM(SUM(CASE WHEN status = "
-          "'FAILED' THEN duration_mins END)) OVER () AS rate FROM db.job_runs GROUP BY status")
+          "SELECT status, SUM(duration_mins) AS sum_of_duration_mins, COALESCE(SUM(SUM(CASE "
+          "WHEN status = 'SUCCESS' THEN duration_mins END)) OVER (), 0) / COALESCE(SUM(SUM("
+          "CASE WHEN status = 'FAILED' THEN duration_mins END)) OVER (), 0) AS rate FROM "
+          "db.job_runs GROUP BY status")
     final = workbook_hive.workbook_hive(book, database="ops").finals["PivotTable1"]
     assert {row["rate"] for row in run(stand_in, final)} == {110 / 50}
+
+
+def test_pc2_an_item_with_no_rows_in_a_group_is_0_in_the_formula_as_excel_reads_it(
+        stand_in: sqlite3.Connection) -> None:
+    # Job 1 never FAILED: Excel's FAILED/(SUCCESS+FAILED) is 0 there, not a blank.
+    book = read_workbook(saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("job_id",), (MINS,), columns=("status",), calculated_items=(
+            ("status", "failed_share", "FAILED/(SUCCESS+FAILED)"),)),))))
+    final = workbook_hive.workbook_hive(book, database="ops").finals["PivotTable1"]
+    found = {row["job_id"]: row["failed_share"] for row in run(stand_in, final)}
+    assert found[1] == 0
+    assert found[2] == 20 / (18 + 20)
 
 
 def test_pc3_at_a_total_without_its_field_the_item_is_added_in_and_marked() -> None:
@@ -532,6 +545,23 @@ def test_pf5_a_top_or_bottom_value_filter_keeps_the_items_a_rank_window_keeps(
             f"item_rank <= {count}) /* Pivot filter: value filter job_id */ GROUP BY job_id")
 
 
+def test_pf5_a_blank_item_the_value_filter_shows_is_kept_with_is_null(
+        stand_in: sqlite3.Connection) -> None:
+    # The Bottom 2 statuses by minutes are TEST (5) and the blank (15): as the pivot was last
+    # saved, its (blank) row shown, which `f IN` alone drops, as NULL is in no list.
+    book = read_workbook(saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("status",), (MINS,), top=Top("status", 2, bottom=True)),))))
+    final = workbook_hive.workbook_hive(book, database="ops").finals["PivotTable1"]
+    assert "status IS NULL OR status IN (SELECT" in sql_text(final)
+    assert {row["status"] for row in run(stand_in, final)} == {"TEST", None}
+    # Where the pivot shows no blank, `f IN` alone.
+    book = read_workbook(saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("status",), (MINS,), top=Top("status", 2)),))))
+    final = workbook_hive.workbook_hive(book, database="ops").finals["PivotTable1"]
+    assert "IS NULL" not in sql_text(final)
+    assert {row["status"] for row in run(stand_in, final)} == {"SUCCESS", "FAILED"}
+
+
 @pytest.mark.parametrize(("name", "marks"), [
     ("05_pivot_slicer_two_pivots", {"PivotTable1": ["slicer status"],
                                     "runs_by_day": ["slicer status"]}),
@@ -601,15 +631,16 @@ def test_a_value_filter_is_written_with_what_it_ranks_by(built: dict[str, Workbo
 
 def test_pg1_getpivotdata_is_a_left_join_on_the_pivot_as_a_cte(
         built: dict[str, Workbook], stand_in: sqlite3.Connection) -> None:
+    # job_mins's typed job_ids are its summary's groups, written in (file 15's R1).
     book = copy.deepcopy(built["getpivotdata"])
     check(book, "job_mins",
           "WITH PivotTable1 AS (SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins "
           "FROM db.job_runs GROUP BY job_id) SELECT m.job_id, p.sum_of_duration_mins AS mins "
-          "FROM db.job_mins AS m LEFT JOIN PivotTable1 AS p ON m.job_id = p.job_id")
+          "FROM (SELECT 1 AS job_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) "
+          "AS m LEFT JOIN PivotTable1 AS p ON m.job_id = p.job_id")
     assert ("PG1", "job_mins[mins]", "GETPIVOTDATA: NULL where its pivot has no such value, "
             "where Excel shows #REF!") in notes_of(book, MARK)
     final = workbook_hive.workbook_hive(book, database="ops").finals["job_mins"]
-    final = final.transform(_job_mins_as_jobs)
     found = {row["job_id"]: row["mins"] for row in run(stand_in, final)}
     stored = {cell.row.items[0][1]: cell.stored for cell in book.pivot_tables[0].cells
               if cell.row.items}
@@ -627,12 +658,21 @@ def mins_column(book: Workbook) -> Column:
     raise KeyError("job_mins")
 
 
-def _job_mins_as_jobs(node: exp.Expression) -> exp.Expression:
-    """The Table job_mins's typed rows are the Example database's jobs'."""
-    if isinstance(node, exp.Table) and node.name == "job_mins":
-        return exp.Table(this=exp.Identifier(this="jobs"), db=node.args["db"].copy(),
-                         alias=node.args.get("alias"))
-    return node
+def test_r1_a_table_typed_only_in_what_its_getpivotdata_matches_on_is_a_summary(
+        built: dict[str, Workbook]) -> None:
+    # job_mins's only typed column is the job_id its GETPIVOTDATA matches on: a summary, its
+    # groups written in and named, never read as a table of the database (X102's team_report).
+    book = copy.deepcopy(built["getpivotdata"])
+    roles = workbook_hive.piece_roles(book)
+    assert roles[Piece(EXCEL_TABLE, "job_mins")] == workbook_hive.SUMMARY_FINAL
+    assert "db.job_mins" not in finals_of(book)["job_mins"]
+    assert ("R1", "job_mins", "its groups, job_id 1, 2, 3 and 4: a later one won't be in the "
+            "table") in notes_of(book, WRITTEN_IN)
+    # A typed column it doesn't match on makes it no summary: the Table is read.
+    table = next(table for sheet in book.sheets for table in sheet.tables
+                 if table.name == "job_mins")
+    table.columns.append(dataclasses.replace(table.columns[0], header="job_name"))
+    assert "FROM db.job_mins AS m" in finals_of(book)["job_mins"]
 
 
 def test_pg2_getpivotdata_naming_fewer_fields_reads_a_total_level(
@@ -684,15 +724,19 @@ def test_ps1_never_its_cells_typed_in_never_a_cte_named_for_the_table_it_reads(
     # File 20's PS1 (ticket 11, from ticket 10's baseline misses): a pivot's rows are read from
     # its source, never typed in (no VALUES, no SELECT without a FROM but PV8's grand total of
     # NULLs alone), and no CTE reads a table of its own name as itself, the "circular
-    # reference" a step Table's CTE avoids by reading `<database>.<table>`.
+    # reference" a step Table's CTE avoids by reading `<database>.<table>`. A summary's groups
+    # are the one set of rows file 15 writes in (R1, C4).
     books = [fixture(name) for name in ROW_FIXTURES] + list(built.values())
     for book in books:
+        summaries = {piece.name for piece, role in workbook_hive.piece_roles(book).items()
+                     if role == workbook_hive.SUMMARY_FINAL}
         for name, tree in workbook_hive.workbook_hive(book, database="db").finals.items():
             assert not list(tree.find_all(exp.Values)), name
             for select in tree.find_all(exp.Select):
                 values = [column.unalias() for column in select.expressions]
+                written_in = (exp.Null, exp.Literal) if name in summaries else (exp.Null,)
                 assert select.args.get("from_") or all(
-                    isinstance(value, exp.Null) for value in values), name
+                    isinstance(value, written_in) for value in values), name
             for cte in tree.find_all(exp.CTE):
                 read = {table.name for table in cte.this.find_all(exp.Table) if not table.db}
                 assert cte.alias not in read, name

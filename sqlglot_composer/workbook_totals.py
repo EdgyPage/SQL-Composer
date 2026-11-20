@@ -1,4 +1,4 @@
-"""A Formula workbook's whole-column totals and Total Rows written as Hive, by Copilot file 12's
+"""A Formula workbook's whole-column totals and Total Rows written as Hive, by Copilot file 23's
 rules T1 to T4 (Toolbox 8.9, ticket 05; ADR 0016).
 
 `WHOLE_COLUMN_FUNCTIONS` writes a formula's total of a whole column, `SUM(t[v])`, as a window

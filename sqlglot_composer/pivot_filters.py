@@ -1,6 +1,6 @@
 """Pivot filters, as a Conversion keeps them for their Decision (Toolbox 8.9, ticket 07).
 
-A Pivot filter's condition carries the mark Copilot file 20 has Copilot write above it,
+A Pivot filter's condition carries the mark Copilot file 24 has Copilot write above it,
 `-- Pivot filter: <kind> <field>`, and that the code path writes after it, `/* Pivot filter:
 <kind> <field> */`. `pivot_filters_in` reads either into the record the workbook's Pivot
 filters give, `workbook_pivot_hive.ConvertedPivotFilter`, so both paths reach one Decision

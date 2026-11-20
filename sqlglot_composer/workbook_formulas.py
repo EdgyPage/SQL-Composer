@@ -12,7 +12,7 @@ formula column by its rule, and each lookup and total it needs as a join.
 
 `workbook_hive.py` gives each piece its role and puts each final together from these. Each
 function a formula calls is written by its entry in the Book's `functions`, which starts as
-`FUNCTIONS` here: a file adding more (file 12's whole-column totals, GETPIVOTDATA) gives its
+`FUNCTIONS` here: a file adding more (file 23's whole-column totals, GETPIVOTDATA) gives its
 own entries, which `workbook_hive.py` puts beside these.
 """
 
@@ -92,7 +92,7 @@ NAMED_REFUSALS = {
     "LET": "LET names values inside a formula, which file 11 doesn't list",
 }
 # The -IF(S) forms (file 11's F9), each by the aggregate it is.
-# Excel's aggregates, each as Hive's: the one table file 11's -IF(S) forms and file 12's
+# Excel's aggregates, each as Hive's: the one table file 11's -IF(S) forms and file 23's
 # whole-column totals (T1) and Total Rows (T2) read.
 EXCEL_AGGREGATES = {"SUM": "SUM", "AVERAGE": "AVG", "COUNT": "COUNT", "COUNTA": "COUNT",
                     "MIN": "MIN", "MAX": "MAX", "STDEV.S": "STDDEV_SAMP", "VAR.S": "VAR_SAMP"}
@@ -1007,7 +1007,7 @@ def _isblank_hive(call: Call, place: Place) -> exp.Expression:
 
 def _least_or_greatest(call: Call, place: Place) -> exp.Expression:
     """MIN(a, b) and MAX(a, b) of one row's cells: LEAST and GREATEST (F4). A whole column's
-    is file 12's T1."""
+    is file 23's T1."""
     parts = call_arguments(call, 1, 255)
     if len(parts) < 2 or any(isinstance(part, WholeColumn) for part in parts):
         raise Refused("T1", f"{call.name} of one value, or of a whole column beside other "
@@ -1758,7 +1758,7 @@ def _sumproduct_hive(call: Call, place: Place) -> exp.Expression:
     """SUMPRODUCT over conditions, its arguments multiplied: `*` is AND, `+` OR where both
     can't hold, or written `((..)+(..)>0)`; with a column to add `SUM(CASE WHEN .. THEN v ELSE
     0 END)`, with none `COUNT(CASE WHEN .. THEN 1 END)`; over its own Table `.. OVER ()`, over
-    another a CROSS JOIN of its total (I3). Of whole columns alone, file 12's T1."""
+    another a CROSS JOIN of its total (I3). Of whole columns alone, file 23's T1."""
     factors = []
     for product in call_arguments(call, 1, 255):
         factors += _multiplied(product)
@@ -1855,7 +1855,7 @@ FUNCTIONS: dict[str, Callable[[Call, Place], exp.Expression]] = {
 
 def summary_matches(table: Table) -> set[str]:
     """Each column of `table`, in lower case, that an -IF(S) form of its formulas over another
-    Table matches on with this row's value (file 15's P4)."""
+    Table, or a GETPIVOTDATA, matches on with this row's value (file 15's P4 and R1)."""
     found: set[str] = set()
     for column in table.columns:
         formulas = [cell for cell in column.cells if is_formula(cell)]
@@ -1868,7 +1868,16 @@ def summary_matches(table: Table) -> set[str]:
         for part in parts:
             if isinstance(part, Call) and part.name in IFS_FORMS:
                 found |= _matched_on(part, table)
+            elif isinstance(part, Call) and part.name == "GETPIVOTDATA":
+                found |= _items_matched_on(part, table)
     return found
+
+
+def _items_matched_on(call: Call, table: Table) -> set[str]:
+    """The columns of `table` a GETPIVOTDATA names its items by, this row's value of each,
+    `"team", [@team]`: each pair after its value and its cell."""
+    return {item.column.lower() for item in call.args[3::2]
+            if isinstance(item, ThisRow) and item.table.lower() in ("", table.name.lower())}
 
 
 def _matched_on(call: Call, table: Table) -> set[str]:

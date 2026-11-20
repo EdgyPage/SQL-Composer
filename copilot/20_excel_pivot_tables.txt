@@ -5,7 +5,8 @@ in Patterns, then write the Hive its rule gives.**
 
 Objective: write each PivotTable of an Excel workbook as the Hive giving the values it shows.
 Load this file when the workbook attached has a `PivotTable "name"`, with file 15 (the steps,
-the map and the reply), file 11 (formulas) and file 12 (Power Query).
+the map and the reply), file 11 (formulas), file 12 (Power Query), for a total file 23, and
+for a Pivot filter file 24.
 
 ## Patterns: when the PivotTable has X, look up Y
 
@@ -16,7 +17,7 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
 | P3 | a Value, Show Values As, a Calculated Field | PV1 to PV8 |
 | P4 | a Calculated Item | PC1 to PC3 |
 | P5 | Totals shown | PL1, PL2 |
-| P6 | Filter, Items hidden, Slicer, Timeline, Value Filter | PF1 to PF5 |
+| P6 | Filter, Items hidden, Slicer, Timeline, Value Filter | file 24 |
 | P7 | GETPIVOTDATA in a Table's formula | PG1, PG2 |
 | P8 | DAX, OLAP, Show items with no data | PX1 to PX7 |
 
@@ -25,10 +26,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
 - **Total level**: each total `Totals shown:` lists. **Calculated Field**: a Value worked out
   from fields; **Calculated Item**: an item worked out from a field's items. **Show Values
   As**: a Value shown against others, its **base field** (and item) what it is shown against.
-- **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
-  **slicer** (a box of a field's items, on each pivot connected to it), a **Timeline** (the
-  same of dates), a value filter (Top or Bottom). **A Decision in convert**: a question
-  convert's notebook asks you.
+- **Pivot filter**: a Report filter, hidden items, a slicer, a Timeline or a value filter
+  (file 24). **A Decision in convert**: a question convert's notebook asks you.
 
 ## Rules: source, name and rows
 
@@ -65,7 +64,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
 - **PV4** % of Grand, Row or Column Total: SUM(x) / SUM(SUM(x)) OVER (), or PARTITION BY the
   level's Row fields, or Column fields.
 - **PV5** Running Total In b: SUM(SUM(x)) OVER (PARTITION BY the other fields ORDER BY b ROWS
-  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW); a grouped b by MIN of its column.
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW); a grouped b by MIN of its column. Text items
+  A to Z whatever their case, a blank last: ORDER BY LOWER(b) NULLS LAST.
 - **PV6** Difference From, % Of, % Difference From item i of b: i's value is MAX(CASE WHEN b
   = i THEN SUM(x) END) OVER (PARTITION BY the other fields); a difference NULL on i's row.
 - **PV7** Rank Largest to Smallest: RANK() OVER (PARTITION BY the other fields ORDER BY
@@ -77,11 +77,12 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   rows, SUM(SUM(CASE WHEN status IN ('SUCCESS', 'FAILED') THEN x END)) OVER (PARTITION BY
   the row's other fields) AS done.
   - If there are several Values: a column each, `<item>_<value>`.
-- **PC2** Any other, as a ratio: its formula over each item's own such sum.
+- **PC2** Any other, as a ratio: its formula over each item's own such sum, each
+  COALESCE(.., 0), as Excel reads an item with no rows as 0.
 - **PC3** At a total level not grouped by its field, Excel adds it into each total: SUM(x) +
   COALESCE(SUM(CASE WHEN status IN (..) THEN x END), 0); mark "added into the total".
 
-## Rules: totals and Pivot filters
+## Rules: totals
 
 - **PL1** **Each total level shown is a final of its own**, reading the source again: the
   Grand Total row grouped by the Column fields alone, the Grand Total column by the Row
@@ -89,18 +90,6 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   named `<pivot> (by <fields>)`, joined by "and", or `<pivot> (grand total)`. Never a total
   row or ROLLUP in its own final.
 - **PL2** Totals shown: none: its own final alone. Subtotals of functions chosen: refused.
-- **PF1** A Report filter: f = x, f IN (..), a blank f IS NULL; (All): none.
-- **PF2** Items hidden on f: f <> x, or NOT f IN (..).
-  - If f's blank item is kept: `f IS NULL OR` before it.
-  - If f's blank item is hidden: `NOT f IS NULL AND` before it.
-- **PF3** A slicer, on each pivot it is connected to: f IN (..); none if it keeps all.
-- **PF4** A Timeline: d BETWEEN 'start' AND 'end', on the date column itself.
-- **PF5** Top or Bottom n on the outer field: f IN (SELECT f FROM (SELECT f, RANK() OVER
-  (ORDER BY SUM(x) DESC) AS item_rank FROM the source WHERE the other filters GROUP BY f) r
-  WHERE item_rank <= n); Bottom ASC. Its second read stays.
-- Each goes in the WHERE of the source's read, at every level. **On the line above each
-  condition, write `-- Pivot filter: <kind> <field>`** (in a CASE, before its WHEN), its kind
-  Report filter, hidden items, slicer, Timeline or value filter; and in the map's Marks.
 
 ## Rules: GETPIVOTDATA, and refused
 
@@ -158,5 +147,4 @@ status = 'SUCCESS'
 
 - [ ] **C1** Each pivot is a step GETPIVOTDATA reads (PG1), or a final with a block for each
   total level shown (PL1), none a column per item (PR2).
-- [ ] **C2** Each Pivot filter's condition has its `-- Pivot filter:` line, in each block.
-- [ ] **C3** The map's Marks name each PR2, PN2, PV8, PC3, PG1 and Pivot filter.
+- [ ] **C2** The map's Marks name each PR2, PN2, PV8, PC3, PG1 and Pivot filter.

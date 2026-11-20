@@ -92,11 +92,12 @@ NEXT_STEPS = {
     TO_FILL_IN: "write the database's name in its place",
 }
 # The Copilot file each rule's ID is explained in, by its first letters: a rule M or X is in
-# file 11 for a formula, and in file 12 for a Power Query.
-RULE_FILES = (("PR", "20"), ("PV", "20"), ("PC", "20"), ("PL", "20"), ("PF", "20"),
+# file 11 for a formula, and in file 12 for a Power Query; a total's (T) in file 23 and a Pivot
+# filter's (PF) in file 24, split out of files 12 and 20 to fit (Toolbox 8.9, ticket 14).
+RULE_FILES = (("PR", "20"), ("PV", "20"), ("PC", "20"), ("PL", "20"), ("PF", "24"),
               ("PG", "20"), ("PS", "20"), ("PN", "20"), ("PX", "20"), ("P", "15"),
               ("R", "15"), ("W", "15"), ("N", "11"), ("F", "11"), ("I", "11"), ("V", "11"),
-              ("Q", "12"), ("G", "12"), ("S", "12"), ("T", "12"), ("M", "11 or 12"),
+              ("Q", "12"), ("G", "12"), ("S", "12"), ("T", "23"), ("M", "11 or 12"),
               ("X", "11 or 12"))
 # A note's place, such as `Power Query "ok_runs"`, and its column after it, such as `[hours]`.
 _PLACE_NAMED = re.compile(r'[A-Za-z ]+ "(?P<name>.*)"')

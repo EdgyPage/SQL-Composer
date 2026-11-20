@@ -10,15 +10,17 @@ A user loads one Copilot file into Microsoft Copilot's web chat before asking it
 code: one file for each objective, such as building a Statement or converting Hive, and
 `00_start_here.txt`, which says which to load. For an Excel workbook they load three:
 `15_excel_workbook_steps.txt` with `11_excel_formula_workbooks.txt` and
-`12_excel_power_query.txt`, which write Hive, no Toolbox code. Each file keeps to 9,000
-characters, so it goes to Copilot in one message, as `copilot/count_characters.py` counts
-them, spaces and line breaks included; this refuses to write one that doesn't.
+`12_excel_power_query.txt`, which write Hive, no Toolbox code; and `23_excel_totals.txt` for
+a total, `20_excel_pivot_tables.txt` for a PivotTable and `24_excel_pivot_filters.txt` for
+its Pivot filters. Each file keeps to 9,000 characters, so it goes to Copilot in one message,
+as `copilot/count_characters.py` counts them, spaces and line breaks included; this refuses
+to write one that doesn't.
 
 A source is the file's text, with five kinds of placeholder, each on a line of its own:
 
 - `{version}`: the Toolbox's name and version, from its version.txt;
 - `{always}`: the block each objective file holds, `tools/copilot_sources/_always.txt`, all
-  but files 11, 12 and 15, which write Hive, not Toolbox code, and 13,
+  but the Excel files (11, 12, 15, 20, 23, 24), which write Hive, not Toolbox code, and 13,
   which gives steps and leaves each step's code to its own file;
 - `{lean}`: rule A11, Hive that stays small (Toolbox 8.9, ticket 17),
   `tools/copilot_sources/_lean.txt`, after `{always}` in each objective file it fits; a file
