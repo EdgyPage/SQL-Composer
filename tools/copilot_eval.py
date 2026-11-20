@@ -22,9 +22,9 @@ answers file in place of a round. `docs/copilot-eval.md` has the steps.
 
 Each reply is kept in the memo, `.eval-local/memo/` (`tools/eval_runs.py`), by its task's id
 and text, its arm, its model and the hash of exactly the text the task loads: the task's
-objective file in arm C, with the files it is loaded with (`files_of`), file 00 and the file
-the reply names in arm R. A held-out task is asked once per version of that text. Nothing of a
-round is tracked: git ignores `.eval-local/`.
+objective file in arm C, with the files it is loaded with (`objective_files`), file 00 and
+the file the reply names in arm R. A held-out task is asked once per version of that text.
+Nothing of a round is tracked: git ignores `.eval-local/`.
 
 An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
 Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
@@ -277,13 +277,13 @@ ARMS = {
     "C": "the Copilot file for the task's objective, and the files it is loaded with",
     "R": "copilot/00_start_here.txt, which says which file to load",
 }
-# The files an objective's Copilot file is loaded with, as file 00's Index loads them: file 21
-# grows a converted PivotTable with the Toolbox functions files 03, 05 and 06 teach (Toolbox
-# 8.9).
-LOADED_WITH = {"21": ("03", "05", "06")}
+# The files an objective's Copilot file is loaded with, as file 00's Index loads them (Toolbox
+# 8.9): file 21 adds to a converted PivotTable with the functions files 03, 05 and 06 teach,
+# and file 22 answers its Pivot filters with those of files 06 and 17.
+LOADED_WITH = {"21": ("03", "05", "06"), "22": ("06", "17")}
 
 
-def files_of(objective: str) -> tuple[str, ...]:
+def objective_files(objective: str) -> tuple[str, ...]:
     """The numbers of the Copilot files an objective's task loads in arm C: its own file
     first, then those LOADED_WITH names for it."""
     return (objective, *LOADED_WITH.get(objective, ()))
@@ -316,7 +316,7 @@ def shared_text(arm: str, objective: str | None) -> str | None:
         return file_text("00")
     if objective is None:
         raise ValueError("arm C loads the files of one objective: name it")
-    return "\n\n".join(file_text(number) for number in files_of(objective))
+    return "\n\n".join(file_text(number) for number in objective_files(objective))
 
 
 def proxy_message(arm: str, tasks: list[Task]) -> str:
@@ -342,7 +342,7 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
         ask = ("Each task below is a separate request the user sends next. Answer each as you "
                "would in that chat: reply with its `## T..` heading, then your answer, with "
                "the code in a ```python block.")
-        if arm == "C" and len(files_of(objective)) > 1:
+        if arm == "C" and len(objective_files(objective)) > 1:
             ask += (" End each answer with a line `Used: ` and the ids of the files' "
                     "patterns, rules and worked patterns you followed, each with its file's "
                     f"number, such as `Used: {objective}:R3, 05:W2`, or `Used: none`.")
@@ -401,7 +401,8 @@ def files_loaded(arm: str, task_id: str) -> dict[str, str]:
     followed)."""
     if arm != "C":
         return {}
-    return {number: file_text(number) for number in files_of(BY_ID[task_id].objective)}
+    objective = BY_ID[task_id].objective
+    return {number: file_text(number) for number in objective_files(objective)}
 
 
 # --- Arm R: routing, scored by script --------------------------------------------------------
@@ -411,16 +412,22 @@ INDEX_ROW = re.compile(r"^\| (P\d+) \|.*\| ([\d, ]+) \|\s*$", re.MULTILINE)
 
 
 def index_loads(start_here: str) -> dict[str, set[str]]:
-    """What file 00's Index lets a task of each objective load: the files of every row whose
-    Load column names the objective's file first, a row's other files being those it is
-    loaded with, as 21's are 03, 05 and 06, which a task of 03 never needs 21 for; and each
-    file the Index names, itself."""
+    """What file 00's Index lets a task of each objective load.
+
+    Each row lets a task of each file it names load every file it names. A file that some
+    row names first is an objective of its own, and a row naming it later only loads it
+    beside that row's first file: so a task of 03 may load only 03, though row P19 loads 21
+    with 03, 05 and 06. A task of 11 or 20 may load 15, 11, 12 and 20, as no row names 11 or
+    20 first."""
+    rows = [re.findall(r"\d\d", load) for _, load in INDEX_ROW.findall(start_here)]
+    firsts = {row[0] for row in rows}
     allowed: dict[str, set[str]] = {}
-    for _, load in INDEX_ROW.findall(start_here):
-        first, *loaded_with = re.findall(r"\d\d", load)
-        allowed.setdefault(first, set()).update([first, *loaded_with])
-        for number in loaded_with:
-            allowed.setdefault(number, set()).add(number)
+    for row in rows:
+        for number in row:
+            if number == row[0] or number not in firsts:
+                allowed.setdefault(number, set()).update(row)
+            else:
+                allowed.setdefault(number, set()).add(number)
     return allowed
 
 

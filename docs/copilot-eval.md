@@ -27,7 +27,7 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
        .venv/Scripts/python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
 
    The arm is `C` (the task's objective file, with the files it is loaded with: 03, 05 and 06
-   for 21), `R` (routing: which file to load from file 00),
+   for 21, 06 and 17 for 22), `R` (routing: which file to load from file 00),
    `A0` (nothing) or `A1` (the README's opening); `--split` is `dev`, `held_out` or `all`, and
    `--objective` is one of the files' numbers. The plan says of each task `ask:` and why (no
    reply kept, its text changed, the text it loads changed, or `--fresh`), or `from the
@@ -84,9 +84,10 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
 Arm R scores routing and nothing else: each proxy replies with a file name per task, and `score`
 gives, per task and in total, two rates, both with no model. **Strict**: the reply names one
 file, and it is the task's objective's file, as the rules the proxy was asked under say. **By
-the Index**: the first file it names is one a row of file 00's Index loads that names that
-objective's file first (a row's other files are those it is loaded with), read from the Index
-as it is now, so an edit to the Index changes the score. A reply naming file 00,
+the Index**: the first file it names is one a row of file 00's Index naming that objective's
+file loads. A file some row names first is an objective of its own, and a row naming it later
+loads it only for that row's first file: a task of 03 never passes by naming 21. It is read
+from the Index as it is now, so an edit to the Index changes the score. A reply naming file 00,
 a file that doesn't exist, or none, fails both. Its results row is `| date | files | model | R |
 split | replies | strict | index | from the memo |`.
 
@@ -160,8 +161,9 @@ cap. A plan never asks a task again whose key is unchanged, and says `from the m
    - **A1, before the files.** Paste the README's opening, as `copilot_eval.py batch A1 ...`
      writes it in a message file, as the first message and send it. Then send the task's prompt.
    - **C, with the file.** Paste the task's objective file (the task's heading names its
-     id; `copilot_eval_tasks.py` gives its objective, `01` to `10`, `13`, `14`, `16`, `17` or
-     `21`; the file is `copilot/<objective>_*.txt`, and for `21` files 03, 05 and 06 after it)
+     id; `copilot_eval_tasks.py` gives its objective, `01` to `10`, `13`, `14`, `16`, `17`,
+     `21` or `22`; the file is `copilot/<objective>_*.txt`, and after it files 03, 05 and 06
+     for `21`, 06 and 17 for `22`)
      as the first message, or attach it, and send it. Then
      send the task's prompt.
    - **R, routing.** Send `copilot/00_start_here.txt`, then ask which file to load for the
@@ -196,7 +198,7 @@ folder and references/, and its warehouse holds the same tables with the same ro
 ## The Excel tasks: the Excel files
 
 The Excel files are Copilot files 15, 11 and 12 and, for a workbook with a PivotTable, file
-20, as `excel_eval.files_of` gives them. They are measured the same way, on their own tasks and
+20, as `excel_eval.workbook_files` gives them. They are measured the same way, on their own tasks and
 scorer (`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 124 filled-in Formula workbooks, 62 dev
 and 62 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
 itself. The steps above run with `excel_eval.py` in place of `copilot_eval.py`, arms `A0` and

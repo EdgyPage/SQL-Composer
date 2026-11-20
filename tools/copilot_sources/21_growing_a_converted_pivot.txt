@@ -3,10 +3,11 @@
 **Find the request in Patterns, copy the rule or worked pattern it names, change only the
 tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: grow a table convert made from a PivotTable, in its Table notebook: add-ons, a
-Pivot filter's Decision, and pivots differing only in their filter made one table.
+Objective: add to a table convert made from a PivotTable, in its Table notebook: Show
+Values As, a Calculated Field, a grouping, the wide shape, every total in one Statement.
 Load this file when a user's table came from a PivotTable and they want more from it, with
-files 03 (Statements), 05 (windows) and 06 (saving a table), whose functions it uses.
+files 03 (Statements), 05 (windows and subtotals) and 06 (saving a table), whose functions
+and rules A1 to A10 it uses. Its Pivot filters and one table of two pivots: file 22.
 
 ## Patterns: when the user says X, do Y
 
@@ -14,100 +15,75 @@ files 03 (Statements), 05 (windows) and 06 (saving a table), whose functions it 
 |---|---|---|---|
 | P1 | "% of the total", "share of each day" | a Window over a Derived table | W1 |
 | P2 | "running total", "so far" | `rows=(None, 0)` | R4 |
-| P3 | "rank", "top job of each day" | `rank(over=window(...))` | R5 |
+| P3 | "rank", "top job of each day" | `rank(over=window(...))` | W1 |
 | P4 | "hours from minutes", "a ratio" | the formula over the sums | R6 |
-| P5 | "by month", "by week" | `month_start(t.dt)` | R7 |
+| P5 | "by month", "by week" | `month_start(t.dt)` | W2 |
 | P6 | "wide, as the PivotTable showed it" | a column per value | R8 |
 | P7 | "every total in one table" | `cube(...)`, `rollup(...)` | R9 |
-| P8 | a Pivot filter's Decision | "pivot_filters" | W3 |
-| P9 | "how many tables would that make?" | each layer's count | F5 |
-| P10 | two pivots the same but their filter | one table, a Partition each | W2 |
-| P11 | "a run for each value" | one Partition a write | B2 |
-| P12 | "it reads every day", "make it scale" | a day a run | S1 |
+| P8 | "it reads every day", "make it scale" | a day a run | S1 |
+| P9 | a Pivot filter, "one table for both pivots" | load file 22 | Load line |
 
 ## Terms
 
-- **Converted pivot**: a Saved table convert made from a PivotTable. Its Table notebook's
-  logic cell has rows(), the clauses convert wrote, which create(), preview() and write()
-  read. Saved table, Table reference, Partition: as file 06 says.
-- **Pivot filter**: what the PivotTable left out (a Report filter, hidden items, a slicer, a
-  Timeline, a value filter), each a **Decision** of its table, answered in the convert
-  notebook's decisions cell, DECISIONS. A **layer**: each field a table is filtered on.
+- **Converted pivot**: a Saved table convert made from a PivotTable. Its **Table
+  notebook**'s logic cell has rows(), the clauses convert wrote, which create(), preview()
+  and write() read. Its **Table reference** lists its columns, partitions and Key.
+- **Total level**: each total the PivotTable showed, a table of its own.
 - `d`: a Derived table; `t`: a table.
 
-## Rules: add-ons
+## Rules: where an add-on goes
 
 - **R1** Change rows(), and the Derived tables above it, in the logic cell; create(),
-  preview() and write() stay. **Never a change to the workbook**, nor a convert again: the
-  workbook is a one-time way in.
-- **R2** Each column added goes in the Table reference's columns, in SELECT's order, the
-  partition column last; a share or rank in does_not_add_up. Created in dev already: file
-  14's change to a Saved table first.
-- **R3** **A Window over the pivot's sums reads them from a Derived table** grouped as rows()
-  was; never a sum_of inside a sum_of. % of the grand total: `AS(d.x / sum_of(d.x,
-  over=window()), "share")`; of a row or column total, `window(PARTITION_BY=d.dt)`.
+  preview() and write() stay as convert wrote them. **Never a change to the workbook**, nor
+  a convert again: the workbook is a one-time way in.
+- **R2** Each column added or renamed goes in the Table reference's columns, in SELECT's
+  order, the partition column last; a share, an average or a rank in does_not_add_up. A
+  table created in dev already: file 14's change to a Saved table first.
+
+## Rules: each add-on
+
+- **R3** **A Window over the pivot's sums reads them from a Derived table** grouped as
+  rows() was; never a sum_of inside a sum_of. % of Grand Total: `AS(d.x / sum_of(d.x,
+  over=window()), "share")`; % of Row or Column Total, `window(PARTITION_BY=d.dt)`.
 - **R4** Running Total In b: `sum_of(d.x, over=window(PARTITION_BY=d.job_id, ORDER_BY=d.b,
   rows=(None, 0)))`.
 - **R5** Rank Largest to Smallest: `rank(over=window(PARTITION_BY=d.dt,
   ORDER_BY=descending(d.x)))`; Smallest to Largest, `ORDER_BY=d.x`.
-- **R6** A Calculated Field: its formula over the sums, one AS: `AS(sum_of(t.duration_mins)
-  / 60, "hours")`; a ratio, one sum over the other.
+- **R6** A Calculated Field: its formula over the sums, in one AS:
+  `AS(sum_of(t.duration_mins) / 60, "hours")`; a ratio, one sum over the other.
 - **R7** By month: `AS(month_start(t.dt), "month")` in SELECT, `"month"` in GROUP_BY; by
-  week, `week_start(t.dt)`. Two years' Septembers stay apart.
+  week, `week_start(t.dt)`. It gives a day, 2026-09-01, where convert's Months grouping
+  gave a label, Sep, adding up every year's September: so `month` is a new column, in
+  place of the label's, in SELECT and the Table reference.
 - **R8** Wide, a column per value: `AS(sum_of(t.x, where=equals(t.status, "FAILED")),
-  "failed_x")`, the field out of GROUP_BY. A new value has no column: convert wrote rows.
-- **R9** Every total level in one Statement (file 05's R5), in place of reading the
-  `<pivot>_by_...` and `<pivot>_grand_total` tables:
+  "failed_x")`, the field out of GROUP_BY. A new value has no column, and its rows are
+  left out: convert wrote a Column field as rows for that.
+- **R9** Every total level in one Statement (file 05's R5), in place of reading convert's
+  `<table>_by_<field>` and `<table>_grand_total` tables:
   - if Rows and Columns, both Grand Totals shown: `GROUP_BY(cube(t.job_id, t.dt))`;
   - if Rows alone, with subtotals: `GROUP_BY(rollup(t.team, t.job_id))`.
+  A total's row is NULL in each column it totals over.
 - **S1** A converted pivot reads every day, `reads_all_partitions=True`. To scale: dt in
-  SELECT, last, and GROUP_BY, the table partitioned by it, rows(day) bounded by
+  SELECT, last, and in GROUP_BY; the table partitioned by dt; rows(day) bounded by
   `equals(t.dt, day)`: each run writes one day (file 06's R6).
-
-## Rules: Pivot filters at scale
-
-- **F1** Answer each filter by its field in DECISIONS, as W3, then run
-  `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
-- **F2** "keep", proposed: 1 table, the selection as last saved. Pick it when that one
-  selection is all anyone needs.
-- **F3** "fold", like dragging the field from Filters to Rows: 1 table, every value, the
-  field part of what one row is. Pick it to slice later, as with a slicer.
-- **F4** "batch": 1 table, a Partition per value, each run writing one value, a Script tag
-  answered under "tags" (file 17), its answer proposed. Pick it for a value a run.
-- **F5** "tables", like Show Report Filter Pages: a table per value, `<table>_<value>`, at
-  least one per value the PivotTable's cache held; two layers multiply: Region 3 and Site
-  100 make at least 300. **A filter with 100 conditions would make 100 tables, but the
-  higher layer filter may have only 3, which is manageable.** Pick it for a handful; for a
-  hundred, "fold" or "batch". Say each count first.
-- **F6** A value filter (Top 10): "keep" or "fold"; a .hql converted alone has no count,
-  so not "tables".
-
-## Rules: what no Decision does
-
-- **B1** **Pivots the same but for their filter's values are one table**, partitioned on
-  the field (`PARTITIONED_BY`); rows() keeps each pivot's values with `is_in`, the field
-  last in SELECT and in GROUP_BY. One write fills each Partition, a pivot's rows each; a
-  reader of one reads its Partition, `equals(t.region, "us")`.
-- **B2** A Partition a write: rows(region) bounded by `equals(t.region, region)`, write()
-  `statement(INSERT_OVERWRITE(t, partition={"region": REGION}), *rows(REGION))`, the field
-  out of SELECT, REGION a constant or a Run value (file 17).
 
 ## Always
 
-- A1 to A10: as files 03, 05 and 06 give them.
+- A1 to A10: as the files named in the Load line give them.
 {lean}
 
 ## Names for this objective, with their arguments
 
-{names: derived, window, rank, month_start, week_start, rollup, cube, project.write_decisions}
+{names: derived, window, rank, month_start, week_start, rollup, cube}
 
 ## Worked patterns
 
-### W1: rows() with each job's share of its day
+### W1: rows() with each job's share of its day and its rank in the day
 
 ```python
 # logic
-from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, Clause, derived, statement, sum_of, window
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, Clause, derived, descending, rank,
+                              statement, sum_of, window)
 from references.ops__job_runs import job_runs
 
 by_day = derived("by_day", statement(
@@ -115,46 +91,34 @@ by_day = derived("by_day", statement(
     FROM(job_runs, reads_all_partitions=True),  # as convert wrote it
     GROUP_BY(job_runs.job_id, job_runs.dt),
 ))
+each_day = window(PARTITION_BY=by_day.dt)
 
 
 def rows() -> list[Clause]:
     return [
         SELECT(by_day.job_id, by_day.dt, by_day.mins,
-               AS(by_day.mins / sum_of(by_day.mins, over=window(PARTITION_BY=by_day.dt)),
-                  "share_of_day")),
+               AS(by_day.mins / sum_of(by_day.mins, over=each_day), "share_of_day"),
+               AS(rank(over=window(PARTITION_BY=by_day.dt, ORDER_BY=descending(by_day.mins))),
+                  "rank_in_day")),
         FROM(by_day),
     ]
 ```
 
-### W2: two pivots, eu and us costs, one table partitioned by region
+### W2: rows() grouped by month, in place of Months' label
 
 ```python
 # logic
-from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, Clause, is_in, sum_of
-from references.ops__region_costs import region_costs
-
-PARTITIONED_BY = ["region"]
+from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, Clause, month_start, sum_of
+from references.ops__job_events import job_events
 
 
 def rows() -> list[Clause]:
     return [
-        SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), "cents"),
-               region_costs.region),
-        FROM(region_costs),
-        WHERE(is_in(region_costs.region, ["eu", "us"])),
-        GROUP_BY(region_costs.job_id, region_costs.region),
+        SELECT(job_events.job_id, AS(month_start(job_events.dt), "month"),
+               AS(sum_of(job_events.minutes), "sum_of_minutes")),
+        FROM(job_events, reads_all_partitions=True),  # as convert wrote it
+        GROUP_BY(job_events.job_id, "month"),
     ]
-```
-
-### W3: the decisions cell: status folded, a table per region
-
-```python
-DECISIONS = {
-    "mart_dev.runs_pivot": {"pivot_filters": {"status": "fold"}},
-    "mart_dev.costs_pivot": {"pivot_filters": {"region": "tables"}},
-}
-
-project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 ```
 
 ## Steps
@@ -166,13 +130,11 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 ## Output
 
-1. **Code**: one ```python block: the logic cell (whole, if asked), or the decisions cell
-   and its write.
-2. **Notes**: a few plain sentences: each column the Table reference gains, each count.
+1. **Code**: one ```python block: the logic cell, whole if the user asks for it.
+2. **Notes**: a few plain sentences: each column the Table reference gains or loses.
 
 ## Self-check
 
-- [ ] **C1** The change is in the logic cell or the decisions cell, never the workbook.
+- [ ] **C1** The change is in the logic cell's rows() and Derived tables, not the workbook.
 - [ ] **C2** Each Window over sums reads a Derived table; no sum_of holds a sum_of.
 - [ ] **C3** Each new column has AS and is in the Table reference, the partition last.
-- [ ] **C4** A "tables" answer says each layer's count and their product.

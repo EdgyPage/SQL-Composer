@@ -11,9 +11,9 @@ There are three tasks for each of the twelve objectives of the Copilot files (`0
 out, scored once per version of the files. Six are traps, where the answer most people write
 first is refused by a Guard or a Load limit. Toolbox 8.3 adds two Script tag tasks each to 07
 and 13, one dev and one held out, a <PARM="NAME"/> its value given by the user. Toolbox 8.9
-adds five to `21`, a converted PivotTable grown in its Table notebook, three dev and two held
-out: an add-on in the logic cell, two pivots differing only in their filter made one table,
-and a Pivot filter's Decision answered.
+adds three to `21`, an add-on to a converted PivotTable in its logic cell, and three to `22`,
+a Pivot filter's Decision answered and two pivots differing only in their filter made one
+table, each two dev and one held out.
 
 A task's kind says what its answer gives and how it is checked:
 
@@ -56,6 +56,7 @@ OBJECTIVES = {
     "16": "a Workflow: promote",
     "17": "Run values, answers for every table, and seed limits",
     "21": "growing a converted pivot",
+    "22": "Pivot filters at scale, and batched inserts",
 }
 
 # What the answer must assign, by kind.
@@ -243,6 +244,17 @@ job_status_mins = Table(
     partitioned_by=["status"],
     key=["job_id", "status"],
     location="/data/your_team/mart.db/job_status_mins",
+)
+'''
+JOB_DAY_RANKS = '''from sqlglot_composer import Table
+
+job_day_ranks = Table(
+    "mart.job_day_ranks",
+    columns={"job_id": "bigint", "dt": "string", "sum_of_duration_mins": "bigint",
+             "rank_in_day": "int"},
+    key=["job_id", "dt"],
+    does_not_add_up=["rank_in_day"],
+    location="/data/your_team/mart.db/job_day_ranks",
 )
 '''
 JOB_STATUS_WIDE = '''from sqlglot_composer import Table
@@ -1197,7 +1209,54 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(runs_by_job), *rows())
 ''', tables=("job_runs",), saved={"runs_by_job": RUNS_BY_JOB},
          partition={"dt": "2026-09-24"}),
-    Task("T51", "21", "dev",
+    Task("T55", "21", "dev",
+         "convert made mart.job_day_ranks (from references.mart__job_day_ranks import "
+         "job_day_ranks) from my workbook's PivotTable with Rows job_id, Columns dt and Sum of "
+         "duration_mins over every day of ops.job_runs: rows() returns "
+         "SELECT(job_runs.job_id, job_runs.dt, AS(sum_of(job_runs.duration_mins), "
+         "\"sum_of_duration_mins\")), FROM(job_runs, reads_all_partitions=True) and "
+         "GROUP_BY(job_runs.job_id, job_runs.dt). Add rank_in_day, each job's rank within its "
+         "day by those minutes, the most first, as Show Values As Rank Largest to Smallest "
+         "gives it; its Table reference has the column now. Give the whole logic cell: "
+         "create(), rows(), preview() and write(), which replaces what it holds.",
+         "logic", "from sqlglot_composer import (AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''Clause,
+                              Statement, create_table, derived, descending, rank, statement,
+                              sum_of, window)
+from references.mart__job_day_ranks import job_day_ranks
+from references.ops__job_runs import job_runs
+
+by_day = derived("by_day", statement(
+    SELECT(job_runs.job_id, job_runs.dt,
+           AS(sum_of(job_runs.duration_mins), "sum_of_duration_mins")),
+    FROM(job_runs, reads_all_partitions=True),
+    GROUP_BY(job_runs.job_id, job_runs.dt),
+))
+
+
+def create() -> Statement:
+    return create_table(job_day_ranks, may_exist=True)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(by_day.job_id, by_day.dt, by_day.sum_of_duration_mins,
+               AS(rank(over=window(PARTITION_BY=by_day.dt,
+                                   ORDER_BY=descending(by_day.sum_of_duration_mins))),
+                  "rank_in_day")),
+        FROM(by_day),
+    ]
+
+
+def preview() -> Statement:
+    return statement(*rows())
+
+
+def write() -> Statement:
+    return statement(INSERT_OVERWRITE(job_day_ranks), *rows())
+''', tables=("job_runs",), saved={"job_day_ranks": JOB_DAY_RANKS},
+         partition={"dt": "2026-09-24"}),
+    Task("T51", "22", "dev",
          "My workbook had two PivotTables the same but for their slicer on status: "
          "failed_mins kept FAILED and ok_mins kept SUCCESS, each the Sum of duration_mins by "
          "job_id over every day of ops.job_runs. convert made a table of each. I want one "
@@ -1235,7 +1294,7 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(job_status_mins), *rows())
 ''', tables=("job_runs",), saved={"job_status_mins": JOB_STATUS_MINS},
          partition={"dt": "2026-09-24"}),
-    Task("T52", "21", "dev",
+    Task("T52", "22", "dev",
          "I saved Copilot's Hive of my PivotTable runs_by_job as runs_by_job.hql, beside the "
          "convert notebook, and converted it as the batch named runs_by_job (NAME = "
          "\"runs_by_job\"). project.check() says two Decisions of mart_dev.runs_by_job are "
@@ -1297,7 +1356,7 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(job_status_wide), *rows())
 ''', tables=("job_runs",), saved={"job_status_wide": JOB_STATUS_WIDE},
          partition={"dt": "2026-09-24"}),
-    Task("T54", "21", "held_out",
+    Task("T54", "22", "held_out",
          "I saved Copilot's Hive of my PivotTable fails_by_job as fails_by_job.hql, beside the "
          "convert notebook, and converted it as the batch named fails_by_job (NAME = "
          "\"fails_by_job\"). project.check() says mart_dev.fails_by_job's location and its "
