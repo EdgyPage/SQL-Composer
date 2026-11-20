@@ -1703,8 +1703,9 @@ Statement, a Table reference, a Table notebook's logic cell or a Conversion, or 
 job's steps: `copilot/13_workflows.txt` and `copilot/16_workflows_promote.txt` list convert's
 and promote's, and file 14 the other Workflows', from the steps each notebook runs.
 `copilot/18_scheduled_runs.txt` fills in a Scheduled run's cells from what
-`project.describe_logic([...])` prints. Files 15, 11, 12 and 20 write an Excel workbook's
-Hive, as below, and file 21 grows a table converted from a PivotTable.
+`project.describe_logic([...])` prints. Files 15, 11 and 12 write an Excel workbook's Hive,
+as below, with 23 for its totals, 20 for a PivotTable and 24 for a PivotTable's filters; file
+21 grows a table converted from a PivotTable, and file 22 weighs its Pivot filters at scale.
 `copilot/19_metric_request.txt` writes no code: it asks you about a new metric a question at a
 time and ends with a Metric request, plain text for a chatbot that knows your databases to
 define the columns from.
@@ -1735,7 +1736,7 @@ The path from a workbook to prod:
 flowchart TD
     workbook("a Formula workbook: its data and formulas in Tables, a Power Query, a PivotTable")
     code["the workbook itself in FILES: convert reads it in code"]
-    copilot{{"Copilot, given files 15, 11, 12 and 20: the workbook as Hive"}}
+    copilot{{"Copilot, given files 15, 11 and 12, and 23, 20 and 24 as it needs: its Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     check[["the Workbook check: each table's Hive over the workbook's own Tables"]]
@@ -1753,14 +1754,15 @@ flowchart TD
    formula in an Excel Table, and any Power Query and PivotTable reading them.
 2. Save it in admin/workflows/convert/, beside the convert notebook, and give it to convert in
    FILES: convert reads the workbook itself, each calculation that nothing else in it reads
-   becoming a Saved table.
+   becoming a Saved table, a PivotTable one table of its rows, its totals left out.
 
        project.convert("budget", files=["budget.xlsx"], query=query, database="sales")
 
-3. Or give Copilot files 15, 11, 12 and 20 with the workbook's text: it writes a Hive query for
-   each final; fill in each name it writes in angle brackets, save each query as a .hql file
-   named for the table it becomes, and convert them beside the workbook as one batch, each query
-   standing for its final.
+3. Or give Copilot files 15, 11 and 12 with the workbook's text, and 23 for a total, 20 for a
+   PivotTable and 24 for its filter, as copilot/00_start_here.txt's Index says: it writes a Hive
+   query for each final; fill in each name it writes in angle brackets, save each query as a
+   .hql file named for the table it becomes, and convert them beside the workbook as one batch,
+   each query standing for its final.
 
        project.convert("budget", files=["budget.xlsx", "region_budgets.hql"], query=query)
 
@@ -1816,10 +1818,12 @@ a workbook of the Example database's tables, and shows the second:
      query's M on its Power Query sheet too, as the Steps sheet's step 7 lays it out.
 
    Action: in a new chat, attach `copilot/15_excel_workbook_steps.txt`,
-   `11_excel_formula_workbooks.txt` and `12_excel_power_query.txt`, and
-   `20_excel_pivot_tables.txt` too when the workbook has a PivotTable (or paste each as a
-   message of its own), then attach the .txt or the workbook, and send "Convert this
-   workbook". Done when Copilot answers with a map, a Hive query for each final, and what to
+   `11_excel_formula_workbooks.txt` and `12_excel_power_query.txt`; `23_excel_totals.txt` too
+   when the workbook has a Total Row or a whole-column total, such as `SUM(t[v])`;
+   `20_excel_pivot_tables.txt` when it has a PivotTable, and `24_excel_pivot_filters.txt` when
+   a PivotTable has a slicer, a Filter or a Top 10, as `copilot/00_start_here.txt`'s Index says
+   (or paste each as a message of its own); then attach the .txt or the workbook, and send
+   "Convert this workbook". Done when Copilot answers with a map, a Hive query for each final, and what to
    do next; then step 4.
 4. **Check the map.** Action: read the map Copilot answers with: which Tables are sources, the
    samples of your database's tables, and which are finals, the Tables and PivotTables your
@@ -1860,7 +1864,8 @@ Copilot answers with Hive alone, and the code path writes Hive too: the Conversi
 Toolbox code from it, and checks it. To grow a table made from a PivotTable later, such as
 each value's share of its total or a column per value, ask Copilot with file 21, loaded with
 files 03, 05 and 06: it changes the table's logic in its Table notebook, never the workbook,
-which is a one-time way in.
+which is a one-time way in. To weigh a Pivot filter's answers, such as how many tables each
+makes, ask with file 22, loaded with files 06 and 17.
 
 Before you go on, check:
 

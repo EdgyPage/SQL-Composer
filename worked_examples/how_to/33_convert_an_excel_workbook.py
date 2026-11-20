@@ -30,7 +30,9 @@ shows.
   check follow.
 - If you want more from the table later than the PivotTable showed, such as each team's share
   of a job's hours, change the table's logic in its Table notebook, as Copilot file 21, which
-  grows a converted PivotTable, says: never the workbook, which is a one-time way in.
+  grows a converted PivotTable, says, with files 03, 05 and 06: never the workbook, which is a
+  one-time way in. To weigh a Pivot filter's answers at scale, Copilot file 22, with files 06
+  and 17, says how many tables each makes.
 - If you have no Project yet, do [Start a Project](#start_a_project) first, and if you haven't
   converted Hive before, read [Convert someone else's Hive](#convert_someone_elses_hive): this
   page takes the same Workflow's steps, from a workbook.
@@ -44,13 +46,18 @@ of the Starter Example project, which the download's Example projects page shows
 made in the folder the page runs in by `example_project("starter")`, a line you leave out in
 your own Project. The Intermediate Example project holds this page's batch converted and
 finished already, which the same page shows. The Starter's Dev Database, DEV's "database" in
-admin/databases.py, is mart:
+admin/databases.py, is mart. Fill in DEV's "location_root", the folder its tables' files go
+under, as [Set your Database settings](#set_your_database_settings) shows, so each table's
+folder is placed for you and is no Decision; this page stands in for your edit:
 
 >>> from pathlib import Path
 >>> example_project("starter")
 >>> from sqlglot_composer import project, run_execute, run_query, show_hive
 >>> from warehouse import connect, execute, query
 >>> connect(conn)
+>>> databases = Path("admin/databases.py")
+>>> _ = databases.write_text(databases.read_text(encoding="utf-8").replace(
+...     '"<DEV_LOCATION_ROOT>"', '"/data/dev"'), encoding="utf-8")
 
 Done when `connect(conn)` runs without an error. Then step 2.
 
@@ -212,16 +219,15 @@ Done when the Workbook check says every cell matches. Then step 6.
 
 ### 6. Read the table's open Decisions
 
-Goal: know what only you can decide. mart.teams_pivot has three Decisions: its location, the
-folder its files go in; its name, proposed from its sheet, as PivotTable1 is Excel's default;
-and its Pivot filter, the slicer on team. project.check() names each, with each answer of the
+Goal: know what only you can decide. mart.teams_pivot has two Decisions: its name, proposed
+from its sheet, as PivotTable1 is Excel's default, and its Pivot filter, the slicer on team.
+Its folder is placed under DEV's "location_root", so it is no Decision. project.check() names each, with each answer of the
 Pivot filter and how many tables each makes:
 
 >>> said = repr(project.check())  # -> str
 >>> for line in said.splitlines():
 ...     if line.strip().startswith("mart.teams_pivot:"):
 ...         print(line.strip())
-mart.teams_pivot: location: the folder its files go in
 mart.teams_pivot: name: teams_pivot, proposed for PivotTable1 of job_hours.xlsx: keep it with "proposed", or answer a name of your own, which renames the table
 mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. "keep": 1 table, that selection; "fold": 1 table, every team; "batch": 1 table, a Partition per team; "tables": at least 2 tables, one per team the PivotTable's cache held (data and finance). Answer "keep" to keep its selection as converted, or "fold", "batch" or "tables" to keep every value instead, as its checklist says
 
@@ -233,7 +239,7 @@ what each answer makes of it, in Excel's words where Excel has them, and which t
 >>> print(next(line for line in checklist.splitlines() if "Which to pick" in line))
 - Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as "pivot_filters": {"team": ...}: "keep", proposed: 1 table, that selection alone. "fold": like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. "batch": 1 table written one team at a time, each run writing its own team's rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under "tags" with the Run value proposed there. "tables": like Excel's Show Report Filter Pages: a table per team, named mart.teams_pivot_<value>, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and "at least" as these are the values the PivotTable's cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, "fold" keeps every team in one table to slice later; "batch" when each team is written on its own schedule; "tables" only for a handful; "keep" when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or "batch" instead.
 
-Done when you know the three Decisions. Then step 7.
+Done when you know the two Decisions. Then step 7.
 
 ### 7. Answer each Decision in the decisions cell
 
@@ -242,17 +248,14 @@ to paste into the decisions cell, directly under it. This page stands in for the
 in:
 
 >>> DECISIONS = {
-...     "mart.teams_pivot": {"location": "/data/mart.db/job_hours", "name": "job_hours",
-...                          "pivot_filters": {"team": "fold"}},
+...     "mart.teams_pivot": {"name": "job_hours", "pivot_filters": {"team": "fold"}},
 ... }
 
 Each answer, by its kind:
 
-- "location": the table's own folder. With DEV's "location_root" filled in, in
-  admin/databases.py, as [Set your Database settings](#set_your_database_settings) shows, each
-  table is placed under it and this is no Decision.
 - "name": a name of your own, "job_hours", renames the table, mart.job_hours, its Table
-  folder and its Table reference with it; "proposed" keeps teams_pivot.
+  folder, its Table reference and its placed folder, /data/dev/mart.db/job_hours, with it;
+  "proposed" keeps teams_pivot.
 - "pivot_filters": the slicer keeps the data team. "keep", proposed, keeps that selection
   alone. "fold" is like dragging team from Filters to Rows in the PivotTable: one table, a row
   for each job and team, every team in it. "batch" writes one team at a time, each into a
@@ -262,7 +265,7 @@ Each answer, by its kind:
   pick" says. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or
   "batch" instead.
 
-Done when DECISIONS holds the location, the name and the Pivot filter's answer. Then step 8.
+Done when DECISIONS holds the name and the Pivot filter's answer. Then step 8.
 
 ### 8. Write each answer in
 
@@ -272,13 +275,19 @@ logic again for the Pivot filter's answer, from the Hive it was converted from. 
 mart.teams_pivot go to admin/removed/. This page runs the step's own cell:
 
 >>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("job_hours")))
-Wrote 3 answers into references/mart__teams_pivot.py.
+Wrote 2 answers into references/mart__teams_pivot.py.
 mart.teams_pivot: 2 TODO lines left in references/mart__teams_pivot.py, which wait on nothing: fill each in when you like.
   line 1: mart.teams_pivot - TODO: say in one line what one row is.
   line 12: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Renamed mart.teams_pivot to mart.job_hours: its Table folder is tables/mart__job_hours/ now, its Table reference references/mart__job_hours.py, and its batch names it so.
 mart.job_hours: wrote its logic, its Table reference and its conversion/ Hive again for its Pivot filters' answers: every team, team part of what one row is.
 Each Decision of mart.job_hours is made.
+
+The rename places the table's folder again, for its new name:
+
+>>> reference = Path("references/mart__job_hours.py").read_text(encoding="utf-8")
+>>> print(next(line.strip() for line in reference.splitlines() if "location=" in line))
+location="/data/dev/mart.db/job_hours",  # under its Database's location_root, in admin/databases.py
 
 Done when it says `Each Decision of mart.job_hours is made.` Then step 9.
 
@@ -365,8 +374,11 @@ Copilot. At work, and nothing on this page runs it:
    Query's M, the PivotTable, its fields, its slicer and its cells, and the order each piece
    reads the others in.
 2. In a new chat, attach `copilot/15_excel_workbook_steps.txt`,
-   `copilot/11_excel_formula_workbooks.txt`, `copilot/12_excel_power_query.txt` and
-   `copilot/20_excel_pivot_tables.txt`, then job_hours.txt, and send "Convert this workbook".
+   `copilot/11_excel_formula_workbooks.txt`, `copilot/12_excel_power_query.txt`,
+   `copilot/20_excel_pivot_tables.txt`, for a PivotTable, and
+   `copilot/24_excel_pivot_filters.txt`, for its slicer, as `copilot/00_start_here.txt`'s Index
+   says, then job_hours.txt, and send "Convert this workbook". A workbook with a Total Row or a
+   whole-column total takes `copilot/23_excel_totals.txt` too.
    Copilot answers with a map of the workbook and a Hive query for each final, its slicer's
    condition under `-- Pivot filter: slicer team`, the mark convert reads.
 3. Save the query beside the workbook, named for its table, as job_hours.hql, and convert it
@@ -389,8 +401,8 @@ Workbook check says every cell matches. Then check it worked, below.
 Before you go on, check that:
 
 - the Workbook check in admin/workflows/convert/job_hours/batch.md says every cell matches;
-- references/mart__job_hours.py names the table mart.job_hours, its location, and
-  `"team": "fold"` under PIVOT_FILTERS;
+- references/mart__job_hours.py names the table mart.job_hours, its folder under
+  /data/dev, and `"team": "fold"` under PIVOT_FILTERS;
 - the preview of mart.job_hours gives a row for each job and team;
 - at work, its compare in tables/mart__job_hours/conversion/compare.md says "Passed:".
 

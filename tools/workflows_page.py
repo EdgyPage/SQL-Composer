@@ -195,8 +195,12 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "A PivotTable's slicer or filter is a Decision: `\"keep\"` keeps its selection; to tab "
         "through each value later, as with the slicer, `\"fold\"` keeps every value in one "
         "table.",
-        "Give Copilot files 15, 11 and 12 from the `copilot/` folder, and 20 too for a "
-        "PivotTable, with the workbook; to grow a converted PivotTable later, file 21.",
+        "Give Copilot files 15, 11 and 12 from the `copilot/` folder with the workbook, and "
+        "23 for a total, 20 for a PivotTable and 24 for its filter, as `00_start_here.txt`'s "
+        "Index says; to grow a converted PivotTable later, file 21, and file 22 for its Pivot "
+        "filters at scale.",
+        "A PivotTable becomes one table of its rows, each Row and Column field a column: its "
+        "Grand Totals and subtotals are left out, each named in the table's checklist.",
         "Check each name Copilot leaves in angle brackets, such as `<database>`, against your "
         "sheet's notes before you fill it in.",
         "A Table's Total Row, its sums under its last row, becomes a query of its own: a "

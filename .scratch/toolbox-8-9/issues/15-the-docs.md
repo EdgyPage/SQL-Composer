@@ -72,7 +72,7 @@ When you'd use it names Copilot file 21 for growing the table later. Common mist
 outside a Table, "tables" for a field of many values, changing the workbook after converting,
 and a Copilot .hql named for nothing.
 
-**Why location is answered, not placed: a Toolbox bug, for the lead.** The how-to and the
+**Why location was answered, not placed: a Toolbox bug, since fixed on dev (90e291dc; see the rebase note below).** The how-to and the
 Example project answer `"location"` because of a bug in `sqlglot_composer/`, so not fixed here.
 With DEV's `location_root` filled in, a converted table's location is placed as
 `<root>/mart.db/teams_pivot`, and the NAME answer's rename keeps that folder, so mart.job_hours
@@ -201,3 +201,34 @@ how-to 33's "has its Grand Total turned off" sentence goes. That change rewrites
 Until ticket 18 lands, the how-to's sentence about totals being named in the checklist
 describes the code after it, not today's: today a Grand Total that is on still makes a
 `_grand_total` table.
+
+**After the rebase onto dev's 68a0c58c** (the rename fix 90e291dc, the stale-record fix, and
+ticket 14's split into files 23 and 24):
+
+- **The location workaround is gone from the how-to.** Step 1 fills in DEV's "location_root"
+  with `/data/dev`, as how-to 09 does. The table has two Decisions, name and Pivot filter.
+  After the rename, step 8 shows the reference's
+  `location="/data/dev/mart.db/job_hours"`. The doctest runs as one kernel: check() loads
+  mart.teams_pivot before the rename, and mart.job_hours loads after it, so "Run up to your
+  Decisions" then "Run the rest" in one kernel works. The bug above is fixed on dev.
+- **The intermediate Example project keeps its answered `"location"`.** Its DEV
+  `location_root` is unfilled, as for team_failures, so a location is a Decision there.
+- **The Excel files are named as `copilot/00_start_here.txt`'s Index names them.**
+  - The how-to's step 11 names 15, 11 and 12, 20 for the PivotTable and 24 for its slicer, and
+    23 for a Total Row.
+  - The README's Copilot paragraph and step 3 name 15, 11 and 12, with 23, 20 and 24 as the
+    workbook needs.
+  - The README's closing paragraph and the how-to's When-you'd-use-it name file 21 with 03,
+    05 and 06, and file 22 with 06 and 17.
+  - `EXCEL_FLOW`'s Copilot node and step 3, and the overview's tripping point, say the same.
+  - `tests/test_workflows_page.py` follows the new step text.
+- **A pivot converts to one table.** `EXCEL_FLOW`'s step 2 ("a PivotTable one table of its rows,
+  its totals left out") and a new overview tripping point say a PivotTable becomes one table,
+  its Grand Totals and subtotals left out and named in the checklist. The README's step 2 and
+  the how-to's step 4 said so already.
+- **Regenerated:** the intermediate Example project, the README charts,
+  `docs/main/workflows.html`, `docs/main/how_to.html` and `docs/main/example_projects.html`.
+  `tests/snapshot/known.txt` was the union of dev's and this branch's at the rebase, plus the
+  new runs' hashes.
+- **The beginner reader's list above** gains how-to 33's steps 1, 6, 7, 8 and 11, the README
+  lines naming the files, and the overview's new tripping point.

@@ -131,7 +131,7 @@ PROGRAM_FLOW = ("""flowchart TD
 EXCEL_FLOW = ("""flowchart TD
     workbook("a Formula workbook: its data and formulas in Tables, a Power Query, a PivotTable")
     code["the workbook itself in FILES: convert reads it in code"]
-    copilot{{"Copilot, given files 15, 11, 12 and 20: the workbook as Hive"}}
+    copilot{{"Copilot, given files 15, 11 and 12, and 23, 20 and 24 as it needs: its Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     check[["the Workbook check: each table's Hive over the workbook's own Tables"]]
@@ -147,12 +147,15 @@ EXCEL_FLOW = ("""flowchart TD
                 "your data and each formula in an Excel Table, and any Power Query and "
                 "PivotTable reading them", ""),
                ("Save it in admin/workflows/convert/, beside the convert notebook, and give it "
-                "to convert in FILES: convert reads the workbook itself, each calculation that "
-                "nothing else in it reads becoming a Saved table",
+                "to convert in FILES: convert reads the workbook itself, each calculation "
+                "that nothing else in it reads becoming a Saved table, a PivotTable one table "
+                "of its rows, its totals left out",
                 'project.convert("budget", files=["budget.xlsx"], query=query, '
                 'database="sales")'),
-               ("Or give Copilot files 15, 11, 12 and 20 with the workbook's text: it writes a "
-                "Hive query for each final; fill in each name it writes in angle brackets, "
+               ("Or give Copilot files 15, 11 and 12 with the workbook's text, and 23 for "
+                "a total, 20 for a PivotTable and 24 for its filter, as "
+                "copilot/00_start_here.txt's Index says: it writes a Hive query for each "
+                "final; fill in each name it writes in angle brackets, "
                 "save each query as a .hql file named for the table it becomes, and convert "
                 "them beside the workbook as one batch, each query standing for its final",
                 'project.convert("budget", files=["budget.xlsx", "region_budgets.hql"], '
