@@ -130,10 +130,12 @@ Load line.
 - `tests/snapshot/known.txt`: 14 hashes added, the Hive the new tests make. None taken out:
   the old grand total's text (`SELECT NULL AS .. FROM ..`) and the Q2 refusal's are no longer
   made, which a whole-suite run with `SNAPSHOT_WRITE=1` drops.
-- **Found, not settled (not in any Answer's list):** M's `[a] = [b]` between two columns keeps
-  a row where both are null (M's null = null is true), where both paths write `a = b`, which
-  drops it. For the lead: the same shape as Q2, `(a = b OR (a IS NULL AND b IS NULL))`, a line
-  in file 12 that has no room left.
+- **Found beyond the lists, the code settled, file 12 waiting for ticket 14:** M's `[a] = [b]`
+  between two columns keeps a row where both are null (M's null = null is true), where Hive's
+  `a = b` drops it. The code writes `(a = b OR (a IS NULL AND b IS NULL))` (`equality_hive`,
+  `test_q2_equal_between_two_columns_keeps_a_row_where_both_are_null`). File 12, at 9,000, has
+  no room: **for ticket 14**, Q2 needs "`=` between two columns: `(a = b OR (a IS NULL AND b IS
+  NULL))`." Until then the two paths differ on it: the Copilot path writes `a = b`.
 - Tests run: the workbook tests, `tests/test_pivot_tables.py`, `tests/sqlglot_checks`,
   `tests/test_copilot_files.py`, `tests/test_excel_eval.py`, `tests/test_eval_sources.py`,
   `test_eval_rounds.py`, `test_eval_ladder.py` and all of `tests/repo/`: 4,645 passed and 119

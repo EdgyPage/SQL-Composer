@@ -168,6 +168,21 @@ def test_q2_not_equal_between_two_columns_keeps_a_row_where_one_is_null() -> Non
     assert kept == [(2,), (4,)]
 
 
+def test_q2_equal_between_two_columns_keeps_a_row_where_both_are_null() -> None:
+    # Ticket 13: M's null = null is true, so M keeps a row where both sides are null, which
+    # Hive's `a = b` drops. File 12's Q2 doesn't say so yet: ticket 14 adds its line.
+    m = m_of(SOURCE, "Kept = Table.SelectRows(Source, each [status] = [dt])")
+    assert_converted(m, RUNS, f"SELECT {RUN_COLUMNS} FROM db.job_runs WHERE (status = dt OR "
+                              "(status IS NULL AND dt IS NULL))")
+    # Its rows, by SQL's three-valued logic, as Hive's: kept where both sides are null.
+    with closing(sqlite3.connect(":memory:")) as connection:
+        kept = connection.execute(
+            "SELECT a FROM (SELECT 1 AS a, NULL AS b, NULL AS c UNION ALL SELECT 2, 'x', NULL "
+            "UNION ALL SELECT 3, 'x', 'x' UNION ALL SELECT 4, 'x', 'y') WHERE (b = c OR "
+            "(b IS NULL AND c IS NULL)) ORDER BY a").fetchall()
+    assert kept == [(1,), (3,)]
+
+
 def test_q3_text_contains_starts_and_ends_with_are_like_case_kept() -> None:
     m = m_of(SOURCE, 'Kept = Table.SelectRows(Source, each Text.Contains([status], "UCC") and '
                      'Text.StartsWith([status], "S") and Text.EndsWith([status], "S") and not '

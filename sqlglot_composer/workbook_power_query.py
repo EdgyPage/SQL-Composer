@@ -576,8 +576,8 @@ def m_name_hive(part: MName, rows: Rows, reading: Reading,
 def m_operation_hive(part: MOperation, rows: Rows, reading: Reading,
                      value: exp.Expression | None) -> exp.Expression:
     """An operator: `and`, `or` (F2's twins), `&` CONCAT, arithmetic and comparisons as they
-    are; `= null` IS NULL and `<> null` IS NOT NULL; and M's `<>`, which keeps a null, `(c <>
-    'x' OR c IS NULL)` (Q2)."""
+    are; `= null` IS NULL and `<> null` IS NOT NULL; and M's `=` and `<>`, which treat a
+    null as a value, `(c <> 'x' OR c IS NULL)` (Q2)."""
     operator = part.operator
     if operator in ("=", "<>") and MValue(None) in (part.left, part.right):
         other = part.right if part.left == MValue(None) else part.left
@@ -589,11 +589,23 @@ def m_operation_hive(part: MOperation, rows: Rows, reading: Reading,
         return binary(exp.And if operator == "and" else exp.Or, left, right)
     if operator == "&":
         return hive_call("CONCAT", [left, right])
-    if operator == "<>":
-        return not_equal_hive(part, left, right)
+    if operator in ("=", "<>"):
+        return equality_hive(part, left, right)
     if operator in COMPARISONS:
         return binary(COMPARISONS[operator], left, right)
     return binary(ARITHMETIC[operator], left, right)
+
+
+def equality_hive(part: MOperation, left: exp.Expression,
+                  right: exp.Expression) -> exp.Expression:
+    """M's `=` or `<>`, either side not null itself: `<>` as `not_equal_hive` writes it; `=`
+    with a constant on one side as it is; `=` between two columns kept where both are null,
+    `(a = b OR (a IS NULL AND b IS NULL))`, as M's null = null is true (Q2)."""
+    if part.operator == "<>":
+        return not_equal_hive(part, left, right)
+    if isinstance(part.left, MValue) or isinstance(part.right, MValue):
+        return binary(exp.EQ, left, right)
+    return rule_hive("(p0 = p1 OR (p0 IS NULL AND p1 IS NULL))", p0=left, p1=right)
 
 
 def not_equal_hive(part: MOperation, left: exp.Expression,
