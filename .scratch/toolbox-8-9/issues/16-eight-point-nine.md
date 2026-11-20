@@ -51,7 +51,7 @@ Built 2026-11-19, from dev's 1c8a39d6 (tickets 01 to 13 and 17), beside tickets 
   and an 8.8 Project changed in nothing but its convert notebook (and its version).
 - **The raise:** `version.txt` reads 8.9; CHANGES.md's `## 8.9` ("To update from 8.8": copy
   the folder in, restart the kernel, run `project.upgrade()`; and "What's new": a workbook
-  converted in code or through Copilot files 15, 11, 12, 20, 21 and 22, a pivot one table at
+  converted in code or through Copilot files 15, 11, 12, 20, 21, 22, 23 and 24, a pivot one table at
   its finest grain with its totals named in the checklist (the user, 2026-11-19), the Pivot
   filter Decision, the Workbook check, lean Hive in the docs, `VAR_SAMP` and `VAR_POP` written
   right); how-to 28 upgrades to 8.9, its ten steps; the docstrings of `TOOLBOX_VERSION` and
@@ -61,6 +61,11 @@ Built 2026-11-19, from dev's 1c8a39d6 (tickets 01 to 13 and 17), beside tickets 
 - **The upgrade journey** (`tests/journeys/test_workflow_journeys.py`) starts from the newest
   version whose Upgrade leaves a mark, as its step 2 makes each one: 8.9's marks nothing
   (`MARKS_NOTHING`), so it starts from 8.7, as it did at 8.8.
-- **Left for the merge:** the README's Update has no "If your Project was at 8.8" line yet
-  (`docs/clean-branch-readme.md` is ticket 15's); `known.txt` still holds the 8.8 texts no
-  test makes now, which a whole-suite run with `SNAPSHOT_WRITE=1` takes out.
+- **Rebased onto dev's a9fa794c** (tickets 14's code half and 15), 2026-11-19: the generated
+  files (`copilot/`, `docs/main/`, the Example projects) written again at 8.9 by their tools;
+  ticket 15's workbook batch in the intermediate moved from `AWAITING_ITS_STEP` to
+  `GAINED_BY_HAND`'s `"8.9"`, so the 8.8 freeze still compares; the README's Update has its
+  "If your Project was at 8.8" line; CHANGES.md names files 23 and 24; `known.txt` is dev's
+  plus what these tests make.
+- **Left for the whole-suite run:** `known.txt` still holds the 8.8 texts no test makes now,
+  which a run with `SNAPSHOT_WRITE=1` takes out.

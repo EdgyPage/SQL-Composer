@@ -35,10 +35,11 @@ over the workbook's own tables and compares it with what Excel shows.
   a Total Row, and each PivotTable, as one table at its finest grain, its Row and Column fields
   the `GROUP BY`. A pivot's grand totals and subtotals are left out of its table, and its
   checklist names each one. Each table's checklist says how each part was read and which
-  Copilot file explains it. A PivotTable still called PivotTable1, and a calculation named as a table it
-  reads, get a proposed name for you to accept or change in `RENAME`.
-- **Or through Copilot.** Copilot files 15, 11, 12 and 20 turn a workbook's formulas, Power
-  Query and PivotTables into Hive, step by step; file 21 grows a table converted from a pivot
+  Copilot file explains it. A PivotTable still called PivotTable1, and a calculation named as
+  a table it reads, get a proposed name for you to accept or change in `RENAME`.
+- **Or through Copilot.** Copilot files 15, 11, 12, 20, 23 and 24 turn a workbook into Hive,
+  step by step: 15 the steps, 11 its formulas, 12 its Power Query, 20 its PivotTables, 23 its
+  whole-column totals and Total Rows, and 24 a PivotTable's Pivot filters; file 21 grows a table converted from a pivot
   (Show Values As, a Calculated Field, a grouping, a Column field written wide), and file 22
   answers Pivot filters at scale. Hive Copilot writes is converted the same way.
 - **The Pivot filter Decision.** Each Report filter, slicer or timeline on a PivotTable is a
