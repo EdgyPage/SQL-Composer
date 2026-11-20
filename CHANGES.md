@@ -14,7 +14,7 @@ over the workbook's own tables and compares it with what Excel shows.
 - **Copy in 8.9's `sqlglot_composer` folder**, as the README's Update says, **restart your
   notebook's kernel**, so Python reads the new folder, then **run `project.upgrade()`**, step
   1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.9.md`. A
-  Project 8.3 to 8.7 last wrote upgrades straight to 8.9 the same way, each step in turn.
+  Project last written at 8.3 to 8.7 upgrades straight to 8.9 the same way, each step in turn.
 - **Nothing for you to change by hand.** The convert Workflow's notebook,
   `admin/workflows/convert/convert.ipynb`, is written again, saying its `FILES` may name a
   workbook; each name you gave it, each step cell you wrote in and your answered decisions
@@ -22,10 +22,22 @@ over the workbook's own tables and compares it with what Excel shows.
   other notebook changes.
 - **Your Scheduled runs keep their paths.** The Upgrade moves, renames, deletes and rewrites
   nothing under `scheduled_runs/`.
-- **The Upgrade records the Lineage state**, recorded by `project.upgrade() to 8.9`. A column
-  whose Hive 8.9 writes differently, such as one using `VAR_SAMP`, gets a row marked
-  `toolbox`: the Toolbox's new way of writing the same logic, never shown as a change of
-  yours. It needs no `connect(...)` and sends nothing.
+- **Check each variance column: its numbers may change.** 8.9 writes the variance functions
+  under Hive's own names (see What's new). Search your Project's `tables/` and
+  `building_blocks/` for `var_samp`, `var_pop` and `variance`, such as
+  `hive_function("var_samp", ...)`:
+  - `var_samp`: 8.8 wrote it as Hive's `VARIANCE`, the population variance. 8.9 writes
+    `VAR_SAMP`, the sample variance, so the column's values change, to the right ones, the
+    next time its table is written. Check the new values, and tell whoever reads the table.
+  - `var_pop`: 8.8 wrote it as `VARIANCE_POP`, which Hive hasn't got, so the write failed.
+    8.9 writes `VAR_POP`, and the write works.
+  - `variance`: written as before, Hive's population variance. If you meant a sample
+    variance, write `var_samp` in its place.
+- **The Upgrade records the Lineage state**, as `project.upgrade()`. A column whose Hive 8.9
+  writes differently, such as one using `var_samp`, gets a row marked `toolbox` in the
+  `change` column of `admin/lineage/lineage_state.csv`, and the Lineage difference, written
+  from `admin/lineage.ipynb`, shows it apart from your own changes: your logic didn't change,
+  though the values above may. The recording needs no `connect(...)` and sends nothing.
 
 ### What's new
 
@@ -39,9 +51,9 @@ over the workbook's own tables and compares it with what Excel shows.
   a table it reads, get a proposed name for you to accept or change in `RENAME`.
 - **Or through Copilot.** Copilot files 15, 11, 12, 20, 23 and 24 turn a workbook into Hive,
   step by step: 15 the steps, 11 its formulas, 12 its Power Query, 20 its PivotTables, 23 its
-  whole-column totals and Total Rows, and 24 a PivotTable's Pivot filters; file 21 grows a table converted from a pivot
-  (Show Values As, a Calculated Field, a grouping, a Column field written wide), and file 22
-  answers Pivot filters at scale. Hive Copilot writes is converted the same way.
+  whole-column totals and Total Rows, and 24 a PivotTable's Pivot filters. File 21 grows a
+  table converted from a pivot (Show Values As, a Calculated Field, a grouping, a Column field
+  written wide), and file 22 answers Pivot filters at scale. Hive Copilot writes is converted the same way.
 - **The Pivot filter Decision.** Each Report filter, slicer or timeline on a PivotTable is a
   Decision in the convert notebook's `PIVOT_FILTERS`: `"keep"` the filter as it was saved
   (proposed), `"fold"` it into the rows, like dragging the field from Filters to Rows,
@@ -49,8 +61,8 @@ over the workbook's own tables and compares it with what Excel shows.
   Report Filter Pages. Each answer says how many rows or tables it makes, and which to pick.
 - **The Workbook check.** A workbook's convert ends by running each table's Hive on this
   computer, over the workbook's own tables, and comparing its rows with the values Excel last
-  saved. Each difference is one line in convert's report
-  and in `batch.md`, an Excel error such as `#N/A` listed apart. It never reads the warehouse.
+  saved. Each difference is one line in convert's report and in `batch.md`, an Excel error
+  such as `#N/A` listed apart. It never reads the warehouse.
 - **Hive that stays small.** The how-tos and Copilot files now say what a CTE costs in Hive,
   which works one out again each time it is read: read each step once, keep only the columns
   read after it, and filter before you join. The how-to "Keep reads and joins fast" shows how,
