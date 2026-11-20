@@ -36,7 +36,10 @@ over the workbook's own tables and compares it with what Excel shows.
   the `GROUP BY`. A pivot's grand totals and subtotals are left out of its table, and its
   checklist names each one. Each table's checklist says how each part was read and which
   Copilot file explains it. A PivotTable still called PivotTable1, and a calculation named as
-  a table it reads, get a proposed name for you to accept or change in `RENAME`.
+  a table it reads, get a proposed name for you to accept or change, its `"name"` Decision.
+- **Each source a workbook's table reads is a Decision, proposed from its name**, so a Table
+  needn't be renamed: `Table1` is proposed as `ops.table1`, and you answer `"sources"` with the
+  warehouse table its rows came from, such as `{"ops.table1": "ops.job_runs"}`, in any database.
 - **Or through Copilot.** Copilot files 15, 11, 12, 20, 23 and 24 turn a workbook into Hive,
   step by step: 15 the steps, 11 its formulas, 12 its Power Query, 20 its PivotTables, 23 its
   whole-column totals and Total Rows, and 24 a PivotTable's Pivot filters; file 21 grows a table converted from a pivot

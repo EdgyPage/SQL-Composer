@@ -177,6 +177,8 @@ WORKBOOK_CONVERSIONS = {
     "starter": [],
     "intermediate": [("job_hours", "job_hours.xlsx", "mart.job_hours", {
         "mart.teams_pivot": {"name": "job_hours", "location": "/data/mart.db/job_hours",
+                             "sources": {"ops.job_events": "proposed",
+                                         "ops.job_owners": "proposed"},
                              "pivot_filters": {"team": "fold"}}},
         "one row per job and team: the hours its runs took.")],
 }
@@ -397,7 +399,7 @@ def _add_conversions(name: str, folder: Path) -> None:
     opt-out, its Table reference filled in from the project's hand-written source, which makes
     each Decision."""
     import example_database
-    from sqlglot_composer import converting, notebooks, project
+    from sqlglot_composer import project
 
     source = SOURCES / name
     databases = folder / "admin" / "databases.py"
@@ -411,13 +413,7 @@ def _add_conversions(name: str, folder: Path) -> None:
         project.convert(conversion, file=str(script), query=example_database.query,
                         database="ops", rename={original: table.split(".")[1]})
         stem = project.table_stem(table)
-        notebook = folder / "tables" / stem / f"{stem}.ipynb"
-        cells = []
-        for kind, text in notebooks.read_cells(notebook):
-            kept = [line for line in text.split("\n")
-                    if not converting.CONVERSION_MARK_LINE.search(line)]
-            cells.append((kind, "\n".join(kept)))
-        notebooks.write_notebook(notebook, cells)
+        _delete_conversion_marks(folder / "tables" / stem / f"{stem}.ipynb")
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
         # Its Decisions are made in the file now, its proposed Key accepted as a user accepts
@@ -431,6 +427,19 @@ def _add_conversions(name: str, folder: Path) -> None:
             raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
 
 
+def _delete_conversion_marks(notebook: Path) -> None:
+    """Delete each `# CONVERSION:` mark line of a converted table's notebook, keeping the
+    opt-out each marks, as a user who decided each does."""
+    from sqlglot_composer import converting, notebooks
+
+    cells = []
+    for kind, text in notebooks.read_cells(notebook):
+        kept = [line for line in text.split("\n")
+                if not converting.CONVERSION_MARK_LINE.search(line)]
+        cells.append((kind, "\n".join(kept)))
+    notebooks.write_notebook(notebook, cells)
+
+
 def job_hours_workbook() -> bytes:
     """The workbook of the batch job_hours, as Excel saves it, built by dev's Formula workbook
     tool: a Table of ops.job_events' rows with a formula column, hours; a Table of
@@ -440,6 +449,9 @@ def job_hours_workbook() -> bytes:
     name PivotTable1, with a slicer on team keeping data. Its stored values are worked out
     from the Example database's rows, and its time is pinned, so it is the same file on every
     computer."""
+    # Importing formula_workbook puts the repo's own folder first on sys.path, ahead of the
+    # Project's copy of the Toolbox that write_here put first: the path is put back after, so
+    # the Project's code goes on importing its own copy.
     path_before = list(sys.path)
     try:
         from formula_workbook import ExcelTable, FormulaWorkbook, saved
@@ -476,8 +488,9 @@ in
     return pinned_workbook(saved(described))
 
 
-# A workbook's part holding when it was made, which pinned_workbook pins.
-MADE_AT = "docProps/core.xml"
+# The part of a workbook that holds when it was made and last saved, which pinned_workbook
+# pins.
+TIMES_PART = "docProps/core.xml"
 
 
 def pinned_workbook(workbook: bytes) -> bytes:
@@ -489,7 +502,7 @@ def pinned_workbook(workbook: bytes) -> bytes:
           zipfile.ZipFile(held, "w", zipfile.ZIP_DEFLATED) as pinned):
         for name in parts.namelist():
             data = parts.read(name)
-            if name == MADE_AT:
+            if name == TIMES_PART:
                 data = re.sub(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*",
                               rb"\g<1>" + stamp, data)
             entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
@@ -505,7 +518,7 @@ def _add_workbook_conversions(name: str, folder: Path) -> None:
     opt-out, its Table reference's TODO lines filled in by hand, and its table compared with
     its query, which finishes the batch."""
     import example_database
-    from sqlglot_composer import converting, notebooks, project
+    from sqlglot_composer import project
 
     convert = folder / "admin" / "workflows" / "convert"
     for conversion, workbook, table, answers, one_row in WORKBOOK_CONVERSIONS[name]:
@@ -517,13 +530,7 @@ def _add_workbook_conversions(name: str, folder: Path) -> None:
         project.write_decisions(answers, tables=project.batch_tables(conversion))
         project.write_decisions({table: {"key": "proposed"}})
         stem = project.table_stem(table)
-        notebook = folder / "tables" / stem / f"{stem}.ipynb"
-        cells = []
-        for kind, text in notebooks.read_cells(notebook):
-            kept = [line for line in text.split("\n")
-                    if not converting.CONVERSION_MARK_LINE.search(line)]
-            cells.append((kind, "\n".join(kept)))
-        notebooks.write_notebook(notebook, cells)
+        _delete_conversion_marks(folder / "tables" / stem / f"{stem}.ipynb")
         reference = folder / "references" / f"{stem}.py"
         text = reference.read_text(encoding="utf-8")
         text = text.replace(f'"""{table} - TODO: say in one line what one row is."""',

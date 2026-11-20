@@ -47,7 +47,7 @@ from sqlglot_composer.workflows import CONVERT
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / "tools")]
 
-from excel_eval_tasks import RUNS, rows, runs_table, table  # noqa: E402
+from excel_eval_tasks import JOBS, RUNS, rows, runs_table, table  # noqa: E402
 from formula_workbook import ExcelTable, FormulaWorkbook, saved  # noqa: E402
 from pivot_tables import Pivot, Top, Value  # noqa: E402
 
@@ -68,6 +68,11 @@ LONG_RUNS_M = f"""let
     Renamed = Table.RenameColumns(Long, {{{{"duration_mins", "minutes"}}}})
 in
     Renamed"""
+TEAMS_M = f"""let
+    Source = {table("Table2")},
+    Kept = Table.SelectColumns(Source, {{"job_id", "team"}})
+in
+    Kept"""
 # A workbook of each kind, built as the dev tool saves one, its query on a Power Query sheet.
 BUILT = {
     "formulas": FormulaWorkbook((HOURS,)),
@@ -94,6 +99,17 @@ BUILT = {
     "unplain": FormulaWorkbook((ExcelTable(
         "run_hours", (*RUNS, "Hours Run"), rows("job_runs", RUNS),
         {"Hours Run": "=[@duration_mins]/60"}),)),
+    # Tables named as Excel names them, Table1 and Table2, not as the warehouse names their
+    # tables (ticket 20): Table1 job_runs' rows with a formula, Table2 jobs', which it looks
+    # up and a query reads.
+    "excel_names": FormulaWorkbook((
+        ExcelTable("Table1", (*RUNS, "hours", "team"), rows("job_runs", RUNS),
+                   {"hours": "=[@duration_mins]/60",
+                    "team": "=XLOOKUP([@job_id],Table2[job_id],Table2[team])"}),
+        ExcelTable("Table2", JOBS, rows("jobs", JOBS)),
+        ExcelTable("teams", ("job_id", "team"), "SELECT job_id, team FROM ops.jobs ORDER BY "
+                   "job_id", loaded_by="teams")),
+        queries=(("teams", TEAMS_M),), queries_on_sheet=True),
 }
 # Each kind's tables in dev, in the order the batch makes them.
 TABLES = {
@@ -429,8 +445,8 @@ def test_a_pivot_over_a_range_reads_the_table_proposed_for_its_sheet(
         started: Path, books: dict[str, bytes]) -> None:
     report = converted(started, books, "range")
     assert project.batch_tables("book") == [f"{DEV}.pivot"]
-    assert ("Wrote references/ops__runs.py from the cells a PivotTable reads, each type a "
-            "guess") in report
+    assert ("Wrote references/ops__runs.py from the rows of the workbook's Tables and cells, "
+            "each type a guess") in report
     notes = checklist(started, "pivot")
     assert ("- sources: ops.runs, proposed as the database table Runs!A1:F10 samples: keep it "
             'with "proposed", or answer the table it samples') in notes
@@ -448,6 +464,83 @@ def test_answering_a_ranges_table_points_the_logic_at_it(
     assert "ops.job_runs" in hive and "ops.runs" not in hive
     assert run_query(project.load(f"{DEV}.pivot").preview(), example_database.query
                      ) is not None
+
+
+def test_each_table_a_final_reads_is_a_decision_proposed_from_its_name(
+        started: Path, books: dict[str, bytes]) -> None:
+    report = converted(started, books, "excel_names")
+    assert project.batch_tables("book") == [f"{DEV}.table1_report", f"{DEV}.teams"]
+    notes = checklist(started, "table1_report")
+    assert ("- sources: ops.table1, proposed as the database table Table1 of runs.xlsx "
+            'samples: keep it with "proposed", or answer the table it samples') in notes
+    assert "- sources: ops.table2, proposed as the database table Table2" in notes
+    # A query's source Table is one too, of the table the query made.
+    assert "- sources: ops.table2, proposed" in checklist(started, "teams")
+    assert '"sources": {\n            "ops.table1": "proposed",' in report
+    # Neither is in the database, so each Table reference is written from the Table's columns.
+    assert ("Wrote references/ops__table1.py and references/ops__table2.py from the rows of "
+            "the workbook's Tables and cells, each type a guess") in report
+    assert "sources: ops.table1" in repr(project.check())
+
+
+def test_a_source_the_database_has_is_a_decision_too(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "formulas")
+    notes = checklist(started, "job_runs_report")
+    assert "- sources: ops.job_runs, proposed as the database table job_runs of runs.xlsx" in (
+        notes)
+    decide({f"{DEV}.job_runs_report": {"sources": {"ops.job_runs": "proposed"}}})
+    assert "sources:" not in checklist(started, "job_runs_report").split("## Notes")[0]
+
+
+# A second database, crm, for the Example database's own tables, as work might have one.
+def two_databases_query(hive: str) -> object:
+    """example_database.query, with each table of crm read as the same table of ops."""
+    return example_database.query(hive.replace("crm.", "ops."))
+
+
+def test_answering_each_tables_source_points_the_logic_at_two_databases(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "excel_names")
+    project.add_references("ops.job_runs", query=example_database.query)
+    project.add_references("crm.jobs", query=two_databases_query)
+    report = decide({f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs",
+                                                         "ops.table2": "crm.jobs"}},
+                     f"{DEV}.teams": {"sources": {"ops.table2": "crm.jobs"}}})
+    assert (f"{DEV}.table1_report: its logic reads ops.job_runs now, in place of ops.table1"
+            in report)
+    assert (f"{DEV}.table1_report: its logic reads crm.jobs now, in place of ops.table2"
+            in report)
+    assert "sources:" not in checklist(started, "table1_report").split("## Notes")[0]
+    hive = to_hive(project.load(f"{DEV}.table1_report").preview())
+    assert "ops.job_runs" in hive and "crm.jobs" in hive and "table1" not in hive
+    in_dev = (started / "tables" / f"{DEV}__table1_report" / "conversion" / "in_dev.hql")
+    assert "crm.jobs" in in_dev.read_text(encoding="utf-8")
+    # The rows are the ones the workbook's formulas give, on the Example database.
+    found = run_query(project.load(f"{DEV}.table1_report").preview(), two_databases_query)
+    expected = example_database.query(
+        "SELECT r.run_id, r.duration_mins / 60 AS hours, j.team FROM ops.job_runs r LEFT "
+        "JOIN ops.jobs j ON r.job_id = j.job_id ORDER BY r.run_id")
+    found = found.sort_values("run_id").reset_index(drop=True)
+    assert list(found["run_id"]) == list(expected["run_id"])
+    assert list(found["hours"]) == list(expected["hours"])
+    assert list(found["team"]) == list(expected["team"])
+    teams = run_query(project.load(f"{DEV}.teams").preview(), two_databases_query)
+    assert sorted(teams["job_id"]) == sorted(example_database.query(
+        "SELECT job_id FROM ops.jobs")["job_id"])
+
+
+def test_the_workbook_check_runs_over_the_workbooks_own_tables_whatever_the_answer(
+        started: Path, books: dict[str, bytes]) -> None:
+    report = converted(started, books, "excel_names")
+    assert "Workbook check" in report and "couldn't run" not in report.split(
+        "Workbook check")[1].split("\n\n")[0]
+    project.add_references("ops.job_runs", query=example_database.query)
+    decide({f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs",
+                                                 "ops.table2": "proposed"}}})
+    again = converted(started, books, "excel_names", overwrite=True)
+    check = again.split("Workbook check")[1].split("\n\n")[0]
+    assert "couldn't run" not in check and "no Table of the workbook" not in check
 
 
 def test_a_ranges_table_answered_needs_its_table_reference(

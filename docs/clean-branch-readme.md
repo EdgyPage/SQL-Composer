@@ -1734,14 +1734,14 @@ The path from a workbook to prod:
 <!-- chart: excel -->
 ```mermaid
 flowchart TD
-    workbook("a Formula workbook: its data and formulas in Tables, a Power Query, a PivotTable")
+    workbook("your workbook as it is: data and formulas in Tables, a Power Query, a PivotTable")
     code["the workbook itself in FILES: convert reads it in code"]
     copilot{{"Copilot, given files 15, 11 and 12, and 23, 20 and 24 as it needs: its Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     check[["the Workbook check: each table's Hive over the workbook's own Tables"]]
-    decisions{"each table's Decisions: a PivotTable's name and each Pivot filter"}
-    dev[["each table created, seeded and written in dev"]]
+    decisions{"each table's Decisions: its name, each source's table, each Pivot filter"}
+    dev[["each table created and written in dev"]]
     compare[["project.compare_batch: each against its query"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
@@ -1750,8 +1750,9 @@ flowchart TD
     convert --> check --> decisions --> dev --> compare --> promote --> prod
 ```
 
-1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is: your data and each
-   formula in an Excel Table, and any Power Query and PivotTable reading them.
+1. Take your workbook as it is: your data and each formula in an Excel Table, and any Power
+   Query and PivotTable reading them. Any workbook converts so; copilot/formula_workbook.xlsx is
+   a template for laying one out from scratch, and you needn't use it.
 2. Save it in admin/workflows/convert/, beside the convert notebook, and give it to convert in
    FILES: convert reads the workbook itself, each calculation that nothing else in it reads
    becoming a Saved table, a PivotTable one table of its rows, its totals left out.
@@ -1768,8 +1769,9 @@ flowchart TD
 
 4. Read the Workbook check, in convert's report and the batch's batch.md: each table's Hive, run
    on this computer over the workbook's own Tables, against the values the workbook shows.
-5. Answer each table's Decisions, a PivotTable's name and each Pivot filter among them, then
-   create, seed and write each in dev, as the Workflow's steps say.
+5. Answer each table's Decisions, a PivotTable's name, the warehouse table each Table stands
+   for, proposed from its name, and each Pivot filter among them, then create and write each in
+   dev, as the Workflow's steps say.
 6. Compare each with its query, the Hive it was converted from.
 
        project.compare_batch("budget", query=query)
@@ -1785,13 +1787,14 @@ Decisions and the same Workbook check after each: the workbook itself, which con
 code, or the Hive Copilot writes from it. How-to "Convert an Excel workbook" runs the first on
 a workbook of the Example database's tables, and shows the second:
 
-1. **Fill in a Formula workbook.** Action: copy `copilot/formula_workbook.xlsx` and follow its
-   Steps sheet to move the data and formulas in. `copilot/examples/` shows three filled in:
-   formulas with a value typed over, a summary Table with a Total Row, and Power Query, whose
-   queries you add by hand as its Power Query sheet says. The last sheet of each, Hive, is the
-   conversion Copilot should give. A PivotTable may read any Table of it. Done when your data
-   and formulas are in it, each formula in an Excel Table; then step 2, or step 3 to have
-   Copilot write the Hive.
+1. **Take your workbook as it is.** Action: check that its data and each formula are in Excel
+   Tables (Insert > Table), with any Power Query and PivotTable reading them. Any workbook
+   laid out so converts as it is, and its Tables keep their own names, such as Table1: you
+   needn't rebuild it. To lay one out from scratch, `copilot/formula_workbook.xlsx` is an
+   optional template, its Steps sheet saying how to move data and formulas in;
+   `copilot/examples/` shows three filled in, the last sheet of each, Hive, the conversion
+   Copilot should give. Done when each formula is in an Excel Table; then step 2, or step 3 to
+   have Copilot write the Hive.
 2. **Convert the workbook itself.** Goal: a Saved table in dev for each final, read from the
    workbook. Action: save the workbook in `admin/workflows/convert/`, beside `convert.ipynb`,
    and in the convert notebook's names cell name the batch and the workbook, such as
@@ -1799,11 +1802,14 @@ a workbook of the Example database's tables, and shows the second:
    DATABASE, the database of the tables its Tables sample, with DEV filled in, in
    `admin/databases.py`; then run its steps. Convert reads which Tables, queries and
    PivotTables read which, and makes each final, each calculation that nothing else in the
-   workbook reads, a Saved table. A PivotTable becomes one table of its rows, each Row and
-   Column field a column and each value a column; its Grand Totals and subtotals are not
-   converted, each named in its checklist with the GROUP BY that gives it. Convert's report
-   ends with the Workbook check: each table's Hive, run on this computer over the workbook's
-   own Tables, compared with the values the workbook shows, a line for each cell that differs.
+   workbook reads, a Saved table. A Table's name needn't match the warehouse's: the warehouse
+   table each Table stands for is a Decision of each table reading it, proposed from its name
+   in DATABASE, such as `Table1` as `sales.table1`. A PivotTable becomes one table of its rows,
+   each Row and Column field a column and each value a column; its Grand Totals and subtotals
+   are not converted, each named in its checklist with the GROUP BY that gives it. Convert's
+   report ends with the Workbook check: each table's Hive, run on this computer over the
+   workbook's own Tables, compared with the values the workbook shows, a line for each cell
+   that differs.
    Done when you have read the Workbook check; then step 7.
 3. **Or ask Copilot.** Goal: Copilot sees all of the workbook. Copilot may not see a Power
    Query's M inside an attached workbook; the workbook written as text shows it.
@@ -1817,14 +1823,17 @@ a workbook of the Example database's tables, and shows the second:
    - If you can't: attach the workbook itself below. If it has a Power Query, keep each
      query's M on its Power Query sheet too, as the Steps sheet's step 7 lays it out.
 
-   Action: in a new chat, attach `copilot/15_excel_workbook_steps.txt`,
-   `11_excel_formula_workbooks.txt` and `12_excel_power_query.txt`; `23_excel_totals.txt` too
-   when the workbook has a Total Row or a whole-column total, such as `SUM(t[v])`;
-   `20_excel_pivot_tables.txt` when it has a PivotTable, and `24_excel_pivot_filters.txt` when
-   a PivotTable has a slicer, a Filter or a Top 10, as `copilot/00_start_here.txt`'s Index says
-   (or paste each as a message of its own); then attach the .txt or the workbook, and send
-   "Convert this workbook". Done when Copilot answers with a map, a Hive query for each final, and what to
-   do next; then step 4.
+   Action: in a new chat, attach the Copilot files in this order, as
+   `copilot/00_start_here.txt`'s Index gives them (or paste each as a message of its own):
+
+   - every workbook: `15_excel_workbook_steps.txt`, `11_excel_formula_workbooks.txt` and
+     `12_excel_power_query.txt`;
+   - with a PivotTable: `20_excel_pivot_tables.txt`;
+   - with a slicer, a Filter or a Top 10 on a PivotTable: `24_excel_pivot_filters.txt`;
+   - with a Total Row or a whole-column total, such as `SUM(t[v])`: `23_excel_totals.txt`.
+
+   Then attach the .txt or the workbook, and send "Convert this workbook". Done when Copilot
+   answers with a map, a Hive query for each final, and what to do next; then step 4.
 4. **Check the map.** Action: read the map Copilot answers with: which Tables are sources, the
    samples of your database's tables, and which are finals, the Tables and PivotTables your
    work ends with, each becoming a query. Done when every Table you expected is there; then
@@ -1851,14 +1860,18 @@ a workbook of the Example database's tables, and shows the second:
    each query is converted; then step 7.
 7. **Answer the Decisions and compare.** Action: answer each table's Decisions in the convert
    notebook's decisions cell, as for any batch. A PivotTable keeping Excel's default name, such
-   as PivotTable1, is proposed a name from its sheet: `"name": "proposed"` keeps it. Each of
-   its slicers, Report filters and items it hides is a Pivot filter: `"keep"`, proposed, keeps
-   the selection as the workbook was last saved; `"fold"` keeps every value in one table, its
-   field part of what one row is, like dragging it from Filters to Rows; `"batch"` writes one
-   value at a time, a Partition each; `"tables"` makes a table per value. Each table's
-   checklist says how many tables each answer makes. A query here writes no table of its own,
-   so its compare step checks each Saved table's rows against the rows the query gives. Done
-   when each table has passed its compare.
+   as PivotTable1, is proposed a name from its sheet: `"name": "proposed"` keeps it. A table
+   converted from the workbook itself has a Decision for each Table it reads, the warehouse
+   table proposed from its name: `"sources": {"sales.table1": "proposed"}` keeps it, and
+   `{"sales.table1": "finance.costs"}` reads the table its rows came from, in any database,
+   once its Table reference is added. Each of a PivotTable's slicers, Report filters and items
+   it hides is a Pivot filter: `"keep"`, proposed, keeps the selection as the workbook was last
+   saved; `"fold"` keeps every value in one table, its field part of what one row is, like
+   dragging it from Filters to Rows; `"batch"` writes one value at a time, a Partition each;
+   `"tables"` makes a table per value. Each table's checklist says how many tables each answer
+   makes. A query here writes no table of its own, so its compare step checks each Saved
+   table's rows against the rows the query gives. Done when each table has passed its
+   compare.
 
 Copilot answers with Hive alone, and the code path writes Hive too: the Conversion writes the
 Toolbox code from it, and checks it. To grow a table made from a PivotTable later, such as

@@ -129,23 +129,24 @@ PROGRAM_FLOW = ("""flowchart TD
 # From an Excel workbook to prod: a chart and its steps, both ways into convert, the workbook
 # itself or the Hive Copilot writes from it (Toolbox 8.9).
 EXCEL_FLOW = ("""flowchart TD
-    workbook("a Formula workbook: its data and formulas in Tables, a Power Query, a PivotTable")
+    workbook("your workbook as it is: data and formulas in Tables, a Power Query, a PivotTable")
     code["the workbook itself in FILES: convert reads it in code"]
     copilot{{"Copilot, given files 15, 11 and 12, and 23, 20 and 24 as it needs: its Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     check[["the Workbook check: each table's Hive over the workbook's own Tables"]]
-    decisions{"each table's Decisions: a PivotTable's name and each Pivot filter"}
-    dev[["each table created, seeded and written in dev"]]
+    decisions{"each table's Decisions: its name, each source's table, each Pivot filter"}
+    dev[["each table created and written in dev"]]
     compare[["project.compare_batch: each against its query"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
     workbook --> code --> convert
     workbook --> copilot --> scripts --> convert
     convert --> check --> decisions --> dev --> compare --> promote --> prod""",
-              [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is: "
-                "your data and each formula in an Excel Table, and any Power Query and "
-                "PivotTable reading them", ""),
+              [("Take your workbook as it is: your data and each formula in an Excel Table, "
+                "and any Power Query and PivotTable reading them. Any workbook converts so; "
+                "copilot/formula_workbook.xlsx is a template for laying one out from scratch, "
+                "and you needn't use it", ""),
                ("Save it in admin/workflows/convert/, beside the convert notebook, and give it "
                 "to convert in FILES: convert reads the workbook itself, each calculation "
                 "that nothing else in it reads becoming a Saved table, a PivotTable one table "
@@ -163,9 +164,9 @@ EXCEL_FLOW = ("""flowchart TD
                ("Read the Workbook check, in convert's report and the batch's batch.md: each "
                 "table's Hive, run on this computer over the workbook's own Tables, against "
                 "the values the workbook shows", ""),
-               ("Answer each table's Decisions, a PivotTable's name and each Pivot filter "
-                "among them, then create, seed and write each in dev, as the Workflow's steps "
-                "say", ""),
+               ("Answer each table's Decisions, a PivotTable's name, the warehouse table "
+                "each Table stands for, proposed from its name, and each Pivot filter among "
+                "them, then create and write each in dev, as the Workflow's steps say", ""),
                ("Compare each with its query, the Hive it was converted from",
                 'project.compare_batch("budget", query=query)'),
                ("Promote them, and create and write each in prod, through the promote Workflow",

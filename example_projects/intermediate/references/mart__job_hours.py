@@ -28,6 +28,15 @@ job_hours = Table(
 # total levels' tables with it.
 NAME = "job_hours"  # for PivotTable1 of job_hours.xlsx
 
+# The database table each Table or range of the workbook it reads samples, proposed from
+# its name, which needn't be the one your warehouse gives it. Answer "sources" in the
+# decisions cell with the table it samples, in any database, such as {"ops.table1":
+# "ops.job_runs"}, or {"ops.table1": "proposed"} to keep it.
+SOURCES = {
+    "ops.job_events": "ops.job_events",  # the database table job_events of job_hours.xlsx samples
+    "ops.job_owners": "ops.job_owners",  # the database table job_owners of job_hours.xlsx samples
+}
+
 # What the PivotTable this table was made from leaves out: each Pivot filter, by its
 # field, a Decision. Answer "pivot_filters" in the decisions cell: "keep" keeps the
 # selection as converted; "fold", "batch" or "tables" keeps every value instead, as its

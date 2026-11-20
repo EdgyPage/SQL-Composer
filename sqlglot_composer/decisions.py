@@ -11,8 +11,9 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
   Conversion writes for each <PARM="NAME"/> in the table's Hive;
 - name: its `NAME = ...` line, the name proposed for a table a workbook's final became, as a
   pivot keeping Excel's default name (Toolbox 8.9), which an answer renames;
-- source: a line of its `SOURCES = {...}`, the database table a plain range of the workbook
-  samples, proposed for its sheet (Toolbox 8.9);
+- source: a line of its `SOURCES = {...}`, the database table each source of the workbook it
+  reads samples, a Table of typed rows or a plain range, proposed from its name (Toolbox 8.9),
+  `ops.table1` for Table1, whatever the warehouse names it;
 - Pivot filter: a line of its `PIVOT_FILTERS = {...}`, what the PivotTable it was made from
   leaves out, by the filter's field, kept as converted until answered (Toolbox 8.9), its other
   answers keeping every slice: "fold", "batch" or "tables";
@@ -80,17 +81,21 @@ NAME_COMMENT = (
     '# decisions cell: "proposed" keeps it; a name of your own renames this table, and its',
     "# total levels' tables with it.",
 )
-# The database table each plain range a workbook's final reads samples, proposed for its
-# sheet, a line each in SOURCES, open while it holds TODO: (Toolbox 8.9), such as
+# The database table each source a workbook's final reads samples, a Table of typed rows or a
+# plain range, proposed from its name, a line each in SOURCES, open while it holds TODO:
+# (Toolbox 8.9, tickets 07 and 20), such as
+#     "ops.table1": "ops.table1",  # TODO: proposed: the database table Table1 of runs.xlsx
+#     samples (the comment on one line)
 #     "ops.runs": "ops.runs",  # TODO: proposed: the database table Runs!A1:F10 samples
 SOURCES_START = "SOURCES = {"
 SOURCE_LINE = re.compile(r'^    "(?P<proposed>[\w.]+)": "(?P<table>[\w.]+)",  '
                          r"# (?P<todo>TODO: proposed: )?the database table (?P<what>.+) "
                          r"samples$")
 SOURCES_COMMENT = (
-    "# The database table each range of the workbook it reads samples, proposed for its sheet.",
-    '# Answer "sources" in the decisions cell, such as {"ops.runs": "ops.job_runs"}, or',
-    '# {"ops.runs": "proposed"} to keep it.',
+    "# The database table each Table or range of the workbook it reads samples, proposed from",
+    "# its name, which needn't be the one your warehouse gives it. Answer \"sources\" in the",
+    '# decisions cell with the table it samples, in any database, such as {"ops.table1":',
+    '# "ops.job_runs"}, or {"ops.table1": "proposed"} to keep it.',
 )
 
 
