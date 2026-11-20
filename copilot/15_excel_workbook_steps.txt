@@ -1,4 +1,4 @@
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.8)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.9)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
 each final's Hive by files 11, 12, 20, 23 and 24, then tick the Self-check. Reply as Output says.**

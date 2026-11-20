@@ -1,4 +1,4 @@
-# Copilot file 19: Metric request (sqlglot Composer 8.8)
+# Copilot file 19: Metric request (sqlglot Composer 8.9)
 
 **Look each case up by its rule id and do what it says. Reply as Output says.**
 

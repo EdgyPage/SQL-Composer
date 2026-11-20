@@ -1944,6 +1944,12 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      and each Template still as 8.7 wrote it again, saying that cell records it now. A Table
      notebook with no `export_hive()` cell is marked, since it records nothing when its logic
      changes.
+   - If your Project was at 8.8, the 8.9 Upgrade carries it to 8.9, with nothing for you to
+     change: it writes the convert Workflow's notebook,
+     `admin/workflows/convert/convert.ipynb`, again, saying its `FILES` may name an Excel
+     workbook, and keeps each name you gave it and each cell you wrote in. It then records the
+     Lineage state: a column whose Hive 8.9 writes differently, such as one using `VAR_SAMP`,
+     is marked `toolbox`, never as a change of yours.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made

@@ -1,4 +1,4 @@
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.8)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.9)
 
 **Find the message's What happened in Patterns, write the fix its rule gives, then tick the
 Self-check. Keep the user's columns, tables and days; add nothing else.**
