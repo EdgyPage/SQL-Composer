@@ -25,9 +25,13 @@ Copilot files stay:
   giving the same Hive, so the two can't drift apart unnoticed.
 - **A pivot converts as what it shows.** Its Row and Column fields are the GROUP BY, a Column
   field as rows, so a new value flows in; its values the aggregates, Show Values As a Window;
-  the totals it shows each a final of its own, since a Saved table holds no Subtotal row; a
-  calculated item a column beside the real rows, "regardless of whether or not it's strictly
-  normalized", so every aggregate the pivot showed can be read from the table.
+  a calculated item a column beside the real rows, "regardless of whether or not it's strictly
+  normalized". A pivot is one table at its finest grain, never one table per total: its grand
+  totals and subtotals, an Average's and a Distinct Count's too, are left out and named, each with
+  the GROUP BY that gives it. The user (2026-11-19, reversing "convert what is present"): "I want
+  sensible transformations of pivot tables to the rows of a table, not necessarily a one to one
+  recreation. A one to one recreation would be difficult to do with some many nested rows in the
+  pivot field."
 - **A Pivot filter is written in, and its scaling is a Decision.** Each filter the workbook was
   saved with is the condition it is. Its Decision keeps it by default, or keeps every slice:
   folded into the grain, one batch per value as a Run value, or a table per value, each layer

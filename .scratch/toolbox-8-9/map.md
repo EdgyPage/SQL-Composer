@@ -88,11 +88,15 @@ you said" to the recommendation.
   tables"). `Coastal = East + West` on Region is a column `coastal`, `SUM(CASE WHEN region IN
   ('East', 'West') THEN sales END)` over the row's other keys, repeated on each of their rows; a
   ratio item is the ratio of the conditional sums, never a sum of row ratios (round 4, Q1).
-- **Totals: what the pivot shows converts** (the user: "convert what is present in the table.
-  The user should be responsible for correct presentation"). Each total level the pivot shows,
-  a grand total or a field's subtotals, is a final of its own, `<pivot> (grand total)`,
-  `<pivot> (by <field>)`, as file 12's T2 makes a Total Row one; never a Subtotal row in the
-  pivot's own final (round 2, Q1).
+- **Totals: a pivot is one table, its totals left out** (the user, 2026-11-19, after opening
+  the fixtures: "I want sensible transformations of pivot tables to the rows of a table, not
+  necessarily a one to one recreation. A one to one recreation would be difficult to do with some
+  many nested rows in the pivot field"; this replaces round 2, Q1's "each total level a final of
+  its own"). A pivot's final is its rows at the finest grain, each Row and Column field a column,
+  each value a column; every grand total and subtotal is left out, an Average's, a Distinct
+  Count's and a % of total's too, each named in the checklist with the GROUP BY that gives it
+  (and, for a total no sum of rows gives, saying so). The Workbook check compares the body cells
+  alone. A Total Row of an Excel Table is unchanged: it is its own final (file 12's T2). Ticket 18.
 - **GETPIVOTDATA** in a Table's formula makes the pivot a step: a CTE, read by a LEFT JOIN on
   the fields it names, as file 11's F8 lookups are (round 3, Q3).
 - **Refused and named**: "Show items with no data", a DAX measure, an OLAP source. Charts stay
@@ -220,6 +224,8 @@ Example projects at 8.8 in `tests/upgrade_from/8.8/`. Only the last task ticket 
 - [15 The docs](issues/15-the-docs.md)
 - [16 8.9: the Upgrade step and the raise](issues/16-eight-point-nine.md)
 - [17 Hive that stays small: the docs and Copilot files swept for bloated CTEs](issues/17-memory-efficient-hive.md)
+- [18 A pivot is one table, its totals left out](issues/18-a-pivot-is-one-table.md)
+- [19 The slicer and Timeline fixtures open in Excel](issues/19-slicer-and-timeline-fixtures.md)
 
 One at a time, by number, the user's habit. 01 and 02 can run side by side; once 01 is done,
 04 can; once 03 and 04 are, 05, 06 and 10 can. The real dependencies are in each ticket's `Blocked by:`.
