@@ -72,7 +72,8 @@ The rules, by their IDs:
 - PG2 GETPIVOTDATA naming fewer fields: the total it reads, as its own query, the source's
   GROUP BY as Excel works the total out; a total the pivot doesn't show refused.
 - PS1 a Table: FROM what the Table is read as, `<database>.<table>` or a step's CTE.
-- PS2 a query's Table: FROM the Table the query loads, as PS1.
+- PS2 a Table a query loads: that query's Hive as a CTE, a step (file 15's P6), never FROM
+  the Table's name.
 - PS3 a plain range: the Table it would be, `<database>.<sheet>` for the person to fill in.
 - PS4 a Data Model pivot of one model table: FROM the Table or query feeding it.
 - PN1 a pivot's name: its own, in snake case.

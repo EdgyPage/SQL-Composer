@@ -41,7 +41,10 @@ the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
   field a column and part of what one row is. Pick it to slice later, as with a slicer.
 - **F4** "batch": 1 table partitioned on the field, a Partition per value, each run writing
   one value's rows, its value a Script tag whose answer is proposed. Pick it for a value a
-  run. Once "batch" is written, check() pastes the proposal to accept:
+  run. **Answer "batch" alone, with no tag**: its tag is a Decision only once "batch" is
+  written, and write_decisions refuses a tag answered before it. Then check() prints a
+  DECISIONS with the tag's proposal: paste it over the cell's DECISIONS, keep the proposal
+  to accept it, and run the cell again. The proposal:
   - if the field is a partition column of a table it reads, as a Timeline's day: a Run
     value, `project.new_run_value("latest_dt", latest_partition="ops.job_runs.dt")`, then
     `"DT": latest_dt` under "tags"; accept it for a day each run works out;

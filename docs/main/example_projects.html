@@ -3707,6 +3707,7 @@ GROUP BY
   job_id;
 </pre></details></section>
 <section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb"><code>admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb</code></h3>
+<p class="muted">An archived copy, kept in admin/removed/ when its table was renamed: nothing reads or runs it, so its cells are shown unrun.</p>
 <div class="md"><h3>mart.teams_pivot</h3>
 <p>A Saved table made by the batch job_hours, with project.convert(...), from the statements in <code>conversion/statement.hql</code>, as its script wrote them. Its logic cell builds the same query from the Toolbox&#x27;s own functions, with <code>create()</code>, <code>preview()</code> and <code>write()</code>.</p>
 <h4>Terms</h4>
@@ -3733,8 +3734,7 @@ from warehouse import connect, query
 #     from team_connection import conn
 #     connect(conn)
 connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
-<p class="label">It stops with this message</p><pre class="stop">ModuleNotFoundError:
-No module named &#x27;warehouse&#x27;</pre>
+
 <p class="label">Code cell 2</p><pre># logic
 from sqlglot_composer import (
     AS,
@@ -3818,31 +3818,31 @@ def write() -&gt; Statement:
     &quot;&quot;&quot;Save the rows into mart.teams_pivot, as the original&#x27;s INSERT did.&quot;&quot;&quot;
     return statement(INSERT_OVERWRITE(teams_pivot), *rows())
 </pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 3</p><pre># Try it: its rows, then, once its Table reference has its location=, the Hive of
 # each step
 run_query(preview(), query)
 show_hive([create(), write()])</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 4</p><pre># Lineage: a new pair in lineage/, named by the time and this table
 export_lineage(write())</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 5</p><pre># Its Hive: mart__teams_pivot.hql beside this notebook, from the logic as last saved
 export_hive()</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 6</p><pre># Its Hive against the original&#x27;s, as conversion/in_dev.hql holds it
 ORIGINAL = pathlib.Path(&quot;conversion/in_dev.hql&quot;).read_text(encoding=&quot;utf-8&quot;)
 show_hive(preview())
 print(compare_hive(preview(), ORIGINAL))</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 7</p><pre># The convert Workflow&#x27;s compare step, project.compare_batch, compares this table once
 # written. This compares its query with the original&#x27;s first:
 # Its rows against the original&#x27;s, through your query, on one Partition:
 # print(compare_with_original(preview(), ORIGINAL, query=query, partition={&quot;dt&quot;: &quot;&lt;a value&gt;&quot;}))</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+
 <p class="label">Code cell 8</p><pre># Its rows in the Reference sheet
 project.refresh_reference_sheet(&quot;mart.teams_pivot&quot;)</pre>
-<p class="muted">Not run: a cell above stopped, as Run All stops.</p></section>
+</section>
 <section class="file"><h3 id="intermediate/admin/run_tables.ipynb"><code>admin/run_tables.ipynb</code></h3>
 <div class="md"><h3>Run the tables</h3>
 <p>Writes every table: each Table notebook&#x27;s <code>write()</code>, read from its logic cell with <code>project.load</code>, each before the tables that read it. First, with no <code>execute</code>, it prints each Hive in that order and sends nothing; then, with your query and execute, it sends them. <code>tables=</code> picks some; leave it out for every Table folder the registry lists. The cell under the Project&#x27;s path connects to the warehouse, as every notebook that reaches it does: a Run value that reads the warehouse needs it even to print.</p></div>

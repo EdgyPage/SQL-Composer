@@ -86,6 +86,10 @@ TODAY = datetime.date(2026, 9, 25)
 README = "README.md"
 # What a code cell after one that stopped shows.
 NOT_RUN = '<p class="muted">Not run: a cell above stopped, as Run All stops.</p>'
+# A notebook a rename archived in admin/removed/: nothing reads or runs it, so the page shows
+# its cells as they are, unrun. Run here, its first cell finds no Project two folders up.
+ARCHIVED = ('<p class="muted">An archived copy, kept in admin/removed/ when its table was '
+            "renamed: nothing reads or runs it, so its cells are shown unrun.</p>")
 RUNNING_IT = "\n## Running it\n"
 
 
@@ -330,9 +334,9 @@ def output_html(cell: Ran) -> str:
     return "\n".join(shown) or '<p class="muted">It shows nothing.</p>'
 
 
-def notebook_html(notebook: Path, ran: list[Ran]) -> str:
+def notebook_html(notebook: Path, ran: list[Ran], not_run: str = NOT_RUN) -> str:
     """A notebook's cells: each text cell as its Markdown, each code cell with what it gave,
-    or, after a cell that stopped, a line saying it didn't run."""
+    or, after a cell that stopped, `not_run`, a line saying it didn't run."""
     cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
     shown, number = [], 0
     for cell in cells:
@@ -345,8 +349,14 @@ def notebook_html(notebook: Path, ran: list[Ran]) -> str:
         if number <= len(ran):
             shown.append(output_html(ran[number - 1]))
         else:
-            shown.append(NOT_RUN)
+            shown.append(not_run)
     return "\n".join(shown)
+
+
+def is_archived(path: str) -> bool:
+    """Whether a file, a path inside its Project, is in admin/removed/, the copies a rename
+    keeps."""
+    return path.startswith("admin/removed/")
 
 
 # An Excel workbook's suffix: the page shows one as its text.
@@ -363,7 +373,9 @@ def file_html(project: str, path: str) -> str:
     gave, a lineage page's link, a workbook's text, or any other file's text, folded."""
     source = EXAMPLE_PROJECTS / project / path
     heading = f'<h3 id="{escape(anchor(project, path))}"><code>{escape(path)}</code></h3>'
-    if path.endswith(".ipynb"):
+    if path.endswith(".ipynb") and is_archived(path):
+        shown = ARCHIVED + "\n" + notebook_html(source, [], not_run="")
+    elif path.endswith(".ipynb"):
         shown = notebook_html(source, run_one(project, path))
     elif is_lineage(path) and path.endswith(".html"):
         shown = (f'<p>A Lineage page: <a href="{escape(lineage_link(project, path))}">open '

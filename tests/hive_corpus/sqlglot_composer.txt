@@ -3122,13 +3122,13 @@ WITH steps AS (
 )
 SELECT
   steps.step,
-  COUNT(*) AS runs
+  COUNT(DISTINCT steps.run_id) AS runs
 FROM steps
 GROUP BY
   steps.step
 -- Statement 1: the Statement
 output step: steps.step
-output runs: COUNT(*)
+output runs: COUNT(DISTINCT steps.run_id)
 -- export_lineage
 # Lineage: statement
 
@@ -3158,7 +3158,7 @@ WITH steps AS (
 )
 SELECT
   steps.step,
-  COUNT(*) AS runs
+  COUNT(DISTINCT steps.run_id) AS runs
 FROM steps
 GROUP BY
   steps.step
@@ -3170,11 +3170,13 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `runs`
 
-Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **statement** as `count_distinct(steps.run_id)`, which is `COUNT(DISTINCT steps.run_id)`.
 
 ```text
-statement.runs = count_rows()
-└─ (no columns: it counts rows)
+statement.runs = count_distinct(steps.run_id)
+└─ steps.run_id
+   └─ steps: Unchecked derived table
+      └─ ops.job_runs  ((the whole table))
 ```
 
 One value for each different `steps.step`.
@@ -6410,12 +6412,14 @@ WITH per_job AS (
 )
 SELECT
   per_team.team,
+  per_team.runs,
   per_team.minutes
 FROM per_team
 WHERE
   per_team.minutes >= 100
 -- Statement 1: the Statement
 output team: per_team.team
+output runs: per_team.runs
 output minutes: per_team.minutes
 WHERE: per_team.minutes >= 100
 -- Statement 1: Derived table per_job
@@ -6466,6 +6470,7 @@ WITH per_job AS (
 )
 SELECT
   per_team.team,
+  per_team.runs,
   per_team.minutes
 FROM per_team
 WHERE
@@ -6475,6 +6480,21 @@ WHERE
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `per_job.runs`
+
+Calculated in **per_job** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+per_job.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+
+- WHERE in per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id`.
 
 #### `per_job.minutes`
 
@@ -6490,6 +6510,22 @@ Rows that count:
 - WHERE in per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 One value for each different `job_runs.job_id`.
+
+#### `per_team.runs`
+
+Calculated in **per_team** as `sum_of(per_job.runs)`, which is `SUM(per_job.runs)`.
+
+```text
+per_team.runs = sum_of(per_job.runs)
+└─ per_job.runs = count_rows()
+```
+
+Rows that count:
+
+- WHERE in per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in per_team: `equals(jobs.job_id, per_job.job_id)`, which is `jobs.job_id = per_job.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
 
 #### `per_team.minutes`
 
@@ -6511,6 +6547,7 @@ One value for each different `jobs.team`.
 ### Copied columns
 
 - `team` comes from per_team.team ← ops.jobs.team
+- `runs` comes from per_team.runs (calculated) ← per_job.runs (calculated)
 - `minutes` comes from per_team.minutes (calculated) ← per_job.minutes (calculated) ← ops.job_runs.duration_mins
 
 ### Keys

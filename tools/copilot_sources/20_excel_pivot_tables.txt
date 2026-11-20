@@ -34,7 +34,8 @@ for a Pivot filter file 24.
 
 - **PS1** A Table: FROM `<database>.<table>` or its step's CTE (file 15); never its cells typed
   in, never a CTE named for the table it reads. A source with no Hive: refused.
-- **PS2** A query's Table: FROM what the query loads, as PS1.
+- **PS2** A Table a query loads: that query's Hive as a CTE named for the query, a step
+  (file 15's P6), never FROM the Table's name.
 - **PS3** A plain range: its sheet in snake case, as `<database>.runs`; which table it samples
   is a Decision in convert.
 - **PS4** A Data Model pivot of one table: FROM what loads it; of several: refused.

@@ -169,11 +169,11 @@ RUNS_BY_REGION = (
     RUNS_PLACED + ", g AS (SELECT region, SUM(duration_mins) AS total_mins, COUNT(*) AS runs "
     "FROM base GROUP BY region HAVING COUNT(*) >= 2)")
 COSTS_WITH_BUDGETS = (
-    "costs AS (SELECT c.job_id, c.cost_cents, c.region, c.dt, j.job_name, b.budget_cents AS "
+    "costs AS (SELECT c.job_id, c.cost_cents, c.region, c.dt, b.budget_cents AS "
     "budget, COALESCE(c.cost_cents, 0) > b.budget_cents AS over_budget, SUM(c.cost_cents) OVER "
     "(PARTITION BY c.job_id ORDER BY c.dt RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "
-    "AS running_cost FROM ops.region_costs c LEFT JOIN ops.jobs j ON c.job_id = j.job_id LEFT "
-    "JOIN ops.region_budgets b ON c.job_id = b.job_id)")
+    "AS running_cost FROM ops.region_costs c LEFT JOIN ops.region_budgets b ON c.job_id = "
+    "b.job_id)")
 OWNER_LOAD = (
     "staffed AS (SELECT j.job_id, j.job_name, o.owner FROM ops.jobs j JOIN (SELECT DISTINCT "
     "job_id, owner FROM ops.job_owners) o ON j.job_id = o.job_id WHERE o.owner IS NOT NULL), "

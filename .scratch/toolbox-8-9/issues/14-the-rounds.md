@@ -103,3 +103,74 @@ Files whose text changed since their last round, so the rounds ask only these:
   docstring and the code's docstrings naming file 12's T rules or file 20's mark now name 23
   and 24.
 - `tests/snapshot/known.txt`: the hashes the new and changed Hive and rows make, added.
+
+### The rounds (2026-11-20, on dev's 20fed6cf, after tickets 18 and 20)
+
+The user: "test it all". Every round's records are in `.eval-local/` (the ledger, `rounds.csv`,
+each run folder); 144 proxies, about 5.3 million tokens.
+
+| Round | Haiku | Sonnet |
+|---|---|---|
+| Excel arm C, dev (62) | 95% (X98, X102, X104) | 98% (X92) |
+| Excel arm C, dev, after tuning round 1 | **100%** | not run (held-out tests it) |
+| Excel arm C, held-out (62) | **98%** (X111) | **100%** |
+| Copilot arm C, dev (36) | 100% | 100% |
+| Copilot arm C, held-out (19) | 95% (T54) | 95% (T54) |
+| Arm R, the Index, dev (36) | 97% (T52) | - |
+| Arm R, the Index, held-out (19) | 100% | - |
+
+**Tuning round 1, files 15 and 20.** Haiku's three dev misses were one gap, which Sonnet named
+too: a PivotTable reading a Table a query loads. File 15's P6 and R3 made that Table a step
+only when another Table's formula read it, and file 20's PS2 said "FROM what the query loads".
+P6 and R3 now say "a PivotTable or another Table's formula", and PS2 "that query's Hive as a
+CTE, a step (file 15's P6), never FROM the Table's name". H2's reason was shortened to make
+room; file 15 is 8,837 characters. Haiku's dev round then passed all 62.
+
+**X69, held-out, a reference bug.** Both models failed it first, each "types in the rows of
+jobs". Its reference CTE (`COSTS_WITH_BUDGETS`) joined `ops.jobs` for a `job_name` no final
+reads: the bloated CTE ticket 17 took out of the docs. Both replies left the join out, as
+file 15's H2 says, and the scorer asks for every table the reference reads. The join is gone
+from the reference (no reference row changes). Scored again on the same replies, held-out is
+Haiku 98% and Sonnet 100%.
+
+**T54, held-out, file 22.** Both models answered "batch" and its Hivevar tag in one decisions
+cell; `write_decisions` refuses the tag, as it isn't a Decision until "batch" is written. F4
+said "Once "batch" is written" but not that the tag waits for it. F4 now says: answer "batch"
+alone, with no tag, then accept the proposal in a second decisions cell. Asked again, T54
+passes on both, **but that re-ask isn't blind**: the held-out score is the 95% above. The dev
+tasks loading file 22 (T51, T52) still pass on both.
+
+**Misses left.** Haiku's X111 (a Bottom 2 value filter on status left unmarked, its rows off)
+and dev's X92 on Sonnet (a calculated item's total not named), each one model once. T52 on arm
+R routed to file 13, where the Index's P20 names 22.
+
+**From the whole suite, not the rounds.** `docs/main/example_projects.html` showed "No module
+named 'warehouse'" in the archived `admin/removed/.../mart__teams_pivot.ipynb`: run there, its
+first cell's "two up" is admin/, not the Project. Under pytest a test before it had imported
+`warehouse`, so `test_the_committed_page_is_what_the_tool_writes` passed or failed by worker.
+`tools/example_projects_page.py` now shows a notebook in admin/removed/ unrun, with a line
+saying why (`ARCHIVED`, `is_archived`). `tests/hive_corpus/sqlglot_composer.txt` was written
+again after ticket 17's `unchecked_derived` docstring (`COUNT(DISTINCT steps.run_id)`), and a
+whole-suite `SNAPSHOT_WRITE=1` run took the 174 hashes of 8.8's texts out of
+`tests/snapshot/known.txt` and added ticket 17's 3.
+
+**The reviews (Sonnet) and the beginner reader (Opus), on this section's changes.**
+
+- Standards: `workbook_pivot_hive.py`'s docstring still gave the old PS2; it now says file
+  20's words. `is_archived` reads `path.startswith("admin/removed/")`, the plain form.
+  `notebook_html`'s `not_run` parameter, for one caller, is kept: a second renderer would
+  repeat the loop.
+- Spec: this section didn't name the page, corpus and snapshot fixes; it does now.
+- Beginner reader ([its report](../reports/beginner-reader-2026-11-20-ticket-14.md)), three
+  stops fixed. F4's "a second decisions cell" was untrue: check()
+  prints a DECISIONS to paste over the cell's own, so F4 says that, and "keep the proposal to
+  accept it". P2 and R3 didn't count a PivotTable as a reader of a formula Table, though the
+  code (`piece_roles`: "a step if another piece reads it") does, and X122's reference has no
+  `job_runs` final: P2 names a PivotTable, and R3 says "any other piece" in both clauses. PS2
+  names its CTE for the query. Not changed: H2's reason (file 15 is at 8,839 of 9,000), the
+  archived copy's line not naming the new table, and F4's "the first value kept".
+- **These rewordings of files 15, 20 and 22 came after the rounds**: no round has asked them.
+  Every Excel task loads file 15, so the next Excel round asks all of them again.
+
+**Still to do.** The manual round, in Copilot on workbooks the user saves in Excel, waits on
+the user, as does ticket 19's fixture repair.

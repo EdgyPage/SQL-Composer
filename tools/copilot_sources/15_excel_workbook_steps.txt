@@ -13,11 +13,11 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
 | ID | The workbook has | Role |
 |---|---|---|
 | P1 | a Table of typed columns only, no query loading it | source, never a final |
-| P2 | a Table with a formula column that another Table or a query reads | step, a CTE |
+| P2 | a Table with a formula column that another Table, a query or a PivotTable reads | step, a CTE |
 | P3 | a Table with a formula column nothing else reads | final |
 | P4 | a Table whose only typed columns are its -IFS match columns | summary final (R1) |
 | P5 | a query named in another query's M | step, a CTE in each final reading it |
-| P6 | a query loading a Table another Table's formula reads | that Table a step |
+| P6 | a query loading a Table a PivotTable or another Table's formula reads | that Table a step |
 | P7 | a query loading a Table nothing reads | that Table a final, its rows the query's |
 | P8 | a query that loads nothing and nothing reads | left out, and named |
 | P9 | a Table with a Total Row | also a final, `<Table> (Total Row)` (R2) |
@@ -48,9 +48,9 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
   written into the Hive and named in the map, since a later day or team won't be in the
   table; it keeps the summary Table's own name.
 - **R2** A Total Row's final has a column for each Total Row cell holding a total, no other.
-- **R3** A Table with a formula column and no query loading it is a step if another Table's
-  formula or a query reads it, else a final; its own formula columns reading its own row
-  don't count. A query loading a Table: the Table is a step if another Table's formula reads
+- **R3** A Table with a formula column and no query loading it is a step if any other piece
+  reads it (a Table, query or PivotTable), else a final; its own formula columns reading its
+  own row don't count. A query loading a Table: the Table is a step if any other piece reads
   it, else a final, its rows the query's.
 
 ## Rules: Hive that stays small
@@ -58,8 +58,8 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
 - **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
   with totals read over 3 times). Forms grouped alike share one join (file 11's F9); a lookup
   needs its own.
-- **H2** A CTE selects only the columns read after it, never `*`: Hive drops the rest, but a
-  short CTE is quicker to check.
+- **H2** A CTE selects only the columns read after it, never `*`: a short CTE is quicker to
+  check.
 - **H3** Each WHERE goes in the SELECT that reads its source, before any join.
 - **H4** For reading: rename or add columns in the SELECT that reads a step, never in a CTE
   that only copies it.
