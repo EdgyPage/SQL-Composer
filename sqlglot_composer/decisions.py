@@ -45,6 +45,7 @@ import datetime
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 
 from .shared import escaped_literal, in_words, split_table_name
 from .writing import tag_value_problem
@@ -72,7 +73,8 @@ ANSWERED_KINDS = tuple(ANSWERS)
 # A table's name proposed for a workbook's final, as a Conversion writes it in the table's
 # Table reference above its Aliases, open while it holds TODO: (Toolbox 8.9), such as
 #     NAME = "pivot"  # TODO: proposed for PivotTable1 of runs.xlsx
-NAME_LINE = re.compile(r'^NAME = "(?P<name>[a-z0-9_]*)"  # (?P<todo>TODO: )?(?P<what>.*)$')
+NAME_LINE = re.compile(r'^NAME = "(?P<name>[a-z0-9_]*)"  # (?P<todo>TODO: )?(?:proposed )?'
+                       r"(?P<what>.*)$")
 NAME_COMMENT = (
     "# The name of this table, proposed for its final in the workbook. Answer \"name\" in the",
     '# decisions cell: "proposed" keeps it; a name of your own renames this table, and its',
@@ -90,26 +92,32 @@ SOURCES_COMMENT = (
     '# Answer "sources" in the decisions cell, such as {"ops.runs": "ops.job_runs"}, or',
     '# {"ops.runs": "proposed"} to keep it.',
 )
+
+
+class PivotFilterAnswer(StrEnum):
+    """Each answer a Pivot filter's Decision takes (Toolbox 8.9): keep the filter as
+    converted, the selection alone; or keep every value, by folding its column into what one
+    row is, by writing one batch per value, each run its value, into a Partition of its own,
+    or by making a table per value. "proposed" answers KEEP."""
+
+    KEEP = "keep"
+    FOLD = "fold"
+    BATCH = "batch"
+    TABLES = "tables"
+
+
 # Each Pivot filter of the PivotTable a table was made from, by its field, a line each in
 # PIVOT_FILTERS, kept as converted and open while it holds TODO: (Toolbox 8.9), such as
-#     "status": "keep",  # TODO: proposed: the slicer on status keeps FAILED and SUCCESS ...
-# Its answers: "keep" the filter as converted; or keep every slice, "fold" its column into
-# what one row is, "batch" each value a write of its own into a Partition, or "tables", a
-# table per value. "proposed" keeps it too.
-KEEP = "keep"
-FOLD = "fold"
-BATCH = "batch"
-TABLES = "tables"
-PIVOT_FILTER_ANSWERS = (KEEP, FOLD, BATCH, TABLES)
+#     "status": "keep",  # TODO: proposed: the slicer on status keeps FAILED and SUCCESS. ...
 PIVOT_FILTERS_START = "PIVOT_FILTERS = {"
 PIVOT_FILTER_LINE = re.compile(r'^    (?P<field>"(?:[^"\\]|\\.)*"): '
-                               r'"(?P<answer>keep|fold|batch|tables)",  '
+                               rf'"(?P<answer>{"|".join(PivotFilterAnswer)})",  '
                                r"# (?P<todo>TODO: proposed: )?(?P<what>.+)$")
 PIVOT_FILTERS_COMMENT = (
     "# What the PivotTable this table was made from leaves out: each Pivot filter, by its",
-    '# field, a Decision. Answer "pivot_filters" in the decisions cell: "keep" keeps it as',
-    '# converted; "fold", "batch" or "tables" keeps every slice instead, as its checklist',
-    "# says.",
+    '# field, a Decision. Answer "pivot_filters" in the decisions cell: "keep" keeps the',
+    '# selection as converted; "fold", "batch" or "tables" keeps every value instead, as its',
+    "# checklist says.",
 )
 # The decisions cell's answer for every table its Workflow's notebook names, beside each
 # table's own (Toolbox 8.4), and the kinds it answers, each by its name there: "proposed" for
@@ -132,6 +140,14 @@ _TAG_VALUE = r"(?P<value>.*?)"
 _TAG_COMMENT = (r"(?P<comment># (?P<how>bare|inside quotes)(?:, at (?P<where>.*?))?\. "
                 r"Answer .*)")
 TAG_LINE = re.compile(f"^    {_TAG_NAME}: {_TAG_VALUE},  {_TAG_COMMENT}$")
+# The answer a tag's comment proposes, as Python, at its end, and the call that writes it
+# first, where it is a Run value project.new_run_value writes (Toolbox 8.9), as in
+#     ... Answer it with the value each write inserts; proposed: hivevar("STATUS", ...)
+TAG_PROPOSED = "; proposed: "
+TAG_PROPOSAL = re.compile(rf"{re.escape(TAG_PROPOSED)}(?P<proposal>.+?)"
+                          r"(?:, from (?P<set_up>project\.new_run_value\(.*\)))?$")
+# The line a pasted DECISIONS needs above it for a Hivevar it proposes.
+PROPOSED_HIVEVAR_IMPORT = "from sqlglot_composer import hivevar  # for a Hivevar proposed below"
 # What a Conversion writes after a column whose type nothing told it.
 GUESSED = "  # TODO: guessed: nothing told its type"
 # What new_table's Table reference holds for a Saved table's columns, until
@@ -169,6 +185,14 @@ PROPOSED_FROM_LOGIC = ('  # proposed from its logic; if it is wrong, answer "key
 # comment, until an answer accepts it, as in
 #     key=None,  # TODO: proposed ["run_id"], checked: accept it in the decisions cell
 PROPOSED_FROM_ROWS = "  # TODO: proposed "
+# What follows the Key a Pivot filter's answer proposes again, still open, where the Key you
+# answered no longer fits what one row is (Toolbox 8.9), as in
+#     key=None,  # TODO: proposed ["job_id", "status"] from its query, as its Pivot ...
+KEY_FROM_QUERY = "query"
+# A key= line holding a Key, as an answer writes it, or by hand.
+_ANSWERED_KEY = re.compile(r"^    key=(?P<value>.*?),(?:  #.*)?$")
+PROPOSED_FROM_QUERY_AGAIN = (" from its query, as its Pivot filters' answers changed what one "
+                             "row is: accept it in the decisions cell")
 _PROPOSED_IN_COMMENT = re.compile(r"# TODO: proposed (?P<key>\[[^\]]*\])")
 _KEY_VALUE = re.compile(r"^\s*key=(?P<value>.*?),  #")
 # A line the Toolbox proposed and that is made, which check() names until it is accepted: a
@@ -188,24 +212,27 @@ PROPOSED_ROW = "  # proposed from its Key"
 class Decision:
     """One open Decision: its table, its kind, and what it is about: a guessed type's column,
     a tag's NAME, a placeholder's <...>, or a Key's proposal; and, for a tag, where it is in
-    the scripts, such as "daily.hql, line 4", when its line says, and whether it stands inside
-    quotes."""
+    the scripts, such as "daily.hql, line 4", when its line says, whether it stands inside
+    quotes, and the answer proposed for it, as Python, where one is (Toolbox 8.9); for a Key,
+    "query" where its proposal is from its query, made again."""
 
     table: str
     kind: str
     subject: str = ""
     where: str = ""
     quoted: bool = False
+    proposal: str = ""
+    set_up: str = ""
 
     def question(self) -> str:
         """What it asks of you, as check() names it."""
         if self.kind == LOCATION:
             return "location: the folder its files go in"
         if self.kind == KEY:
-            return key_question(self.subject)
+            return key_question(self.subject, self.where)
         if self.kind == GUESSED_TYPE:
             return f'types: {self.subject}\'s type, written "string" as a guess'
-        if self.kind in (TAG, NAME, SOURCE, PIVOT_FILTER):
+        if self.kind in LINE_KINDS:
             return self._named_question()
         if self.subject == COLUMNS:
             return (f"{COLUMNS}, which project.reference_from_logic writes from its logic, "
@@ -216,22 +243,34 @@ class Decision:
         """What a Decision about a named thing asks: a Script tag's value, a table's name
         proposed, the database table a range samples, or a Pivot filter's answer."""
         if self.kind == TAG:
-            return tag_question(self.subject, self.quoted, self.where)
+            return tag_question(self.subject, self.quoted, self.where, self.proposal)
         if self.kind == NAME:
             return (f'name: {self.subject}, proposed {self.where}: keep it with "proposed", '
                     "or answer a name of your own, which renames the table")
         if self.kind == PIVOT_FILTER:
-            return (f'pivot_filters: {self.subject}: {self.where}: "{KEEP}" keeps it as '
-                    f'converted; "{FOLD}", "{BATCH}" or "{TABLES}" keeps every slice instead, '
-                    "as its checklist says")
+            return (f"pivot_filters: {self.subject}, a Pivot filter. {_sentence(self.where)}. "
+                    f'Answer "{PivotFilterAnswer.KEEP}" to keep its selection as converted, '
+                    f'or "{PivotFilterAnswer.FOLD}", "{PivotFilterAnswer.BATCH}" or '
+                    f'"{PivotFilterAnswer.TABLES}" to keep every value instead, as its '
+                    "checklist says")
         return (f"sources: {self.subject}, proposed as the database table {self.where} "
                 'samples: keep it with "proposed", or answer the table it samples')
 
 
-def key_question(proposal: str) -> str:
+def _sentence(text: str) -> str:
+    """Text as a sentence starts: its first letter in capitals."""
+    return text[:1].upper() + text[1:]
+
+
+def key_question(proposal: str, made_from: str = "") -> str:
     """What an open Key's Decision asks, as check() names it: to accept its proposal, as
-    Python, when the Toolbox proposed one, or else to answer it."""
+    Python, when the Toolbox proposed one, checked on the table's rows or, `made_from` "query",
+    worked out of its query again, as a Pivot filter's answer changed what one row is; or else
+    to answer it."""
     answer = "the columns whose values name one row, or None when none do"
+    if proposal and made_from == KEY_FROM_QUERY:
+        return (f"key: proposed {proposal} from its query, as its Pivot filters' answers "
+                f"changed what one row is: accept it, or answer {answer}")
     if proposal:
         return (f"key: proposed {proposal}, which check_key found holds: accept it, or "
                 f"answer {answer}")
@@ -287,9 +326,8 @@ def kind_of(line: str) -> str:
         return KEY
     if COLUMN_LINE.match(line) and "TODO: guessed" in line:
         return GUESSED_TYPE
-    for kind, pattern in ((TAG, TAG_LINE), (NAME, NAME_LINE), (SOURCE, SOURCE_LINE),
-                          (PIVOT_FILTER, PIVOT_FILTER_LINE)):
-        if pattern.match(line):
+    for kind, read in LINE_KINDS.items():
+        if read.line.match(line):
             return kind
     if PLACEHOLDER_WORD.search(line):
         return PLACEHOLDER
@@ -303,7 +341,7 @@ def is_open(line: str) -> bool:
     if line.strip().startswith("#"):
         return False
     if kind_of(line) == TAG:
-        return _tag_value_of(line) == f'<PARM="{_tag_name_of(line)}"/>'
+        return _tag_value_of(line) == f'<PARM="{tag_name_of(line)}"/>'
     return bool(OPEN.search(line)) or line.strip().startswith(NO_LOCATION)
 
 
@@ -474,7 +512,7 @@ def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
     return found is not None and found["function"] not in named
 
 
-def _tag_name_of(line: str) -> str:
+def tag_name_of(line: str) -> str:
     """A tag line's NAME, as Python reads its string."""
     return ast.literal_eval(TAG_LINE.match(line)["name"])
 
@@ -490,7 +528,7 @@ def _tag_value_of(line: str) -> object:
 def tag_names(text: str) -> list[str]:
     """The NAME of each Script tag a Table reference's text holds in its TAGS, answered or
     not."""
-    return [_tag_name_of(line) for line in code_of(text).split("\n") if kind_of(line) == TAG]
+    return [tag_name_of(line) for line in code_of(text).split("\n") if kind_of(line) == TAG]
 
 
 def _tag_is_quoted(line: str) -> bool:
@@ -498,9 +536,51 @@ def _tag_is_quoted(line: str) -> bool:
     return TAG_LINE.match(line)["how"] == "inside quotes"
 
 
-def tag_question(name: str, quoted: bool, where: str = "") -> str:
-    """What a Script tag's Decision asks, as check() names it: its NAME, then tag_hint's."""
+def tag_question(name: str, quoted: bool, where: str = "", proposal: str = "") -> str:
+    """What a Script tag's Decision asks, as check() names it: its NAME, the answer proposed
+    for it, where one is, then tag_hint's."""
+    if proposal:
+        return (f"tags: {name}, proposed {proposal}: accept it, or answer another, "
+                f"{tag_hint(quoted, where)}")
     return f"tags: {name}, {tag_hint(quoted, where)}"
+
+
+def tag_proposal(line: str) -> str:
+    """The answer a Script tag's line in TAGS proposes, as Python, such as
+    hivevar("STATUS", default="FAILED"), or "" where it proposes none (Toolbox 8.9)."""
+    found = TAG_PROPOSAL.search(TAG_LINE.match(line)["comment"])
+    return found["proposal"] if found else ""
+
+
+def tag_set_up(line: str) -> str:
+    """The call a Script tag's proposal needs run first, such as project.new_run_value(...),
+    which writes the Run value it names; "" where it needs none."""
+    found = TAG_PROPOSAL.search(TAG_LINE.match(line)["comment"])
+    if found is None or found["set_up"] is None:
+        return ""
+    return found["set_up"]
+
+
+def tag_proposal_comment(proposal: str, set_up: str = "") -> str:
+    """What a Script tag's line in TAGS says after how its answer is written, proposing an
+    answer, and the call it needs run first, where it needs one."""
+    if set_up:
+        return f"{TAG_PROPOSED}{proposal}, from {set_up}"
+    return f"{TAG_PROPOSED}{proposal}"
+
+
+def _proposals_set_up(still_open: list[Decision]) -> list[str]:
+    """The lines a pasted DECISIONS needs above it for each answer it proposes: the import of
+    hivevar for a Hivevar, and, for a Run value, the call that writes it and its import."""
+    lines = []
+    for decision in still_open:
+        if decision.set_up:
+            function = decision.proposal
+            lines += [decision.set_up,
+                      f"from building_blocks.run_values import {function}  # its Run value"]
+        elif decision.proposal.startswith(HIVEVAR_CALL):
+            lines.append(PROPOSED_HIVEVAR_IMPORT)
+    return list(dict.fromkeys(lines))
 
 
 def tag_hint(quoted: bool, where: str = "") -> str:
@@ -587,46 +667,37 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
     for line in code_of(text).split("\n"):
         kind = kind_of(line)
         if kind in kinds and is_open(line):
-            where, quoted = "", False
+            where, quoted, proposal, set_up = "", False, "", ""
+            if kind in LINE_KINDS:
+                read = LINE_KINDS[kind]
+                where = read.line.match(line)[read.where] or ""
             if kind == TAG:
-                where = TAG_LINE.match(line)["where"] or ""
-                quoted = _tag_is_quoted(line)
-            if kind == NAME:
-                where = NAME_LINE.match(line)["what"].removeprefix("proposed ")
-            if kind == SOURCE:
-                where = SOURCE_LINE.match(line)["what"]
-            if kind == PIVOT_FILTER:
-                where = PIVOT_FILTER_LINE.match(line)["what"]
-            still_open.append(Decision(table, kind, _subject_of(kind, line), where, quoted))
+                quoted, proposal, set_up = (_tag_is_quoted(line), tag_proposal(line),
+                                            tag_set_up(line))
+            if kind == KEY and PROPOSED_FROM_QUERY_AGAIN in line:
+                where = KEY_FROM_QUERY
+            still_open.append(Decision(table, kind, _subject_of(kind, line), where, quoted,
+                                       proposal, set_up))
     return still_open
 
 
 def _subject_of(kind: str, line: str) -> str:
-    """What a Decision's line is about: a guessed type's column, a tag's NAME, the <...> a
-    placeholder's line holds first, or the Key proposed on an open key= line, as Python, such
-    as '["run_id"]'."""
+    """What a Decision's line is about: a guessed type's column, the <...> a placeholder's
+    line holds first, the Key proposed on an open key= line, as Python, such as '["run_id"]',
+    or, for a kind of LINE_KINDS, what its line names: a tag's NAME, the name or table
+    proposed, or a Pivot filter's field."""
     if kind == GUESSED_TYPE:
         return COLUMN_LINE.match(line)["column"]
-    if kind == TAG:
-        return _tag_name_of(line)
-    if kind in (NAME, SOURCE, PIVOT_FILTER):
-        return _named_subject(kind, line)
+    if kind in LINE_KINDS:
+        read = LINE_KINDS[kind]
+        subject = read.line.match(line)[read.subject]
+        return ast.literal_eval(subject) if read.subject_in_quotes else subject
     if kind == PLACEHOLDER:
         return PLACEHOLDER_WORD.search(line).group()
     if kind == KEY:
         proposal = _PROPOSED_IN_COMMENT.search(line)
         return proposal["key"] if proposal else ""
     return ""
-
-
-def _named_subject(kind: str, line: str) -> str:
-    """What a NAME, a SOURCES or a PIVOT_FILTERS line is about: the name proposed, the table
-    proposed, or the Pivot filter's field."""
-    if kind == NAME:
-        return NAME_LINE.match(line)["name"]
-    if kind == PIVOT_FILTER:
-        return ast.literal_eval(PIVOT_FILTER_LINE.match(line)["field"])
-    return SOURCE_LINE.match(line)["proposed"]
 
 
 def todo_lines(text: str) -> list[tuple[int, str]]:
@@ -662,7 +733,7 @@ def is_left_to_fill_in(value: object) -> bool:
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
     """Whether a table's answer in the decisions cell answers this Decision: one left
     <FILL IN>, as check() prints it to paste, doesn't."""
-    if decision.kind in (GUESSED_TYPE, TAG, SOURCE, PIVOT_FILTER):
+    if decision.kind in ANSWERED_BY_SUBJECT:
         answers = answer.get(ANSWERS[decision.kind])
         return (isinstance(answers, dict) and decision.subject in answers
                 and not is_left_to_fill_in(answers[decision.subject]))
@@ -806,14 +877,14 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
     lines = text.split("\n")
     for number, line in enumerate(lines):
         changeable = (PROPOSED in line or PROPOSED_FROM_LOGIC in line
-                      or kind_of(line) in (TAG, NAME, SOURCE, PIVOT_FILTER))
+                      or kind_of(line) in LINE_KINDS)
         if not is_open(line) and not changeable:
             continue
         written, name = _answered_line(line, answer)
         if written is None:
             continue
         if kind_of(line) == TAG and not is_open(line) and written != line:
-            answered.changed.append(f"tags: {_tag_name_of(line)} is "
+            answered.changed.append(f"tags: {tag_name_of(line)} is "
                                     f"{_tag_answer_shown(written)} now, in place of "
                                     f"{_tag_answer_shown(line)}")
         lines[number] = written
@@ -858,7 +929,7 @@ def _tags_unwritten(answer: dict[str, object], text: str) -> list[str]:
     tags = answer.get(ANSWERS[TAG])
     if not isinstance(tags, dict):
         return []
-    tag_lines = {_tag_name_of(line): line for line in text.split("\n")
+    tag_lines = {tag_name_of(line): line for line in text.split("\n")
                  if kind_of(line) == TAG}
     unwritten = []
     for name, value in tags.items():
@@ -878,10 +949,8 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
         name = ANSWERS[named]
         if kind == named and name in answer and not is_left_to_fill_in(answer[name]):
             return f"    {name}={escaped_literal(answer[name])},", name
-    written_by = {TAG: _answered_tag, NAME: _answered_name, SOURCE: _answered_source,
-                  PIVOT_FILTER: _answered_pivot_filter}
-    if kind in written_by:
-        return written_by[kind](line, answer.get(ANSWERS[kind]))
+    if kind in LINE_KINDS:
+        return LINE_KINDS[kind].answered(line, answer.get(ANSWERS[kind]))
     types = answer.get(ANSWERS[GUESSED_TYPE])
     if kind != GUESSED_TYPE or not isinstance(types, dict):
         return None, ""
@@ -895,7 +964,7 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
 def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     """A tag's line written with its answer, its comment kept, and the answer's name, or None
     when `tags` gives it none, or one in a form that can't stand where the tag stood."""
-    name = _tag_name_of(line)
+    name = tag_name_of(line)
     if not isinstance(tags, dict) or name not in tags:
         return None, ""
     value = tags[name]
@@ -919,8 +988,7 @@ def _answered_name(line: str, name: object) -> tuple[str | None, str]:
     found = NAME_LINE.match(line)
     if name == ACCEPT_PROPOSED:
         name = found["name"]
-    what = found["what"].removeprefix("proposed ")
-    return f'NAME = "{name}"  # {what}', ANSWERS[NAME]
+    return f'NAME = "{name}"  # {found["what"]}', ANSWERS[NAME]
 
 
 def _answered_source(line: str, sources: object) -> tuple[str | None, str]:
@@ -949,8 +1017,8 @@ def _answered_pivot_filter(line: str, filters: object) -> tuple[str | None, str]
         return None, ""
     answer = filters[field]
     if answer == ACCEPT_PROPOSED:
-        answer = KEEP
-    if answer not in PIVOT_FILTER_ANSWERS:
+        answer = PivotFilterAnswer.KEEP
+    if answer not in tuple(PivotFilterAnswer):
         return None, ""
     return (f'    {found["field"]}: "{answer}",  # {found["what"]}',
             f"{ANSWERS[PIVOT_FILTER]}: {field}")
@@ -972,36 +1040,73 @@ def pivot_filters_block(filters: dict[str, str]) -> list[str]:
     Pivot filter by its field, `filters` giving what it keeps in words, kept as converted,
     each an open Decision."""
     lines = [*PIVOT_FILTERS_COMMENT, PIVOT_FILTERS_START]
-    lines += [f'    {escaped_literal(field)}: "{KEEP}",  # TODO: proposed: {what}'
+    lines += [f'    {escaped_literal(field)}: "{PivotFilterAnswer.KEEP}",  # TODO: proposed: '
+              f"{what}"
               for field, what in filters.items()]
     return [*lines, "}"]
 
 
-def with_logic_columns(text: str, columns: dict[str, str], partitions: list[str],
-                       key: list[str] | None, tags: list[str]) -> str:
+@dataclass(frozen=True)
+class LogicColumns:
+    """What a table's logic gives once a Pivot filter's answer rewrote it (Toolbox 8.9): its
+    columns and types, "" for each nothing told; its partition columns; the Key proposed from
+    its query, or None; the columns its answers added to what one row is; and its TAGS lines,
+    as converting.tags_block writes them."""
+
+    columns: dict[str, str]
+    partitions: list[str]
+    key: list[str] | None
+    grain_added: list[str]
+    tags: list[str]
+
+
+def with_logic_columns(text: str, given: LogicColumns) -> str:
     """A Table reference's text with the columns, partition columns, Key and Script tags its
-    logic gives once a Pivot filter's answer rewrote it (Toolbox 8.9): each column's line kept
-    where it had one, a new one typed as `columns` gives it, "string" marked a guess where
-    that is "", and one the logic no longer gives taken out; partitioned_by= for
-    `partitions`, or none; key= the Key `key` proposed from its query, or a Decision again
-    for None, and the first line proposed again from it; and TAGS holding each tag `tags`, as
-    converting.tags_block writes them, gives, each kept as answered where it was, with no
-    TAGS once there is none."""
+    logic gives, `given`: each column's line kept where it had one, a new one typed as it is
+    given, "string" marked a guess where that is "", and one the logic no longer gives taken
+    out; partitioned_by= for its partition columns, or none; its key= as key_line_kept says;
+    and TAGS holding each tag given, each kept as answered where it was, with no TAGS once
+    there is none."""
     lines = text.split("\n")
     start = lines.index("    columns={")
     end = lines.index("    },", start)
     had = {COLUMN_LINE.match(line)["column"]: line for line in lines[start + 1:end]}
     lines[start + 1:end] = [had.get(column) or _column_line(column, kind)
-                            for column, kind in columns.items()]
+                            for column, kind in given.columns.items()]
     lines = [line for line in lines if not line.startswith("    partitioned_by=")]
-    if partitions:
+    if given.partitions:
         lines.insert(lines.index("    },", start) + 1,
-                     f"    partitioned_by={escaped_literal(partitions)},")
+                     f"    partitioned_by={escaped_literal(given.partitions)},")
+    key: object = given.key
     for number, line in enumerate(lines):
         if line.startswith("    key="):
-            lines[number] = _proposed_key_line(key, next(iter(columns)))
-    rewritten = _with_tags_block("\n".join(lines), tags)
+            lines[number], key = key_line_kept(line, given)
+    rewritten = _with_tags_block("\n".join(lines), given.tags)
     return _with_run_value_imports(_with_row_line_proposed_again(rewritten, key), {})
+
+
+def key_line_kept(line: str, given: LogicColumns) -> tuple[str, object]:
+    """A table's key= line once a Pivot filter's answer rewrote its logic, and the Key it
+    holds: a Key you answered is kept while its columns still fit, every column a column of
+    the table and holding each column the answers added to what one row is; where they no
+    longer fit, the Key proposed from its query, open, to accept. A Key the Toolbox proposed,
+    or one still open, is the one proposed from its query now, made, as convert writes it."""
+    answered = _ANSWERED_KEY.match(line)
+    if (answered is None or is_open(line) or PROPOSED in line
+            or PROPOSED_FROM_LOGIC in line):
+        return _proposed_key_line(given.key, next(iter(given.columns))), given.key
+    try:
+        kept = ast.literal_eval(answered["value"])
+    except (ValueError, SyntaxError):  # a Key written by hand that isn't plain: kept
+        return line, None
+    if not isinstance(kept, list):
+        return line, kept
+    fits = all(column in given.columns for column in kept) and all(
+        column in kept for column in given.grain_added)
+    if fits or given.key is None:
+        return line, kept
+    return (f"    key=None,{PROPOSED_FROM_ROWS}{escaped_literal(given.key)}"
+            f"{PROPOSED_FROM_QUERY_AGAIN}", None)
 
 
 def _column_line(column: str, kind: str) -> str:
@@ -1023,17 +1128,20 @@ def _proposed_key_line(key: list[str] | None, first: str) -> str:
 
 def _with_tags_block(text: str, tags: list[str]) -> str:
     """A Table reference's text with TAGS holding each tag line of `tags`, one answered
-    already kept as it is; with none, no TAGS. A new TAGS goes above PIVOT_FILTERS' comment."""
+    already kept as it is; with none, no TAGS. A new TAGS goes above PIVOT_FILTERS and the
+    comment over it."""
     lines = text.split("\n")
-    new = {_tag_name_of(line): line for line in tags if TAG_LINE.match(line)}
+    new = {tag_name_of(line): line for line in tags if TAG_LINE.match(line)}
     if TAGS_START not in lines:
         if not new:
             return text
-        at = lines.index(PIVOT_FILTERS_COMMENT[0])
+        at = lines.index(PIVOT_FILTERS_START)
+        while at > 0 and lines[at - 1].startswith("#"):
+            at -= 1
         return "\n".join([*lines[:at], *tags, "", *lines[at:]])
     start = lines.index(TAGS_START)
     end = lines.index("}", start)
-    had = {_tag_name_of(line): line for line in lines[start + 1:end] if TAG_LINE.match(line)}
+    had = {tag_name_of(line): line for line in lines[start + 1:end] if TAG_LINE.match(line)}
     if new:
         lines[start + 1:end] = [had.get(name, line) for name, line in new.items()]
         return "\n".join(lines)
@@ -1095,7 +1203,8 @@ def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -
     for decision in answered:
         if _shared_kind(decision) not in shared_kinds:
             by_table.setdefault(decision.table, []).append(decision)
-    lines = [f"{DECISIONS_NAME} = {{", *_all_tables_lines(shared, accepts_every_key)]
+    lines = [*_proposals_set_up(answered), f"{DECISIONS_NAME} = {{",
+             *_all_tables_lines(shared, accepts_every_key)]
     for table, decided in by_table.items():
         lines.append(f"    {escaped_literal(table)}: {{")
         kinds = {decision.kind for decision in decided}
@@ -1159,6 +1268,10 @@ def _key_lines(keys: list[Decision]) -> list[str]:
     when the Toolbox proposed one, else <FILL IN>."""
     if not keys:
         return []
+    if keys[0].subject and keys[0].where == KEY_FROM_QUERY:
+        return [f'        "{ANSWERS[KEY]}": {keys[0].subject},  # proposed from its query, as '
+                "its Pivot filters' answers changed what one row is: keep it to accept it, or "
+                "write another, or None"]
     if keys[0].subject:
         return [f'        "{ANSWERS[KEY]}": {keys[0].subject},  # proposed, and check_key '
                 "found it holds: keep it to accept it, or write another, or None"]
@@ -1194,9 +1307,10 @@ def _pivot_filters_lines(pivot_filters: list[Decision]) -> list[str]:
         return []
     lines = [f'        "{ANSWERS[PIVOT_FILTER]}": {{']
     for decision in pivot_filters:
-        lines.append(f'            {escaped_literal(decision.subject)}: "{KEEP}",  # '
-                     f'{decision.where}; or "{FOLD}", "{BATCH}" or "{TABLES}", as its '
-                     "checklist says")
+        lines.append(f'            {escaped_literal(decision.subject)}: '
+                     f'"{PivotFilterAnswer.KEEP}",  # {_sentence(decision.where)}. Or '
+                     f'answer "{PivotFilterAnswer.FOLD}", "{PivotFilterAnswer.BATCH}" or '
+                     f'"{PivotFilterAnswer.TABLES}", as its checklist says.')
     return [*lines, "        },"]
 
 
@@ -1220,5 +1334,41 @@ def _tags_lines(tags: list[Decision]) -> list[str]:
     lines = [f'        "{ANSWERS[TAG]}": {{']
     for decision in tags:
         hint = tag_hint(decision.quoted, decision.where)
-        lines.append(f'            {escaped_literal(decision.subject)}: "{FILL_IN}",  # {hint}')
+        if decision.proposal:
+            lines.append(f"            {escaped_literal(decision.subject)}: "
+                         f"{decision.proposal},  # proposed: keep it to accept it, or "
+                         f"answer another, {hint}")
+        else:
+            lines.append(f'            {escaped_literal(decision.subject)}: "{FILL_IN}",  '
+                         f"# {hint}")
     return [*lines, "        },"]
+
+
+# --- The kinds of Decision a line of their own names -----------------------------------------
+
+
+@dataclass(frozen=True)
+class LineKind:
+    """How one kind of Decision is read from the line that holds it, and answered: the
+    line's pattern; the group naming what it is about, a Python string where
+    `subject_in_quotes`; the group saying where it is, or what it is; and the function that
+    writes an answer into the line, giving the line written and the answer's name, or None."""
+
+    line: re.Pattern[str]
+    subject: str
+    subject_in_quotes: bool
+    where: str
+    answered: Callable[[str, object], tuple[str | None, str]]
+
+
+# Each kind of Decision whose line names what it is about: a Script tag, a name proposed for
+# a workbook's final, the database table a range samples, and a Pivot filter. Each place that
+# reads one reads it here.
+LINE_KINDS = {
+    TAG: LineKind(TAG_LINE, "name", True, "where", _answered_tag),
+    NAME: LineKind(NAME_LINE, "name", False, "what", _answered_name),
+    SOURCE: LineKind(SOURCE_LINE, "proposed", False, "what", _answered_source),
+    PIVOT_FILTER: LineKind(PIVOT_FILTER_LINE, "field", True, "what", _answered_pivot_filter),
+}
+# The kinds whose answer in the decisions cell is a dict, one answer by what each is about.
+ANSWERED_BY_SUBJECT = (GUESSED_TYPE, TAG, SOURCE, PIVOT_FILTER)

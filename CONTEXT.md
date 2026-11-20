@@ -373,8 +373,11 @@ hidden on a Row or Column field, a slicer's selection, a Timeline's dates, or a 
 such as Top 10. It is converted as the condition it is, its values written in. Keeping it is a
 Decision of the table it ends up in, whose other answers keep every slice instead: the filtered
 column becomes part of what one row is, each value is written as its own batch, or each value
-gets a table of its own, as many tables as the filter has values. A value filter keeps items
-by their rank, so only the first keeps its every item.
+gets a table of its own, as many tables as the filter has values. A value filter, such as Top
+10, keeps items by their rank among the rest, which changes as the rows do, so it has no fixed
+value to write a batch or a table for: it is kept, or folded to keep every item. A table per
+value needs the values the PivotTable's cache held, so for a script's Hive alone, which holds
+no cache, that answer waits until the script is converted beside its workbook.
 _Avoid_: slicer filter, page filter, applied filter, sliced view
 
 **Saved table**:

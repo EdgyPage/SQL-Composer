@@ -20,9 +20,9 @@ import sqlglot
 from sqlglot import exp
 
 from .converting import python_of_literal
-from .decisions import BATCH, FOLD, KEEP, TABLES
+from .decisions import PivotFilterAnswer
 from .script_tags import readable_tags, tags_as_written
-from .shared import counted, in_words, singular_or_plural
+from .shared import counted, in_words
 from .workbook_formulas import snake_case
 from .workbook_pivot_hive import (
     FILTER_RULES,
@@ -325,15 +325,18 @@ def pivot_filters_of_batch(root: Path, name: str) -> dict[str, list[ConvertedPiv
     return found
 
 
+
+
 # --- Each Pivot filter's Decision, in words (ticket 08) -------------------------------------
 
-# How a blank is shown, as Excel shows one, and named in a table per value's name.
+# How a blank is shown, as Excel shows one, and named in a list and in a table per value's
+# name.
 BLANK_SHOWN = "(blank)"
 BLANK_NAME = "blank"
-# How each Pivot filter's note in its table's checklist starts, and the sentence it ends on.
+# How each Pivot filter's note in its table's checklist starts.
 NOTE_START = "Pivot filter "
-HOW_MANY_TABLES = ("A handful of tables, such as 3, is manageable; a hundred is a reason to "
-                   f'"{FOLD}" or "{BATCH}" instead.')
+# How many of a field's values a Decision names before it counts the rest.
+VALUES_NAMED = 6
 
 
 def pivot_filter_keys(filters: list[ConvertedPivotFilter]) -> dict[str, ConvertedPivotFilter]:
@@ -378,95 +381,165 @@ def value_shown(value: object) -> str:
     return str(value)
 
 
-def tables_counted(keyed: dict[str, ConvertedPivotFilter]) -> str:
-    """How many tables a table per value makes, layer by layer, each layer a filtered field of
-    the table, and the layers together: "status: at least 4 tables; dt: at least 2; status
-    and dt: at least 8"; "" where a layer's values aren't known. A value filter is no layer."""
-    layers = {key: len(each.field_values) for key, each in keyed.items()
-              if each.kind != TOP_FILTER}
-    if not layers or 0 in layers.values():
-        return ""
-    said = [f"{key}: at least {count}" for key, count in layers.items()]
-    said[0] = f"{said[0]} {singular_or_plural(list(layers.values())[0], 'table', 'tables')}"
+def values_listed(written: ConvertedPivotFilter) -> str:
+    """The values a Pivot filter's field takes, as the PivotTable's cache held them, in words:
+    "FAILED, SUCCESS, TEST and blank"; the first few and how many more, where there are
+    many."""
+    shown = [BLANK_NAME if value is None else value_shown(value)
+             for value in written.field_values]
+    if len(shown) <= VALUES_NAMED:
+        return in_words(shown)
+    rest = len(shown) - VALUES_NAMED + 1
+    return f"{', '.join(shown[:VALUES_NAMED - 1])} and {rest} more"
+
+
+def layer_counts(keyed: dict[str, ConvertedPivotFilter]) -> list[tuple[list[str], int]]:
+    """How many tables a table per value makes, layer by layer, a layer being each field the
+    table is filtered on, and every layer together where there are two or more: each as the
+    names of its Pivot filters and the count, 0 for a layer whose values aren't known. A
+    value filter is no layer: it has no table per value."""
+    layered = [key for key, each in keyed.items() if each.kind != TOP_FILTER]
+    layers = [([key], len(keyed[key].field_values)) for key in layered]
     if len(layers) > 1:
         together = 1
-        for count in layers.values():
+        for _, count in layers:
             together *= count
-        said.append(f"{in_words(list(layers))}: at least {together}")
+        layers.append((layered, together))
+    return layers
+
+
+def layers_in_words(keyed: dict[str, ConvertedPivotFilter]) -> str:
+    """layer_counts in words, each layer's values named: "status: at least 4 tables (FAILED,
+    SUCCESS, TEST and blank); dt: at least 2 tables (2026-09-23 and 2026-09-24); status and
+    dt together: at least 8 tables"."""
+    said = []
+    for names, count in layer_counts(keyed):
+        tables = counted(count, "table")
+        if len(names) > 1:
+            said.append(f"{in_words(names)} together: at least {tables}")
+        else:
+            said.append(f"{names[0]}: at least {tables} ({values_listed(keyed[names[0]])})")
     return "; ".join(said)
 
 
 def pivot_filter_line_text(key: str, keyed: dict[str, ConvertedPivotFilter]) -> str:
-    """What a Pivot filter's line in PIVOT_FILTERS says of it: what it keeps, and how many
-    tables a table per value makes of it, or that "keep" and "fold" are its only answers."""
+    """What a Pivot filter's line in PIVOT_FILTERS says of it: what it keeps, then how many
+    tables each answer makes, a table per value's from the values the PivotTable's cache
+    held, which it names; a value filter's two answers alone."""
     written = keyed[key]
     words = pivot_filter_in_words(written)
+    column = column_name(written.field)
     if written.kind == TOP_FILTER:
-        return f'{words}: "{KEEP}" or "{FOLD}" alone, as it keeps items by their rank'
-    count = tables_counted({key: written})
-    if not count:
-        return f"{words}: how many values {written.field} has isn't known"
-    return f"{words}: a table per value makes {count.removeprefix(f'{key}: ')}"
+        kept = value_shown(written.values[0]) if written.values else "items"
+        return (f'{words}. "{PivotFilterAnswer.KEEP}": 1 table, those {kept}; '
+                f'"{PivotFilterAnswer.FOLD}": 1 table, every {column}. A value filter has only '
+                "these two answers, as it keeps items by their rank, which changes as the rows "
+                "do")
+    tables = (f"a table per {column}, how many not known, as a script's Hive holds no "
+              "PivotTable cache")
+    if written.field_values:
+        tables = (f"at least {counted(len(written.field_values), 'table')}, one per {column} "
+                  f"the PivotTable's cache held ({values_listed(written)})")
+    return (f'{words}. "{PivotFilterAnswer.KEEP}": 1 table, that selection; '
+            f'"{PivotFilterAnswer.FOLD}": 1 table, every {column}; '
+            f'"{PivotFilterAnswer.BATCH}": 1 table, a Partition per {column}; '
+            f'"{PivotFilterAnswer.TABLES}": {tables}')
 
 
 def pivot_filter_note(table: str, key: str, keyed: dict[str, ConvertedPivotFilter],
                       text: str) -> str:
     """The note of one Pivot filter's Decision in its table's checklist, `text` the Hive the
-    table was converted from: what the table shows, and what each answer makes of it, with
-    how many tables a table per value makes, layer by layer."""
+    table was converted from: what the table shows; each answer, in Excel's words first, and
+    how many tables it makes, a table per value's layer by layer; and which to pick."""
     written = keyed[key]
     keys, values = shown_by(text, written)
     shows = f"{in_words(values) or 'its rows'} by {in_words(keys)}"
     if not keys:
         shows = f"{in_words(values) or 'its rows'} over every row"
-    opening = (f"{NOTE_START}{key}, a Decision: {table} shows {shows}, where "
-               f"{pivot_filter_in_words(written)}, as the workbook was last saved. "
-               f'"{KEEP}", proposed, keeps that alone. ')
-    column = snake_case(written.field)
+    opening = (f"{NOTE_START}{key}, a Decision. What {table} shows: {shows}, only where "
+               f"{pivot_filter_in_words(written)}, as the workbook was last saved. Its "
+               f'answers, each given as "pivot_filters": {{"{key}": ...}}: '
+               f'"{PivotFilterAnswer.KEEP}", proposed: 1 table, that selection alone. ')
+    column = column_name(written.field)
     if written.kind == TOP_FILTER:
-        return opening + (f'"{FOLD}" drops the value filter, so every {written.field} has its '
-                          f"row. A value filter keeps items by their rank, which changes as "
-                          f'the rows do, so it has nothing to "{BATCH}" or make "{TABLES}" of.')
-    folded = (f"{column} becomes part of what one row is, a column of {table} and of its "
-              f"GROUP BY: still 1 table, a row for each {in_words([*keys, column])}")
+        return opening + (f'"{PivotFilterAnswer.FOLD}": 1 table, every {column}, the value '
+                          f"filter dropped. A value filter has only these two answers: it "
+                          f"{VALUE_FILTER_REASON}.")
+    return opening + _every_value_said(table, key, keyed, keys) + (
+        f' Which to pick: to tab through each {column} in a presentation, as with a slicer, '
+        f'"{PivotFilterAnswer.FOLD}" keeps every {column} in one table to slice later; '
+        f'"{PivotFilterAnswer.BATCH}" when each {column} is written on its own schedule; '
+        f'"{PivotFilterAnswer.TABLES}" only for a handful; "{PivotFilterAnswer.KEEP}" when one '
+        "selection is all anyone needs. A handful of tables, such as 3, is manageable; a "
+        f'hundred is a reason to "{PivotFilterAnswer.FOLD}" or "{PivotFilterAnswer.BATCH}" '
+        "instead.")
+
+
+# Why a value filter has no "batch" or "tables" answer, as its note and its refusal say.
+VALUE_FILTER_REASON = ("keeps items by their rank among the rest, which changes as the rows "
+                       "do, so it has no fixed value to write a batch or a table for")
+
+
+def _every_value_said(table: str, key: str, keyed: dict[str, ConvertedPivotFilter],
+                      keys: list[str]) -> str:
+    """What a Pivot filter's note says of the three answers that keep every value: "fold",
+    "batch" and "tables", each in Excel's words or plain ones first, and how many tables or
+    Partitions each makes."""
+    written = keyed[key]
+    column = column_name(written.field)
+    grain = in_words([*keys, column])
     if column in keys:
-        folded = (f"its condition goes, {column} being part of what one row is already: "
-                  f"still 1 table, a row for each {in_words(keys)}")
-    return opening + (
-        f'To keep every slice instead, answer "pivot_filters": {{"{key}": ...}} with one of '
-        f'three. "{FOLD}": {folded}. "{BATCH}": one batch per '
-        f"value: {table} is partitioned on {column}, and each write inserts one {column}'s "
-        f"slice, the value of {tag_name(written.field)}, a Run value you answer under "
-        f'"tags": still 1 table, {_partitions_counted(written)}. "{TABLES}": a table per '
-        f"value, each {table} for one {column}, named {table}_<value>, such as "
-        f"{table}_{_value_names(written)[0]}: {_tables_said(written, keyed)}")
-
-
-def _partitions_counted(written: ConvertedPivotFilter) -> str:
-    """How many Partitions one batch per value makes: at least one per value the PivotTable's
-    cache holds."""
-    if not written.field_values:
-        return "a Partition per value"
-    return f"at least {counted(len(written.field_values), 'Partition')}"
+        grain = in_words(keys)
+    partitions = "a Partition per value"
+    if written.field_values:
+        partitions = f"at least {counted(len(written.field_values), 'Partition')}"
+    return (f'"{PivotFilterAnswer.FOLD}": like dragging {written.field} from Filters to Rows '
+            f"in the PivotTable: 1 table, every {column}, {column} a column of {table} and "
+            f"part of what one row is, a row for each {grain}. "
+            f'"{PivotFilterAnswer.BATCH}": 1 table written one {column} at a time, each run '
+            f"writing its own {column}'s rows: {table} is partitioned on {column}, a Partition "
+            f"per {column} ({partitions}), and the {column} each run writes is the Script tag "
+            f'{tag_name(written.field)}, answered under "tags" with the Run value proposed '
+            f'there. "{PivotFilterAnswer.TABLES}": like Excel\'s Show Report Filter Pages: a '
+            f"table per {column}, named {table}_<value>, such as "
+            f"{table}_{_value_names(written)[0]}: {_tables_said(written, keyed)}")
 
 
 def _tables_said(written: ConvertedPivotFilter, keyed: dict[str, ConvertedPivotFilter]) -> str:
     """What a Pivot filter's note says of how many tables a table per value makes: each layer
-    of the table and the layers together, from the values the PivotTable's cache holds; or why
-    that isn't known."""
+    and every layer together, from the values the PivotTable's cache held, which it names, a
+    layer and "at least" each said; or why that isn't known."""
     if not written.field_values:
-        return (f"how many isn't known, as its Hive came from a script, and Hive holds no "
-                f"PivotTable's cache of the values {written.field} takes, so "
-                f'"{TABLES}" waits on it: convert the script beside its workbook, or answer '
-                f'"{FOLD}" or "{BATCH}". {HOW_MANY_TABLES}')
-    return (f"{tables_counted(keyed)}, from the values the PivotTable's cache held when the "
-            f"workbook was saved. {HOW_MANY_TABLES}")
+        return (f"how many isn't known, as its Hive came from a script, which holds no "
+                f"PivotTable cache of the values {written.field} takes, so "
+                f'"{PivotFilterAnswer.TABLES}" waits until you convert the script beside its '
+                "workbook.")
+    return (f"{layers_in_words(keyed)}. A layer is each field the table is filtered on, and "
+            '"at least" as these are the values the PivotTable\'s cache held when the '
+            "workbook was saved: the warehouse may hold more.")
+
+
+def column_name(field: str) -> str:
+    """The column a PivotTable's field is in the Hive: its name in snake case."""
+    return snake_case(field)
 
 
 def tag_name(field: str) -> str:
     """The Script tag one batch per value of a field writes where its value goes: STATUS for
     status."""
-    return snake_case(field).upper()
+    return column_name(field).upper()
+
+
+def batch_default(written: ConvertedPivotFilter) -> object:
+    """The value a batch's Script tag is proposed with, where the warehouse fills it in each
+    run: the first value the filter keeps, or else the first the field takes, never a
+    blank."""
+    kept = [value for value in written.values if value is not None]
+    if written.kind == HIDDEN_ITEMS:
+        kept = []
+    kept += [value for value in written.field_values
+             if value is not None and value not in written.values]
+    return kept[0] if kept else ""
 
 
 def _value_names(written: ConvertedPivotFilter) -> list[str]:
@@ -489,15 +562,15 @@ def answers_in_words(keyed: dict[str, ConvertedPivotFilter], answers: dict[str, 
     the value a table per value holds."""
     said = []
     for key, written in keyed.items():
-        answer = answers.get(key, KEEP)
-        column = snake_case(written.field)
-        if answer == FOLD:
-            said.append(f"{column} is part of what one row is")
-        elif answer == BATCH:
-            said.append(f'one batch per {column}, its value TAGS["{tag_name(written.field)}"], '
-                        'to answer under "tags", such as with a Run value')
-        elif answer == TABLES:
-            said.append(f"{column} {value_shown(held.get(key))} alone, a table per value")
+        answer = answers.get(key, PivotFilterAnswer.KEEP)
+        column = column_name(written.field)
+        if answer == PivotFilterAnswer.FOLD:
+            said.append(f"every {column}, {column} part of what one row is")
+        elif answer == PivotFilterAnswer.BATCH:
+            said.append(f"one batch per {column}, the {column} each run writes the Script tag "
+                        f"{tag_name(written.field)}, proposed in its Table reference's TAGS")
+        elif answer == PivotFilterAnswer.TABLES:
+            said.append(f"{column} {value_shown(held.get(key))} alone, a table per {column}")
         else:
             said.append(f"{pivot_filter_in_words(written)}, kept")
     return "; ".join(said)
@@ -511,7 +584,7 @@ def table_slices(table: str, keyed: dict[str, ConvertedPivotFilter],
     each layer together where two or more are."""
     slices: dict[str, dict[str, object]] = {table: {}}
     for key, written in keyed.items():
-        if answers.get(key) != TABLES:
+        if answers.get(key) != PivotFilterAnswer.TABLES:
             continue
         grown = {}
         for name, held in slices.items():
@@ -523,10 +596,6 @@ def table_slices(table: str, keyed: dict[str, ConvertedPivotFilter],
 
 
 # --- The Hive each answer gives (ticket 08) ------------------------------------------------
-
-# Not an answer, but the query a "batch" answer's compare reads: every batch's rows together,
-# its condition dropped and its column last, as the table's Partition column is.
-EVERY_BATCH = "every batch"
 
 
 def shown_by(text: str, written: ConvertedPivotFilter) -> tuple[list[str], list[str]]:
@@ -547,55 +616,62 @@ def shown_by(text: str, written: ConvertedPivotFilter) -> tuple[list[str], list[
     return [], []
 
 
-def answer_problem(text: str, written: ConvertedPivotFilter, answer: str) -> str | None:
+def answer_problem(text: str, written: ConvertedPivotFilter,
+                   answer: PivotFilterAnswer) -> str | None:
     """Why a Pivot filter can't take `answer` in the Hive its table was converted from,
     `text`, or None when it can: a value filter has no value to batch or to make a table of;
-    a table per value needs the values the field takes; and folding a field into the grain of
-    a step, a CTE another query reads, would change that query's rows, as would batching it,
-    whose compare reads every batch's rows."""
-    if answer == KEEP:
+    a table per value needs the values the field takes; and folding a field into what one row
+    is, or batching it, whose compare reads every batch's rows, where the filter sits in a
+    step other parts of the query read, would change their rows too."""
+    if answer == PivotFilterAnswer.KEEP:
         return None
-    if written.kind == TOP_FILTER and answer in (BATCH, TABLES):
-        return (f"a value filter keeps items by their rank, which changes as the rows do, so "
-                f'it has nothing to "{answer}": answer "{KEEP}" or "{FOLD}"')
-    if answer == TABLES and not written.field_values:
+    if written.kind == TOP_FILTER and answer in (PivotFilterAnswer.BATCH,
+                                                 PivotFilterAnswer.TABLES):
+        return (f'a value filter {VALUE_FILTER_REASON}: answer "{PivotFilterAnswer.KEEP}" or '
+                f'"{PivotFilterAnswer.FOLD}"')
+    if answer == PivotFilterAnswer.TABLES and not written.field_values:
         return (f"how many values {written.field} takes isn't known: its Hive came from a "
-                "script, which holds no PivotTable's cache of them; convert the script beside "
-                f'its workbook, or answer "{FOLD}" or "{BATCH}"')
+                "script, which holds no PivotTable cache of them; convert the script beside "
+                f'its workbook, or answer "{PivotFilterAnswer.FOLD}" or '
+                f'"{PivotFilterAnswer.BATCH}"')
     for tree in _hive_trees(text):
         found = _condition_in(tree, written)
         if found is None:
             continue
         select, condition = found
         column = _field_column(condition, written.field)
-        # A batch's compare reads every batch's rows, its column in what one row is.
-        if (answer in (FOLD, BATCH) and _needs_a_column(select, column)
-                and select is not _outer(tree)):
-            return (f"its condition is in a step, a CTE another query reads, so {column.name} "
-                    "can't join what one row is there without changing that query's rows: "
-                    f'answer "{KEEP}" or "{TABLES}"')
+        # A value filter folded keeps every item of the step's own grain: nothing is added.
+        if (answer in (PivotFilterAnswer.FOLD, PivotFilterAnswer.BATCH)
+                and written.kind != TOP_FILTER and select is not _outer(tree)):
+            return (f"this filter sits in a step, a CTE that other parts of the query read "
+                    f"too, so making {column.name} part of what one row is there would change "
+                    f'their rows as well: answer "{PivotFilterAnswer.KEEP}" or '
+                    f'"{PivotFilterAnswer.TABLES}", or move the filter out of the step in the '
+                    "Hive and convert it again")
         return None
     return (f"its condition, marked /* Pivot filter: {written.kind} {written.field} */, isn't "
             "in the Hive it was converted from: convert it again")
 
 
-def hive_answered(text: str, answered: list[tuple[ConvertedPivotFilter, str, object]],
-                  pretty: bool = False) -> str:
+def hive_answered(text: str,
+                  answered: list[tuple[ConvertedPivotFilter, PivotFilterAnswer, object]],
+                  pretty: bool = False, every_batch: bool = False) -> str:
     """Hive with each Pivot filter's condition rewritten as its answer says, `answered`
     giving each filter, its answer and, for "tables", the one value its table holds: "fold"
-    drops the condition and adds its column to the outputs and the GROUP BY, EVERY_BATCH too,
-    its column last; "batch" holds the column to a Script tag, `<PARM="STATUS"/>`, and writes
-    the Partition of that value; "tables" holds it to its value; "keep" leaves it. Each
-    statement written as Hive, laid
-    out over lines when `pretty`; the text as it is where every answer keeps."""
-    if all(answer == KEEP for _, answer, _ in answered):
+    drops the condition and adds its column to the outputs and the GROUP BY; "batch" holds the
+    column to a Script tag, `<PARM="STATUS"/>`, and writes the Partition of that value, or,
+    with `every_batch`, gives every batch's rows together, as "fold" does but its column last,
+    as a Partition's is, for the compare step to read; "tables" holds it to its value; "keep"
+    leaves it. Each statement written as Hive, laid out over lines when `pretty`; the text as
+    it is where every answer keeps."""
+    if all(answer == PivotFilterAnswer.KEEP for _, answer, _ in answered):
         return text
     trees = _hive_trees(text)
     for written, answer, value in answered:
         for tree in trees:
             found = _condition_in(tree, written)
-            if answer != KEEP and found is not None:
-                _answer_in(tree, *found, written, answer, value)
+            if answer != PivotFilterAnswer.KEEP and found is not None:
+                _answer_in(tree, *found, written, answer, value, every_batch)
                 break
     return tags_as_written(";\n".join(sql_text(tree, pretty=pretty) for tree in trees))
 
@@ -656,15 +732,6 @@ def _copy_without_comments(node: exp.Expression) -> exp.Expression:
     return copied
 
 
-def _needs_a_column(select: exp.Select, column: exp.Column) -> bool:
-    """Whether folding a column into a query's grain adds it to the query's outputs or to
-    its GROUP BY."""
-    name = column.name.lower()
-    if name not in [each.alias_or_name.lower() for each in select.expressions]:
-        return True
-    return _is_aggregated(select) and name not in _group_names(select)
-
-
 def _is_aggregated(select: exp.Select) -> bool:
     """Whether a query gives one row per group: it has a GROUP BY, or an output aggregates."""
     return select.args.get("group") is not None or any(
@@ -679,18 +746,21 @@ def _group_names(select: exp.Select) -> list[str]:
 
 
 def _answer_in(tree: exp.Expression, select: exp.Select, condition: exp.Expression,
-               written: ConvertedPivotFilter, answer: str, value: object) -> None:
+               written: ConvertedPivotFilter, answer: PivotFilterAnswer, value: object,
+               every_batch: bool) -> None:
     """Rewrite one Pivot filter's condition, in the query `select` of the statement `tree`,
-    as `answer` says, as hive_answered does; a mark the WHERE itself held is taken off."""
+    as `answer` says, as hive_answered does, `every_batch` too; a mark the WHERE itself held
+    is taken off."""
     column = _field_column(condition, written.field)
     where = select.args["where"]
     mark = f" Pivot filter: {written.kind} {written.field} "
     where.comments = [each for each in where.comments or [] if each.strip() != mark.strip()]
-    if answer in (FOLD, EVERY_BATCH):
+    batch = answer == PivotFilterAnswer.BATCH
+    if answer == PivotFilterAnswer.FOLD or (batch and every_batch):
         _drop_condition(select, condition)
-        _add_to_grain(select, column, last=answer == EVERY_BATCH)
+        _add_to_grain(select, column, last=batch)
         return
-    if answer == BATCH:
+    if batch:
         place = _tag_place(written)
         rewritten = exp.EQ(this=column.copy(), expression=place)
         _add_static_partition(tree, column.name, place.copy())

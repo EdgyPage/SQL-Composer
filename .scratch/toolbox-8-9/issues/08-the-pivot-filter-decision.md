@@ -28,6 +28,9 @@ CONTEXT.md's Pivot filter).
 
 ## Answer
 
+(The Review below changes the texts a person reads, how a Key and a batch's Script tag are
+written, and several functions' names; where the two differ, the Review holds.)
+
 Built 2026-11-19. **No new public name**: the Decision is answered in the convert notebook's
 decisions cell, as 8.5's are, under a new kind of answer, `"pivot_filters"`, written in by
 `project.write_decisions`, as every other is.
@@ -170,3 +173,71 @@ names the new kind. New hashes added to `tests/snapshot/known.txt`.
   base, or skip a table whose filters were answered otherwise than "keep".
 - `hive_answered` rewrites the Hive through sqlglot only where an answer isn't "keep", so a
   kept table's Hive stays byte for byte as converted.
+
+## Review
+
+The review (2026-11-19), each answered in `fix(8.9): ticket 08's review: ...`, rebased first
+onto dev's 819bca7e (tickets 07, 09, 11, 13, 17 and ADR 0016's edit). The beginner reader's
+report, with what changed for each stop:
+[beginner-reader-2026-11-19-ticket-08.md](../reports/beginner-reader-2026-11-19-ticket-08.md).
+
+**Spec.**
+
+1. **A Key you answered survives a rewrite** (`decisions.key_line_kept`): it is kept while its
+   columns still fit, each a column of the table and holding each column the answers added to
+   what one row is ("keep" and "tables" add none, so it is kept; "fold" and "batch" add the
+   column). Where it no longer fits, the Key worked out of the new query is proposed, open:
+   `key=None,  # TODO: proposed ["job_id", "status"] from its query, as its Pivot filters'
+   answers changed what one row is: accept it in the decisions cell`, which check() asks and
+   `"key": "proposed"` accepts. A Key the Toolbox proposed is proposed again from the query,
+   made, as convert writes it. Tested for each answer, a Key that still fits through a fold,
+   and one whose column is gone.
+2. **"batch" proposes the answer to its Script tag**, so it is accepted, not composed: where
+   the column is a partition column of a table the query reads, as a Timeline's day is, the
+   Run value `project.new_run_value` writes, the latest Partition (`latest_dt`, the pasted
+   DECISIONS opening with the call and its import); else a Hivevar, which your scheduler gives
+   each run, `hivevar("STATUS", default="FAILED")`, its default the first value the filter
+   kept, the pasted DECISIONS opening with `from sqlglot_composer import hivevar`. The TAGS
+   line ends "; proposed: ..." (`decisions.TAG_PROPOSAL`, `tag_proposal`, `tag_set_up`);
+   check() says "tags: STATUS, proposed hivevar(...): accept it, or answer another". Answered
+   so, the write holds `PARTITION(status = '${hivevar:STATUS}')`. Value filters keep only
+   "keep" and "fold", and "tables" waits on an unknown count, as before: CONTEXT.md's Pivot
+   filter says why in plain words.
+
+**Standards.**
+
+3. **One way per job:** `_rename_converted_table` is `_write_table_files_as` (the one file walk
+   and rewrite) then `_archive_converted_table` (the archive-and-mark, also
+   `_remove_pivot_filter_table`'s), so a rename now keeps the old files in admin/removed/;
+   `_copy_converted_table` is the same walk with its location made its own. A batch's record
+   is read through `workflows.batch_record` and written through the new
+   `workflows.write_batch_record` at all five sites, each finding its batches through
+   `_batches_listing`. `_partition_to_compare` takes `original=None` for a query alone written
+   one Partition at a time; `_partition_written_to_compare` is gone.
+4. `decisions.PivotFilterAnswer`, a StrEnum, holds the four answers. `every_batch=` is its own
+   argument of `hive_answered`, not an answer. `decisions.LINE_KINDS` (`LineKind`: the line,
+   its subject's group and whether it is in quotes, its where-group, its answer writer) is the
+   one table of the kinds named by their own line, TAG, NAME, SOURCE and PIVOT_FILTER, read by
+   `kind_of`, `open_decisions`, `_subject_of`, `Decision.question`, `answered_text` and
+   `_answered_line`; `ANSWERED_BY_SUBJECT` by `is_answered`. NAME_LINE reads "proposed "
+   outside its `what`, so no `removeprefix` is left. `_PivotFilterTables` carries the filters
+   and answers (`keyed`, `answers`) with the tables. `pivot_filters.layer_counts` gives the
+   numbers, `layers_in_words` the text. TAGS goes above PIVOT_FILTERS by its assignment line.
+   `pivot_filters` is in project.py's `from . import (...)`.
+
+**The beginner reader** (each in the report): convert's report says at once what keeping a
+filter means; the line, check(), the paste and the checklist give each answer's count and the
+values counted, and what "at least" and a layer are; Excel's words for "fold" and "tables",
+"batch" in plain words first; which to pick; check()'s line and the pasted comment as
+sentences; "became ..., the table of its first value" in place of "Renamed"; both refusals
+plain. The step refusal now holds for any filter in a step but a value filter: a fold or a
+batch there never reached the outer query's rows (`_needs_a_column` is gone).
+
+**For ticket 09:** a table answered fold, batch or tables no longer gives the pivot's stored
+rows; `conversion/pivot_filters.json` keeps the Hive it was converted from (`statement`,
+`in_dev`, named for `converted_as`) and each table per value's value (`slice`).
+
+**Tests:** `tests/test_pivot_filter_decision.py` (34) with the texts above, the Key through
+each answer, both proposals, a Hivevar's write and the step refusal.
+`tests/snapshot/known.txt`: dev's, less the hashes the touched files made on dev and make no
+longer, plus the new ones, from the same files run on both commits.
