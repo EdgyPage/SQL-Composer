@@ -2,6 +2,63 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.9
+
+8.9 converts an Excel workbook full of formulas, Power Query and PivotTables into Saved tables,
+either in code, by naming the workbook to the convert Workflow, or through Copilot, with its
+Excel files. Before you send anything, the Workbook check runs the new Hive on this computer
+over the workbook's own tables and compares it with what Excel shows.
+
+### To update from 8.8
+
+- **Copy in 8.9's `sqlglot_composer` folder**, as the README's Update says, **restart your
+  notebook's kernel**, so Python reads the new folder, then **run `project.upgrade()`**, step
+  1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.9.md`. A
+  Project 8.3 to 8.7 last wrote upgrades straight to 8.9 the same way, each step in turn.
+- **Nothing for you to change by hand.** The convert Workflow's notebook,
+  `admin/workflows/convert/convert.ipynb`, is written again, saying its `FILES` may name a
+  workbook; each name you gave it, each step cell you wrote in and your answered decisions
+  cell are kept, and the notebook as it was is kept in `admin/removed/`. No Template and no
+  other notebook changes.
+- **Your Scheduled runs keep their paths.** The Upgrade moves, renames, deletes and rewrites
+  nothing under `scheduled_runs/`.
+- **The Upgrade records the Lineage state**, recorded by `project.upgrade() to 8.9`. A column
+  whose Hive 8.9 writes differently, such as one using `VAR_SAMP`, gets a row marked
+  `toolbox`: the Toolbox's new way of writing the same logic, never shown as a change of
+  yours. It needs no `connect(...)` and sends nothing.
+
+### What's new
+
+- **Convert an Excel workbook.** In the convert Workflow, name the workbook in `FILES`, such
+  as `["runs.xlsx"]`, beside your `.hql` scripts or alone. Each calculation of the workbook
+  that nothing else in it reads becomes a Saved table: a Table's formulas, Power Query's steps,
+  a Total Row, and each PivotTable, as one table at its finest grain, its Row and Column fields
+  the `GROUP BY`. A pivot's grand totals and subtotals are left out of its table, and its
+  checklist names each one. Each table's checklist says how each part was read and which
+  Copilot file explains it. A PivotTable still called PivotTable1, and a calculation named as a table it
+  reads, get a proposed name for you to accept or change in `RENAME`.
+- **Or through Copilot.** Copilot files 15, 11, 12 and 20 turn a workbook's formulas, Power
+  Query and PivotTables into Hive, step by step; file 21 grows a table converted from a pivot
+  (Show Values As, a Calculated Field, a grouping, a Column field written wide), and file 22
+  answers Pivot filters at scale. Hive Copilot writes is converted the same way.
+- **The Pivot filter Decision.** Each Report filter, slicer or timeline on a PivotTable is a
+  Decision in the convert notebook's `PIVOT_FILTERS`: `"keep"` the filter as it was saved
+  (proposed), `"fold"` it into the rows, like dragging the field from Filters to Rows,
+  `"batch"` it, one Partition per value, or write `"tables"`, one table per value, like Show
+  Report Filter Pages. Each answer says how many rows or tables it makes, and which to pick.
+- **The Workbook check.** A workbook's convert ends by running each table's Hive on this
+  computer, over the workbook's own tables, and comparing its rows with the values Excel last
+  saved. Each difference is one line in convert's report
+  and in `batch.md`, an Excel error such as `#N/A` listed apart. It never reads the warehouse.
+- **Hive that stays small.** The how-tos and Copilot files now say what a CTE costs in Hive,
+  which works one out again each time it is read: read each step once, keep only the columns
+  read after it, and filter before you join. The how-to "Keep reads and joins fast" shows how,
+  and every piece of SQL in the docs follows it.
+- **`VAR_SAMP` and `VAR_POP` written right.** Hive's `VARIANCE` is the population variance,
+  so a sample variance written as `VARIANCE` silently gave the population one. 8.9 writes
+  `VAR_SAMP` and `VAR_POP` under Hive's own names, and reads someone else's `VARIANCE` as the
+  population variance it is.
+
 ## 8.8
 
 8.8 finds what changed a column when its own Statement didn't: a filter, a calculation or a

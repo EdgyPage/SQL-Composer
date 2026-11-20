@@ -1248,16 +1248,24 @@ def _check_no_todo_left(started: Started, table: str, key: str) -> None:
 # --- upgrade ----------------------------------------------------------------------------------
 
 
+# Each version whose Upgrade step marks nothing in any Project, as 8.9's writes the convert
+# notebook again and records: the upgrade journey starts before it, so its step 2 has marks.
+MARKS_NOTHING = ("8.9",)
+
 @pytest.fixture
 def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
                                ) -> Iterator[Started]:
-    """The Starter project as the version before this one left it, with its own warehouse.py,
-    and the hand edits made, checked at the end."""
+    """The Starter project as the newest version before this one whose Upgrade to it leaves a
+    mark left it, with its own warehouse.py, and the hand edits made, checked at the end."""
     forget_the_projects_modules()
     upgrades = toolbox_module("upgrades")
     version = toolbox_module().TOOLBOX_VERSION
-    before = max((each for each in upgrades.STEPS if upgrades.is_older(each, than=version)),
-                 key=upgrades.version_numbers)
+    steps = sorted((each for each in upgrades.STEPS
+                    if not upgrades.is_older(version, than=each)), key=upgrades.version_numbers)
+    at = len(steps) - 1
+    while steps[at] in MARKS_NOTHING:
+        at -= 1
+    before = steps[at - 1]
     root = tmp_path / "starter"
     shutil.copytree(ROOT / "tests" / "upgrade_from" / before / "starter", root)
     # A Template the user changed, which an Upgrade that writes the Templates again marks; and

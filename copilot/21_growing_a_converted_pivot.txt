@@ -1,4 +1,4 @@
-# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.8)
+# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the rule or worked pattern it names, change only the
 tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**

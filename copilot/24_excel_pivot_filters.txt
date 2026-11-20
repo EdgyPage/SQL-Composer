@@ -1,4 +1,4 @@
-# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.8)
+# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.9)
 
 **Use this file as reference while you follow file 15's steps and write each PivotTable by
 file 20: find each Pivot filter in Patterns, then write the condition its rule gives.**

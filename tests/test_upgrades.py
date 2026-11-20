@@ -12,6 +12,7 @@ version frozen there upgrade straight into the current ones, so a Project may sk
 
 from __future__ import annotations
 
+import csv
 import datetime
 import json
 import re
@@ -81,6 +82,14 @@ GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
     # the write after it in sent.csv (its Lineage state and difference are lineage pages).
     "8.8": {"intermediate": ("admin/sent.csv", "building_blocks/events_per_job.py",
                              "tables/mart__job_day_facts/mart__job_day_facts.hql")},
+    # 8.9's ticket 15: the intermediate's finished Conversion of an Excel workbook, made by
+    # hand: its workbook, its batch, its Saved table, the Database module, the Reference sheet
+    # and the registry that name it, and its README.
+    "8.9": {"intermediate": ("admin/workflows/convert/job_hours.xlsx",
+                             "admin/workflows/convert/finished/job_hours/",
+                             "tables/mart__job_hours/", "references/mart__job_hours.py",
+                             "references/mart.py", "references/reference_sheet.csv",
+                             "admin/registry.csv", "README.md")},
 }
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
@@ -95,18 +104,8 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 }
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
-# 8.6's ticket 12, 8.7's ticket 14 and 8.8's ticket 10 emptied it.
-AWAITING_ITS_STEP: tuple[str, ...] = (
-    # 8.9's ticket 07: the convert notebook's FILES and RENAME take a workbook.
-    "admin/workflows/convert/convert.ipynb",
-    # 8.9's ticket 15: the intermediate's finished Conversion of an Excel workbook, made by
-    # hand, which no Upgrade makes: its workbook, its batch, its Saved table, the Database
-    # module, the Reference sheet and the registry that name it, and its README. Ticket 16
-    # moves these to GAINED_BY_HAND's "8.9", for the intermediate, when it writes the step.
-    "admin/workflows/convert/job_hours.xlsx", "admin/workflows/convert/finished/job_hours/",
-    "tables/mart__job_hours/", "references/mart__job_hours.py", "references/mart.py",
-    "references/reference_sheet.csv", "admin/registry.csv", "README.md",
-)
+# 8.6's ticket 12, 8.7's ticket 14, 8.8's ticket 10 and 8.9's ticket 16 emptied it.
+AWAITING_ITS_STEP: tuple[str, ...] = ()
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
@@ -284,11 +283,12 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[7].startswith("8.5: ")
     assert said[8].startswith("8.6: ")
     assert said[9].startswith("8.7: ")
-    assert said[10].startswith(f"{VERSION}: ")
-    assert said[11] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+    assert said[10].startswith("8.8: ")
+    assert said[11].startswith(f"{VERSION}: ")
+    assert said[12] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
                         "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
                         "admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md, "
-                        "admin/upgrade_8.6.md, admin/upgrade_8.7.md and "
+                        "admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md and "
                         f"admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
@@ -1688,7 +1688,8 @@ def test_8_8_makes_the_projects_first_lineage_state_as_the_upgrades(
     rows = lineage_state.read_rows(copy)
     assert rows
     assert {row["change"] for row in rows} == {"first"}
-    assert {row["recorded_by"] for row in rows} == {upgrades.RECORDED_BY_8_8}
+    assert ({row["recorded_by"] for row in rows}
+            == {upgrades.RECORDED_BY.format(version=STEP_8_8)})
     assert ("mart.team_days", "runs") in lineage_state.columns_at(rows)
     checklist = (copy / "admin" / f"upgrade_{STEP_8_8}.md").read_text(encoding="utf-8")
     assert "- recorded the Lineage state: Lineage state: the first recording, " in checklist
@@ -1752,3 +1753,72 @@ def test_8_8_writes_a_template_as_8_7_wrote_it_and_marks_one_you_changed(
     assert written == templates["saved_table"]
     assert changed.read_text(encoding="utf-8").startswith(
         f"# UPGRADE {STEP_8_8}: {upgrades.TEMPLATE_MARK_8_8}")
+
+
+# --- 8.9: a workbook converted ----------------------------------------------------------------
+
+
+STEP_8_9 = "8.9"
+
+
+def _copy_of_8_8(tmp_path: Path, name: str = "starter") -> Path:
+    """An Example project as 8.8 left it, to upgrade."""
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / STEP_8_8 / name, copy)
+    return copy
+
+
+def test_8_9_writes_the_convert_notebook_again_keeping_the_names_you_gave(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_8(tmp_path)
+    notebook = copy / upgrades.CONVERT_NOTEBOOK
+    notebooks.write_notebook(notebook, [(kind, text.replace("NAME = ''", "NAME = 'weekly'"))
+                                        for kind, text in notebooks.read_cells(notebook)])
+    _upgraded(copy, monkeypatch)
+    code = _code(notebook)
+    assert "NAME = 'weekly'" in code
+    assert 'or an Excel workbook\'s, such as ["runs.xlsx"]' in code
+    assert any("for each calculation of a workbook that nothing else in it reads" in text
+               for kind, text in notebooks.read_cells(notebook) if kind == "markdown")
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_9}.md").read_text(encoding="utf-8")
+    assert f"- rewrote {upgrades.CONVERT_NOTEBOOK}\n" in checklist
+    assert [path.relative_to(copy / "admin" / "removed").as_posix()
+            for path in (copy / "admin" / "removed").rglob("*.ipynb")] == [
+        f"{NOW:%Y%m%d-%H%M%S}-upgrade_{STEP_8_9}/{upgrades.CONVERT_NOTEBOOK}"]
+
+
+def test_8_9_records_the_lineage_state_marking_each_change_the_toolboxs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # A column whose own logic the state last recorded other than as 8.9 writes it, as an
+    # older Toolbox's Hive may have: 8.9's recording finds it changed, and marks the change
+    # the Toolbox's, never yours (ADR 0015).
+    lineage_state = toolbox_module("lineage_state")
+    copy = _copy_of_8_8(tmp_path)
+    state = copy / "admin" / "lineage" / "lineage_state.csv"
+    with open(state, encoding="utf-8", newline="") as file:
+        rows = list(csv.DictReader(file))
+    last = max(number for number, row in enumerate(rows)
+               if (row["table"], row["column"]) == ("mart.team_day", "runs"))
+    rows[last]["own_hash"] = "0" * len(rows[last]["own_hash"])
+    with open(state, "w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    _upgraded(copy, monkeypatch)
+    recorded = [row for row in lineage_state.read_rows(copy)
+                if row["recorded_by"] == upgrades.RECORDED_BY.format(version=STEP_8_9)]
+    assert [(row["table"], row["column"]) for row in recorded] == [("mart.team_day", "runs")]
+    assert {row["change"] for row in recorded} == {"toolbox"}
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_9}.md").read_text(encoding="utf-8")
+    assert "- recorded the Lineage state: " in checklist
+
+
+def test_8_9_changes_nothing_of_an_8_8_project_but_its_convert_notebook(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_8(tmp_path, "intermediate")
+    before = files_of(copy)
+    _upgraded(copy, monkeypatch)
+    after = files_of(copy)
+    assert sorted(after) == sorted(before)
+    assert [relative for relative in before if after[relative] != before[relative]] == [
+        "admin/project_version.txt", upgrades.CONVERT_NOTEBOOK]

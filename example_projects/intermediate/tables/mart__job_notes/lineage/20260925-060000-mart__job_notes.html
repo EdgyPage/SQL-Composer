@@ -88,7 +88,7 @@ JOIN ops.job_owners AS job_owners
   AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;</pre></div><h3>Calculated columns</h3><p>Every column that is calculated rather than copied, in the order it is calculated.</p><p>None: every column is copied.</p><h3>Copied columns</h3><ul><li><code>job_id</code> comes from ops.job_owners.job_id</li><li><code>team</code> comes from ops.team_notes.team</li><li><code>note</code> comes from ops.team_notes.note</li><li><code>written_on</code> comes from ops.team_notes.written_on</li></ul><h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; on its box in the drawing.</p><ul><li>write_job_notes: no Key the Toolbox can see, since team_notes declares no Key.</li><li>mart.job_notes declares no Key, so its rows aren&#x27;t checked.</li></ul></div>
 </aside>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.8.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 8.9.</footer>
 <script>
 // The drawing's script, shared by every page that draws boxes and arrows: it makes the
 // picture zoom, pan and light up a path. It is plain JavaScript that any browser runs, with
