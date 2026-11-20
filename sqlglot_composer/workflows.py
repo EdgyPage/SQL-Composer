@@ -555,6 +555,12 @@ def batch_record(root: Path, name: str) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def write_batch_record(root: Path, name: str, record: dict[str, object]) -> None:
+    """Write the batch `name`'s written.json, where batch_record reads it, its keys sorted."""
+    batch_record_path(root, name).write_text(json.dumps(record, indent=1, sort_keys=True),
+                                             encoding="utf-8")
+
+
 def finished_batch_names(root: Path) -> list[str]:
     """Each batch the convert Workflow finished, by its name: its folder moved to
     admin/workflows/convert/finished/ once every table it wrote passed its compare. A table
