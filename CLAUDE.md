@@ -38,7 +38,7 @@ writes from `tools/copilot_sources/`, each at most 9,000 characters, with every 
 `copilot/all_in_one/all_copilot_files.txt` by `tools/merge_copilot_files.py`, and the evaluation that
 measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says. Its tickets 15 to 18
 add Copilot file 11, which has Copilot turn a Formula workbook into Hive (ticket 20 splits it,
-its Power Query and totals into file 12), and an empty
+its Power Query into file 12, and since 8.9 its totals into file 23), and an empty
 Formula workbook to copy, built on dev with `openpyxl`, which only dev installs, with filled-in
 examples in `copilot/examples/` that `tools/formula_workbook_examples.py` builds; its own
 evaluation, `tools/excel_eval.py`, is run as the same doc's Excel section says. Toolbox 8.0 (a
