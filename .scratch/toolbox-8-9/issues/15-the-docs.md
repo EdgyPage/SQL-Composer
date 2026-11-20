@@ -164,3 +164,40 @@ lines want the new numbers.
 runs made that it didn't hold. The hashes the old outputs made (how-tos 10, 20, 21, 26 and 32,
 the intermediate's pages and the journeys that copy it) are left for the lead, as tickets 07
 and 09 left theirs.
+
+**After the user's decision of 2026-11-19 (ticket 18).** The decision: a pivot becomes one table at
+its finest grain, and its totals are named in the checklist rather than converted.
+
+- How-to 33's step 4 says a PivotTable becomes one table of its rows, each Row and Column field
+  a column and each value a column. It says its Grand Totals and subtotals are not converted,
+  each named in the table's checklist with the GROUP BY that gives it, and that this workbook's
+  Grand Total is off.
+- The README's step 2 says the same.
+- `EXCEL_FLOW`'s example `.hql` is `region_budgets.hql` now, not `budget_by_region.hql`, which
+  read like a total level's table.
+- No page shows or promises a `<pivot>_grand_total` or `<pivot>_by_<field>` table.
+
+**What runs today.** The workbook's PivotTable has `grand_total_row=False`, so today's code
+makes no total table here. No output of this ticket shows one, and nothing has to be
+regenerated to take one out.
+
+**What ticket 18 regenerates.** Its checklist note naming the totals reaches
+`tables/mart__teams_pivot/conversion/checklist.md`, which how-to 33 prints one line of (the
+Pivot filter's). It also reaches the intermediate's `tables/mart__job_hours/conversion/checklist.md`,
+so ticket 18 rewrites:
+
+- `example_projects/intermediate/`;
+- `docs/main/example_projects.html`;
+- `docs/main/how_to.html`, if how-to 33's printed lines change.
+
+Ticket 18 may also want to turn the PivotTable's Grand Total on, as Excel's default, in
+`job_hours_workbook()` (`tools/example_project.py`). Then the checklist has a total to name, and
+how-to 33's "has its Grand Total turned off" sentence goes. That change rewrites:
+
+- the workbook, the intermediate Example project and its page;
+- the Workbook check's cell count in how-to 33 (2 cells, plus 1);
+- how-to 33's outputs.
+
+Until ticket 18 lands, the how-to's sentence about totals being named in the checklist
+describes the code after it, not today's: today a Grand Total that is on still makes a
+`_grand_total` table.

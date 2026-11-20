@@ -1762,7 +1762,7 @@ flowchart TD
    named for the table it becomes, and convert them beside the workbook as one batch, each query
    standing for its final.
 
-       project.convert("budget", files=["budget.xlsx", "budget_by_region.hql"], query=query)
+       project.convert("budget", files=["budget.xlsx", "region_budgets.hql"], query=query)
 
 4. Read the Workbook check, in convert's report and the batch's batch.md: each table's Hive, run
    on this computer over the workbook's own Tables, against the values the workbook shows.
@@ -1797,10 +1797,12 @@ a workbook of the Example database's tables, and shows the second:
    DATABASE, the database of the tables its Tables sample, with DEV filled in, in
    `admin/databases.py`; then run its steps. Convert reads which Tables, queries and
    PivotTables read which, and makes each final, each calculation that nothing else in the
-   workbook reads, a Saved table. Its report ends with the Workbook check: each table's Hive,
-   run on this computer over the workbook's own Tables, compared with the values the workbook
-   shows, a line for each cell that differs. Done when you have read the Workbook check; then
-   step 7.
+   workbook reads, a Saved table. A PivotTable becomes one table of its rows, each Row and
+   Column field a column and each value a column; its Grand Totals and subtotals are not
+   converted, each named in its checklist with the GROUP BY that gives it. Convert's report
+   ends with the Workbook check: each table's Hive, run on this computer over the workbook's
+   own Tables, compared with the values the workbook shows, a line for each cell that differs.
+   Done when you have read the Workbook check; then step 7.
 3. **Or ask Copilot.** Goal: Copilot sees all of the workbook. Copilot may not see a Power
    Query's M inside an attached workbook; the workbook written as text shows it.
    - If you can run Python: in a terminal in the download's top folder, run

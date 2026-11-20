@@ -138,10 +138,13 @@ The Workbook check of job_hours.xlsx ran the Hive of each table the workbook gav
 mart.teams_pivot, from PivotTable "PivotTable1": every cell matches the workbook, 2 cells compared.
 
 The workbook's one final is the PivotTable: the formula Table and the query are steps of it,
-each read by the next piece, so neither is a table of its own. A PivotTable showing a Grand
-Total would give a second final, teams_pivot_grand_total, with Decisions of its own; this
-one's is off. The "Next:" after it names the steps to come, and the DECISIONS to paste, which
-step 7 fills in.
+each read by the next piece, so neither is a table of its own. A PivotTable becomes one table
+of its rows, at its finest grain: each Row and Column field a column, and each value a column.
+Its Grand Totals and subtotals, which Excel shows by default, are not converted: each is
+named in the table's checklist with the GROUP BY that gives it from the table's rows. This
+workbook's PivotTable has its Grand Total turned off, so it has none to name.
+The "Next:" after the report names the steps to come, and the DECISIONS to paste, which step
+7 fills in.
 
 Done when the report starts `Converted job_hours:`. Then step 5.
 

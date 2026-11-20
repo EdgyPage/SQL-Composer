@@ -155,7 +155,7 @@ EXCEL_FLOW = ("""flowchart TD
                 "Hive query for each final; fill in each name it writes in angle brackets, "
                 "save each query as a .hql file named for the table it becomes, and convert "
                 "them beside the workbook as one batch, each query standing for its final",
-                'project.convert("budget", files=["budget.xlsx", "budget_by_region.hql"], '
+                'project.convert("budget", files=["budget.xlsx", "region_budgets.hql"], '
                 "query=query)"),
                ("Read the Workbook check, in convert's report and the batch's batch.md: each "
                 "table's Hive, run on this computer over the workbook's own Tables, against "
