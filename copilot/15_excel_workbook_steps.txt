@@ -24,7 +24,7 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
 | P10 | Parameters, Keys | settings: never a source, step or final |
 | P11 | pieces reading each other in a loop | the workbook refused, each link named |
 | P12 | a PivotTable a Table's GETPIVOTDATA reads | step, a CTE (file 20) |
-| P13 | any other PivotTable | final, and each total level shown (file 20) |
+| P13 | any other PivotTable | final, its totals left out (file 20) |
 
 ## Terms
 

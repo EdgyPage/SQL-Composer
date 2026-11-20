@@ -26,18 +26,6 @@ from sqlglot_composer import workbook_hive
 from sqlglot_composer.workbook_reader import read_workbook
 
 PIVOT_TASKS = tuple(task.id for task in TASKS if task.workbook.pivots)
-# Misses left for ticket 18, which leaves every grand total and subtotal out of a pivot's
-# table (the user, 2026-11-19), so PC3's total-level finals go: X92's and X120's map says PC3's
-# calculated item "added into this total", where file 20 and the tasks say "added into the
-# total" (ticket 14's Answer). Each fails here until ticket 18 changes the tasks.
-HELD = {"X92": "PC3's mark at a total level: ticket 18's", "X120": "the same as X92's"}
-
-
-def _held(task_id: str) -> object:
-    if task_id in HELD:
-        return pytest.param(task_id, marks=pytest.mark.xfail(reason=HELD[task_id],
-                                                             strict=True))
-    return task_id
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +34,7 @@ def hive() -> Iterator[sqlite3.Connection]:
         yield connection
 
 
-@pytest.mark.parametrize("task_id", [_held(task_id) for task_id in PIVOT_TASKS])
+@pytest.mark.parametrize("task_id", PIVOT_TASKS)
 def test_each_pivot_task_of_the_excel_evaluation_passes_its_scorer(
         task_id: str, hive: sqlite3.Connection) -> None:
     task = BY_ID[task_id]

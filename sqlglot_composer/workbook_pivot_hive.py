@@ -6,9 +6,11 @@ sqlglot's tree by the rules below, each with its ID, which Copilot file 20 gives
 by: its Row and Column fields the GROUP BY, a Column field written as rows, never a column per
 item, so a new item flows in; each value its aggregate, Show Values As a window over it; each
 calculated item a column beside the real rows; each Pivot filter the condition it is, its
-values written in. Each total level the pivot shows is a final of its own, `<pivot> (grand
-total)` or `<pivot> (by <fields>)`, never a Subtotal row in the pivot's own final. A Table's
-GETPIVOTDATA reads the pivot as a CTE, by a LEFT JOIN on the fields it names.
+values written in. A pivot is one table, its rows at the finest grain: each grand total and
+subtotal it shows is left out, never a row or a final, and named in the map with the GROUP BY
+that gives it (the user, 2026-11-19: "sensible transformations of pivot tables to the rows of
+a table, not necessarily a one to one recreation"). A Table's GETPIVOTDATA reads the pivot as
+a CTE, by a LEFT JOIN on the fields it names.
 
 What is refused is named, as file 11's are: a value with no Hive is `NULL AS` its column, and a
 pivot whose rows can't be written (its source, a grouping, a filter or "Show items with no
@@ -38,24 +40,23 @@ The rules, by their IDs:
   on the base item's row where Excel leaves it blank.
 - PV7 Rank: `RANK() OVER (PARTITION BY <other fields> ORDER BY v DESC)`, ASC for Smallest to
   Largest.
-- PV8 at a total level that doesn't group by the base field of a Running Total In (PV5), a
-  Difference From, % Of or % Difference From (PV6) or a Rank (PV7): the value is NULL, as Excel
-  shows it blank, marked. It never applies to the pivot's own final, which groups by every
-  field, nor to % of a total (PV4), which has no base field.
 - PC1 a calculated item of items added up: a column beside the real rows, `SUM(SUM(CASE WHEN f
   IN (a, b) THEN v END)) OVER (PARTITION BY <the row's other fields>)`, repeated on each of
   their rows.
 - PC2 any other calculated item, such as a ratio: its formula over each item's own conditional
   sum, `COALESCE(.., 0)`, as Excel reads an item with no rows as 0, so a ratio of sums, never
   a sum of ratios.
-- PC3 at a total level that doesn't group by a calculated item's field, such as the grand
-  total: the item's value added into each value's total, `SUM(x) + COALESCE(<the item>, 0)`, as
-  Excel adds it, marked. At a level that groups by the field, the item is its column (PC1,
-  PC2) and adds nothing.
-- PL1 each total level the pivot shows: a final of its own, `<pivot> (grand total)` or
-  `<pivot> (by <fields>)`; never a Subtotal row.
-- PL2 a pivot showing no total: its own final alone; a field's subtotals of functions it chose
-  are refused and named.
+- PL1 a pivot is one table, its rows at the finest grain: its final groups by every Row and
+  Column field (PR1); each grand total and subtotal it shows is left out, never a row, a
+  ROLLUP or a final of its own.
+- PL2 each total left out is named in the map, with the GROUP BY that gives it: of the
+  pivot's table, `SUM(sum_of_x)` by the total's fields, for a Sum or a Count (MAX for a Max,
+  MIN for a Min); of the source, for any other value, an Average, a Distinct Count, a StdDev
+  or Var, a calculated field or Show Values As, which no sum of the rows gives. A Running
+  Total, a Difference From or a Rank at a total without its base field is blank, as Excel
+  shows it; a calculated item whose field the total doesn't group by Excel adds into the
+  total, its items counted twice, which the table's rows don't. Subtotals of functions the
+  person chose are named alone.
 - PF1 a Report filter: `f = x` or `f IN (...)`; (All) is no condition.
 - PF2 items hidden on a Row or Column field: `f <> x` or `NOT f IN (...)`, a blank kept with
   `f IS NULL OR`.
@@ -68,8 +69,8 @@ The rules, by their IDs:
   Each Pivot filter is marked "Pivot filter: <kind> <field>", for its Decision (ticket 08).
 - PG1 GETPIVOTDATA: a LEFT JOIN of the pivot, a CTE, on the fields it names; NULL where Excel
   shows #REF!, marked.
-- PG2 GETPIVOTDATA naming fewer fields: the total level it reads, as its own query; a total
-  the pivot doesn't show refused.
+- PG2 GETPIVOTDATA naming fewer fields: the total it reads, as its own query, the source's
+  GROUP BY as Excel works the total out; a total the pivot doesn't show refused.
 - PS1 a Table: FROM what the Table is read as, `<database>.<table>` or a step's CTE.
 - PS2 a query's Table: FROM the Table the query loads, as PS1.
 - PS3 a plain range: the Table it would be, `<database>.<sheet>` for the person to fill in.
@@ -99,7 +100,8 @@ from dataclasses import dataclass
 
 from sqlglot import exp
 
-from .shared import in_words
+from .lean_hive import lean_ctes
+from .shared import in_words, singular_or_plural
 from .workbook_formula_reader import (
     Call,
     Constant,
@@ -113,6 +115,7 @@ from .workbook_formula_reader import (
 )
 from .workbook_formulas import (
     ARITHMETIC,
+    LEFT_ALONE,
     MARK,
     REFUSED,
     Book,
@@ -156,9 +159,8 @@ from .workbook_reader import (
     is_formula,
     piece_name,
 )
+from .writing import sql_text
 
-# The final of a pivot's grand total, after the pivot's name (PL1).
-GRAND_TOTAL_FINAL = " (grand total)"
 # Excel's default name for a pivot (PN2).
 DEFAULT_NAME = re.compile(r"PivotTable\d*")
 # Each summary, by Excel's word, as the Hive aggregate it is (PV1); Var and Varp are a
@@ -167,6 +169,11 @@ AGGREGATES = {"Sum": "SUM", "Count": "COUNT", "Count Numbers": "COUNT", "Average
               "Max": "MAX", "Min": "MIN", "StdDev": "STDDEV_SAMP", "StdDevp": "STDDEV_POP"}
 SQUARED = {"Var": "STDDEV_SAMP", "Varp": "STDDEV_POP"}
 DISTINCT_COUNT = "Distinct Count"
+# Each summary whose total its table's rows give, by the aggregate over them that gives it
+# (PL2): a Sum's and a Count's the SUM of the rows, a Max's their MAX, a Min's their MIN. Any
+# other, such as an Average, no aggregate of the rows gives: the source's GROUP BY does.
+OVER_THE_ROWS = {"Sum": "SUM", "Count": "SUM", "Count Numbers": "SUM", "Max": "MAX",
+                 "Min": "MIN"}
 # Each Show Values As the code writes, in Excel's words (PV4 to PV7).
 PERCENT_OF_TOTALS = ("% of Grand Total", "% of Row Total", "% of Column Total")
 RUNNING_TOTAL = "Running Total In"
@@ -189,16 +196,15 @@ OUTSIDE_SOURCES = {OLAP: "an OLAP cube", DATA_CONNECTION: "a data connection",
                    CONSOLIDATION: "multiple consolidation ranges"}
 # The column a value filter's subquery ranks each item in (PF5).
 ITEM_RANK = "item_rank"
-# The notes a total level's final has of its own, beside its pivot's (PV8, PC3).
-LEVEL_RULES = ("PV8", "PC3")
 # A name in a calculated formula written in quotes, such as 'Unit Price'.
 QUOTED_NAME = re.compile(r"'((?:[^']|'')+)'")
 
 
 @dataclass(frozen=True)
 class PivotLevel:
-    """One total level of a pivot: the Row fields and the Column fields it groups by,
-    outermost first. The pivot's own level groups by all of them; its grand total by none."""
+    """One level of a pivot: the Row fields and the Column fields it groups by, outermost
+    first. The pivot's own level, its table's rows, groups by all of them; a total by fewer,
+    its grand total by none."""
 
     rows: tuple[str, ...]
     columns: tuple[str, ...]
@@ -279,9 +285,9 @@ def own_level(pivot: PivotTable) -> PivotLevel:
 
 
 def levels_shown(pivot: PivotTable) -> list[PivotLevel]:
-    """Each total level the pivot shows, but its own (PL1): its Grand Total row, which groups
-    by the Column fields alone; its Grand Total column, by the Row fields alone; each outer
-    field's subtotals, by it and the fields outside it; and where they meet."""
+    """Each total the pivot shows, which its table leaves out (PL1): its Grand Total column,
+    which groups by the Row fields alone; its Grand Total row, by the Column fields alone;
+    each outer field's subtotals, by it and the fields outside it; and where they meet."""
     rows, columns = axis_fields(pivot.rows), axis_fields(pivot.columns)
     row_depths = [len(rows), *_subtotal_depths(pivot, rows)]
     column_depths = [len(columns), *_subtotal_depths(pivot, columns)]
@@ -302,20 +308,12 @@ def _subtotal_depths(pivot: PivotTable, fields: tuple[str, ...]) -> list[int]:
             if name in pivot.subtotals and pivot.fields[name].subtotals == [AUTOMATIC]]
 
 
-def level_final_name(name: str, level: PivotLevel) -> str:
-    """A total level's final: `<pivot> (grand total)`, or `<pivot> (by <fields>)` (PL1)."""
-    fields = [*level.rows, *level.columns]
-    if not fields:
-        return name + GRAND_TOTAL_FINAL
-    return f"{name} (by {in_words(fields)})"
-
-
 def value_column_name(value: PivotValue) -> str:
     """A value's column: its caption in snake case, `sum_of_duration_mins` (PR1)."""
     return snake_case(value.caption)
 
 
-# --- A pivot's final and its total levels' -------------------------------------------------
+# --- A pivot's final, and its totals left out ------------------------------------------
 
 
 def is_read(piece: Piece, workbook: Workbook) -> bool:
@@ -345,31 +343,114 @@ def write_pivot_query(piece: Piece, book: Book) -> exp.Select | None:
     return select
 
 
-def write_pivot_total_finals(workbook: Workbook, finals: dict[str, exp.Query],
-                             book: Book) -> dict[str, exp.Query]:
-    """Write each total level's final of each pivot that is a final, and give them back by
-    their names (PL1), each with the CTEs of its pivot's final it reads; add the notes each
-    level has of its own (PV8, PC3) to the Book's."""
-    found: dict[str, exp.Query] = {}
+def add_pivot_total_notes(workbook: Workbook, finals: dict[str, exp.Query], book: Book) -> None:
+    """Add to the Book's notes each total each pivot that is a final shows, left out of its
+    table (PL1), with the GROUP BY that gives it (PL2), and each field's subtotals of functions
+    the person chose."""
+    tables = pivot_table_names(workbook)
     for piece in pivot_pieces(workbook):
         own = finals.get(piece.name)
         if own is None or is_read(piece, workbook):
             continue
         pivot = pivot_of(piece, workbook)
-        source_read = _source_read(pivot, book)
         for level in levels_shown(pivot):
-            name = level_final_name(piece.name, level)
-            select, notes = level_select(pivot, level, source_read, name)
-            book.notes += [note for note in notes if note.rule in LEVEL_RULES]
-            for cte in ctes_read(select, own.ctes):
-                select = select.with_(cte.alias, as_=cte.this.copy())
-            found[name] = select
-    return found
+            book.notes.append(Note(LEFT_ALONE, "PL2", piece.name,
+                                   _total_text(pivot, level, own, tables[piece.name], book)))
+        for field_name in pivot.subtotals:
+            if pivot.fields[field_name].subtotals != [AUTOMATIC]:
+                chosen = in_words(pivot.fields[field_name].subtotals)
+                book.notes.append(Note(
+                    LEFT_ALONE, "PL2", piece.name,
+                    f"its subtotals of {field_name}, {chosen}, are left out of its table: each "
+                    f"is its function of the source's rows by {field_name}"))
+
+
+def _total_text(pivot: PivotTable, level: PivotLevel, own: exp.Query, table: str,
+                book: Book) -> str:
+    """What the map says of one total a pivot shows, left out of its table `table` (PL2): the
+    GROUP BY of the table that gives it, and a calculated item Excel adds into it; or, for a
+    value no aggregate of the rows gives, the GROUP BY of the source, carrying the CTEs of its
+    final `own` it reads; and each value Excel shows blank there."""
+    fields = [*level.rows, *level.columns]
+    said = f"its total by {in_words(fields)}" if fields else "its grand total"
+    blank = [value.caption for value in pivot.values if _is_blank_at(value, level)]
+    if len(blank) == len(pivot.values):
+        return f"{said} is left out of its table, and Excel shows it blank"
+    not_summed = [value.caption for value in pivot.values
+                  if value.caption not in blank and not _is_summed_over_rows(pivot, value)]
+    if not_summed:
+        select, _ = level_select(pivot, level, _source_read(pivot, book), "")
+        for cte in ctes_read(select, own.ctes):
+            select = select.with_(cte.alias, as_=cte.this.copy())
+        isnt = singular_or_plural(len(not_summed), "isn't", "aren't")
+        text = (f"{said} is left out of its table, and {in_words(not_summed)} {isnt} a sum of "
+                f"its rows: `{_one_line(lean_ctes(select))}` gives it, from the source")
+    else:
+        # A calculated item is only ever beside plain Sums (PX7), which its table's rows add up.
+        shown = [value for value in pivot.values if value.caption not in blank]
+        total = _table_total(level, shown, table)
+        text = f"{said} is left out of its table: `{_one_line(total)}` gives it"
+        items = _items_outside(pivot, level)
+        if items:
+            text += (f", without the calculated item {in_words(items)}, which Excel's total "
+                     "has added into the total, its items counted twice")
+    if blank:
+        text += f"; Excel shows {in_words(blank)} blank there"
+    return text
+
+
+def _one_line(select: exp.Query) -> str:
+    """A query's Hive on one line, its Pivot filter marks left out, as a note gives it."""
+    plain = select.copy()
+    for node in plain.walk():
+        node.comments = None
+    return sql_text(plain)
+
+
+def _is_summed_over_rows(pivot: PivotTable, value: PivotValue) -> bool:
+    """Whether a value's total is an aggregate of its table's rows (OVER_THE_ROWS): a plain
+    Sum, Count, Max or Min, no calculated field nor Show Values As."""
+    pivot_field = pivot.fields.get(value.field)
+    is_calculated = pivot_field is not None and bool(pivot_field.formula)
+    return value.summary in OVER_THE_ROWS and not value.shown_as and not is_calculated
+
+
+def _is_blank_at(value: PivotValue, level: PivotLevel) -> bool:
+    """Whether Excel shows a value blank at a total: a Running Total In, a Difference From, a
+    % Of or a Rank whose base field the total doesn't group by."""
+    has_base = value.shown_as in (RUNNING_TOTAL, *RANKS, *FROM_BASE_ITEM)
+    return has_base and value.base_field not in (*level.rows, *level.columns)
+
+
+def _items_outside(pivot: PivotTable, level: PivotLevel) -> list[str]:
+    """Each calculated item whose field a total doesn't group by, which Excel adds into it."""
+    grouped = {*level.rows, *level.columns}
+    items = []
+    for name, pivot_field in pivot.fields.items():
+        if name not in grouped:
+            items += list(pivot_field.calculated_items)
+    return items
+
+
+def _table_total(level: PivotLevel, values: list[PivotValue], table: str) -> exp.Select:
+    """A total of a pivot's table's rows: each field it groups by, then each of `values`'s
+    columns under its aggregate over the rows (OVER_THE_ROWS)."""
+    fields = [column_hive(name) for name in (*level.rows, *level.columns)]
+    columns: list[exp.Expression] = [field.copy() for field in fields]
+    for value in values:
+        named = exp.Identifier(this=value_column_name(value), quoted=False)
+        total = hive_call(OVER_THE_ROWS[value.summary], [exp.Column(this=named.copy())])
+        columns.append(exp.alias_(total, named))
+    select = exp.select(*columns).from_(exp.Table(this=exp.Identifier(this=table,
+                                                                      quoted=False)))
+    if fields:
+        select = select.group_by(*fields)
+    return select
 
 
 def ctes_read(select: exp.Select, ctes: list[exp.CTE]) -> list[exp.CTE]:
     """The CTEs of `ctes`, in their order, that `select` reads, or a CTE it reads reads, at any
-    depth: a total level's final carries only these of its pivot's final."""
+    depth: a total's GROUP BY of the source carries only these of its pivot's final (PL2)."""
     read = {table.name for table in select.find_all(exp.Table)}
     kept = []
     for cte in reversed(ctes):
@@ -417,12 +498,13 @@ def _getpivotdata_values(cells: list[object]) -> list[str]:
 def level_select(pivot: PivotTable, level: PivotLevel, source_read: exp.Expression,
                  final_name: str, step_values: list[PivotValue] | None = None
                  ) -> tuple[exp.Select, list[Note]]:
-    """One level's SELECT: each field it groups by (PR1), each value (PV1 to PV8), each
+    """One level's SELECT: each field it groups by (PR1), each value (PV1 to PV7), each
     calculated item of a field it groups by (PC1, PC2), from `source_read`, with every Pivot
-    filter's condition (PF1 to PF5); and what its map names, each note on `final_name`.
-    A step's own level, which GETPIVOTDATA reads, writes only `step_values`, the values
-    a GETPIVOTDATA reads, and no calculated item, so its CTE carries no column nothing
-    reads."""
+    filter's condition (PF1 to PF5); and what its map names, each note on `final_name`. The
+    pivot's own level is its table's rows; a total's, the source's GROUP BY of it, is what
+    GETPIVOTDATA reads (PG2) and a total's note gives (PL2). A step's own level, which
+    GETPIVOTDATA reads, writes only `step_values`, the values a GETPIVOTDATA reads, and no
+    calculated item, so its CTE carries no column nothing reads."""
     keys = {name: field_key(pivot, name) for name in (*level.rows, *level.columns)}
     notes: list[Note] = []
     columns = [_key_column(name, key) for name, key in keys.items()]
@@ -431,7 +513,7 @@ def level_select(pivot: PivotTable, level: PivotLevel, source_read: exp.Expressi
     if step_values is None:
         columns += _calculated_item_columns(pivot, keys, final_name, notes)
     if not keys and not any(column.find(exp.AggFunc) for column in columns):
-        # A grand total of values all NULL (PV8) is the one blank cell Excel shows: one row,
+        # A grand total of values all blank (PL2) is the one blank cell Excel shows: one row,
         # read from nothing, as a FROM with no aggregate would give a row per source row.
         return exp.select(*columns), notes
     select = exp.select(*columns).from_(source_read.copy())
@@ -529,8 +611,8 @@ def _is_plain_sum(pivot: PivotTable, value: PivotValue) -> bool:
 
 def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     """What the map names of a pivot as a whole: the name of its table proposed, where it is
-    a final (PN2), each Column field written as rows (PR2), each Pivot filter (PF1 to PF5),
-    and each field's subtotals of functions it chose, refused (PL2)."""
+    a final (PN2), each Column field written as rows (PR2) and each Pivot filter (PF1 to PF5).
+    Its totals are named once its final is written (`add_pivot_total_notes`)."""
     notes = []
     if DEFAULT_NAME.fullmatch(pivot.name) and not is_read(Piece(PIVOT_TABLE, name), workbook):
         proposed = pivot_table_names(workbook)[name]
@@ -541,11 +623,6 @@ def pivot_notes(name: str, pivot: PivotTable, workbook: Workbook) -> list[Note]:
     for written in pivot_filters_of(name, pivot):
         notes.append(Note(MARK, FILTER_RULES[written.kind], name,
                           f"{pivot_filter_text(written)}: a Decision of its table"))
-    for field_name in pivot.subtotals:
-        if pivot.fields[field_name].subtotals != [AUTOMATIC]:
-            chosen = in_words(pivot.fields[field_name].subtotals)
-            notes.append(Note(REFUSED, "PL2", name, f"the subtotals of {field_name} are "
-                                                    f"{chosen}: no final"))
     return notes
 
 
@@ -619,13 +696,13 @@ def _groups_hive(base: exp.Expression, grouping: Grouping) -> exp.Expression:
 def _value_column(pivot: PivotTable, value: PivotValue, level: PivotLevel,
                   keys: dict[str, exp.Expression], final_name: str, notes: list[Note]
                   ) -> exp.Expression:
-    """One value's column at a level: its aggregate, with each calculated item the level
-    doesn't group by added in (PC3), as Show Values As shows it (PV4 to PV8); refused, NULL
-    in its place and named."""
+    """One value's column at a level: its aggregate, with each calculated item a total
+    doesn't group by added in, as Show Values As shows it (PV4 to PV7); refused, NULL in its
+    place and named."""
     try:
         aggregate = value_aggregate(pivot, value)
-        aggregate = _items_added(pivot, value, level, aggregate, final_name, notes)
-        shown = _shown_as_hive(pivot, value, level, keys, aggregate, final_name, notes)
+        aggregate = _items_added(pivot, value, level, aggregate)
+        shown = _shown_as_hive(pivot, value, level, keys, aggregate)
     except Refused as refusal:
         notes.append(Note(REFUSED, refusal.rule, f"{final_name}[{value.caption}]",
                           f"NULL in its place: {refusal.why}"))
@@ -688,11 +765,10 @@ def _formula_part_hive(part: FormulaPart, names: dict[str, exp.Expression],
 
 
 def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
-                   keys: dict[str, exp.Expression], aggregate: exp.Expression,
-                   final_name: str,
-                   notes: list[Note]) -> exp.Expression:
+                   keys: dict[str, exp.Expression],
+                   aggregate: exp.Expression) -> exp.Expression:
     """A value as Show Values As shows it, a window over its aggregate (PV4 to PV7); NULL at
-    a level without its base field (PV8)."""
+    a total without its base field, as Excel shows it blank (PL2)."""
     shown = value.shown_as
     if not shown:
         return aggregate
@@ -707,8 +783,8 @@ def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
     if base not in (*own_level(pivot).rows, *own_level(pivot).columns):
         raise Refused("PX4", f"its base field {base or '(none)'} isn't a Row or Column field")
     if base not in keys:
-        notes.append(Note(MARK, "PV8", f"{final_name}[{value.caption}]",
-                          f"{shown} {base}: blank at this total, as Excel shows it"))
+        # Only at a total, which groups by fewer fields than the table's rows: blank, as
+        # Excel shows it (PL2), for GETPIVOTDATA reading it (PG2) or the total's note.
         return exp.Null()
     others = [key for name, key in keys.items() if name != base]
     if shown == RUNNING_TOTAL:
@@ -856,10 +932,10 @@ def _summed_over(item_value: exp.Expression, others: list[exp.Expression]) -> ex
 
 
 def _items_added(pivot: PivotTable, value: PivotValue, level: PivotLevel,
-                 aggregate: exp.Expression, final_name: str,
-                 notes: list[Note]) -> exp.Expression:
-    """A value at a level without a calculated item's field, with the item added in, as Excel
-    adds it to the total, an item with no rows counting 0 (PC3)."""
+                 aggregate: exp.Expression) -> exp.Expression:
+    """A value at a total without a calculated item's field, with the item added in, as Excel
+    adds it to the total, an item with no rows counting 0, as GETPIVOTDATA reads it (PG2).
+    The table's own rows group by every field, so none is added in there."""
     grouped = {*level.rows, *level.columns}
     for name, pivot_field in pivot.fields.items():
         if name in grouped:
@@ -868,9 +944,6 @@ def _items_added(pivot: PivotTable, value: PivotValue, level: PivotLevel,
             item_value = _item_hive(pivot, name, formula, value, field_key(pivot, name))
             aggregate = binary(exp.Add, aggregate,
                                hive_call("COALESCE", [item_value, exp.Literal.number(0)]))
-            notes.append(Note(MARK, "PC3", f"{final_name}[{value.caption}]",
-                              f"calculated item {item} on {name}: added into this total, as "
-                              "Excel adds it"))
     return aggregate
 
 
@@ -1107,7 +1180,7 @@ def value_captioned(pivot: PivotTable, caption: str) -> PivotValue:
 def getpivotdata_hive(call: Call, place: Place) -> exp.Expression:
     """GETPIVOTDATA: a LEFT JOIN of the pivot, its CTE, on the fields it names, each matched
     to the item it names, and the value's column of it (PG1); one naming fewer fields reads
-    the total level it names, as its own query, if the pivot shows it (PG2)."""
+    the total it names, as its own query, if the pivot shows it (PG2)."""
     if len(call.args) < 2 or len(call.args) % 2:
         raise Refused("PG1", "GETPIVOTDATA needs its value, a cell of its pivot, and each "
                              "field with its item")

@@ -7,8 +7,9 @@ workbook's own Hive or from a script Copilot wrote for it, runs on sqlglot's exe
 (`hive_executor.run_on_executor`) on this computer, each `<database>.<table>` it reads standing
 for the rows of the workbook's Table of that name, or a plain range's rows for the table its
 pivot reads. Its rows are then compared with the values Excel last saved in the workbook: a
-Table's cells, formulas' results among them, a Total Row's, or a PivotTable's, cell by cell, at
-each total level.
+Table's cells, formulas' results among them, a Total Row's, or a PivotTable's body, cell by
+cell. A PivotTable's table holds its rows alone, each grand total and subtotal left out
+(Copilot file 20's PL1), so its total cells are never compared: the report says so in a line.
 
 - **A match**: numbers within a relative 1e-9, and within 1e-12 of zero, where a relative test
   can't hold, on the values saved, not as shown; a day as its date; a blank as NULL. Excel's 0
@@ -56,7 +57,6 @@ from .workbook_formulas import MARK, PLAIN_NAME, hive_name, snake_case, tables_o
 from .workbook_hive import workbook_hive
 from .workbook_pivot_hive import (
     PivotLevel,
-    level_final_name,
     own_level,
     pivot_of,
     pivot_pieces,
@@ -181,7 +181,8 @@ class CheckedFinal:
     calls it, such as `PivotTable "PivotTable1"`; how many cells it compared, and how many of
     them differ; each difference, a line a cell or a row; each cell where the workbook shows
     an Excel error and Hive gives NULL; each column it couldn't compare, as the workbook holds
-    no value saved for it; and why it wasn't checked, "" where it was."""
+    no value saved for it; how many of a PivotTable's total cells it didn't compare, its
+    table leaving each total out; and why it wasn't checked, "" where it was."""
 
     final: FinalHive
     place: str = ""
@@ -190,6 +191,7 @@ class CheckedFinal:
     differences: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     unstored: list[str] = field(default_factory=list)
+    totals_not_compared: int = 0
     not_checked: str = ""
 
 
@@ -504,39 +506,43 @@ def _marked_blanks(workbook: Workbook) -> dict[str, set[str]]:
 
 def _compare_pivot(pivot: PivotTable, name: str, results: dict[str, _HiveRows],
                    checked: dict[str, CheckedFinal]) -> None:
-    """Compare each stored cell of a pivot, `name` its piece's, with the row of the final of
-    its total level that holds the cell's items, in the column of its value: each its own
-    final's, where that final ran. A column the final doesn't give, and a row of it no cell
-    of the pivot stands for, are differences too."""
-    matched: dict[str, set[int]] = {}
+    """Compare each stored body cell of a pivot, `name` its final's, with the row of its final
+    that holds the cell's items, in the column of its value, where the final ran; count each
+    total cell, which its table leaves out (PL1), as not compared. A column the final doesn't
+    give, and a row of it no cell of the pivot stands for, are differences too."""
+    if name not in results or name not in checked:
+        return
+    found, given = checked[name], results[name]
+    matched: set[int] = set()
+    compared_any = False
     for cell in pivot.cells:
-        final = _final_of_cell(pivot, name, cell)
-        if final not in results or final not in checked:
+        if not _is_body_cell(pivot, cell):
+            found.totals_not_compared += 1
             continue
         column, items = _cell_columns(pivot, cell)
         needed = [column, *[field_name for field_name, _ in items]]
-        missing = [one for one in needed if one not in results[final].columns]
+        missing = [one for one in needed if one not in given.columns]
         if missing:  # said once a final, not once a cell
             said = [f"{one}: the PivotTable shows it, Hive gives no column of that name"
                     for one in missing]
-            checked[final].differences += [line for line in said
-                                           if line not in checked[final].differences]
+            found.differences += [line for line in said if line not in found.differences]
             continue
-        matched.setdefault(final, set())
-        found, place = _cell_in_rows(column, items, results[final])
+        compared_any = True
+        value, place = _cell_in_rows(column, items, given)
         said = _said_cell(pivot, cell)
         if place is None and cell.stored is not None:
-            checked[final].compared += 1
-            checked[final].differing += 1
-            checked[final].differences.append(f"{said}: Excel {_shown(cell.stored)}, and the "
-                                              "Hive gives no such row")
+            found.compared += 1
+            found.differing += 1
+            found.differences.append(f"{said}: Excel {_shown(cell.stored)}, and the Hive "
+                                     "gives no such row")
             continue
         if place is not None:
-            matched[final].add(place)
-        _compare_cell(checked[final], said, cell.stored, found, False)
-    for final, places in matched.items():
-        checked[final].differences += _rows_not_shown(
-            results[final].as_dicts(), places, _level_of_final(pivot, name, final))
+            matched.add(place)
+        _compare_cell(found, said, cell.stored, value, False)
+    if compared_any:
+        own = own_level(pivot)
+        fields = [hive_name(field_name).lower() for field_name in (*own.rows, *own.columns)]
+        found.differences += _rows_not_shown(given.as_dicts(), matched, fields)
 
 
 def _rows_not_shown(rows: list[dict[str, object]], shown: set[int], level: list[str]
@@ -573,24 +579,13 @@ def _calculated_item_of(pivot: PivotTable, cell: PivotCell) -> tuple[str, object
     return None
 
 
-def _final_of_cell(pivot: PivotTable, name: str, cell: PivotCell) -> str:
-    """The final of the total level a pivot's cell is on."""
+def _is_body_cell(pivot: PivotTable, cell: PivotCell) -> bool:
+    """Whether a pivot's cell is of its body, on an item of every Row and Column field, which
+    its table's rows hold, and not of a total, which groups by fewer."""
     level = PivotLevel(
         tuple(field_name for field_name, _ in cell.row.items if field_name != VALUES),
         tuple(field_name for field_name, _ in cell.column.items if field_name != VALUES))
-    if level == own_level(pivot):
-        return name
-    return level_final_name(name, level)
-
-
-def _level_of_final(pivot: PivotTable, name: str, final: str) -> list[str]:
-    """The fields a pivot's final groups by, in lower case: every field, for its own."""
-    for cell in pivot.cells:
-        if _final_of_cell(pivot, name, cell) == final:
-            calculated = _calculated_item_of(pivot, cell)
-            return [hive_name(field_name).lower() for field_name, item in _items_of(cell)
-                    if (field_name, item) != calculated]
-    return []
+    return level == own_level(pivot)
 
 
 def _cell_columns(pivot: PivotTable, cell: PivotCell
@@ -635,16 +630,14 @@ def _is_excel_error(value: object) -> bool:
 
 def _workbook_name_of(final: str, workbook: Workbook) -> str:
     """What the workbook calls a final: `Excel Table "job_runs"`, `the Total Row of Excel
-    Table "job_runs"`, `PivotTable "PivotTable1"`, or a total level of one, as `PivotTable
-    "PivotTable1" (grand total)`."""
+    Table "job_runs"` or `PivotTable "PivotTable1"`."""
     tables = tables_of(workbook)
     if final.endswith(TOTAL_ROW) and final.removesuffix(TOTAL_ROW).lower() in tables:
         return f'the Total Row of Excel Table "{final.removesuffix(TOTAL_ROW)}"'
     if final.lower() in tables:
         return f'Excel Table "{final}"'
-    for piece in pivot_pieces(workbook):
-        if final == piece.name or final.startswith(f"{piece.name} ("):
-            return f'PivotTable "{piece.name}"{final.removeprefix(piece.name)}'
+    if final in [piece.name for piece in pivot_pieces(workbook)]:
+        return f'PivotTable "{final}"'
     return f'"{final}"'
 
 
@@ -736,8 +729,9 @@ def _named(checked: CheckedFinal) -> str:
 
 def _final_lines(checked: CheckedFinal) -> list[str]:
     """What the report says of one final: a line, then each difference and each cell where the
-    workbook shows an Excel error indented below it, a line said more than once said once; and
-    the lines of its Pivot filters' answers (_pivot_filter_lines)."""
+    workbook shows an Excel error indented below it, a line said more than once said once; a
+    line for a PivotTable's totals, never compared; and the lines of its Pivot filters'
+    answers (_pivot_filter_lines)."""
     named = _named(checked)
     if checked.not_checked:
         return [f"{named}: not checked: {checked.not_checked}. {BY_HAND}",
@@ -762,6 +756,10 @@ def _final_lines(checked: CheckedFinal) -> list[str]:
         lines.append(f"{named}: not compared: {in_words(checked.unstored)}, as the file holds "
                      "no value saved for them: a file saved by a tool, not by Excel, holds "
                      "none. Open it in Excel, save it, and convert again to compare them.")
+    if checked.totals_not_compared:
+        lines.append(f"{named}: its totals, {counted(checked.totals_not_compared, 'cell')}, "
+                     "not compared: its table holds the PivotTable's rows alone, each total "
+                     "left out, as its checklist says.")
     return lines + _pivot_filter_lines(checked)
 
 

@@ -221,15 +221,14 @@ range as the source; X102 to X104 and X121 to X124 mix pivots with formulas and 
 query feeding a pivot with a slicer, read back by GETPIVOTDATA (X102). A pivot task is scored
 as the others are, and besides:
 
-- **Its finals.** A pivot's own final, and one for each total level it shows,
-  `<pivot> (grand total)` and `<pivot> (by <field>)`, are each correct when one query gives
-  their rows, its columns in any order, a number written as text the number (a Years group's
-  "2026"). A Column field is written as rows, a calculated item as a column beside the real
-  rows (and added into each total its field isn't a key of, as Excel adds it), a grouped
-  field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"), and a Show Values As NULL
-  at a total level where Excel shows a blank. A pivot a Table's GETPIVOTDATA reads is a step,
-  with no final of its own. Each reference reads each step once and carries only the columns
-  its final reads (ticket 17 of the 8.9 map).
+- **Its final.** A pivot is one table, its rows at the finest grain, each grand total and
+  subtotal it shows left out (ticket 18 of the 8.9 map): its final is correct when one query
+  gives its rows, its columns in any order, a number written as text the number (a Years
+  group's "2026"). A reply that also writes a total, as a query of its own, isn't wrong for
+  it. A Column field is written as rows, a calculated item as a column beside the real rows,
+  and a grouped field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"). A pivot a
+  Table's GETPIVOTDATA reads is a step, with no final of its own. Each reference reads each
+  step once and carries only the columns its final reads (ticket 17 of the 8.9 map).
 - **Its Pivot filters.** Each Pivot filter is its condition, its values written in, with
   `-- Pivot filter: <kind> <field>` above it, the kind in the glossary's words (Report filter,
   hidden items, slicer, Timeline, value filter); `/* Pivot filter: ... */` after it, as the
@@ -237,11 +236,12 @@ as the others are, and besides:
   each Pivot filter the final's reference marks, or the reply is not named: `unnamed` lists
   `Pivot filter: slicer status`.
 - **Its marks.** A Column field's "written as rows", a default name's proposed
-  `<sheet>_pivot`, and a calculated item added into a total ("added into the total"), are
-  named in the reply's words, as any mark is.
+  `<sheet>_pivot`, and a calculated item's total, which Excel's has the item added into and
+  the table's rows don't ("added into the total"), are named in the reply's words, as any
+  mark is.
 
-Each pivot final's reference gives the values the pivot stored, a test holds: a Workbook check
-in small, on the tasks' own workbooks.
+Each pivot final's reference gives the values the pivot stored in its body, a test holds: a
+Workbook check in small, on the tasks' own workbooks, its totals never compared.
 
 By hand:
 

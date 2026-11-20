@@ -135,9 +135,6 @@ def test_the_checklist_translates_what_the_table_shows_and_each_answer(
             'is written on its own schedule; "tables" only for a handful; "keep" when one '
             "selection is all anyone needs. A handful of tables, such as 3, is manageable; a "
             'hundred is a reason to "fold" or "batch" instead.') in notes
-    # A grand total shows its values over every row.
-    assert ("What mart_dev.pivot_grand_total shows: sum_of_duration_mins over every row"
-            in checklist(started, "pivot_grand_total"))
 
 
 def test_keep_makes_the_decision_and_leaves_the_table_as_converted(
@@ -335,8 +332,7 @@ def test_answering_a_table_per_value_again_makes_it_one_table(
             "make no table per value now.") in report
     assert f"its Pivot filters' answers no longer make {PIVOT}_failed." in report
     assert project.batch_tables("book")[0] == PIVOT
-    assert not [table for table in project.batch_tables("book") if "pivot_" in table
-                and "grand_total" not in table]
+    assert not [table for table in project.batch_tables("book") if "pivot_" in table]
     same_rows(PIVOT, BY_STATUS)
 
 
@@ -451,13 +447,9 @@ def test_an_answer_given_again_on_hive_changed_since_says_to_convert_again_first
 def test_a_name_and_pivot_filters_answered_at_once_rename_then_rewrite(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
-    decide({PIVOT: {"name": "runs_by_job", "pivot_filters": {"status": "fold"}},
-            f"{PIVOT}_grand_total": {"pivot_filters": {"status": "fold"}}})
+    decide({PIVOT: {"name": "runs_by_job", "pivot_filters": {"status": "fold"}}})
     same_rows(f"{DEV}.runs_by_job", BY_STATUS)
-    # Its grand total, renamed with it, is one row per status now.
-    same_rows(f"{DEV}.runs_by_job_grand_total", "SELECT status, SUM(duration_mins) AS "
-                                                "sum_of_duration_mins FROM ops.job_runs "
-                                                "GROUP BY status")
+    assert project.batch_tables("book") == [f"{DEV}.runs_by_job", f"{DEV}.runs_by_day"]
 
 
 def test_a_table_created_in_dev_keeps_its_pivot_filters(started: Path,
