@@ -361,7 +361,14 @@ def _plain_value(value: object) -> object:
 
 def caption(value: Value) -> str:
     """A value's caption: its name, or Excel's, such as "Sum of duration_mins"."""
-    return value.name or f"{SUMMARIES[value.summary]} of {value.field}"
+    return value.name or excels_caption(value)
+
+
+def excels_caption(value: Value) -> str:
+    """The caption Excel gives a value, such as "Sum of duration_mins": in a Data Model pivot,
+    the name of the implicit measure it makes for it, which renaming the value leaves as it
+    is."""
+    return f"{SUMMARIES[value.summary]} of {value.field}"
 
 
 def _day(text: str) -> datetime.datetime:
@@ -1515,10 +1522,11 @@ def _model_name(cache: Cache, name: str) -> str:
 
 def _model_fields(cache: Cache) -> list[tuple[str, int | None, int]]:
     """A Data Model cache's fields: each Row field, with its source column's place, then each
-    value, a measure, with none; each with its hierarchy's place."""
+    value, a measure named as Excel names the one it makes, with none; each with its
+    hierarchy's place."""
     pivot = cache.pivots[0]
     found = [(name, _place(cache, name), _place(cache, name)) for name in pivot.rows]
-    found += [(caption(value), None, len(cache.source.columns) + number)
+    found += [(excels_caption(value), None, len(cache.source.columns) + number)
               for number, value in enumerate(pivot.values)]
     return found
 
@@ -1574,7 +1582,7 @@ def _hierarchies_xml(cache: Cache) -> str:
                      f'allUniqueName="{unique}.[All]" dimensionUniqueName="[{table}]" '
                      f'displayFolder="" count="0" unbalanced="0">{usage}</cacheHierarchy>')
     for number, value in enumerate(cache.pivots[0].values):
-        name = escape(caption(value))
+        name = escape(excels_caption(value))
         found.append(f'<cacheHierarchy uniqueName="[Measures].[{name}]" caption="{name}" '
                      f'measure="1" displayFolder="" measureGroup="{table}" count="0" '
                      'oneField="1" hidden="1"><fieldsUsage count="1"><fieldUsage '

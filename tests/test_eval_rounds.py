@@ -232,8 +232,12 @@ def test_the_index_gives_each_objective_the_files_its_rows_load() -> None:
     text = (copilot_eval.COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
     allowed = copilot_eval.index_loads(text)
     assert allowed["03"] == {"03"} and allowed["17"] == {"17"}
-    # A workbook loads 15, 11 and 12, and 20 too where it has a PivotTable (Toolbox 8.9).
-    assert allowed["11"] == allowed["20"] == allowed["15"] == {"15", "11", "12", "20"}
+    # A workbook loads 15, 11 and 12; 23 where it has a total; 20 where it has a PivotTable,
+    # and 24 where one is filtered (Toolbox 8.9).
+    every = {"15", "11", "12", "20", "23", "24"}
+    assert allowed["11"] == allowed["15"] == every
+    assert allowed["23"] == {"15", "11", "12", "23"}
+    assert allowed["20"] == allowed["24"] == {"15", "11", "12", "20", "24"}
     # A converted pivot loads 21 with 03, 05 and 06, and 22 with 06 and 17; a task of 05, 06
     # or 17, each an objective of its own, never loads 21 or 22 for it.
     assert allowed["21"] == {"21", "03", "05", "06"} and allowed["22"] == {"22", "06", "17"}

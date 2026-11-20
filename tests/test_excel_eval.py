@@ -91,6 +91,26 @@ def test_arm_c_loads_file_20_only_for_a_workbook_with_a_pivot() -> None:
     assert excel_eval.proxy_groups("A0", ["X01", "X85"]) == {"a0-1": ["X01", "X85"]}
 
 
+def test_arm_c_loads_file_23_for_a_total_and_file_24_for_a_pivot_filter() -> None:
+    # Toolbox 8.9, ticket 14: files 12 and 20 split to fit, their totals into file 23 and
+    # their Pivot filters into file 24, each loaded where the workbook has one, as file 00
+    # says, so a task without one loads none of its text.
+    totalled = {task.id for task in TASKS if "23" in excel_eval.workbook_files(task)}
+    assert totalled == {task.id for task in TASKS if {"whole_column", "total_row",
+                                                      "total_row_rollup", "sumproduct",
+                                                      "stdev_var"} & set(task.covers)}
+    # A task's references mark each Pivot filter its workbook has (FILTERED_TASKS, below).
+    filtered = {task.id for task in TASKS if "24" in excel_eval.workbook_files(task)}
+    assert filtered == {task.id for task in TASKS
+                        if any("Pivot filter:" in sql for sql in task.finals.values())}
+    for task in TASKS:
+        loads = excel_eval.workbook_files(task)
+        assert loads == tuple(number for number in excel_eval.ALL_EXCEL_FILES
+                              if number in loads)
+        assert loads[:3] == excel_eval.EXCEL_FILES
+        assert ("24" in loads) <= ("20" in loads)
+
+
 @pytest.mark.parametrize("task", TASKS, ids=lambda task: task.id)
 def test_each_reference_scores_a_pass(task: ExcelTask, hive: sqlite3.Connection) -> None:
     result = scored(task, reference_reply(task), hive)

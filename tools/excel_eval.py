@@ -91,17 +91,28 @@ import eval_runs  # noqa: E402
 import eval_sources  # noqa: E402
 from copilot_eval import file_text, invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
-from formula_workbook import as_text, build, saved  # noqa: E402
+from formula_workbook import FormulaWorkbook, as_text, build, saved  # noqa: E402
 from pivot_tables import Pivot, caption  # noqa: E402
 import example_database  # noqa: E402
 
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# The Excel files, loaded in one chat: file 15, the steps, and files 11 and 12, the reference
-# it reads; and file 20, PivotTables, for a workbook with a pivot, as file 00's Index says.
+# The Excel files, loaded in one chat, as file 00's Index says: file 15, the steps, and files
+# 11 and 12, the reference it reads; file 23, totals, for a workbook with a Total Row or a
+# whole column's total; file 20, PivotTables, for a workbook with a pivot; and file 24, Pivot
+# filters, for one whose pivot is filtered (Toolbox 8.9, ticket 14, split 12 and 20 to fit).
 EXCEL_FILES = ("15", "11", "12")
+TOTALS_FILE = "23"
 PIVOT_FILE = "20"
+PIVOT_FILTER_FILE = "24"
+# Every Excel file, in the order a task loads them.
+ALL_EXCEL_FILES = (*EXCEL_FILES, TOTALS_FILE, PIVOT_FILE, PIVOT_FILTER_FILE)
+# A formula totalling a whole column of a Table, as file 23's T1 lists them: SUM(t[v]) and
+# the like, `t[v]` its first argument, never this row's `[@v]` nor an -IFS form's.
+WHOLE_COLUMN_TOTAL = re.compile(
+    r"(?<![\w.])(?:_xlfn\.)?(?:SUM|AVERAGE|COUNTA?|MIN|MAX|STDEV\.S|VAR\.S|SUMPRODUCT)"
+    r"\(\s*[A-Za-z_][\w.]*\[[^\[\]@#]+\]")
 ARMS = {"A0": "nothing: the request alone",
         "C": "the Excel files, as workbook_files names them"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
@@ -121,11 +132,34 @@ def tasks_of(split: str) -> list[ExcelTask]:
 
 
 def workbook_files(task: ExcelTask) -> tuple[str, ...]:
-    """The numbers of the Excel files a task loads in arm C: EXCEL_FILES, and PIVOT_FILE where
-    its workbook has a PivotTable."""
+    """The numbers of the Excel files a task loads in arm C: EXCEL_FILES; TOTALS_FILE where
+    its workbook has a total; PIVOT_FILE where it has a PivotTable, and PIVOT_FILTER_FILE
+    where a pivot has a Pivot filter."""
+    files = list(EXCEL_FILES)
+    if has_a_total(task.workbook):
+        files.append(TOTALS_FILE)
     if task.workbook.pivots:
-        return (*EXCEL_FILES, PIVOT_FILE)
-    return EXCEL_FILES
+        files.append(PIVOT_FILE)
+    if has_a_pivot_filter(task.workbook):
+        files.append(PIVOT_FILTER_FILE)
+    return tuple(files)
+
+
+def has_a_total(workbook: FormulaWorkbook) -> bool:
+    """Whether a workbook has a Total Row or a formula totalling a whole column (file 23)."""
+    for table in workbook.tables:
+        formulas = list(table.formulas.values())
+        if table.totals or any(WHOLE_COLUMN_TOTAL.search(formula) for formula in formulas):
+            return True
+    return False
+
+
+def has_a_pivot_filter(workbook: FormulaWorkbook) -> bool:
+    """Whether a pivot of a workbook has a Pivot filter (file 24): a Report filter of some
+    items, items hidden, a value filter, or a slicer or Timeline on it."""
+    return bool(workbook.slicers) or any(
+        pivot.hidden or pivot.top or any(pivot.report_filters.values())
+        for pivot in workbook.pivots)
 
 
 def files_loaded(arm: str, task_id: str) -> dict[str, str]:

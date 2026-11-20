@@ -1,0 +1,69 @@
+# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.8)
+
+**Use this file as reference while you follow file 15's steps: find each whole-column total
+and Total Row in Patterns, then write the Hive its rule gives.**
+
+Objective: write each whole-column total and each Total Row of an Excel workbook as the Hive
+that gives the same rows.
+Load this file when the workbook attached has a Total Row, or a formula totalling a whole
+column such as SUM(t[v]), with file 15 (the steps, the map and the reply), file 11
+(formulas), file 12 (Power Query) and, for a PivotTable, file 20.
+
+## Patterns: when the workbook has X, look up Y
+
+| ID | The workbook has | Rules |
+|---|---|---|
+| P1 | SUM(t[v]), COUNTA, SUMPRODUCT(t[a], t[b]) in a formula column | T1 |
+| P2 | a Total Row, SUBTOTAL(109, ...) | T2 to T4 |
+
+## Terms
+
+- **Whole column**: `t[v]`, every row of Table t's column v; `[@v]` is this row's alone.
+- **Total Row**: the row under a Table's last row, each total a SUBTOTAL(...) of a column,
+  shown as its `Total Row`: never a row of data.
+
+## Rules: a whole column, and the Total Row
+
+- **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
+  and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
+  t[b]): `SUM(a * b) OVER ()`. Another Table's column: CROSS JOIN its total. COUNT, or T2's
+  102, of a text column: refused, as Excel's counts numbers.
+- **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
+  cell holding a total, in the Table's order, none for an empty cell or a label such as
+  "Total", reading the Table's final query as a CTE that selects only the columns totalled.
+  SUBTOTAL(109, ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+- **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
+- **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
+
+## Worked patterns
+
+### W1: a summary's Total Row, reading its final as a CTE
+
+Table by_job (job_id typed, 1 and 2, written in by file 15; runs
+`=COUNTIFS(job_runs[job_id],[@job_id])`), its Total Row summing runs:
+
+```sql
+WITH by_job AS (
+  SELECT COALESCE(c.runs, 0) AS runs
+  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+    ON j.job_id = c.job_id
+)
+SELECT SUM(runs) AS runs FROM by_job
+```
+
+### W2: a share of a whole column's total
+
+Table job_runs (run_id, duration_mins typed) adds share
+`=[@duration_mins]/SUM(job_runs[duration_mins])`:
+
+```sql
+SELECT run_id, duration_mins, duration_mins / SUM(duration_mins) OVER () AS share
+FROM <database>.job_runs
+```
+
+## Self-check
+
+- [ ] **C1** Each whole-column total is a window over every row, or a CROSS JOIN of another
+  Table's total, never a sum typed in.
+- [ ] **C2** Each Total Row is its own final; its Table's final holds only its rows.

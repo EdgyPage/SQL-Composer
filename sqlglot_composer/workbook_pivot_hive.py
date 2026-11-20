@@ -46,7 +46,8 @@ The rules, by their IDs:
   IN (a, b) THEN v END)) OVER (PARTITION BY <the row's other fields>)`, repeated on each of
   their rows.
 - PC2 any other calculated item, such as a ratio: its formula over each item's own conditional
-  sum, so a ratio of sums, never a sum of ratios.
+  sum, `COALESCE(.., 0)`, as Excel reads an item with no rows as 0, so a ratio of sums, never
+  a sum of ratios.
 - PC3 at a total level that doesn't group by a calculated item's field, such as the grand
   total: the item's value added into each value's total, `SUM(x) + COALESCE(<the item>, 0)`, as
   Excel adds it, marked. At a level that groups by the field, the item is its column (PC1,
@@ -62,7 +63,8 @@ The rules, by their IDs:
 - PF4 a Timeline's dates: `d BETWEEN 'start' AND 'end'`.
 - PF5 a Top or Bottom value filter of a number of items: `f IN` a subquery, the items a RANK
   window over the field's grouped rows keeps, `f IN (SELECT f FROM (SELECT f, RANK() OVER (ORDER
-  BY SUM(x) DESC) AS item_rank FROM .. GROUP BY f) AS ranked WHERE item_rank <= 2)`.
+  BY SUM(x) DESC) AS item_rank FROM .. GROUP BY f) AS ranked WHERE item_rank <= 2)`; a blank
+  item the pivot shows, as last saved, kept with `f IS NULL OR` before it.
   Each Pivot filter is marked "Pivot filter: <kind> <field>", for its Decision (ticket 08).
 - PG1 GETPIVOTDATA: a LEFT JOIN of the pivot, a CTE, on the fields it names; NULL where Excel
   shows #REF!, marked.
@@ -797,13 +799,16 @@ def _added_items(formula: str) -> list[str] | None:
 def _item_hive(pivot: PivotTable, name: str, formula: str, value: PivotValue,
                key: exp.Expression) -> exp.Expression:
     """A calculated item's value over a group's rows: the Sum of the items it adds up, one
-    CASE (PC1), or its formula over each item's Sum (PC2)."""
+    CASE (PC1), or its formula over each item's Sum, an item with no rows in the group 0, as
+    Excel reads it (PC2)."""
     added = _added_items(formula)
     sums = _item_sums(pivot, name, value, key)
     if added is not None and all(item.lower() in sums for item in added):
         items = [_item_named(pivot, name, item) for item in added]
         return _conditional_sum(key, items, value)
-    return _arithmetic_hive(formula, sums)
+    no_rows_0 = {item: hive_call("COALESCE", [total, exp.Literal.number(0)])
+                 for item, total in sums.items()}
+    return _arithmetic_hive(formula, no_rows_0)
 
 
 def _item_named(pivot: PivotTable, name: str, item: str) -> object:
@@ -979,7 +984,7 @@ def filter_conditions(pivot: PivotTable,
                       source_read: exp.Expression) -> list[exp.Expression]:
     """Each Pivot filter's condition, in the WHERE of the pivot's read of its source, before
     it groups: a value filter's last, reading the rows the others keep. Each carries the mark
-    Copilot file 20 writes above it, `-- Pivot filter: <kind> <field>`, as a comment sqlglot
+    Copilot file 24 writes above it, `-- Pivot filter: <kind> <field>`, as a comment sqlglot
     keeps on it, so the code path's Hive names each Pivot filter as the Copilot path's does
     (ticket 10's tasks score it); a value filter's subquery reads the others unmarked."""
     written = pivot_filters_of("", pivot)
@@ -1069,7 +1074,17 @@ def _top_condition(pivot: PivotTable, top: ConvertedPivotFilter,
     kept = exp.select(column_hive(top.field)).from_(exp.Subquery(
         this=ranked, alias=exp.TableAlias(this=exp.Identifier(this="ranked"))))
     kept = kept.where(binary(exp.LTE, column_hive(ITEM_RANK), constant_hive(top.values[0])))
-    return exp.In(this=key.copy(), query=exp.Subquery(this=kept))
+    condition = exp.In(this=key.copy(), query=exp.Subquery(this=kept))
+    if _blank_shown(pivot, top.field):
+        return binary(exp.Or, exp.Is(this=key.copy(), expression=exp.Null()), condition)
+    return condition
+
+
+def _blank_shown(pivot: PivotTable, name: str) -> bool:
+    """Whether the pivot, as last saved, shows a field's blank item: a value filter keeps it
+    with `f IS NULL OR`, as NULL is in no IN list (PF5)."""
+    return any((name, None) in [*cell.row.items, *cell.column.items]
+               for cell in pivot.cells)
 
 
 def is_value_named(value: PivotValue, name: str) -> bool:

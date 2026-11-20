@@ -62,8 +62,9 @@ OWN_CALLS = frozenset({"connect", "query", "execute", "rows", "preview", "write"
 HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN", "MAX",
                         "ROW_NUMBER"})
 # The Excel files, which turn a Formula workbook into Hive, loaded together, as the Excel
-# evaluation names them: those every workbook loads, and the one for a workbook with a pivot.
-EXCEL_NUMBERS = (*excel_eval.EXCEL_FILES, excel_eval.PIVOT_FILE)
+# evaluation names them: those every workbook loads, and those for a workbook with a total, a
+# pivot and a Pivot filter.
+EXCEL_NUMBERS = excel_eval.ALL_EXCEL_FILES
 EXCEL_FILES = tuple(path.name for number in EXCEL_NUMBERS
                     for path in sorted(COPILOT.glob(f"{number}_*.txt")))
 # File 19 writes a Metric request, plain text for the user's chatbot: no code, and no SQL.
@@ -100,7 +101,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(23)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(25)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -153,7 +154,8 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
 
 
 # Ticket 06's pivot rules, by their IDs (.scratch/toolbox-8-9/issues/06-pivots-in-code.md):
-# file 20 holds each, so the Copilot path and the code path give the same Hive.
+# file 20 holds each, but the Pivot filters' (PF), which file 24 holds since ticket 14 split
+# them out to fit, so the Copilot path and the code path give the same Hive.
 PIVOT_RULES = ([f"PR{n}" for n in range(1, 6)] + [f"PV{n}" for n in range(1, 9)]
                + [f"PC{n}" for n in range(1, 4)] + ["PL1", "PL2"]
                + [f"PF{n}" for n in range(1, 6)] + ["PG1", "PG2"]
@@ -161,20 +163,32 @@ PIVOT_RULES = ([f"PR{n}" for n in range(1, 6)] + [f"PV{n}" for n in range(1, 9)]
                + [f"PX{n}" for n in range(1, 8)])
 
 
-def test_file_20_holds_every_pivot_rule() -> None:
-    text = (COPILOT / "20_excel_pivot_tables.txt").read_text(encoding="utf-8")
-    assert [rule for rule in PIVOT_RULES if f"- **{rule}** " not in text] == []
+def test_files_20_and_24_hold_every_pivot_rule() -> None:
+    pivots = (COPILOT / "20_excel_pivot_tables.txt").read_text(encoding="utf-8")
+    filters = (COPILOT / "24_excel_pivot_filters.txt").read_text(encoding="utf-8")
+    for rule in PIVOT_RULES:
+        holder, other = (filters, pivots) if rule.startswith("PF") else (pivots, filters)
+        assert f"- **{rule}** " in holder and f"- **{rule}** " not in other, rule
 
 
-def test_file_20_has_copilot_mark_each_pivot_filter() -> None:
-    text = (COPILOT / "20_excel_pivot_tables.txt").read_text(encoding="utf-8")
+def test_file_24_has_copilot_mark_each_pivot_filter() -> None:
+    text = (COPILOT / "24_excel_pivot_filters.txt").read_text(encoding="utf-8")
     assert "`-- Pivot filter: <kind> <field>`" in text
 
 
 def test_start_here_loads_the_excel_files_the_evaluation_loads() -> None:
-    # A workbook with a pivot loads every Excel file, as arm C of the Excel evaluation gives it.
+    # Each Excel file a task of the Excel evaluation loads in arm C is in a row of file 00's
+    # Index, beside the three every workbook loads, and R6 adds them up for a workbook with
+    # several: 23 for a total, 20 for a pivot and 24 for its Pivot filter.
     text = (COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
-    assert f"| {', '.join(EXCEL_NUMBERS)} |" in text
+    every = excel_eval.EXCEL_FILES
+    for extra in ((), (excel_eval.TOTALS_FILE,), (excel_eval.PIVOT_FILE,),
+                  (excel_eval.PIVOT_FILE, excel_eval.PIVOT_FILTER_FILE)):
+        assert f"| {', '.join((*every, *extra))} |" in text, extra
+    loaded = {number for task in excel_eval.TASKS for number in excel_eval.workbook_files(task)}
+    assert loaded == set(EXCEL_NUMBERS)
+    assert "23 if it has a total; 20 if a PivotTable, 24 if one is filtered" in " ".join(
+        text.split())
 
 
 @pytest.mark.parametrize("objective", sorted(copilot_eval.LOADED_WITH))

@@ -284,7 +284,7 @@ def test_a_pivot_filter_is_in_its_tables_checklist(started: Path,
                                                    books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
     for name in ("pivot", "pivot_grand_total", "runs_by_day"):
-        assert "From the workbook, marked (rule PF3, in Copilot file 20): " in checklist(
+        assert "From the workbook, marked (rule PF3, in Copilot file 24): " in checklist(
             started, name)
         assert ("Pivot filter: slicer status, FAILED and SUCCESS kept: a Decision of its "
                 "table.") in checklist(started, name)

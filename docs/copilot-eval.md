@@ -197,15 +197,18 @@ folder and references/, and its warehouse holds the same tables with the same ro
 
 ## The Excel tasks: the Excel files
 
-The Excel files are Copilot files 15, 11 and 12 and, for a workbook with a PivotTable, file
-20, as `excel_eval.workbook_files` gives them. They are measured the same way, on their own tasks and
+The Excel files are Copilot files 15, 11 and 12; file 23 for a workbook with a Total Row or
+a whole column's total; and for a workbook with a PivotTable file 20, and file 24 where a pivot
+has a Pivot filter, as `excel_eval.workbook_files` gives them (Toolbox 8.9's ticket 14 split
+the totals out of file 12 and the Pivot filters out of file 20 to fit). They are measured the same way, on their own tasks and
 scorer (`tools/excel_eval_tasks.py`, `tools/excel_eval.py`): 124 filled-in Formula workbooks, 62 dev
 and 62 held out. A proxy model reads each workbook as text; in Copilot you attach the workbook
 itself. The steps above run with `excel_eval.py` in place of `copilot_eval.py`, arms `A0` and
 `C`, `--tasks X01,X02,...` in place of `--objective`, and a proxy given five workbooks at most,
 as a person gives one to a fresh chat: a proxy given all 62 reads its message in pieces and
 cuts its replies short. Arm C loads each task's Excel files, so a held-out task in arm C is asked
-once per version of them, and a task with no PivotTable is unchanged by file 20. Each proxy is
+once per version of them, and a task with no PivotTable is unchanged by files 20 and 24,
+one with no total by file 23. Each proxy is
 given tasks that load the same files.
 
 **The pivot tasks** (Toolbox 8.9), X85 to X124, hold PivotTables saved as Excel saves them:

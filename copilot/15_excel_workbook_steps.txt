@@ -1,12 +1,12 @@
 # Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.8)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
-each final's Hive by files 11, 12 and 20, then tick the Self-check. Reply as Output says.**
+each final's Hive by files 11, 12, 20, 23 and 24, then tick the Self-check. Reply as Output says.**
 
 Objective: turn the calculations of an Excel workbook the user attaches, or the text
 `workbook_text.py` writes of it, into one Hive query per final, for the convert Workflow.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a PivotTable, file 20.
+file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTable, 20 and 24.
 
 ## Patterns: when the workbook has X, its role is Y
 
@@ -83,7 +83,7 @@ file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a Pivot
    `<database>.<table>`, never typed in**; only a summary's groups are written into the
    Hive. Then step 5.
 5. **Write each final's columns.** Action: the columns in the Table's order, each formula by
-   file 11, each query step and total by file 12, each pivot by file 20, each named with AS; a
+   file 11, each query step by file 12, total by 23, pivot by 20, each named with AS; a
    Parameters value read in as its value; a value typed over a formula matched on its Keys
    row's columns. Done when each final's block is whole. Then step 6.
 6. **Name what changed.** Action: list each mark, each refusal (NULL in its place, with
@@ -136,7 +136,7 @@ SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
 summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
-file 12's W2. Values written in: by_job's groups, job_ids 1 and 2:
+file 23's W1. Values written in: by_job's groups, job_ids 1 and 2:
 
 ```sql
 SELECT j.job_id, COALESCE(c.runs, 0) AS runs

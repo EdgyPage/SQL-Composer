@@ -14,7 +14,7 @@ one, naming each link.
 
 Where each kind of piece's Hive comes from is one function each, below: a Table's
 (`_table_tree`), a Power Query's (`_power_query_tree`, by `workbook_power_query.py`, file 12's
-rules), a Total Row's (`total_row_finals`, in `workbook_totals.py`, file 12's T2 to T4), and
+rules), a Total Row's (`total_row_finals`, in `workbook_totals.py`, file 23's T2 to T4), and
 any other kind's (`_piece_tree`), so a file writing more of them, such as PivotTables, plugs in
 there, and adds the functions a formula may call to `_functions`. Each final keeps in its CTEs
 only the columns something after them reads (`lean_ctes`, in `lean_hive.py`).
@@ -157,7 +157,7 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE,
     """A Formula workbook's Hive: each final's query, as sqlglot's tree, and what its map
     names. `database` is the database each source is in, `<database>` for the person to fill
     in where it is left out; `total_rows_left_out` names each Table whose Total Row the person
-    said no one needs kept (file 12's T3)."""
+    said no one needs kept (file 23's T3)."""
     roles = piece_roles(workbook)
     book = Book(workbook, database, _functions())
     trees: dict[Piece, exp.Query] = {}

@@ -455,7 +455,7 @@ def test_t2_each_subtotal_is_its_aggregate(code: int, aggregate: str) -> None:
           final="job_runs (Total Row)")
 
 
-def test_t2_a_total_no_subtotal_file_12_lists_is_null_and_named() -> None:
+def test_t2_a_total_no_subtotal_file_23_lists_is_null_and_named() -> None:
     totals = {"job_runs": {"duration_mins": "=SUBTOTAL(107,job_runs[duration_mins])"}}
     book = workbook(runs(), totals=totals)
     check(book, "SELECT NULL AS duration_mins FROM db.job_runs", final="job_runs (Total Row)")
@@ -690,7 +690,7 @@ def test_file_12_w1_a_query_filtering_grouping_keeping_groups_over_one() -> None
     assert "Finals: busy_jobs (job_id, runs)" in workbook_hive.map_text(hive, book)
 
 
-def test_file_12_w2_a_summarys_total_row_reading_its_final_as_a_cte() -> None:
+def test_file_23_w1_a_summarys_total_row_reading_its_final_as_a_cte() -> None:
     summary = [["job_id", "runs"], [1, "=COUNTIFS(job_runs[job_id],[@job_id])"],
                [2, "=COUNTIFS(job_runs[job_id],[@job_id])"]]
     book = workbook({**runs(), "by_job": summary},
