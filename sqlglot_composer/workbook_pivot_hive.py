@@ -710,21 +710,25 @@ def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
         return exp.Null()
     others = [key for name, key in keys.items() if name != base]
     if shown == RUNNING_TOTAL:
-        order = window_order(_base_order(pivot, base, keys[base]), descending=False)
-        return _windowed(hive_call("SUM", [aggregate]), others, order, running=True)
+        return _windowed(hive_call("SUM", [aggregate]), others,
+                         _base_order(pivot, base, keys[base]), running=True)
     if shown in RANKS:
         order = window_order(aggregate.copy(), descending=RANKS[shown])
         return _windowed(hive_call("RANK", []), others, order)
     return _from_base_item(value, keys[base], aggregate, others)
 
 
-def _base_order(pivot: PivotTable, base: str, key: exp.Expression) -> exp.Expression:
-    """What a running total runs in the order of: the base field's items, a grouped field's
-    by the smallest value of each group, as a date's or a bin's groups are in order."""
-    grouping = pivot.fields[base].grouping
-    if grouping is None or grouping.by == "Items":
-        return key.copy()
-    return hive_call("MIN", [column_hive(grouping.field)])
+def _base_order(pivot: PivotTable, base: str, key: exp.Expression) -> exp.Ordered:
+    """The order a running total runs in: the base field's items, text ones A to Z whatever
+    their case, a blank last, as Excel shows them, `LOWER(f) NULLS LAST`; a grouped field's by
+    the smallest value of each group, as a date's or a bin's groups are in order (PV5)."""
+    field = pivot.fields[base]
+    grouping = field.grouping
+    if grouping is not None and grouping.by != "Items":
+        return window_order(hive_call("MIN", [column_hive(grouping.field)]), descending=False)
+    if any(isinstance(item, str) for item in field.items):
+        return exp.Ordered(this=hive_call("LOWER", [key.copy()]), nulls_first=False)
+    return window_order(key.copy(), descending=False)
 
 
 def _from_base_item(value: PivotValue, base: exp.Expression, aggregate: exp.Expression,

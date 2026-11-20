@@ -385,6 +385,19 @@ def test_pv5_a_running_total_is_a_window_down_its_base_field(
           "FROM db.job_runs GROUP BY job_id, dt")
 
 
+def test_pv5_a_running_total_down_text_items_runs_a_to_z_ignoring_case_blanks_last() -> None:
+    # Ticket 13's review: Excel shows a text field's items A to Z whatever their case, a blank
+    # last, and runs its total in that order; Hive's ORDER BY puts a blank first and capitals
+    # before small letters.
+    book = read_workbook(saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("status",), (Value("duration_mins", shown_as="runTotal",
+                                              base_field="status"),)),))))
+    check(book, "PivotTable1",
+          "SELECT status, SUM(SUM(duration_mins)) OVER (ORDER BY LOWER(status) NULLS LAST ROWS "
+          "BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS sum_of_duration_mins FROM "
+          "db.job_runs GROUP BY status")
+
+
 def test_pv6_difference_from_a_base_item_is_null_on_its_own_row(
         built: dict[str, Workbook]) -> None:
     base = ("MAX(CASE WHEN job_id = 1 THEN SUM(duration_mins) END) OVER (PARTITION BY dt)")

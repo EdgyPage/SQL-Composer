@@ -5,8 +5,8 @@ Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply), file 12 (Power Query) and, for a PivotTable,
-file 20.
+file 15 (the steps, the map and the reply), file 12 (Power Query and totals) and, for a
+PivotTable, file 20.
 
 ## Patterns: when the formula has X, look up Y
 
@@ -130,7 +130,7 @@ file 20.
 ### W1: a formula column typed over in one row
 
 Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
-as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
+as 9 where run_id is 103; Keys: job_runs, run_id. Map: Sources job_runs. Finals job_runs
 (run_id, job_id, duration_mins, hours). Typed over: hours where run_id is 103.
 
 ```sql

@@ -92,7 +92,7 @@ code naming it, a repo test holds the tie both ways, and each disagreement ticke
 | 11's I1 limits (04) | the file names them, the code adds one | I1: "against this row's typed d (and a typed t[d] over its own Table); refused where rows repeat or hold a blank on their Keys (V1, V2)". A blank key, which gave 0 where Excel gives a total, is now refused in `row_keys` |
 | 12's Q2, `<>` between two columns (05) | the code learns it, the file says it | `(a <> b OR (a IS NULL) <> (b IS NULL))`: kept where one side alone is null, as M's null <> null is false |
 | 12's T1, another Table's column (05) | the file follows the code | T1: "Another Table's column: CROSS JOIN its total" |
-| 12's T1, COUNT of text (05) | both refuse | COUNT, or a Total Row's SUBTOTAL(102), of a typed column holding text is refused (`check_counts_numbers`, T1 and T2), as Excel's counts numbers alone; T1 says so |
+| 12's T1, COUNT of text (05) | both refuse | COUNT, or a Total Row's SUBTOTAL(102), of a typed column holding text is refused (`check_counts_numbers`, T1 and T2), and T1 says so. Why: Excel's COUNT counts the cells holding numbers, so a column of text counts 0, while Hive's COUNT(v) counts every value that isn't blank, so no Hive gives Excel's number; refusing is safe. The refusal says to use COUNTA (or SUBTOTAL 103) in the workbook where a count of the filled cells was meant |
 | 12's T2, a source's Total Row (05) | no change | the code reads `<database>.t` itself, with no final query to read as a CTE; the same rows as a CTE of it (the lead's call) |
 | 12's S2, start and step (05) | the file follows the code | S2: "From s by k: `(ROW_NUMBER() OVER (..) - 1) * k + s`; none given, 0" (the lead's call: M's default start is 0) |
 | 12's G4, Combine by name (05) | the file follows the code | G4: "columns matched by name, NULL where missing" |
@@ -105,6 +105,24 @@ code naming it, a repo test holds the tie both ways, and each disagreement ticke
 | 20's PS1 "never"s (11) | a test of the code | the code never types a pivot's cells in nor reads a table of a CTE's own name unqualified |
 | 20's PV8, a grand total (09, mid-ticket) | the code is fixed, the file says it | a level grouping by nothing whose values are all NULL is `SELECT NULL AS v`, no FROM, one row, where it gave a row per source row (fixture 10's `PivotTable2 (grand total)`); PV8: "grouping by nothing: no FROM" |
 
+**Each file line with no code change beside it, and the test holding that the code already
+does it:**
+
+- 15's P11, the workbook refused whole, each link named:
+  `test_p11_pieces_reading_each_other_in_a_loop_refuse_the_workbook_each_link_named`.
+- 15's H1, a lookup needs a join of its own: `test_h1_a_lookup_and_a_total_on_one_step_read_it_once_each`.
+- 12's G4, columns matched by name, NULL where missing:
+  `test_g4_combine_is_union_all_in_a_distinct_union_and_distinct_alone_select_distinct`
+  (`SELECT run_id, dt, NULL AS job_id .. UNION ALL SELECT run_id, NULL AS dt, job_id ..`).
+- 12's G5, measure and amount after the kept columns:
+  `test_g5_an_unpivot_is_a_select_per_column_stacked_each_dropping_a_null` (`SELECT run_id,
+  'job_id' AS measure, ..`).
+- 12's S2, from s by k and from 0 with none given: `test_s2_an_index_from_s_by_k_and_one_with_no_start_from_0`
+  (new in the review; the code wrote it since ticket 05, `(ROW_NUMBER() OVER (..) - 1) * 10 +
+  5`, and with no start `* 1 + 0`).
+- 12's X1, a native `[Query=..]` refused: `test_file_12_x1_a_native_query_is_refused_its_query_left_out`
+  (new in the review; the code refused it since ticket 05).
+
 Ticket 04's other readings (M1, F9, R1 and W3, F8, F5, aliases, a formula column of different
 formulas) and ticket 05's (Q3, Q4, Q6, G2, G3, S1 and S3, X1) already say what the files say,
 or fall under a refusal the files list ("any formula files 11 and 12 don't list", "a step no
@@ -112,22 +130,39 @@ rule here lists is refused"), so none changes.
 
 ### Each Copilot file change, for ticket 14's round
 
-Lengths with Windows line breaks, as written: 11 8,991; 12 9,000; 15 8,998; 20 8,999. No
+Lengths with Windows line breaks, as written: 11 8,997; 12 9,000; 15 8,998; 20 8,999. No
 split: file 12's room came from its Terms and Worked patterns, as the lead asked, then its
 Load line.
 
 | File | Change |
 |---|---|
-| 11 | I1's limits (above); to fit, the bold first line ("find each formula in Patterns"), the Load line ("file 12 (Power Query)") and the Formula column term ("a column of formulas") |
+| 11 | I1's limits (above); to fit, the bold first line ("find each formula in Patterns"), the Formula column term ("a column of formulas") and W1's "Keys: job_runs, run_id"; the Load line still says "file 12 (Power Query and totals)" |
 | 12 | Q2's two columns; T1's other Table and COUNT of text; S2's start and step; G4 by name; G5's column order; X1's native query. To fit: the M and Total Row terms and the unlisted-step term shortened; W1's heading, its M's indentation and `Int64.Type`, its SQL on three lines; W2's intro; the Load line ("file 11 (formulas)") |
 | 15 | P11 the workbook refused; H1's lookup; W2's Map line shortened |
 | 20 | PV8's grouping by nothing; to fit, the bold first line, the "Decision in convert" term and W1's Finals line |
 
+### For ticket 14: the lines files 12 and 20 need
+
+The code gives these rows now; the files have no room until ticket 14 splits them, so until
+then the two paths differ on each:
+
+- **File 12's Q2**: "`=` between two columns: `(a = b OR (a IS NULL AND b IS NULL))`." (the
+  Copilot path writes `a = b`, which drops a row where both are null; M keeps it).
+- **File 20's PV5**: "Text items A to Z whatever their case, a blank last: ORDER BY LOWER(b)
+  NULLS LAST." (the Copilot path orders by b, which puts a blank first and capitals before
+  small letters).
+
 ### Also
+
+- **C10 isn't a rule ID.** The tie test reads the Rules sections and file 15's role table
+  alone, so Self-check lines (C1 and so on) are no IDs it asks a test for. File 15's C10, each
+  CTE read once and its columns each read after it, is held for the code by
+  `tests/repo/test_lean_hive.py`, which reads every final the code writes for the tasks and
+  fixtures.
 
 - `docs/agents/standards.md`, a section "A Formula workbook's two paths say the same": a rule
   changes in the code and its Copilot file in one commit, with its test named for its ID.
-- `tests/snapshot/known.txt`: 14 hashes added, the Hive the new tests make. None taken out:
+- `tests/snapshot/known.txt`: 19 hashes added, the Hive the new tests make (14, then one for `[a] = [b]` and four in the review). None taken out:
   the old grand total's text (`SELECT NULL AS .. FROM ..`) and the Q2 refusal's are no longer
   made, which a whole-suite run with `SNAPSHOT_WRITE=1` drops.
 - **Found beyond the lists, the code settled, file 12 waiting for ticket 14:** M's `[a] = [b]`
@@ -140,3 +175,25 @@ Load line.
   `tests/test_copilot_files.py`, `tests/test_excel_eval.py`, `tests/test_eval_sources.py`,
   `test_eval_rounds.py`, `test_eval_ladder.py` and all of `tests/repo/`: 4,645 passed and 119
   passed, ruff clean. Not run: the whole suite, and the code-review skill.
+
+## Review
+
+The coordinator's review (2026-11-19), after rebasing onto dev's ad941a7b; each finding
+answered in `fix(8.9): ticket 13's review: ...`.
+
+1. **File 11's pointer**: "file 12 (Power Query and totals)" again; the room is W1's "Keys:
+   job_runs, run_id". File 11 is 8,997 characters with Windows line breaks.
+2. **File lines with no code change**: each confirmed by its test named for the ID, listed in
+   the Answer. Two had no test of that part: S2's start and step and X1's native query each
+   have one now; the code already did both.
+3. **COUNT of text** stays refused, its refusal saying to use COUNTA (or SUBTOTAL 103) where a
+   count of the filled cells was meant; the reason is in the Answer's row.
+4. **PV5 over text items**: the code orders a running total down a text field `LOWER(f) NULLS
+   LAST`, A to Z whatever the case, a blank last, as Excel does (`_base_order`,
+   `test_pv5_a_running_total_down_text_items_runs_a_to_z_ignoring_case_blanks_last`); numbers
+   and grouped fields as before. File 20's line waits for ticket 14, listed beside `[a] = [b]`'s.
+5. **C10** is a self-check, not a rule ID: said in the Answer.
+
+Tests rerun: the workbook tests, `tests/test_pivot_tables.py`, `tests/sqlglot_checks`,
+`tests/test_copilot_files.py`, `tests/test_excel_eval.py`, the three eval tests and all of
+`tests/repo/`: 4,768 passed, 3 skipped; ruff clean.

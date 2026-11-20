@@ -420,6 +420,8 @@ def test_t1_to_t2_count_of_a_column_of_text_is_refused_as_excels_counts_numbers_
                 "run_id, NULL AS status FROM job_runs", final="job_runs (Total Row)")
     assert [(note.rule, note.where) for note in notes_of(book, REFUSED)] == [
         ("T1", "job_runs[n]"), ("T2", "job_runs (Total Row)[status]")]
+    # The refusal says what to use where a count of the filled cells was meant.
+    assert all("use COUNTA (or SUBTOTAL 103)" in note.text for note in notes_of(book, REFUSED))
 
 
 def test_t1_another_tables_whole_column_total_is_a_cross_join_of_its_total() -> None:
@@ -508,6 +510,23 @@ def test_s2_an_index_after_a_sort_is_row_number_and_in_a_group_partitioned_by_it
                                       "db.job_runs")
 
 
+def test_s2_an_index_from_s_by_k_and_one_with_no_start_from_0() -> None:
+    # File 12's S2 since ticket 13: from s by k, `(ROW_NUMBER() OVER (..) - 1) * k + s`; with
+    # no start given, M starts at 0.
+    sort = 'Sorted = Table.Sort(Source, {{"duration_mins", Order.Descending}})'
+    book = query_book({
+        "stepped": (m_of(SOURCE, sort, 'Numbered = Table.AddIndexColumn(Sorted, "n", 5, 10)'),
+                    [*RUNS, "n"]),
+        "from_0": (m_of(SOURCE, sort, 'Numbered = Table.AddIndexColumn(Sorted, "n")'),
+                   [*RUNS, "n"])})
+    finals = finals_of(book)
+    assert finals["stepped"] == normal(f"SELECT {RUN_COLUMNS}, (ROW_NUMBER() OVER (ORDER BY "
+                                       "duration_mins DESC) - 1) * 10 + 5 AS n FROM "
+                                       "db.job_runs")
+    assert finals["from_0"] == normal(f"SELECT {RUN_COLUMNS}, (ROW_NUMBER() OVER (ORDER BY "
+                                      "duration_mins DESC) - 1) * 1 + 0 AS n FROM db.job_runs")
+
+
 def test_s3_a_sort_with_no_firstn_or_index_has_no_order_by_and_is_marked() -> None:
     m = m_of(SOURCE, 'Sorted = Table.Sort(Source, {{"duration_mins", Order.Descending}})')
     book = query_book({"q": (m, RUNS)})
@@ -581,6 +600,14 @@ def test_file_12_m1_a_source_outside_the_workbook_is_the_table_it_names_marked()
                                           "over_by FROM db.run_log WHERE duration_mins >= 20")
     (mark,) = notes_of(book, MARK)
     assert (mark.rule, mark.text.split(":")[0]) == ("M1", "Sql.Database")
+
+
+def test_file_12_x1_a_native_query_is_refused_its_query_left_out() -> None:
+    m = m_of('Warehouse = Sql.Database("dwh01", "ops", [Query="SELECT * FROM run_log"])')
+    book = query_book({"q": (m, ["run_id", "duration_mins"])})
+    assert "q" not in finals_of(book)
+    assert [note.rule for note in notes_of(book, REFUSED)
+            if note.where == 'Power Query "q"'] == ["X1"]
 
 
 def test_file_12_m2_a_pivot_is_a_conditional_sum_per_value_in_the_sample_marked() -> None:

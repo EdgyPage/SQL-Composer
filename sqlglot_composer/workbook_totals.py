@@ -73,8 +73,9 @@ def check_counts_numbers(table: Table, header: str, rule: str) -> None:
         return
     if any(isinstance(cell, str) for cell in column.cells):
         raise Refused(rule, f"Excel's COUNT counts numbers alone, and {table.name}[{header}] "
-                            "holds text, where Hive's COUNT counts every value: COUNTA counts "
-                            "them all")
+                            "holds text, where Hive's COUNT counts every value that isn't "
+                            "blank; for a count of the filled cells, use COUNTA (or "
+                            "SUBTOTAL 103) in the workbook and convert it again")
 
 
 def sumproduct_total_hive(call: Call, place: Place) -> exp.Expression:
