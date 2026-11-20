@@ -15,6 +15,8 @@ from __future__ import annotations
 import ast
 import datetime
 import io
+import re
+import struct
 import sys
 import zipfile
 from pathlib import Path
@@ -25,11 +27,13 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / "copilot"), str(ROOT / "tools")]
 
+import excel_queries  # noqa: E402
 import workbook_fixtures  # noqa: E402
 import workbook_text  # noqa: E402
-from excel_eval_tasks import TASKS, ExcelTask, runs_table  # noqa: E402
-from formula_workbook import FormulaWorkbook, as_text, openpyxl_text, saved  # noqa: E402
-from pivot_tables import Pivot, Value  # noqa: E402
+from excel_eval_tasks import TASKS, ExcelTask, runs_table, table  # noqa: E402
+from formula_workbook import (ExcelTable, FormulaWorkbook, as_text, openpyxl_text,  # noqa: E402
+                              saved)
+from pivot_tables import Pivot, Slicer, Value  # noqa: E402
 
 FIXTURES = ROOT / "tests" / "fixtures" / "workbook_text"
 ORDER = "Order, each piece after every piece it reads:\n"
@@ -275,3 +279,95 @@ def test_each_part_the_builder_adds_is_a_part_excel_saves_for_a_query() -> None:
     assert {"customXml/item1.xml", "customXml/itemProps1.xml", "xl/connections.xml",
             "xl/queryTables/queryTable1.xml"} <= names
     assert 'PartName="/xl/queryTables/queryTable1.xml"' in types
+
+
+def test_a_table_a_query_loads_is_saved_with_the_parts_excel_opens_it_by() -> None:
+    # Ticket 19, fixtures 01 to 03, which Excel refused: each column of the query's Table has
+    # a uniqueName, its id, and the workbook names the query table's range in a hidden name of
+    # the query table's own name, local to its sheet, in its one list of names, as Excel saves
+    # them.
+    with zipfile.ZipFile(io.BytesIO(saved(workbook_fixtures.FIXTURES[
+            "01_query_table_formula"]))) as parts:
+        table = parts.read("xl/tables/table4.xml").decode("utf-8")
+        book = parts.read("xl/workbook.xml").decode("utf-8")
+    assert ('<tableColumn queryTableFieldId="1" uniqueName="1" id="1" name="run_id"'
+            in table)
+    assert book.count("<definedNames") == 1
+    assert ('<definedName name="ExternalData_1" localSheetId="4" hidden="1">'
+            "ok_runs!$A$1:$C$6</definedName>") in book
+
+
+def test_a_query_is_saved_in_a_data_mashup_as_excel_writes_one() -> None:
+    # Ticket 19: Excel opened fixtures 01 to 03 but found no query in them: their
+    # Package.xml held the query items, their metadata none, and it ended with no zip.
+    with zipfile.ZipFile(io.BytesIO(saved(workbook_fixtures.FIXTURES[
+            "01_query_table_formula"]))) as parts:
+        mashup = parts.read("customXml/item1.xml").decode("utf-8")
+    sections = excel_queries.mashup_sections(
+        re.search(r">([^<]+)</DataMashup>", mashup).group(1))
+    with zipfile.ZipFile(io.BytesIO(sections[0])) as package:
+        assert package.namelist() == ["Config/Package.xml", "[Content_Types].xml",
+                                      "Formulas/Section1.m"]
+        assert b"<Items>" not in package.read("Config/Package.xml")
+    metadata = sections[2]
+    assert ('<Item><ItemLocation><ItemType>Formula</ItemType><ItemPath>Section1/ok_runs'
+            '</ItemPath></ItemLocation><StableEntries><Entry Type="IsPrivate" Value="l0" />'
+            '<Entry Type="FillEnabled" Value="l1" /><Entry Type="FillObjectType" '
+            'Value="sTable" />') in metadata.decode("utf-8-sig", "replace")
+    assert '<Entry Type="FillTarget" Value="sok_runs" />' in metadata.decode("utf-8", "replace")
+    assert metadata.endswith(struct.pack("<I", 22) + b"PK\x05\x06" + bytes(18))
+
+
+def test_a_query_loading_nothing_is_saved_as_a_connection_only() -> None:
+    metadata = excel_queries.mashup_sections(excel_queries.data_mashup(
+        [("staffed", "let\n    Source = 1\nin\n    Source"),
+         ("owners", "let\n    Source = staffed\nin\n    Source")],
+        {"owners": "owners"}))[2].decode("utf-8", "replace")
+    staffed, owners = metadata.split("<ItemPath>Section1/")[1:]
+    assert ('<Entry Type="FillEnabled" Value="l0" /><Entry Type="FillObjectType" '
+            'Value="sConnectionOnly" />') in staffed
+    assert '<Entry Type="FillTarget" Value="sowners" />' in owners
+
+
+@pytest.mark.parametrize(("workbook_xml", "kept"), [
+    ("<definedNames /><calcPr/>", "<definedNames>N</definedNames><calcPr/>"),
+    ("<definedNames><definedName>M</definedName></definedNames><calcPr/>",
+     "<definedNames><definedName>M</definedName>N</definedNames><calcPr/>"),
+    ("<sheets/><calcPr/>", "<sheets/><definedNames>N</definedNames><calcPr/>"),
+])
+def test_defined_names_go_in_the_workbooks_one_list(workbook_xml: str, kept: str) -> None:
+    assert excel_queries.with_defined_names(workbook_xml, "N") == kept
+    assert excel_queries.with_defined_names(workbook_xml, "") == workbook_xml
+
+
+@pytest.mark.parametrize(("sheet", "held"), [
+    ("ok_runs", "ok_runs!$A$1:$C$6"),
+    ("A1", "'A1'!$A$1:$C$6"),
+    ("TAX2026", "'TAX2026'!$A$1:$C$6"),
+    ("R1C1", "'R1C1'!$A$1:$C$6"),
+    ("Runs & costs", "'Runs & costs'!$A$1:$C$6"),
+    ("Pat's runs", "'Pat''s runs'!$A$1:$C$6"),
+])
+def test_a_query_tables_range_names_its_sheet_as_excel_does(sheet: str, held: str) -> None:
+    assert excel_queries._range_on(sheet, "A1:C6") == held
+
+
+def test_a_slicer_and_a_query_table_name_their_ranges_in_one_list() -> None:
+    described = FormulaWorkbook(
+        (runs_table(),
+         ExcelTable("ok_runs", ("run_id", "job_id", "duration_mins"),
+                    "SELECT run_id, job_id, duration_mins FROM ops.job_runs WHERE status = "
+                    "'SUCCESS' ORDER BY run_id", loaded_by="ok_runs")),
+        queries=(("ok_runs", f"""let
+    Source = {table("job_runs")},
+    Ok = Table.SelectRows(Source, each [status] = "SUCCESS"),
+    Kept = Table.SelectColumns(Ok, {{"run_id", "job_id", "duration_mins"}})
+in
+    Kept"""),),
+        pivots=(Pivot("job_runs", ("job_id",), (Value("duration_mins"),)),),
+        slicers=(Slicer("status", ("PivotTable1",), ("SUCCESS",)),))
+    with zipfile.ZipFile(io.BytesIO(saved(described))) as parts:
+        book = parts.read("xl/workbook.xml").decode("utf-8")
+    assert book.count("<definedNames") == 1
+    assert '<definedName name="Slicer_status">' in book
+    assert '<definedName name="ExternalData_1" localSheetId="' in book

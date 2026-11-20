@@ -57,10 +57,36 @@ saves each workbook's parts with `\n`, as Excel does
 the intermediate Project's `job_hours.xlsx` were written again, and both tests pass with
 `CI` set.
 
-**Left.** Fixtures 01 to 03, the Power Query ones, are refused by Excel too, though no one had
-reported them; the empty Formula workbook and the three Copilot examples open. Taking out
-their query parts (the DataMashup, the connection, the query table) doesn't make 01 open, so
-its fault is elsewhere: a ticket of its own.
+**Fixtures 01 to 03, the Power Query ones (the user: "Yes, fix 01 to 03").** Excel refused
+them too, though no one had reported them. Compared with a workbook Excel saved itself
+(`.eval-local/excel-repair/sample_query_table.xlsx`: a query on a Table, loaded into a
+Table), and bisected as 05 and 08 were, `tools/excel_queries.py` had four faults:
+
+- **Opening.** A query's Table needs both of what Excel writes beside it: a `uniqueName` on
+  each column, its id, and a hidden defined name for the query table's range,
+  `ExternalData_<n>`, local to its sheet. Either alone was still refused. The name goes into
+  the one list through `with_defined_names`, which `pivot_tables` now calls too, one way
+  for the job.
+- **Its queries.** Opened, Excel still found no query in them: their DataMashup's
+  `Package.xml` held the query items, its metadata none, and the metadata ended with no zip.
+  `_package` writes Package.xml as Excel does, its parts in Excel's order and its XML with a
+  byte order mark; `_metadata` lists each query, filling a Table or a connection only, with
+  a QueryID (a uuid5 of its name, the same on every build); and an empty zip ends it.
+  Excel's 294-byte permission bindings stay empty: Excel reads the queries without them.
+
+Excel 16 now opens all ten fixtures and finds each query: 01's `ok_runs`, 02's `staffed`
+and `owners_by_team`, 03's `back`; refreshing 01's Table gives the 5 rows it holds. Tests
+(`tests/test_workbook_text.py`): the uniqueName and the hidden name on 01; its DataMashup
+as Excel writes one; a connection-only query; each of `with_defined_names`' three cases;
+a slicer and a query table naming their ranges in one list; and a sheet name quoted as
+Excel quotes it.
+
+The reviews (Sonnet) on the 01 to 03 fix. Spec: the sheet name, read from the workbook part
+as XML, was escaped twice (`A&B` came out `A&amp;amp;B`), and a sheet named like a cell
+(`A1`, `TAX2026`, `R1C1`) went unquoted; both fixed in `_sheet_holding` and `_range_on`,
+with tests; the untested branches above now have tests. Standards: `_query_table_name` is
+`_query_table_defined_name`, split into `_sheet_holding` and `_range_on`; `_metadata`'s fill
+an `if`; the test's imports at the module's top.
 
 **Against the Done-when lines.** The comparison was with a sample Excel built and saved on
 this computer, not one the user saved, and no repair log was read (Excel with its alerts off

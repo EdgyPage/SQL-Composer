@@ -58,7 +58,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import column_index_from_string, coordinate_from_string
 
 from excel_queries import (HEAD, PACKAGE_RELATIONSHIPS, RELATIONSHIP_TYPES, SPREADSHEET,
-                           relationship, with_relationships)
+                           relationship, with_defined_names, with_relationships)
 
 X14 = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
 X15 = "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main"
@@ -1845,16 +1845,7 @@ def _finish_workbook(package: _Package, worked: Worked) -> None:
     types."""
     text = package.text
     xml = _with_r(text["xl/workbook.xml"], "workbook")
-    names = "".join(package.names)
-    # openpyxl writes an empty list as <definedNames />: the names go in the one list there
-    # is, as a second list is one Excel refuses the workbook for (ticket 19).
-    empty_list = re.search(r"<definedNames\s*/>", xml)
-    if names and empty_list:
-        xml = xml.replace(empty_list.group(), f"<definedNames>{names}</definedNames>", 1)
-    elif names and "</definedNames>" in xml:
-        xml = xml.replace("</definedNames>", names + "</definedNames>")
-    elif names:
-        xml = xml.replace("<calcPr", f"<definedNames>{names}</definedNames><calcPr")
+    xml = with_defined_names(xml, "".join(package.names))
     caches = "".join(f'<pivotCache cacheId="{cache.id}" r:id="rIdPivotCache{cache.id}"/>'
                      for cache in worked.caches)
     added = f"<pivotCaches>{caches}</pivotCaches>"
