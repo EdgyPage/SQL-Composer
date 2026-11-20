@@ -340,6 +340,75 @@ def test_answering_a_table_per_value_again_makes_it_one_table(
     same_rows(PIVOT, BY_STATUS)
 
 
+# --- Converting again, as after editing a script or the workbook -----------------------------
+
+LOCATION_ROOT = "/data/team/dev"
+# The rows each answer gives, by each table it makes.
+ROWS_ANSWERED = {
+    "keep": {PIVOT: AS_CONVERTED},
+    "fold": {PIVOT: BY_STATUS},
+    "batch": {PIVOT: "SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins FROM "
+                     "ops.job_runs WHERE status = 'FAILED' GROUP BY job_id"},
+    "tables": {f"{PIVOT}_{name}": "SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins "
+                                  f"FROM ops.job_runs WHERE {condition} GROUP BY job_id"
+               for name, condition in [("failed", "status = 'FAILED'"),
+                                       ("success", "status = 'SUCCESS'"),
+                                       ("test", "status = 'TEST'"),
+                                       ("blank", "status IS NULL")]},
+}
+
+
+def placed_under_a_location_root(root: Path) -> None:
+    """Fill in DEV's location_root, which places each table with no location of its own."""
+    databases = root / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8").replace(
+        '"<DEV_LOCATION_ROOT>"', f'"{LOCATION_ROOT}"'), encoding="utf-8")
+
+
+@pytest.mark.parametrize("answer", list(ROWS_ANSWERED))
+def test_converting_again_keeps_each_answer_and_the_tables_it_made(
+        started: Path, books: dict[str, bytes], answer: str) -> None:
+    placed_under_a_location_root(started)
+    converted(started, books, "slicer")
+    decide({PIVOT: {"pivot_filters": {"status": answer}}})
+    if answer == "batch":
+        decide({PIVOT: {"tags": {"STATUS": "FAILED"}}})
+    answered = project.batch_tables("book")
+    converted(started, books, "slicer")
+    assert project.batch_tables("book") == answered
+    for table, hive in ROWS_ANSWERED[answer].items():
+        text = reference(started, table)
+        assert f'    "status": "{answer}",' in text
+        # Each in its own folder, the first value's table too, not the converted table's.
+        short = table.split(".")[1]
+        assert f'    location="{LOCATION_ROOT}/{DEV}.db/{short}",' in text
+        same_rows(table, hive)
+
+
+def test_a_table_per_value_keeps_its_decision_through_converting_again(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "slicer")
+    decide({PIVOT: {"pivot_filters": {"status": "tables"}}})
+    converted(started, books, "slicer")
+    assert f"{PIVOT}_success: pivot_filters" not in repr(project.check())
+    decide({f"{PIVOT}_success": {"pivot_filters": {"status": "fold"}}})
+    assert project.batch_tables("book")[0] == PIVOT
+    same_rows(PIVOT, BY_STATUS)
+
+
+def test_converting_again_keeps_each_location_answered(started: Path,
+                                                       books: dict[str, bytes]) -> None:
+    converted(started, books, "slicer")
+    decide({PIVOT: {"pivot_filters": {"status": "tables"}}})
+    made = list(ROWS_ANSWERED["tables"])
+    decide({table: {"location": f"/data/team/{table}"} for table in made})
+    converted(started, books, "slicer")
+    for table in made:
+        assert f'    location="/data/team/{table}",' in reference(started, table)
+    checked = repr(project.check())
+    assert not [table for table in made if f"{table}: location" in checked]
+
+
 def test_a_name_and_pivot_filters_answered_at_once_rename_then_rewrite(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")

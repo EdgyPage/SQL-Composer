@@ -3350,6 +3350,7 @@ class _BatchFiles:
         if self.made_for:
             record["made_for"] = self.made_for
         record.update(self.workbook_parts())
+        record = _with_tables_per_value(self.root, record)
         (self.index / BATCH_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
                                                encoding="utf-8")
 
@@ -3523,11 +3524,36 @@ def _as_converted(root: Path, final: FinalHive) -> FinalHive:
     and names each table per value made beside it, in the order of its values."""
     tables = _pivot_filter_tables(root, final.table)
     held = tables.made.get(final.table, {})
-    slices = pivot_filters.table_slices(tables.converted_as, tables.keyed, tables.answers)
     return dataclasses.replace(
         final, as_converted=pivot_filters.answered_since_converted(tables.keyed,
                                                                    tables.answers, held),
-        beside=tuple(made for made in slices if made in tables.made and made != final.table))
+        beside=tuple(_tables_made_beside(final.table, tables)))
+
+
+def _tables_made_beside(table: str, tables: _PivotFilterTables) -> list[str]:
+    """Each table per value a Pivot filter's answers made beside `table`, `tables` what they
+    made of the table it was converted as, in the order of their values: none where no answer
+    is "tables"."""
+    slices = pivot_filters.table_slices(tables.converted_as, tables.keyed, tables.answers)
+    return [made for made in slices if made in tables.made and made != table]
+
+
+def _with_tables_per_value(root: Path, record: dict[str, object]) -> dict[str, object]:
+    """A batch's record as a convert run again writes it, each table per value its Pivot
+    filters' answers made beside a table it converts kept beside it, a copy of it, as
+    write_decisions listed it (ticket 08): its statements write only the first value's
+    table, which its workbook final is named for, so the others would drop out of the batch,
+    and their Pivot filters' Decision with them."""
+    for table in list(record["tables"]):
+        beside = [made for made in _tables_made_beside(table, _pivot_filter_tables(root, table))
+                  if made not in record["tables"]]
+        for made in beside:
+            record = _record_copied(record, table, made)
+        if beside:
+            listed = [each for each in record["tables"] if each not in beside]
+            at = listed.index(table) + 1
+            record["tables"] = [*listed[:at], *beside, *listed[at:]]
+    return record
 
 
 def _batch_log_lines(name: str, scripts: list[tuple[str, str]], made: list[str],
@@ -4231,6 +4257,22 @@ def _with_location_placed(root: Path, text: str, table: str) -> str:
     placed = decisions.location_under(folder, table)
     line = f"    location={escaped_literal(placed)},{PLACED}"
     return text[:found.start()] + line + text[found.end():]
+
+
+# A Table reference's location= line with no folder yet, as convert writes it.
+_LOCATION_TO_FILL_IN = ('    location=None,  # TODO: its own folder, such as '
+                        '"/data/your_team/mart_dev.db/this_table"')
+
+
+def _with_placed_location_moved(root: Path, text: str, table: str) -> str:
+    """A renamed table's Table reference text, `table` its new name, its location= placed in
+    its own folder again where it was placed under its Database's location_root for its old
+    name, which the table it was renamed from had: a location answered is kept."""
+    found = re.search(rf"^    location=.*{re.escape(PLACED)}$", text, flags=re.MULTILINE)
+    if found is None:
+        return text
+    return _with_location_placed(
+        root, text[:found.start()] + _LOCATION_TO_FILL_IN + text[found.end():], table)
 
 
 def _register_table(root: Path, dev: str, folder: bool) -> None:
@@ -5789,9 +5831,13 @@ def _batch_names(root: Path) -> list[str]:
 
 def _rename_converted_table(root: Path, old: str, new: str) -> None:
     """Rename one converted table, a copy then a removal: its Table reference and Table
-    folder written at `new`'s paths, each file's text naming it again, the old ones moved to
-    admin/removed/; then its batch's record and registry rows."""
+    folder written at `new`'s paths, each file's text naming it again, a location= placed
+    under location_root placed in its own folder again, the old ones moved to admin/removed/;
+    then its batch's record and registry rows."""
     moved = _write_table_files_as(root, old, new)
+    reference = REFERENCE.path(root, table_stem(new))
+    reference.write_text(_with_placed_location_moved(root, reference.read_text(
+        encoding="utf-8"), new), encoding="utf-8")
     _archive_converted_table(root, old)
     _rename_in_batch_records(root, old, new, moved)
     Registry(root).add([(REFERENCE, new), (TABLE_FOLDER, new)], unchecked.now())
@@ -6322,9 +6368,8 @@ def _copy_converted_table(root: Path, old: str, new: str) -> None:
     the registry."""
     _write_table_files_as(root, old, new)
     reference = REFERENCE.path(root, table_stem(new))
-    text = re.sub(r"^    location=.*$", "    location=None,  # TODO: its own folder, such as "
-                  '"/data/your_team/mart_dev.db/this_table"', reference.read_text(
-                      encoding="utf-8"), count=1, flags=re.MULTILINE)
+    text = re.sub(r"^    location=.*$", _LOCATION_TO_FILL_IN, reference.read_text(
+        encoding="utf-8"), count=1, flags=re.MULTILINE)
     reference.write_text(_with_location_placed(root, text, new), encoding="utf-8")
     for batch, record in _batches_listing(root, [old]):
         workflows.write_batch_record(root, batch, _record_copied(record, old, new))

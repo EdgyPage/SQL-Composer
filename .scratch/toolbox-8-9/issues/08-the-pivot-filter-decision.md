@@ -241,3 +241,39 @@ rows; `conversion/pivot_filters.json` keeps the Hive it was converted from (`sta
 each answer, both proposals, a Hivevar's write and the step refusal.
 `tests/snapshot/known.txt`: dev's, less the hashes the touched files made on dev and make no
 longer, plus the new ones, from the same files run on both commits.
+
+## Follow-up
+
+Converting again after a Pivot filter's answer (2026-11-19), as a person does after editing a
+script or the workbook. A convert run again keeps each answer, as after a NAME or SOURCES
+answer: each file write_decisions rewrote is a file changed since the batch wrote it, so it is
+kept, and its fresh copy goes to the batch's fresh/ to compare. "keep", "fold" and "batch"
+already kept theirs; "tables" didn't, for two reasons.
+
+- **The tables per value dropped out of the batch.** `_BatchFiles.save` wrote the record from
+  what this run converted alone, and the batch's statements write only the first value's
+  table, `mart_dev.pivot_failed`, which `names_kept_of` names the workbook final for. So
+  `mart_dev.pivot_success`, `_test` and `_blank` left its `tables`, `originals` and
+  `pivot_filters`: `batch_tables` no longer gave them to create, write and compare, and their
+  Pivot filter's Decision was gone (answering one again was refused, "status is no Pivot
+  filter of mart_dev.pivot_success"). Fix: `save` passes the record through
+  `_with_tables_per_value`, which keeps each table per value the answers made beside a table
+  it converts (`conversion/pivot_filters.json`) beside it, a copy of it as `_record_copied`
+  lists one, in the order of its values (`_tables_made_beside`, shared with `_as_converted`).
+- **The first value's table had no location of its own.** `_rename_converted_table` wrote
+  each file again naming the new table, but a location= placed under DEV's location_root kept
+  the old name's folder, `<location_root>/mart_dev.db/pivot`, the folder of the table it was
+  converted as. In a session that had loaded `mart_dev.pivot`, as convert does, loading
+  `mart_dev.pivot_failed` was refused, "the same folder as mart_dev.pivot", so check() passed
+  it over and its create refused. A NAME answer renamed the same way. Fix: the rename places a
+  placed location again under the new name (`_with_placed_location_moved`); a location
+  answered is kept. `_copy_converted_table` shares its location= line,
+  `_LOCATION_TO_FILL_IN`.
+
+**Tests:** `tests/test_pivot_filter_decision.py`: each answer, with DEV's location_root, then
+converted again, keeps the batch's tables, each answer and each table's own placed folder, and
+gives the rows answered; a table per value's Decision answered again after converting again;
+the locations answered kept. `tests/test_convert_workbooks.py`: a NAME answer places the
+renamed table in its own folder. 22 new hashes in `tests/snapshot/known.txt`, none stale (the
+touched test files' hashes compared before and after). The Workbook check's lines are as
+ticket 09's Follow-up says (`tests/test_workbook_check.py` unchanged, passing).
