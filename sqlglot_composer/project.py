@@ -3112,8 +3112,11 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     A final's table is named for its Table or its PivotTable. Two names are only proposed,
     each a Decision in the decisions cell: a PivotTable keeping Excel's name, such as
     PivotTable1, is named for its sheet, and a Table named as a table it reads gets _report.
-    A PivotTable over cells that aren't an Excel Table reads the database table they sample,
-    proposed for its sheet: a Decision too. What the conversion found of each final, such as
+    Each source it reads, a Table of typed rows or cells a PivotTable reads, stands for a
+    database table, proposed from its name, Table1 as ops.table1 and cells for their sheet:
+    a Decision too, so a Table needn't be named as the warehouse names it. Where DESCRIBE finds
+    no table of that name, its Table reference is written from the workbook's rows, each type
+    a guess, until you answer. What the conversion found of each final, such as
     a formula marked or refused, is a note in its table's checklist; batch.md lists what
     belongs to no table, such as a chart. A workbook whose pieces read each other in a loop,
     or that holds no final, is refused. Last comes the Workbook check: the Hive of each table
@@ -3302,9 +3305,9 @@ class _BatchFiles:
         self.workbooks = workbooks or BatchWorkbooks()
         self.pivot_filters: dict[str, list[ConvertedPivotFilter]] = {}
         self.origins: dict[str, FinalOrigin] = {}
-        # Each Table reference written from a plain range's columns, which DESCRIBE couldn't
-        # give.
-        self.range_references: list[str] = []
+        # Each Table reference written from a workbook source's own columns, a Table's or a
+        # plain range's, which DESCRIBE couldn't give.
+        self.source_references: list[str] = []
         # The Workbook check of each workbook it read (ticket 09), which batch.md and the
         # report end with.
         self.workbook_checks: list[WorkbookCheck] = []
@@ -3461,7 +3464,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
         )
     added, skipped = _write_missing_references(call, root, ordered, names, query)
     files = _BatchFiles(root, index, overwrite, made_for, workbooks)
-    files.range_references = _write_range_references(root, files.workbooks, skipped)
+    files.source_references = _write_source_references(root, files.workbooks, skipped)
     skipped += _finals_not_converted(files.workbooks.every_final())
     made, created_only = [], []
     for table in _tables_in_order(ordered):
@@ -3582,12 +3585,13 @@ def _finals_not_converted(finals: list[WorkbookFinal]) -> list[str]:
             for final in finals if final.to_fill_in]
 
 
-def _write_range_references(root: Path, workbooks: BatchWorkbooks,
-                            skipped: list[str]) -> list[str]:
-    """Write the Table reference of each database table a plain range of a workbook samples,
-    proposed for its sheet, that DESCRIBE couldn't give, from the range's own columns, each
-    type a guess, so the final reading it converts; take its line out of `skipped`, and give
-    each file written. Its name is a Decision of the table reading it."""
+def _write_source_references(root: Path, workbooks: BatchWorkbooks,
+                             skipped: list[str]) -> list[str]:
+    """Write the Table reference of each database table a source of a workbook samples, a
+    Table of typed rows or a plain range, proposed from its name, that DESCRIBE couldn't give,
+    from the source's own columns, each type a guess, so the final reading it converts; take
+    its line out of `skipped`, and give each file written. Its name is a Decision of each table
+    reading it."""
     written, to_register = [], []
     for final in workbooks.finals_converted():
         for source in final.sources:
@@ -3610,7 +3614,8 @@ def _write_range_references(root: Path, workbooks: BatchWorkbooks,
 def _workbook_report_lines(files: _BatchFiles, names: dict[str, str]) -> list[str]:
     """What convert's report says of the batch's workbooks: each script that is a final's
     Hive, as Copilot writes it; each table whose name was proposed, a Decision; each Table
-    reference written from a range; and each workbook with things that belong to no table,
+    reference written from a workbook's own rows; and each workbook with things that belong
+    to no table,
     which batch.md lists."""
     workbooks = files.workbooks
     in_dev = {split_table_name(table)[1]: copy for table, copy in names.items()}
@@ -3625,10 +3630,11 @@ def _workbook_report_lines(files: _BatchFiles, names: dict[str, str]) -> list[st
         lines.append("Named as proposed, a Decision of each in its checklist: "
                      f'{in_words(said)}. Answer "name" in the decisions cell: "proposed" keeps '
                      "it, or a name of your own renames the table.")
-    if files.range_references:
-        lines.append(f"Wrote {in_words(files.range_references)} from the cells a PivotTable "
-                     "reads, each type a guess, as no database table has its name: which table "
-                     "the cells sample is a Decision of each table reading them.")
+    if files.source_references:
+        lines.append(f"Wrote {in_words(files.source_references)} from the rows of the "
+                     "workbook's Tables and cells, each type a guess, as the database has no "
+                     "table of that name: which database table each samples is a Decision of "
+                     "each table reading it, its \"sources\".")
     for workbook in workbooks.workbooks:
         count = len(workbook.notes)
         if count:
@@ -4041,7 +4047,7 @@ def _record_workbook_parts(files: _BatchFiles, dev: str,
 
 def _workbook_decision_blocks(files: _BatchFiles, script: str, dev: str) -> list[list[str]]:
     """The Decisions a workbook's final gives its table's Table reference, `dev`'s: its name,
-    where it was proposed, and the database table each plain range it reads samples; and, a
+    where it was proposed, and the database table each source it reads samples; and, a
     script's too, each of its Pivot filters (ticket 08)."""
     pivot_filter_blocks = _pivot_filters_blocks(files.pivot_filters.get(dev, []))
     final = files.workbooks.final_of_script().get(script)
@@ -4051,7 +4057,7 @@ def _workbook_decision_blocks(files: _BatchFiles, script: str, dev: str) -> list
     if final.proposed:
         blocks.append(decisions.name_block(final.table, final.final, final.workbook))
     if final.sources:
-        blocks.append(decisions.sources_block({source.table: source.range
+        blocks.append(decisions.sources_block({source.table: source.where
                                                for source in final.sources}))
     return [*blocks, *pivot_filter_blocks]
 
@@ -5126,8 +5132,9 @@ def write_decisions(answers: dict[str, dict[str, object]],
     name proposed for it: "proposed" keeps it; a name of your own, such as "runs_by_job",
     renames the table, its Table folder and its Table reference, and its total levels' tables
     with it, before it is created in dev. "sources" answers its SOURCES, the database table
-    proposed for cells a PivotTable reads, such as {"ops.runs": "ops.job_runs"}, a table with
-    a Table reference: its logic reads that table then, with any opt-out it now needs.
+    proposed for each Table or cells of the workbook it reads, from its name, such as
+    {"ops.table1": "ops.job_runs"}, each a table with a Table reference, in any database:
+    "proposed" keeps it; its logic reads the table given then, with any opt-out it now needs.
     "pivot_filters" answers its PIVOT_FILTERS, what the PivotTable it was made from leaves
     out, each Pivot filter by its field, such as {"status": "fold"}: "keep" keeps the filter
     as converted; "fold" makes its column part of what one row is; "batch" partitions the
@@ -5463,7 +5470,7 @@ def _unmatched_workbook_answers(root: Path, table: str, answer: dict[str, object
                                 reference_text: str) -> list[str]:
     """A line naming each part of one table's answer to a workbook's Decisions that can't be
     written: a "name" for a table with no NAME, or one it can't be renamed to; and a "sources"
-    naming no range's table of its SOURCES, or a table with no Table reference."""
+    naming no source's table of its SOURCES, or a table with no Table reference."""
     problems = []
     name = answer.get(decisions.ANSWERS[decisions.NAME])
     if name is not None and decisions.name_answered(reference_text) is None:
@@ -5686,7 +5693,7 @@ def _write_checklist_again(root: Path, table: str) -> None:
                                              _decisions_notebook_of(text)), encoding="utf-8")
 
 
-# --- A workbook's Decisions: a table's name, and a range's database table (Toolbox 8.9) -----
+# --- A workbook's Decisions: a table's name, and each source's database table (Toolbox 8.9)
 
 
 def _name_answered_change(table: str, before: str, after: str) -> dict[str, str]:
@@ -5712,16 +5719,38 @@ def _point_sources_answered(root: Path, table: str, before: str, after: str) -> 
         # The logic reads the table through a variable named for it, as runs = ops.runs.
         if notebook.is_file():
             notebook.write_bytes(_renamed_content(notebook, old[proposed], source))
+            _import_the_database_of(notebook, old[proposed], source)
         for path in (folder / CONVERSION / IN_DEV, folder / CONVERSION / STATEMENT):
             if path.is_file():
                 path.write_text(_qualified_name_renamed(path.read_text(encoding="utf-8"),
-                                                        old[proposed], source),
+                                                        old[proposed], source, any_case=True),
                                 encoding="utf-8")
         lines.append(f"{table}: its logic reads {source} now, in place of {old[proposed]}, the "
-                     "database table its workbook's range samples.")
+                     "database table proposed from its workbook.")
     if lines:
         lines += _add_opt_outs_needed(root, table, notebook)
     return lines
+
+
+def _import_the_database_of(notebook: Path, old: str, new: str) -> None:
+    """Import, in a Table notebook's logic, the database of the table `new` its logic reads in
+    place of `old`, where the two are in different databases, as from references import crm,
+    beside the import of `old`'s, or else first after its `# logic` line."""
+    old_database, new_database = split_table_name(old)[0], split_table_name(new)[0]
+    found = _logic_cell_of(notebook)
+    if old_database == new_database or found is None:
+        return
+    number, logic = found
+    wanted = f"from references import {new_database}"
+    if re.search(rf"^{re.escape(wanted)}$", logic, flags=re.MULTILINE):
+        return
+    beside = re.compile(rf"^from references import {re.escape(old_database)}$", re.MULTILINE)
+    if beside.search(logic):
+        logic = beside.sub(f"\\g<0>\n{wanted}", logic, count=1)
+    else:
+        first, _, rest = logic.partition("\n")
+        logic = f"{first}\n{wanted}\n{rest}"
+    write_cell_text(notebook, number, logic)
 
 
 def _add_opt_outs_needed(root: Path, table: str, notebook: Path) -> list[str]:
@@ -5741,9 +5770,12 @@ def _add_opt_outs_needed(root: Path, table: str, notebook: Path) -> list[str]:
             added.items()]
 
 
-def _qualified_name_renamed(text: str, old: str, new: str) -> str:
-    """Text with each `db.table` name `old` written `new`, never inside a longer name."""
-    return re.sub(rf"(?<![\w.]){re.escape(old)}(?!\w)", new, text)
+def _qualified_name_renamed(text: str, old: str, new: str, *, any_case: bool = False) -> str:
+    """Text with each `db.table` name `old` written `new`, never inside a longer name; in any
+    case where `any_case`, as Hive reads a name, so a workbook's Table1 in its Hive is
+    ops.table1's."""
+    return re.sub(rf"(?<![\w.]){re.escape(old)}(?!\w)", new, text,
+                  flags=re.IGNORECASE if any_case else 0)
 
 
 def _rename_problems(root: Path, table: str, name: object) -> list[str]:

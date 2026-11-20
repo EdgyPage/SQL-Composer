@@ -3597,7 +3597,7 @@ SCHEDULED_RUNS = []  # Scheduled runs to archive, such as [&quot;weekly&quot;]</
     print(project.remove_scheduled_run(SCHEDULED_RUNS))</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot.py"><code>admin/removed/20260925-060000-mart__teams_pivot.py</code></h3>
-<details><summary>Show its 37 lines</summary><pre>&quot;&quot;&quot;mart.teams_pivot - TODO: say in one line what one row is.&quot;&quot;&quot;
+<details><summary>Show its 46 lines</summary><pre>&quot;&quot;&quot;mart.teams_pivot - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
 teams_pivot = Table(
@@ -3615,6 +3615,15 @@ teams_pivot = Table(
 # decisions cell: &quot;proposed&quot; keeps it; a name of your own renames this table, and its
 # total levels&#x27; tables with it.
 NAME = &quot;job_hours&quot;  # for PivotTable1 of job_hours.xlsx
+
+# The database table each Table or range of the workbook it reads samples, proposed from
+# its name, which needn&#x27;t be the one your warehouse gives it. Answer &quot;sources&quot; in the
+# decisions cell with the table it samples, in any database, such as {&quot;ops.table1&quot;:
+# &quot;ops.job_runs&quot;}, or {&quot;ops.table1&quot;: &quot;proposed&quot;} to keep it.
+SOURCES = {
+    &quot;ops.job_events&quot;: &quot;ops.job_events&quot;,  # the database table job_events of job_hours.xlsx samples
+    &quot;ops.job_owners&quot;: &quot;ops.job_owners&quot;,  # the database table job_owners of job_hours.xlsx samples
+}
 
 # What the PivotTable this table was made from leaves out: each Pivot filter, by its
 # field, a Decision. Answer &quot;pivot_filters&quot; in the decisions cell: &quot;keep&quot; keeps the
@@ -4949,8 +4958,8 @@ GROUP BY
  &quot;files&quot;: {
   &quot;admin/workflows/convert/job_hours/batch.md&quot;: &quot;23c4245a494b2a1ffe50ba4231f0276ca3692d4955efd1b549c87b9c6f0dfb97&quot;,
   &quot;admin/workflows/convert/job_hours/scripts/teams_pivot.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
-  &quot;references/mart__job_hours.py&quot;: &quot;281bdd6b58bc40c50edb30e8e1c2005c227d8f1df01472d5d047812c78b54e2a&quot;,
-  &quot;tables/mart__job_hours/conversion/checklist.md&quot;: &quot;b62fae7a39c9f8f8fd2dd252e97f4604f6cb67b5e20e219d2b02f9cd31ad9d7d&quot;,
+  &quot;references/mart__job_hours.py&quot;: &quot;7ee47293278a5a7622a7278fbfc22ca004c866a6581d5aaf98df5899065220f0&quot;,
+  &quot;tables/mart__job_hours/conversion/checklist.md&quot;: &quot;4f0ae93aa997e735917efcd90ade8926519e8522ce4b4cfd349eebac4c51090a&quot;,
   &quot;tables/mart__job_hours/conversion/in_dev.hql&quot;: &quot;131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4&quot;,
   &quot;tables/mart__job_hours/conversion/scan.md&quot;: &quot;d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e&quot;,
   &quot;tables/mart__job_hours/conversion/statement.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
@@ -6070,7 +6079,7 @@ job_events_checks = Table(
 #     &lt;alias&gt; = equals(job_events_checks.&lt;column&gt;, &lt;value&gt;)
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/mart__job_hours.py"><code>references/mart__job_hours.py</code></h3>
-<details><summary>Show its 48 lines</summary><pre>&quot;&quot;&quot;mart.job_hours - one row per job and team: the hours its runs took.
+<details><summary>Show its 57 lines</summary><pre>&quot;&quot;&quot;mart.job_hours - one row per job and team: the hours its runs took.
 
 Why: the project&#x27;s notebooks read the table through this file, so each column they name, and the
 key each join and count relies on, where it has one, is checked as the Statement is built.
@@ -6099,6 +6108,15 @@ job_hours = Table(
 # decisions cell: &quot;proposed&quot; keeps it; a name of your own renames this table, and its
 # total levels&#x27; tables with it.
 NAME = &quot;job_hours&quot;  # for PivotTable1 of job_hours.xlsx
+
+# The database table each Table or range of the workbook it reads samples, proposed from
+# its name, which needn&#x27;t be the one your warehouse gives it. Answer &quot;sources&quot; in the
+# decisions cell with the table it samples, in any database, such as {&quot;ops.table1&quot;:
+# &quot;ops.job_runs&quot;}, or {&quot;ops.table1&quot;: &quot;proposed&quot;} to keep it.
+SOURCES = {
+    &quot;ops.job_events&quot;: &quot;ops.job_events&quot;,  # the database table job_events of job_hours.xlsx samples
+    &quot;ops.job_owners&quot;: &quot;ops.job_owners&quot;,  # the database table job_owners of job_hours.xlsx samples
+}
 
 # What the PivotTable this table was made from leaves out: each Pivot filter, by its
 # field, a Decision. Answer &quot;pivot_filters&quot; in the decisions cell: &quot;keep&quot; keeps the

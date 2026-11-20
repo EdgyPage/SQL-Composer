@@ -197,8 +197,11 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "table.",
         "Give Copilot files 15, 11 and 12 from the `copilot/` folder with the workbook, and "
         "23 for a total, 20 for a PivotTable and 24 for its filter, as `00_start_here.txt`'s "
-        "Index says; to grow a converted PivotTable later, file 21, and file 22 for its Pivot "
-        "filters at scale.",
+        "Index says; to grow a converted PivotTable later, file 21 with 03, 05 and 06, and "
+        "file 22 with 06 and 17 for its Pivot filters at scale.",
+        "A Table needn't be named as the warehouse names its table: the table each Table "
+        "stands for is a Decision, proposed from its name, `Table1` as `ops.table1`; answer "
+        "`\"sources\"` with the table its rows came from, in any database.",
         "A PivotTable becomes one table of its rows, each Row and Column field a column: its "
         "Grand Totals and subtotals are left out, each named in the table's checklist.",
         "Check each name Copilot leaves in angle brackets, such as `<database>`, against your "

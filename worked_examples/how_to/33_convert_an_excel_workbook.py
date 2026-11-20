@@ -11,15 +11,21 @@ scripts, and it reads what reads what in the workbook. Each calculation that not
 the workbook reads, here the PivotTable, is a final: it becomes a Saved table, its Hive built
 from the formulas and the query it reads. The Workbook check then runs that Hive on this
 computer, over the workbook's own rows, and compares what it gives with the values the workbook
-shows. What only you can decide, such as the table's name and what to do with the PivotTable's
-slicer, is a Decision, answered in the convert notebook's decisions cell. The other way in is
-Copilot: it writes the same Hive from the workbook's text, and you convert that, as step 11
-shows.
+shows. What only you can decide, such as the table's name, which warehouse table each of the
+workbook's Tables stands for, and what to do with the PivotTable's slicer, is a Decision,
+answered in the convert notebook's decisions cell. The other way in is Copilot: it writes the
+same Hive from the workbook's text, and you convert that, as step 11 shows.
 
 ## When you'd use it
 
 - If a report lives in an Excel workbook, with its data pasted into Tables, formulas in them,
-  a Power Query and a PivotTable, convert the workbook as the steps below do.
+  a Power Query and a PivotTable, convert the workbook as the steps below do. Any workbook
+  converts as it is, its calculations in Tables, a Power Query or a PivotTable: you needn't
+  rebuild it in another layout first.
+- If a Table is named as Excel names one, such as Table1, or its rows came from another
+  database, convert it as it is: the warehouse table each Table stands for is a Decision,
+  proposed from the Table's name, Table1 as ops.table1, and you answer the table its rows came
+  from, as step 7 does.
 - If the PivotTable keeps Excel's default name, such as PivotTable1, answer its name, as step
   7 does: convert proposes one from its sheet, Teams gives teams_pivot.
 - If the PivotTable has a slicer, a Report filter or items it hides, decide what the table
@@ -48,7 +54,10 @@ your own Project. The Intermediate Example project holds this page's batch conve
 finished already, which the same page shows. The Starter's Dev Database, DEV's "database" in
 admin/databases.py, is mart. Fill in DEV's "location_root", the folder its tables' files go
 under, as [Set your Database settings](#set_your_database_settings) shows, so each table's
-folder is placed for you and is no Decision; this page stands in for your edit:
+folder is placed for you and is no Decision; this page stands in for your edit. `conn` is the
+connection: here the Example database's, given to the page before its steps run, and in your
+own notebook your team's, written in the notebook's `connect(...)` line, as
+[Start a Project](#start_a_project) shows:
 
 >>> from pathlib import Path
 >>> example_project("starter")
@@ -68,7 +77,10 @@ pasted from: ops.job_events and ops.job_owners. Convert reads each table through
 reference, and a join it can check needs each table's Key, the columns whose values name one
 row. The references Workflow, admin/workflows/references/references.ipynb, makes them, as
 [Add your tables' references](#add_your_tables_references) shows; this page runs its two
-calls, the second accepting each Key it proposes:
+calls, the second accepting each Key it proposes. The first checks each Key it proposes on
+the rows, and for ops.job_owners one check says "repeats" and lists copies: that is expected,
+not an error. A job has an owner each day, so job_id alone names more than one row, and the
+check after it shows the Key proposed, job_id and dt, holds:
 
 >>> print(project.add_references(["ops.job_events", "ops.job_owners"], query=query))
 Wrote references/ops__job_events.py and references/ops__job_owners.py: fill in their TODO lines.
@@ -100,8 +112,11 @@ step 3.
 
 Goal: the workbook where the convert Workflow reads it. Save it as it is, an .xlsx file beside
 the convert Workflow's notebook, in admin/workflows/convert/: convert reads it where it is,
-never copied. Here `example_workbook("job_hours.xlsx")` saves a copy of the Intermediate
-Example project's, a line of this page alone, as `example_project` is:
+never copied. Any workbook converts as it is, its calculations in Tables, a Power Query or a
+PivotTable. The Formula workbook, copilot/formula_workbook.xlsx, is a template for laying
+one out from scratch, and you needn't use it. Here `example_workbook("job_hours.xlsx")` saves
+a copy of the Intermediate Example project's, a line of this page alone, as `example_project`
+is:
 
 >>> example_workbook("job_hours.xlsx")
 
@@ -117,8 +132,11 @@ It holds what a workbook of yours may hold, each on a sheet of its own:
   the Sum of hours of each job, with a slicer on team, the data team selected.
 
 Each formula is in a Table, never in loose cells: a formula outside a Table is refused, as the
-workbook's rows are only a sample of the warehouse's. The Example projects page shows the
-workbook as text, as copilot/workbook_text.py writes it.
+workbook's rows are only a sample of the warehouse's. A Table's name needn't match the
+warehouse's: convert proposes the table each Table stands for from its name, job_events as
+ops.job_events, and Table1 would be ops.table1, a Decision you answer in step 7 with the
+table its rows came from, in any database. The Example projects page shows the workbook as
+text, as copilot/workbook_text.py writes it.
 
 Done when admin/workflows/convert/job_hours.xlsx is there. Then step 4.
 
@@ -129,14 +147,15 @@ and fill in its names cell: the batch's name as NAME, `"job_hours"`, the workboo
 `["job_hours.xlsx"]`, and DATABASE, `"ops"`, the database of the tables the workbook samples.
 A workbook is named in FILES by its path: FILES left [] reads only the .hql files beside the
 notebook. Save the cell, and run "Run up to your Decisions", which runs this call from the
-notebook's folder, then stops at the Decisions. Here is its report, up to its next step:
+notebook's folder, then stops at the Decisions. Your notebook shows its whole report; this
+page prints it only up to its next step, cutting it at "Next:", a line of the page's own:
 
 >>> import os
 >>> os.chdir("admin/workflows/convert")  # where the notebook runs: this page stands in
 >>> said = repr(project.convert("job_hours", files=["job_hours.xlsx"], query=query,
 ...                             database="ops"))
 >>> os.chdir("../../..")  # back to the Project's folder, where the rest of this page runs
->>> print(said.split("\\nNext:")[0])
+>>> print(said.split("\\nNext:")[0])  # the page's own cut: your notebook shows it whole
 Converted job_hours: 1 final of job_hours.xlsx, 1 statement, into 1 Saved table in mart: mart.teams_pivot.
 Named as proposed, a Decision of each in its checklist: mart.teams_pivot, for PivotTable1 of job_hours.xlsx. Answer "name" in the decisions cell: "proposed" keeps it, or a name of your own renames the table.
 Kept each Pivot filter as converted, so each of these tables holds only the rows the PivotTable's filter or slicer selected when the workbook was last saved: mart.teams_pivot, where the slicer on team keeps data. Each is a Decision of its table, which can keep every value instead: answer "pivot_filters" in the decisions cell, as each table's checklist says, with how many tables each answer makes.
@@ -199,7 +218,8 @@ GROUP BY
 The Workbook check, at the end of convert's report and in batch.md, ran that Hive on this
 computer, over the workbook's own Tables standing in for ops.job_events and ops.job_owners,
 and compared each cell of the PivotTable with the row the Hive gave for it. It never reads the
-warehouse: the workbook's rows are an old sample, and the warehouse's will differ:
+warehouse: the workbook's rows are an old sample, and the warehouse's will differ. Open
+batch.md to read it; this page prints its part of batch.md alone, by its heading:
 
 >>> batch = Path("admin/workflows/convert/job_hours/batch.md").read_text(encoding="utf-8")
 >>> print(batch.split("## The Workbook check")[1].split("## Each statement")[0].strip())
@@ -219,27 +239,35 @@ Done when the Workbook check says every cell matches. Then step 6.
 
 ### 6. Read the table's open Decisions
 
-Goal: know what only you can decide. mart.teams_pivot has two Decisions: its name, proposed
-from its sheet, as PivotTable1 is Excel's default, and its Pivot filter, the slicer on team.
-Its folder is placed under DEV's "location_root", so it is no Decision. project.check() names each, with each answer of the
-Pivot filter and how many tables each makes:
+Goal: know what only you can decide. mart.teams_pivot has four Decisions: its name, proposed
+from its sheet, as PivotTable1 is Excel's default; the warehouse table each Table it reads
+stands for, ops.job_events and ops.job_owners, proposed from the Tables' names; and its Pivot
+filter, the slicer on team. Its folder is placed under DEV's "location_root", so it is no
+Decision. project.check() names each, with each answer of the Pivot filter and how many
+tables each makes. In your notebook, print(project.check()) shows every table's; this page's
+loop prints mart.teams_pivot's lines alone:
 
 >>> said = repr(project.check())  # -> str
->>> for line in said.splitlines():
+>>> for line in said.splitlines():  # the page's own: mart.teams_pivot's lines alone
 ...     if line.strip().startswith("mart.teams_pivot:"):
 ...         print(line.strip())
 mart.teams_pivot: name: teams_pivot, proposed for PivotTable1 of job_hours.xlsx: keep it with "proposed", or answer a name of your own, which renames the table
+mart.teams_pivot: sources: ops.job_events, proposed as the database table job_events of job_hours.xlsx samples: keep it with "proposed", or answer the table it samples
+mart.teams_pivot: sources: ops.job_owners, proposed as the database table job_owners of job_hours.xlsx samples: keep it with "proposed", or answer the table it samples
 mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. "keep": 1 table, that selection; "fold": 1 table, every team; "batch": 1 table, a Partition per team; "tables": at least 2 tables, one per team the PivotTable's cache held (data and finance). Answer "keep" to keep its selection as converted, or "fold", "batch" or "tables" to keep every value instead, as its checklist says
 
-Its checklist, tables/mart__teams_pivot/conversion/checklist.md, says what the table shows,
-what each answer makes of it, in Excel's words where Excel has them, and which to pick:
+Its checklist, tables/mart__teams_pivot/conversion/checklist.md, gives the Pivot filter one
+long line. It says, in order: what the table shows now; each of the four answers, what it
+makes of the table, in Excel's words where Excel has them, and how many tables or Partitions;
+what "a layer" and "at least" mean; and, last, "Which to pick". This page prints that line
+alone, the one holding "Which to pick":
 
 >>> checklist = Path("tables/mart__teams_pivot/conversion/checklist.md").read_text(
 ...     encoding="utf-8")
 >>> print(next(line for line in checklist.splitlines() if "Which to pick" in line))
 - Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as "pivot_filters": {"team": ...}: "keep", proposed: 1 table, that selection alone. "fold": like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. "batch": 1 table written one team at a time, each run writing its own team's rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under "tags" with the Run value proposed there. "tables": like Excel's Show Report Filter Pages: a table per team, named mart.teams_pivot_<value>, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and "at least" as these are the values the PivotTable's cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, "fold" keeps every team in one table to slice later; "batch" when each team is written on its own schedule; "tables" only for a handful; "keep" when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or "batch" instead.
 
-Done when you know the two Decisions. Then step 7.
+Done when you know the four Decisions. Then step 7.
 
 ### 7. Answer each Decision in the decisions cell
 
@@ -248,7 +276,11 @@ to paste into the decisions cell, directly under it. This page stands in for the
 in:
 
 >>> DECISIONS = {
-...     "mart.teams_pivot": {"name": "job_hours", "pivot_filters": {"team": "fold"}},
+...     "mart.teams_pivot": {
+...         "name": "job_hours",
+...         "sources": {"ops.job_events": "proposed", "ops.job_owners": "proposed"},
+...         "pivot_filters": {"team": "fold"},
+...     },
 ... }
 
 Each answer, by its kind:
@@ -256,6 +288,12 @@ Each answer, by its kind:
 - "name": a name of your own, "job_hours", renames the table, mart.job_hours, its Table
   folder, its Table reference and its placed folder, /data/dev/mart.db/job_hours, with it;
   "proposed" keeps teams_pivot.
+- "sources": the warehouse table each Table's rows came from, by the table proposed for it.
+  This workbook's Tables are named as the warehouse names its tables, so "proposed" keeps
+  each. A Table named Table1, whose rows came from ops.job_events, is answered
+  `{"ops.table1": "ops.job_events"}`, and one from another database, such as crm, with that
+  database's table, `"crm.jobs"`, once its Table reference is added as step 2 adds them: the
+  table's logic reads the table you give.
 - "pivot_filters": the slicer keeps the data team. "keep", proposed, keeps that selection
   alone. "fold" is like dragging team from Filters to Rows in the PivotTable: one table, a row
   for each job and team, every team in it. "batch" writes one team at a time, each into a
@@ -265,17 +303,21 @@ Each answer, by its kind:
   pick" says. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or
   "batch" instead.
 
-Done when DECISIONS holds the name and the Pivot filter's answer. Then step 8.
+Done when DECISIONS holds the name, the sources and the Pivot filter's answer. Then step 8.
 
 ### 8. Write each answer in
 
 Goal: each Decision made in the table's files. Run "Run the rest", under the decisions cell:
 its first step writes each answer into the Table reference, renames the table, and writes its
-logic again for the Pivot filter's answer, from the Hive it was converted from. The files of
-mart.teams_pivot go to admin/removed/. This page runs the step's own cell:
+logic again for the Pivot filter's answer, from the Hive it was converted from. Renaming
+keeps a copy of the old name's files: mart.teams_pivot's Table folder and Table reference, as
+they were before the rename, move to admin/removed/, each named by the time. Nothing is lost,
+and nothing reads them: delete them when you like. Its report lists two TODO lines "which
+wait on nothing": they are no Decision and need no answer, so nothing waits on them; fill
+them in when you like, one saying what one row is. This page runs the step's own cell:
 
 >>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("job_hours")))
-Wrote 2 answers into references/mart__teams_pivot.py.
+Wrote 4 answers into references/mart__teams_pivot.py.
 mart.teams_pivot: 2 TODO lines left in references/mart__teams_pivot.py, which wait on nothing: fill each in when you like.
   line 1: mart.teams_pivot - TODO: say in one line what one row is.
   line 12: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
@@ -334,8 +376,18 @@ GROUP BY
 
 The PivotTable's two cells, job 1's 2.95 hours and job 3's 1.183333, are the data team's rows.
 Job 3, report_build, moved from data to finance on 2026-09-18, so it has a row for each team.
-A reader who wants the data team's alone, as the slicer showed it, reads the table with a
-WHERE on team.
+
+To slice it again as the slicer did, take its rows into Excel once the table is written: load
+them into a sheet, as your team gets a warehouse table's rows into Excel, then Insert >
+PivotTable over them, job_id in Rows and sum_of_hours in Values, and Insert > Slicer on team.
+Each team you pick in the slicer shows that team's rows, every team's being in the table. In
+Python, filter the preview's rows on the column, as the slicer's data selects:
+
+>>> rows = run_query(project.load("mart.job_hours").preview(), query)
+>>> rows[rows["team"] == "data"]
+   job_id  team  sum_of_hours
+0       1  data      2.950000
+2       3  data      1.183333
 
 Done when the preview gives a row for each job and team. Then step 10.
 
@@ -354,14 +406,18 @@ execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_hours (
 execute: WITH job_events AS (
 1 of 1: mart.job_hours  worked
 Wrote 1 table, in order.
->>> print(project.compare_batch("job_hours", query=query, partitions=[]))
+>>> print(project.compare_batch("job_hours", query=query))
 mart.job_hours: failed, couldn't compare: The Example database couldn't run this Hive: it has no table mart.job_hours.
 
-The Example database holds no Dev Database, so the compare couldn't read the dev table; at
-work, once it passes, the batch is finished, and the promote Workflow carries the table to
-your Prod Database, as [Convert someone else's Hive](#convert_someone_elses_hive) shows.
+mart.job_hours has no Partitions, so its compare reads every row: the names cell's
+PARTITIONS, which lists Partitions to compare beside the latest, is left as it is. The Example
+database holds no Dev Database, so here the compare couldn't read the dev table, and says it
+failed. At work, where the dev table is there, it compares the table's rows with its query's
+and writes tables/mart__job_hours/conversion/compare.md, whose "Every row" part says, once
+they match, `Passed: every row: it has no Partitions.` Once it passes, the batch is finished, and the promote Workflow carries the table to your Prod
+Database, as [Convert someone else's Hive](#convert_someone_elses_hive) shows.
 
-Done when the compare says it passed, at work. Then step 11.
+Done when compare.md says "Passed:", at work; here, when the compare has run. Then step 11.
 
 ### 11. Or have Copilot write the Hive
 
@@ -373,14 +429,21 @@ Copilot. At work, and nothing on this page runs it:
    workbook's path, which writes job_hours.txt beside it: each Table and formula, the Power
    Query's M, the PivotTable, its fields, its slicer and its cells, and the order each piece
    reads the others in.
-2. In a new chat, attach `copilot/15_excel_workbook_steps.txt`,
-   `copilot/11_excel_formula_workbooks.txt`, `copilot/12_excel_power_query.txt`,
-   `copilot/20_excel_pivot_tables.txt`, for a PivotTable, and
-   `copilot/24_excel_pivot_filters.txt`, for its slicer, as `copilot/00_start_here.txt`'s Index
-   says, then job_hours.txt, and send "Convert this workbook". A workbook with a Total Row or a
-   whole-column total takes `copilot/23_excel_totals.txt` too.
-   Copilot answers with a map of the workbook and a Hive query for each final, its slicer's
-   condition under `-- Pivot filter: slicer team`, the mark convert reads.
+2. In a new chat, attach the Copilot files from `copilot/`, in this order, as
+   `copilot/00_start_here.txt`'s Index gives them, then job_hours.txt, and send "Convert this
+   workbook":
+
+   - every workbook: 15, 11 and 12 (`15_excel_workbook_steps.txt`,
+     `11_excel_formula_workbooks.txt`, `12_excel_power_query.txt`);
+   - with a PivotTable, as here: 20 (`20_excel_pivot_tables.txt`);
+   - with a slicer, a Filter or a Top 10, as here: 24 (`24_excel_pivot_filters.txt`);
+   - with a Total Row or a whole-column total: 23 (`23_excel_totals.txt`).
+
+   So this workbook takes 15, 11, 12, 20 and 24. Copilot answers with a map of the workbook and
+   a Hive query for each final, its slicer's condition under `-- Pivot filter: slicer team`,
+   the mark convert reads. Later, in a chat of their own, file 21 with 03, 05 and 06 grows a
+   converted PivotTable's table, and file 22 with 06 and 17 weighs a Pivot filter's answers at
+   scale.
 3. Save the query beside the workbook, named for its table, as job_hours.hql, and convert it
    into the same batch, the workbook beside it, `FILES = ["job_hours.xlsx", "job_hours.hql"]`:
 
@@ -402,7 +465,8 @@ Before you go on, check that:
 
 - the Workbook check in admin/workflows/convert/job_hours/batch.md says every cell matches;
 - references/mart__job_hours.py names the table mart.job_hours, its folder under
-  /data/dev, and `"team": "fold"` under PIVOT_FILTERS;
+  /data/dev, ops.job_events and ops.job_owners under SOURCES, and `"team": "fold"` under
+  PIVOT_FILTERS;
 - the preview of mart.job_hours gives a row for each job and team;
 - at work, its compare in tables/mart__job_hours/conversion/compare.md says "Passed:".
 

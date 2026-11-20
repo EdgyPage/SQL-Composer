@@ -4,10 +4,11 @@
 `converted_workbook` gives what the Conversion needs of it: each final's Hive, as
 `workbook_hive.py` writes it with the batch's database filled in, under the name of the Saved
 table it becomes; what the workbook's map says of each final, in plain words, for that
-table's checklist; what it says of no one final, for batch.md; each plain range a final reads,
-whose database table is a Decision of its table; and each Pivot filter of each final, for its
-Decision (ticket 08). The Conversion then keeps each final's Hive in the batch's scripts/, as
-it keeps Hive given as text, and converts it as it converts any batch's.
+table's checklist; what it says of no one final, for batch.md; each source a final reads, a
+Table of typed rows or a plain range, whose database table is a Decision of its table (ticket
+20); and each Pivot filter of each final, for its Decision (ticket 08). The Conversion then
+keeps each final's Hive in the batch's scripts/, as it keeps Hive given as text, and converts
+it as it converts any batch's.
 
 A final's table is named for it: a Table's name, or a pivot's (PN1), in snake case. Two names
 are proposed, each a Decision of its table, the table made under the proposal until the
@@ -16,6 +17,13 @@ its sheet (PN2); and a final named as a database table the batch reads, as a Tab
 formula columns over its own rows is, `<name>_report`. A total level or a Total Row is named
 for its pivot's or its Table's table, `pivot_grand_total`, and renamed with it. Converted
 again, a batch keeps the name each final's table has.
+
+A source's database table is proposed from its name, `<database>.<name>`: a Table's name in
+lower case, which is its snake case, or a range's defined name or sheet in snake case (PS3),
+so a Table needn't be named as the warehouse names its table. The person answers "sources"
+with the table it samples, such as `{"ops.table1": "ops.job_runs"}`, each in any database.
+Where DESCRIBE finds no table of the name proposed, its Table reference is written from the
+source's own rows, so the final converts before the answer.
 """
 
 from __future__ import annotations
@@ -30,8 +38,10 @@ from .refusals import refuse
 from .shared import in_words, split_table_name
 from .workbook_check import FinalHive
 from .workbook_formulas import (
+    KEYS,
     LEFT_ALONE,
     MARK,
+    PARAMETERS,
     PLAIN_NAME,
     REFUSED,
     TO_FILL_IN,
@@ -61,9 +71,10 @@ from .workbook_reader import (
     EXCEL_TABLE,
     PIVOT_TABLE,
     RANGE,
+    TYPED,
+    Column,
     LoopError,
     Piece,
-    Table,
     Workbook,
     read_workbook,
 )
@@ -126,14 +137,15 @@ class FinalOrigin:
 
 
 @dataclass(frozen=True)
-class RangeSource:
-    """A database table a plain range a final reads samples, proposed for its sheet, a Decision
-    of the final's table: its name in the database, `ops.runs`; the range, `Runs!A1:F10`;
-    and its columns, each typed as its cells suggest, for its Table reference where the
-    database has no such table."""
+class WorkbookSource:
+    """A database table a source a final reads samples, a Table of typed rows or a plain
+    range, proposed from its name, a Decision of the final's table: its name in the database,
+    `ops.table1`; where in the workbook it is, `Table1 of runs.xlsx` or `Runs!A1:F10`; and its
+    columns, each typed as its cells suggest, for its Table reference where the database has
+    no such table."""
 
     table: str
-    range: str
+    where: str
     columns: dict[str, str]
 
 
@@ -144,8 +156,8 @@ class WorkbookFinal:
     named for; its Hive; why that name was proposed, "" where it is the final's own; each line
     of the workbook's map about it, for its table's checklist; each `<...>` its Hive still
     holds, which stops it converting; each Pivot filter its rows go through, its `final` the
-    workbook's name of the pivot it is in; its workbook's file's name; and each plain range it
-    reads."""
+    workbook's name of the pivot it is in; its workbook's file's name; and each source it
+    reads, a Table of typed rows or a plain range."""
 
     final: str
     table: str
@@ -155,7 +167,7 @@ class WorkbookFinal:
     to_fill_in: list[str] = field(default_factory=list)
     filters: list[ConvertedPivotFilter] = field(default_factory=list)
     workbook: str = ""
-    sources: list[RangeSource] = field(default_factory=list)
+    sources: list[WorkbookSource] = field(default_factory=list)
 
     @property
     def script(self) -> str:
@@ -265,7 +277,7 @@ def converted_workbook(call: str, path: Path, database: str,
         finals.append(WorkbookFinal(
             final, name.table, text, name.proposed, notes, to_fill_in,
             [each for each in filters if each.final.lower() in read_names], path.name,
-            [range_source(piece, workbook, database) for piece in read if piece.kind == RANGE]))
+            sources_of(text, read, workbook, database, path.name)))
     return ConvertedWorkbook(path.name, finals,
                              [checklist_note_text(note) for note in of_no_final])
 
@@ -414,27 +426,65 @@ def final_origins_of_batch(root: Path, name: str) -> dict[str, FinalOrigin]:
             for table, origin in kept.items()}
 
 
-# --- A plain range's database table ---------------------------------------------------------
+# --- Each source's database table -----------------------------------------------------------
 
 
-def range_source(piece: Piece, workbook: Workbook, database: str) -> RangeSource:
+def sources_of(hive: str, read: set[Piece], workbook: Workbook, database: str,
+               file: str) -> list[WorkbookSource]:
+    """Each source a final's Hive, `hive`, reads in `database`, of the pieces it reads at any
+    depth, `read`: each Table whose typed rows stand for a database table, and each plain range
+    a pivot reads, in the order the Hive first names them."""
+    candidates: dict[str, WorkbookSource] = {}
+    for piece in read:
+        if piece.kind == RANGE:
+            source = range_source(piece, workbook, database)
+        elif piece.kind == EXCEL_TABLE and _stands_for_a_database_table(piece.name, workbook):
+            source = table_source(piece, workbook, database, file)
+        else:
+            continue
+        candidates[source.table] = source
+    named = {}
+    for name, source in candidates.items():
+        found = re.search(rf"(?<![\w.]){re.escape(name)}(?!\w)", hive, re.IGNORECASE)
+        if found:
+            named[found.start()] = source
+    return [named[place] for place in sorted(named)]
+
+
+def _stands_for_a_database_table(name: str, workbook: Workbook) -> bool:
+    """Whether a Table's typed rows stand for a database table, read as `<database>.<name>`:
+    a plain name, neither Parameters nor Keys, and rows neither a summary's nor a query's."""
+    if not PLAIN_NAME.fullmatch(name) or name.lower() in (PARAMETERS.lower(), KEYS.lower()):
+        return False
+    return is_read_from_the_database(name, workbook)
+
+
+def table_source(piece: Piece, workbook: Workbook, database: str,
+                 file: str) -> WorkbookSource:
+    """The database table a Table's typed rows sample, proposed as its name in lower case,
+    with each typed column, typed as its cells suggest."""
+    table = tables_of(workbook)[piece.name.lower()]
+    typed = [column for column in table.columns if column.kind == TYPED]
+    return WorkbookSource(f"{database}.{piece.name.lower()}", f"{piece.name} of {file}",
+                          _guessed_columns(typed))
+
+
+def range_source(piece: Piece, workbook: Workbook, database: str) -> WorkbookSource:
     """The database table a plain range samples, proposed for its sheet (PS3), with its
     columns, each typed as its cells suggest."""
     table = None
     for pivot in workbook.pivot_tables:
         if pivot.source.pieces == [piece]:
             table = pivot.source.table
-    return RangeSource(f"{database}.{range_table_name(piece, workbook)}", piece.name,
-                       _guessed_columns(table))
+    return WorkbookSource(f"{database}.{range_table_name(piece, workbook)}", piece.name,
+                          _guessed_columns(table.columns if table is not None else []))
 
 
-def _guessed_columns(table: Table | None) -> dict[str, str]:
-    """Each column of a range's rows, by its name in snake case, its type as its cells
+def _guessed_columns(columns: list[Column]) -> dict[str, str]:
+    """Each column of a source's rows, by its name in snake case, its type as its cells
     suggest: "boolean", "bigint", "double" or else "string"."""
-    columns: dict[str, str] = {}
-    if table is None:
-        return columns
-    for column in table.columns:
+    guessed_columns: dict[str, str] = {}
+    for column in columns:
         kinds = {type(cell) for cell in column.cells if cell is not None}
         guessed = "string"
         for kind, name in _GUESSED_TYPES:
@@ -442,8 +492,8 @@ def _guessed_columns(table: Table | None) -> dict[str, str]:
                 guessed = name
         if kinds == {int, float}:
             guessed = "double"
-        columns[snake_case(column.header)] = guessed
-    return columns
+        guessed_columns[snake_case(column.header)] = guessed
+    return guessed_columns
 
 
 # --- What the map says, table by table -----------------------------------------------------
