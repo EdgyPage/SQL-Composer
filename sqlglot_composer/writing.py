@@ -13,8 +13,10 @@ import re
 from typing import TYPE_CHECKING, NamedTuple
 
 import sqlglot
+import sqlglot.executor
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
+from sqlglot.optimizer import optimize
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
 
@@ -105,6 +107,30 @@ def typed_hive(query: exp.Expression,
     return annotate_types(qualify(query, schema=schema, dialect=_DIALECT,
                                   validate_qualify_columns=False),
                           schema=schema, dialect=_DIALECT)
+
+
+def qualified_hive(query: exp.Expression,
+                   schema: dict[str, dict[str, dict[str, str]]]) -> exp.Expression:
+    """A query with each `*` written as its columns and each column named with its table, by
+    sqlglot from `schema`, as sqlglot's executor reads it (`hive_executor.py`)."""
+    return qualify(query, schema=schema, dialect=_DIALECT)
+
+
+def optimized_hive(query: exp.Expression,
+                   schema: dict[str, dict[str, dict[str, str]]]) -> exp.Expression:
+    """A query written out in full by sqlglot's optimizer from `schema`, each table kept apart,
+    as sqlglot's executor writes it before it runs it (`hive_executor.py`)."""
+    return optimize(query, schema, leave_tables_isolated=True, dialect=_DIALECT)
+
+
+def executed_hive(query: str | exp.Expression,
+                  schema: dict[str, dict[str, dict[str, str]]] | None,
+                  tables: dict[str, object]) -> sqlglot.executor.table.Table:
+    """A query run on sqlglot's own executor, over `tables`, each table's rows by its
+    database and name, their types in `schema`, or worked out from the rows where it is None:
+    what the executor gives back (`hive_executor.py`). Through its module, each call, so a test
+    can stand another executor in."""
+    return sqlglot.executor.execute(query, schema=schema, tables=tables, dialect=_DIALECT)
 
 
 def hive_text(node: Node) -> str:

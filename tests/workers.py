@@ -49,6 +49,7 @@ GROUPS = {
     "tests/sqlglot_checks/test_sqlglot_workbook_pivot_hive.py::stand_in":
         "pivot_hive_stand_in_hive",
     "tests/test_convert_workbooks.py::books": "convert_workbooks_saved",
+    "tests/test_workbook_check.py::books": "workbook_check_saved",
 }
 
 

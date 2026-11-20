@@ -155,17 +155,24 @@ SHARED = re.compile(r'shared\s+(#"(?:[^"]|"")*"|[A-Za-z_][\w.]*)\s*=')
 @dataclass
 class Column:
     """One column of an Excel Table: its header, its kind, TYPED or FORMULA, each row's cell
-    below the header, and its Total Row's cell.
+    below the header, and its Total Row's cell; and the value Excel last stored in each.
 
     A cell holds a formula as "=" and the formula as the workbook saves it, such as
     `=SUMIFS(t[a],t[b],t[[#This Row],[b]])`, else its value; an empty cell is None, and so is
     `total` in a Table with no Total Row. A formula column holds a formula in at least one row,
-    with any value typed over one in another; a typed column holds values alone."""
+    with any value typed over one in another; a typed column holds values alone. `stored`
+    holds each row's value as Excel last stored it, and `total_stored` its Total Row's: a
+    formula's result (ticket 09's Workbook check compares them), else the value typed in; None
+    for a blank, and for a formula whose file holds no result, as one a tool saved and Excel
+    never opened."""
 
     header: str
     kind: str
     cells: list[str | int | float | bool | datetime.datetime | None]
     total: str | int | float | bool | datetime.datetime | None = None
+    stored: list[str | int | float | bool | datetime.datetime | None] = field(
+        default_factory=list)
+    total_stored: str | int | float | bool | datetime.datetime | None = None
 
 
 @dataclass
@@ -354,7 +361,9 @@ class PivotTable:
 @dataclass
 class Sheet:
     """One sheet: its Tables, its other cells by their row and column, such as (1, 4) for D1,
-    the kind of each chart, such as "bar", and its PivotTables."""
+    the kind of each chart, such as "bar", and its PivotTables; and the value Excel last
+    stored in each of its formula cells, in a Table or not, by the same row and column, None
+    where the file holds none."""
 
     title: str
     tables: list[Table] = field(default_factory=list)
@@ -362,6 +371,8 @@ class Sheet:
         default_factory=dict)
     charts: list[str] = field(default_factory=list)
     pivot_tables: list[PivotTable] = field(default_factory=list)
+    results: dict[tuple[int, int], str | int | float | bool | datetime.datetime | None] = field(
+        default_factory=dict)
 
 
 @dataclass
@@ -645,25 +656,66 @@ def _is_formula(value: str | int | float | bool | datetime.datetime | None) -> b
 
 
 def _column(cells: dict[tuple[int, int], str | int | float | bool | datetime.datetime],
-            column: int, rows: range, total_row: int | None) -> Column:
+            column: int, rows: range, total_row: int | None,
+            results: dict[tuple[int, int], str | int | float | bool | datetime.datetime | None]
+            ) -> Column:
     """One column of a Table: its header, from the cell above `rows`, its cells in `rows`, and
-    its cell on `total_row`, if the Table has a Total Row."""
+    its cell on `total_row`, if the Table has a Total Row; and the value Excel last stored in
+    each, a formula's from `results`."""
     header = cells.get((rows.start - 1, column))
     below = [cells.get((row, column)) for row in rows]
     kind = TYPED
     if any(_is_formula(value) for value in below):
         kind = FORMULA
+    stored = [_stored_in(cells, results, (row, column)) for row in rows]
     total = None
+    total_stored = None
     if total_row is not None:
         total = cells.get((total_row, column))
-    return Column("" if header is None else str(header), kind, below, total)
+        total_stored = _stored_in(cells, results, (total_row, column))
+    return Column("" if header is None else str(header), kind, below, total, stored,
+                  total_stored)
+
+
+def _stored_in(cells: dict[tuple[int, int], str | int | float | bool | datetime.datetime],
+               results: dict[tuple[int, int],
+                             str | int | float | bool | datetime.datetime | None],
+               where: tuple[int, int]) -> str | int | float | bool | datetime.datetime | None:
+    """The value Excel last stored in one cell: a formula's result, or the value typed in."""
+    if _is_formula(cells.get(where)):
+        return results.get(where)
+    return cells.get(where)
+
+
+def _formula_results(parts: zipfile.ZipFile, part: str, strings: list[str], dated: set[int]
+                     ) -> dict[tuple[int, int], str | int | float | bool | datetime.datetime
+                               | None]:
+    """The value Excel last stored in each formula cell of a sheet, by where it is, as its
+    type says: an empty text "", or None where it stored none, as in a file saved by a tool
+    and never opened in Excel."""
+    results = {}
+    for cell in _all(_xml(parts, part), "c"):
+        if cell.find("{*}f") is None:
+            continue
+        value = cell.find("{*}v")
+        kind = cell.get("t", "n")
+        result = None
+        if value is not None and value.text is not None:
+            result = _typed(kind, value.text, strings, int(cell.get("s", "0")) in dated)
+        elif value is not None and kind == "str":
+            result = ""
+        results[_where(cell.get("r", "A1"))] = result
+    return results
 
 
 def _table(parts: zipfile.ZipFile, part: str,
            cells: dict[tuple[int, int], str | int | float | bool | datetime.datetime],
-           loads: dict[str, str]) -> Table:
-    """The Table `part` holds, its columns read from its sheet's `cells`, and the query that
-    loads it, through its query table's connection."""
+           loads: dict[str, str],
+           results: dict[tuple[int, int], str | int | float | bool | datetime.datetime | None]
+           ) -> Table:
+    """The Table `part` holds, its columns read from its sheet's `cells`, each formula's stored
+    value from `results`, and the query that loads it, through its query table's
+    connection."""
     held = _xml(parts, part)
     name = held.get("displayName") or held.get("name", "")
     ref = held.get("ref", "")
@@ -673,7 +725,8 @@ def _table(parts: zipfile.ZipFile, part: str,
     rows = range(top + 1, bottom + 1)
     if has_total_row:
         total_row, rows = bottom, range(top + 1, bottom)
-    columns = [_column(cells, column, rows, total_row) for column in range(left, right + 1)]
+    columns = [_column(cells, column, rows, total_row, results)
+               for column in range(left, right + 1)]
     loaded_by = ""
     for kind, query_table in _relationships(parts, part).values():
         if kind == "queryTable":
@@ -718,15 +771,15 @@ def _worksheets(parts: zipfile.ZipFile, book: ElementTree.Element,
 
 def _sheet(parts: zipfile.ZipFile, title: str, part: str, strings: list[str],
            dated: set[int], loads: dict[str, str]) -> Sheet:
-    """One sheet: its Tables in the order it lists them, then its other cells and charts; its
-    PivotTables are read after every sheet."""
+    """One sheet: its Tables in the order it lists them, then its other cells and charts, and
+    the value each formula last stored; its PivotTables are read after every sheet."""
     cells = _cells(parts, part, strings, dated)
-    sheet = Sheet(title)
+    sheet = Sheet(title, results=_formula_results(parts, part, strings, dated))
     linked = _relationships(parts, part)
     for table_part in _all(_xml(parts, part), "tablePart"):
         kind, path = linked.get(_relationship_id(table_part), ("", ""))
         if kind == "table":
-            sheet.tables.append(_table(parts, path, cells, loads))
+            sheet.tables.append(_table(parts, path, cells, loads, sheet.results))
     in_a_table = set()
     for table in sheet.tables:
         (top, left), (bottom, right) = _range(table.ref)
@@ -1216,7 +1269,9 @@ def _worksheet_source(book: _PivotBook, worksheet_source: ElementTree.Element | 
     if on in book.sheets and ref:
         (top, left), (bottom, right) = _range(ref)
         cells = book.sheets[on].cells
-        table = Table(name, ref, [_column(cells, column, range(top + 1, bottom + 1), None)
+        results = book.sheets[on].results
+        table = Table(name, ref, [_column(cells, column, range(top + 1, bottom + 1), None,
+                                          results)
                                   for column in range(left, right + 1)])
     return PivotSource(RANGE, name, table, pieces=[Piece(RANGE, name)])
 

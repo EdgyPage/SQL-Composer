@@ -187,6 +187,9 @@ from .unchecked import (
     script_line,
     write_entry,
 )
+from .workbook_check import (FinalHive, WorkbookCheck, batch_md_lines, check_workbook,
+                             report_lines)
+from .workbook_reader import read_workbook
 
 if TYPE_CHECKING:
     # Only a hint names it, and scheduled_runs.py imports this file: imported here, it would
@@ -3108,7 +3111,11 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     proposed for its sheet: a Decision too. What the conversion found of each final, such as
     a formula marked or refused, is a note in its table's checklist; batch.md lists what
     belongs to no table, such as a chart. A workbook whose pieces read each other in a loop,
-    or that holds no final, is refused.
+    or that holds no final, is refused. Last comes the Workbook check: each final's Hive, or a
+    script Copilot wrote for it, is run on this computer over the workbook's own Tables, and
+    its rows compared with the values Excel last stored. The report and batch.md list each
+    difference, one line a cell, and it stops nothing. It never reads your warehouse: the
+    workbook's rows are an old sample, so the warehouse's will differ.
     In a script, a comment above a condition, -- Pivot filter: slicer status, as Copilot
     writes it, marks a Pivot filter, as the workbook's own are kept: each is recorded for its
     table, for its Decision.
@@ -3292,6 +3299,9 @@ class _BatchFiles:
         # Each Table reference written from a plain range's columns, which DESCRIBE couldn't
         # give.
         self.range_references: list[str] = []
+        # The Workbook check of each workbook it read (ticket 09), which batch.md and the
+        # report end with.
+        self.workbook_checks: list[WorkbookCheck] = []
 
     def write_text(self, relative: str, text: str) -> str:
         """Write a text file, as the batch writes it: the path it went to."""
@@ -3456,6 +3466,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             files.originals[names[table]] = _original_of(ordered, table)
         else:
             created_only.append(names[table])
+    files.workbook_checks = _workbook_checks(files, scripts, database)
     _write_batch_index(files, name, scripts, ordered, names, database, dev, made, read_from)
     files.tables = [names[table] for table in _tables_in_order(ordered)]
     files.save()
@@ -3469,7 +3480,43 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     # and each name proposed for a workbook's final, a Decision.
     report[1:1] = [*_staging_lines(staging_found, folded, unfoldable),
                    *_workbook_report_lines(files, names)]
-    return ProjectReport([*report, *_unrecorded_lines(root, call)])
+    return ProjectReport([*_with_workbook_checks(report, files.workbook_checks),
+                          *_unrecorded_lines(root, call)])
+
+
+def _with_workbook_checks(report: list[str], checks: list[WorkbookCheck]) -> list[str]:
+    """convert's report with what each workbook's Workbook check found before its last line,
+    which says what is next."""
+    lines = []
+    for check in checks:
+        lines += report_lines(check)
+    return [*report[:-1], *lines, *report[-1:]]
+
+
+def _workbook_checks(files: _BatchFiles, scripts: list[tuple[str, str]],
+                     database: str) -> list[WorkbookCheck]:
+    """The Workbook check of each workbook the batch read (Toolbox 8.9, ticket 09): each of
+    its finals the batch converted, from the workbook's own Hive or from the script Copilot
+    wrote for it, run on this computer over the workbook's own Tables, a table its Hive names
+    without a database in `database`, and compared with the values Excel last stored. It
+    never calls your query."""
+    texts = dict(scripts)
+    stood_for = {id(final): script for script, final in files.workbooks.copilot_finals.items()}
+    converted = [id(final) for final in files.workbooks.finals_converted()]
+    checks = []
+    for workbook in files.workbooks.workbooks:
+        finals = []
+        for final in workbook.finals:
+            script = stood_for.get(id(final), "")
+            if script:
+                finals.append(FinalHive(final.final, final.table, texts[script], script))
+            elif id(final) in converted:
+                finals.append(FinalHive(final.final, final.table, final.hive))
+        if not finals:
+            continue  # each is skipped, and the report says why
+        book = read_workbook(files.root / files.workbooks.places[workbook.file])
+        checks.append(check_workbook(book, workbook.file, finals, database))
+    return checks
 
 
 def _batch_log_lines(name: str, scripts: list[tuple[str, str]], made: list[str],
@@ -4633,6 +4680,8 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
         lines += _table_lines(files, table, ordered, names, made)
     for workbook in files.workbooks.workbooks:
         lines += _workbook_lines(workbook, index)
+    for check in files.workbook_checks:
+        lines += batch_md_lines(check)
     lines += ["", "## Each statement, in the order they run", ""]
     # Each write's part in its table's write: the first piece, a later one, or replaced.
     parts: dict[int, str] = {}
