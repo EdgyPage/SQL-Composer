@@ -233,7 +233,21 @@ def test_the_index_gives_each_objective_the_files_its_rows_load() -> None:
     allowed = copilot_eval.index_loads(text)
     assert allowed["03"] == {"03"} and allowed["17"] == {"17"}
     # A workbook loads 15, 11 and 12, and 20 too where it has a PivotTable (Toolbox 8.9).
-    assert allowed["11"] == allowed["20"] == {"15", "11", "12", "20"}
+    assert allowed["11"] == allowed["20"] == allowed["15"] == {"15", "11", "12", "20"}
+    # A converted pivot loads 21 with 03, 05 and 06, and 22 with 06 and 17; a task of 05, 06
+    # or 17, each an objective of its own, never loads 21 or 22 for it.
+    assert allowed["21"] == {"21", "03", "05", "06"} and allowed["22"] == {"22", "06", "17"}
+    assert allowed["05"] == {"05"} and allowed["06"] == {"06"} and allowed["17"] == {"17"}
+
+
+def test_arm_c_loads_file_21_with_the_files_it_is_loaded_with() -> None:
+    texts = copilot_eval.files_loaded("C", "T50")
+    assert list(texts) == ["21", "03", "05", "06"]
+    assert copilot_eval.shared_text("C", "21") == "\n\n".join(texts.values())
+    message = copilot_eval.proxy_message("C", [BY_ID["T50"]])
+    assert "each with its file's number, such as `Used: 21:R3, 05:W2`" in message
+    assert list(copilot_eval.files_loaded("C", "T52")) == ["22", "06", "17"]
+    assert list(copilot_eval.files_loaded("C", "T07")) == ["03"]
 
 
 @pytest.mark.parametrize(("reply", "strict", "index"), [

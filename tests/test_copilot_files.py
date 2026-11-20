@@ -68,6 +68,11 @@ EXCEL_FILES = tuple(path.name for number in EXCEL_NUMBERS
                     for path in sorted(COPILOT.glob(f"{number}_*.txt")))
 # File 19 writes a Metric request, plain text for the user's chatbot: no code, and no SQL.
 METRIC_REQUEST = "19_metric_request.txt"
+# Files 21 and 22 grow a table convert made from a PivotTable, its add-ons and its Pivot
+# filters, each loaded with the files whose functions it uses, as the Copilot evaluation loads
+# them (Toolbox 8.9, ticket 12).
+GROWING_A_PIVOT = "21_growing_a_converted_pivot.txt"
+PIVOT_FILTERS = "22_pivot_filters_at_scale.txt"
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
 AVOIDED = ("raw SQL", "guardrail", "predicate", "schema file", "table config", "snippet",
            "boilerplate", "materialized view", "temp table", "set operation", "OVER clause",
@@ -95,7 +100,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(21)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(23)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -132,11 +137,14 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     # and the file of the step's objective the code; file 17 gives a Workflow's decisions cell
     # and the Run value's function it imports, and leaves a Statement inside one to file 03;
     # file 18 gives a Scheduled run's cells, and leaves a Statement of its own to file 03 too;
-    # file 19 writes no code at all.
+    # file 19 writes no code at all; files 21 and 22 are loaded with files that hold the
+    # block, 03, 05 and 06 and 06 and 17, and hold A11 themselves (Toolbox 8.9, ticket 12).
+    if path.name in (GROWING_A_PIVOT, PIVOT_FILTERS):
+        assert copilot_files.LEAN.read_text(encoding="utf-8").strip() in text
     if path.name not in (*EXCEL_FILES, "13_workflows.txt",
                          "14_workflows_new_tables_and_upkeep.txt", "16_workflows_promote.txt",
                          "17_run_values_and_seed_limits.txt", "18_scheduled_runs.txt",
-                         METRIC_REQUEST):
+                         METRIC_REQUEST, GROWING_A_PIVOT, PIVOT_FILTERS):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
         # Ticket 17: rule A11, Hive that stays small, right after the block; the shared one,
         # or a file's own shorter one where the shared one doesn't fit.
@@ -167,6 +175,43 @@ def test_start_here_loads_the_excel_files_the_evaluation_loads() -> None:
     # A workbook with a pivot loads every Excel file, as arm C of the Excel evaluation gives it.
     text = (COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
     assert f"| {', '.join(EXCEL_NUMBERS)} |" in text
+
+
+@pytest.mark.parametrize("objective", sorted(copilot_eval.LOADED_WITH))
+def test_start_here_loads_files_21_and_22_with_the_files_the_evaluation_loads(
+        objective: str) -> None:
+    text = (COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
+    assert f"| {', '.join(copilot_eval.objective_files(objective))} |" in text
+
+
+def test_file_22_says_what_the_pivot_filter_decision_does_and_the_users_words() -> None:
+    # Ticket 08's four answers in its words, how it answers, its proposals and its names, both
+    # paths equal; and the user's (2026-11-19): "emphasize how many different tables it would
+    # create".
+    text = " ".join((COPILOT / PIVOT_FILTERS).read_text(encoding="utf-8").split())
+    for said in ('"keep", proposed: 1 table', '"fold", like dragging the field from Filters '
+                 "to Rows: 1 table", '"batch": 1 table partitioned on the field, a Partition '
+                 "per value", '"tables", like Show Report Filter Pages: a table per value',
+                 "Region 3 and Site 100 make at least 300",
+                 "A filter with 100 conditions would make 100 tables, but the higher layer "
+                 "filter may have only 3, which is manageable.",
+                 "a blank `_blank`, a day `_2026_09_23`, a clash `_2`",
+                 "A Timeline's days each make a table",
+                 'project.new_run_value("latest_dt", latest_partition="ops.job_runs.dt")',
+                 'hivevar("STATUS", default="FAILED")', '`"key": "proposed"` accepts it',
+                 "Once the table is created in dev, another answer is refused",
+                 'undoes "tables"', "a filter in a step",
+                 'A value filter (Top 10) has only "keep" or "fold"',
+                 "converted without its workbook has no count"):
+        assert said in text, said
+
+
+def test_file_21_names_convert_s_total_level_tables_and_what_months_gave() -> None:
+    # Ticket 07's names for a total level's table, and ticket 06's PR3 label for Months.
+    text = " ".join((COPILOT / GROWING_A_PIVOT).read_text(encoding="utf-8").split())
+    for said in ("`<table>_by_<field>` and `<table>_grand_total`",
+                 "where convert's Months grouping gave a label, Sep"):
+        assert said in text, said
 
 
 def test_start_here_names_every_other_file() -> None:

@@ -1,6 +1,6 @@
 """Score answers to the Copilot evaluation's Excel tasks: a Formula workbook into Hive, offline.
 
-The Excel files, the Copilot files `files_of` names, should make Copilot turn a Formula
+The Excel files, the Copilot files `workbook_files` names, should make Copilot turn a Formula
 workbook into Hive that gives the workbook's rows. This measures it, as `tools/copilot_eval.py`
 measures the other files: the same tasks (`tools/excel_eval_tasks.py`) are answered with and
 without the files, by Copilot in its web chat or by a proxy model, each reply is kept in an
@@ -89,13 +89,12 @@ sys.path[:0] = [str(ROOT)]
 
 import eval_runs  # noqa: E402
 import eval_sources  # noqa: E402
-from copilot_eval import invented_names  # noqa: E402
+from copilot_eval import file_text, invented_names  # noqa: E402
 from excel_eval_tasks import BY_ID, TASKS, ExcelTask  # noqa: E402
 from formula_workbook import as_text, build, saved  # noqa: E402
 from pivot_tables import Pivot, caption  # noqa: E402
 import example_database  # noqa: E402
 
-COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
@@ -104,7 +103,7 @@ logging.getLogger("sqlglot").setLevel(logging.ERROR)
 EXCEL_FILES = ("15", "11", "12")
 PIVOT_FILE = "20"
 ARMS = {"A0": "nothing: the request alone",
-        "C": "the Excel files, as files_of names them"}
+        "C": "the Excel files, as workbook_files names them"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -121,7 +120,7 @@ def tasks_of(split: str) -> list[ExcelTask]:
     return [task for task in TASKS if split in ("all", task.split)]
 
 
-def files_of(task: ExcelTask) -> tuple[str, ...]:
+def workbook_files(task: ExcelTask) -> tuple[str, ...]:
     """The numbers of the Excel files a task loads in arm C: EXCEL_FILES, and PIVOT_FILE where
     its workbook has a PivotTable."""
     if task.workbook.pivots:
@@ -134,11 +133,7 @@ def files_loaded(arm: str, task_id: str) -> dict[str, str]:
     in arm C, and none in the arm that loads no file."""
     if arm == "A0":
         return {}
-    texts: dict[str, str] = {}
-    for number in files_of(BY_ID[task_id]):
-        [path] = sorted(COPILOT.glob(f"{number}_*.txt"))
-        texts[number] = path.read_text(encoding="utf-8")
-    return texts
+    return {number: file_text(number) for number in workbook_files(BY_ID[task_id])}
 
 
 def shared_text(arm: str, task: ExcelTask) -> str | None:
@@ -198,7 +193,7 @@ def proxy_groups(arm: str, asked: list[str]) -> dict[str, list[str]]:
     loading the same Excel files apart from the rest, as each proxy is given one set."""
     sets: dict[tuple[str, ...], list[str]] = {}
     for task_id in asked:
-        loads = files_of(BY_ID[task_id]) if arm == "C" else ()
+        loads = workbook_files(BY_ID[task_id]) if arm == "C" else ()
         sets.setdefault(loads, []).append(task_id)
     chunks: list[list[str]] = []
     for ids in sets.values():

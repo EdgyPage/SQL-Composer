@@ -1,0 +1,148 @@
+# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.8)
+
+**Find the request in Patterns, copy the rule or worked pattern it names, change only the
+tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
+
+Objective: add to a table convert made from a PivotTable, in its Table notebook: Show
+Values As, a Calculated Field, a grouping, the wide shape, every total in one Statement.
+Load this file when a user's table came from a PivotTable and they want more from it, with
+files 03 (Statements), 05 (windows and subtotals) and 06 (saving a table), whose functions
+and rules A1 to A10 it uses. Its Pivot filters and one table of two pivots: file 22.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "% of the total", "share of each day" | a Window over a Derived table | W1 |
+| P2 | "running total", "so far" | `rows=(None, 0)` | R4 |
+| P3 | "rank", "top job of each day" | `rank(over=window(...))` | W1 |
+| P4 | "hours from minutes", "a ratio" | the formula over the sums | R6 |
+| P5 | "by month", "by week" | `month_start(t.dt)` | W2 |
+| P6 | "wide, as the PivotTable showed it" | a column per value | R8 |
+| P7 | "every total in one table" | `cube(...)`, `rollup(...)` | R9 |
+| P8 | "it reads every day", "make it scale" | a day a run | S1 |
+| P9 | a Pivot filter, "one table for both pivots" | load file 22 | Load line |
+
+## Terms
+
+- **Converted pivot**: a Saved table convert made from a PivotTable. Its **Table
+  notebook**'s logic cell has rows(), the clauses convert wrote, which create(), preview()
+  and write() read. Its **Table reference** lists its columns, partitions and Key.
+- **Total level**: each total the PivotTable showed, a table of its own.
+- `d`: a Derived table; `t`: a table.
+
+## Rules: where an add-on goes
+
+- **R1** Change rows(), and the Derived tables above it, in the logic cell; create(),
+  preview() and write() stay as convert wrote them. **Never a change to the workbook**, nor
+  a convert again: the workbook is a one-time way in.
+- **R2** Each column added or renamed goes in the Table reference's columns, in SELECT's
+  order, the partition column last; a share, an average or a rank in does_not_add_up. A
+  table created in dev already: file 14's change to a Saved table first.
+
+## Rules: each add-on
+
+- **R3** **A Window over the pivot's sums reads them from a Derived table** grouped as
+  rows() was; never a sum_of inside a sum_of. % of Grand Total: `AS(d.x / sum_of(d.x,
+  over=window()), "share")`; % of Row or Column Total, `window(PARTITION_BY=d.dt)`.
+- **R4** Running Total In b: `sum_of(d.x, over=window(PARTITION_BY=d.job_id, ORDER_BY=d.b,
+  rows=(None, 0)))`.
+- **R5** Rank Largest to Smallest: `rank(over=window(PARTITION_BY=d.dt,
+  ORDER_BY=descending(d.x)))`; Smallest to Largest, `ORDER_BY=d.x`.
+- **R6** A Calculated Field: its formula over the sums, in one AS:
+  `AS(sum_of(t.duration_mins) / 60, "hours")`; a ratio, one sum over the other.
+- **R7** By month: `AS(month_start(t.dt), "month")` in SELECT, `"month"` in GROUP_BY; by
+  week, `week_start(t.dt)`. It gives a day, 2026-09-01, where convert's Months grouping
+  gave a label, Sep, adding up every year's September: so `month` is a new column, in
+  place of the label's, in SELECT and the Table reference.
+- **R8** Wide, a column per value: `AS(sum_of(t.x, where=equals(t.status, "FAILED")),
+  "failed_x")`, the field out of GROUP_BY. A new value has no column, and its rows are
+  left out: convert wrote a Column field as rows for that.
+- **R9** Every total level in one Statement (file 05's R5), in place of reading convert's
+  `<table>_by_<field>` and `<table>_grand_total` tables:
+  - if Rows and Columns, both Grand Totals shown: `GROUP_BY(cube(t.job_id, t.dt))`;
+  - if Rows alone, with subtotals: `GROUP_BY(rollup(t.team, t.job_id))`.
+  A total's row is NULL in each column it totals over.
+- **S1** A converted pivot reads every day, `reads_all_partitions=True`. To scale: dt in
+  SELECT, last, and in GROUP_BY; the table partitioned by dt; rows(day) bounded by
+  `equals(t.dt, day)`: each run writes one day (file 06's R6).
+
+## Always
+
+- A1 to A10: as the files named in the Load line give them.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
+
+## Names for this objective, with their arguments
+
+- derived(name, statement)
+- window(PARTITION_BY=None, ORDER_BY=None, rows=None)
+- rank(*, over)
+- month_start(column)
+- week_start(column)
+- rollup(*columns)
+- cube(*columns)
+
+## Worked patterns
+
+### W1: rows() with each job's share of its day and its rank in the day
+
+```python
+# logic
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, Clause, derived, descending, rank,
+                              statement, sum_of, window)
+from references.ops__job_runs import job_runs
+
+by_day = derived("by_day", statement(
+    SELECT(job_runs.job_id, job_runs.dt, AS(sum_of(job_runs.duration_mins), "mins")),
+    FROM(job_runs, reads_all_partitions=True),  # as convert wrote it
+    GROUP_BY(job_runs.job_id, job_runs.dt),
+))
+each_day = window(PARTITION_BY=by_day.dt)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(by_day.job_id, by_day.dt, by_day.mins,
+               AS(by_day.mins / sum_of(by_day.mins, over=each_day), "share_of_day"),
+               AS(rank(over=window(PARTITION_BY=by_day.dt, ORDER_BY=descending(by_day.mins))),
+                  "rank_in_day")),
+        FROM(by_day),
+    ]
+```
+
+### W2: rows() grouped by month, in place of Months' label
+
+```python
+# logic
+from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, Clause, month_start, sum_of
+from references.ops__job_events import job_events
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(job_events.job_id, AS(month_start(job_events.dt), "month"),
+               AS(sum_of(job_events.minutes), "sum_of_minutes")),
+        FROM(job_events, reads_all_partitions=True),  # as convert wrote it
+        GROUP_BY(job_events.job_id, "month"),
+    ]
+```
+
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Copy.** Copy the rule or worked pattern it names, with the user's names. Done when
+   every name is imported; then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. **Code**: one ```python block: the logic cell, whole if the user asks for it.
+2. **Notes**: a few plain sentences: each column the Table reference gains or loses.
+
+## Self-check
+
+- [ ] **C1** The change is in the logic cell's rows() and Derived tables, not the workbook.
+- [ ] **C2** Each Window over sums reads a Derived table; no sum_of holds a sum_of.
+- [ ] **C3** Each new column has AS and is in the Table reference, the partition last.
