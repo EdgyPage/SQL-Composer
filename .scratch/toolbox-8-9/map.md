@@ -305,6 +305,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   table the `SOURCES` kind; `written.json`'s `"workbook_finals"` (`final_origins_of_batch`) for
   ticket 09; Pivot filter records in `pivot_filters.py`, both paths, a Copilot `.hql` named for
   a final taking `field_values` from the workbook in its batch. Merged 2026-11-19 (cedec7f3).
+- [11 Copilot file 20](issues/11-copilot-file-20.md): `20_excel_pivot_tables.txt`, every pivot
+  rule by ticket 06's ID, the `-- Pivot filter:` mark, W1 a pivot's four finals; file 15's P12
+  and P13 give a pivot its role, R1 a summary by GETPIVOTDATA too (X102); 00's P18 loads 20 with
+  15, 11, 12; the evaluation loads 20 only for a pivot task (`PIVOT_FILE`, `files_of`). Files
+  00, 15 and 20 have 16, 23 and 3 characters to spare: ticket 14's tuning splits a file that
+  outgrows 9,000. Merged 2026-11-19.
 
 ## Not yet specified
 
