@@ -3016,19 +3016,20 @@ def _refuse(what: str, why: str, fix: str, error: type[Exception]) -&gt; NoRetur
 <p>It builds six Saved tables, each in a Table folder of its own, five made from the <code>saved_table</code> Template and one from <code>quality_checks</code>:</p>
 <ul><li><code>mart.job_day_costs</code>: each job&#x27;s cost per day, all regions added up, from <code>ops.region_costs</code>, which writes its days like 20260924. An incremental load: each run writes its last 3 days again.</li><li><code>mart.job_day_facts</code>: each job&#x27;s events, runs and minutes per day, beside the team that owned the job that day, looked up in <code>ops.job_owners</code>&#x27; snapshots: an as-of lookup, also writing its last 3 days.</li><li><code>mart.team_days</code>: each team&#x27;s day, read from the two tables above, so it is written after them, and <code>week_totals</code>, a weekly rollup that adds the saved days up into weeks.</li><li><code>mart.job_events_checks</code>, from <code>quality_checks</code>: the row count of each dt of <code>ops.job_events</code>, and checks for repeated keys and NULLs.</li><li><code>mart.budget_overruns</code>: each job&#x27;s budget in its region, and the days its cost went over, partitioned by region, with a write per region.</li><li><code>mart.job_notes</code>: each team note beside the jobs the team owned on the day it was written, not partitioned and with no Key, so each write replaces the whole table.</li></ul>
 <p>And a seventh, <code>mart.team_failures</code>, each team&#x27;s events and fails per day, is a finished Conversion: Hive the ops team wrote, which writes <code>ops_reports.team_failures</code>, converted with <code>project.convert(&quot;team_failures&quot;, ..., rename={&quot;ops_reports.team_failures&quot;: &quot;team_failures&quot;})</code> into this Project&#x27;s Dev Database, <code>mart</code>, as <code>admin/databases.py</code> names it. Its one <code># CONVERSION:</code> mark was decided by keeping the opt-out, each Decision made in its Table reference, its location and its Key, and the table compared with its original, <code>project.compare_batch(&quot;team_failures&quot;, query=query)</code>, which finished the batch: its folder is in <code>admin/workflows/convert/finished/team_failures/</code>. Its Table folder&#x27;s <code>conversion/</code> keeps the statement it came from, and its notebook the cells that compare the two.</p>
+<p>And an eighth, <code>mart.job_hours</code>, the hours each job&#x27;s runs took while each team owned it, is a finished Conversion of an Excel workbook, <code>admin/workflows/convert/job_hours.xlsx</code>, as how-to &quot;Convert an Excel workbook&quot; makes it: a Table of <code>ops.job_events</code>&#x27; rows with a formula, <code>hours</code>, a Power Query keeping each run&#x27;s finish event and joining it to <code>ops.job_owners</code> for the team that owned the job that day, and a PivotTable over the query&#x27;s Table, the hours of each job, with a slicer keeping the data team. It was converted with <code>project.convert(&quot;job_hours&quot;, files=[&quot;job_hours.xlsx&quot;], query=query, database=&quot;ops&quot;)</code>, the Workbook check matching each of the PivotTable&#x27;s cells, and its Decisions answered in the convert Workflow&#x27;s decisions cell: its name, <code>&quot;name&quot;: &quot;job_hours&quot;</code> in place of the proposed <code>teams_pivot</code>, which moved the files convert first wrote to <code>admin/removed/</code>; its location; and its Pivot filter, the slicer on team, <code>&quot;pivot_filters&quot;: {&quot;team&quot;: &quot;fold&quot;}</code>, so the table keeps every team, a row for each job and team, where the PivotTable showed the data team&#x27;s. Its proposed Key, <code>[&quot;job_id&quot;, &quot;team&quot;]</code>, was accepted, and its compare against its query finished the batch: its folder is in <code>admin/workflows/convert/finished/job_hours/</code>, which keeps its Hive in <code>scripts/job_hours.hql</code>, renamed with the table.</p>
 <p>And a Scheduled run, <code>weekly_team</code>, a notebook a scheduler runs top to bottom each week: it adds up a week of <code>mart.team_days</code> with <code>week_totals</code>, and its build writes the three tables that week reads first, <code>mart.job_day_costs</code> and <code>mart.job_day_facts</code>, then <code>mart.team_days</code>. Its parameter <code>WEEK</code>, a day of the week to add up, is passed in as text, such as <code>&quot;2026-09-23&quot;</code>; left as None, a Run value of the run&#x27;s own, <code>week_first_day</code>, takes the week of the latest day <code>ops.job_events</code> holds.</p>
 <p>Rows can come in late here, a bill a day or two after its day, so the three tables that count or add up rows per day write their last 3 days again on each run, and a day written again replaces itself. The number 3 is written once, in <code>building_blocks/days_rewritten.py</code>, which those tables read. <code>mart.job_events_checks</code> checks only the dt its <code>READS</code> names: a check is of the rows in on the day it runs, and a check written again later would hide what was missing then.</p>
 <h4>Every file of this Project</h4>
 <p>The file map of Start a Project, the first step of the download&#x27;s README, filled in: each file, the Project action that made it, and what was filled in by hand.</p>
-<div class="scroll"><table><tr><th>Path</th><th>Made by</th><th>What was filled in</th></tr><tr><td><code>intermediate/</code>, this Project&#x27;s folder</td><td>by hand</td><td>nothing</td></tr><tr><td><code>sqlglot_composer/</code></td><td>you: copy it in from the download, before you run anything</td><td>nothing: never edit a file inside it</td></tr><tr><td>the notebook <code>project.start()</code> was run from</td><td>by hand, in Jupyter; not kept here</td><td>nothing</td></tr><tr><td><code>warehouse.py</code></td><td><code>project.start()</code></td><td>nothing: it is left as <code>start</code> writes it; each notebook gives it the Example database with <code>connect(conn)</code></td></tr><tr><td><code>admin/</code>: check_project, check_references, new_block, refresh_reference_sheet, remove, run_tables and scheduled_runs, each an .ipynb, and <code>admin/workflows/</code>, a folder per Workflow holding its notebook</td><td><code>project.start()</code></td><td>each notebook&#x27;s line <code>connect(...)</code>, at its top, that reaches the warehouse: the Example database</td></tr><tr><td><code>admin/databases.py</code>, the Dev Database and Prod Database</td><td><code>project.start()</code></td><td><code>DEV</code>, <code>mart</code></td></tr><tr><td><code>admin/sent.csv</code>, a row for each change a notebook sends to the warehouse</td><td><code>project.start()</code></td><td>nothing: nothing was sent</td></tr><tr><td><code>admin/project_version.txt</code>, the Toolbox version that last wrote the Project</td><td><code>project.start()</code></td><td>nothing</td></tr><tr><td><code>admin/admin_log.md</code>, the Admin log</td><td><code>project.start()</code>, then each Project action added an entry</td><td>nothing</td></tr><tr><td><code>admin/registry.csv</code>, the registry</td><td><code>project.start()</code>, then each Project action that made or archived a Table folder, a Table reference, a Building block or a Conversion folder added a row</td><td>nothing</td></tr><tr><td><code>admin/templates/</code>, the Templates</td><td><code>project.start()</code></td><td>nothing</td></tr><tr><td><code>references/ops__job_events.py</code>, <code>references/ops__job_owners.py</code>, <code>references/ops__region_costs.py</code>, <code>references/ops__region_budgets.py</code> and <code>references/ops__team_notes.py</code></td><td><code>project.add_references([...], query=query)</code></td><td>their TODO lines, and an Alias, <code>ends_a_run</code>, the events that end a run, for ops.job_events, read by <code>building_blocks/events_per_job.py</code></td></tr><tr><td><code>references/mart__job_day_costs.py</code>, <code>references/mart__job_day_facts.py</code>, <code>references/mart__team_days.py</code>, <code>references/mart__job_events_checks.py</code>, <code>references/mart__budget_overruns.py</code> and <code>references/mart__job_notes.py</code></td><td><code>project.new_table(...)</code></td><td>their <code>&lt;...&gt;</code> and TODO lines</td></tr><tr><td><code>references/mart__team_failures.py</code></td><td><code>project.convert(&quot;team_failures&quot;, ...)</code></td><td>its location= and TODO lines, its Key proposed by convert</td></tr><tr><td><code>references/ops.py</code> and <code>references/mart.py</code>, the Database modules</td><td>each Project action that added a Table reference</td><td>nothing</td></tr><tr><td><code>references/reference_sheet.csv</code>, the Reference sheet</td><td><code>project.refresh_reference_sheet()</code></td><td>nothing</td></tr><tr><td><code>building_blocks/costs_per_job.py</code>, <code>building_blocks/days_rewritten.py</code>, <code>building_blocks/events_per_job.py</code> and <code>building_blocks/owner_on_day.py</code>, the Building blocks</td><td><code>project.new_block(...)</code>, one Building block to a file</td><td>its <code>&lt;...&gt;</code> and TODO lines; <code>days_rewritten.py</code> and <code>owner_on_day.py</code> hold a number and a join, not a Derived table, so their Template&#x27;s code was written over</td></tr><tr><td><code>tables/mart__job_day_costs/mart__job_day_costs.ipynb</code>, and the same for each of the other five Saved tables</td><td><code>project.new_table(&quot;mart.job_day_costs&quot;)</code>, and so on; <code>template=&quot;quality_checks&quot;</code> for mart.job_events_checks</td><td>its <code>&lt;...&gt;</code> lines, and its first cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>tables/mart__team_failures/mart__team_failures.ipynb</code>, and <code>conversion/</code> beside it: the statement, the scan and the checklist</td><td><code>project.convert(&quot;team_failures&quot;, ...)</code></td><td>its <code># CONVERSION:</code> mark, deleted once decided, and its Decisions, answered in the convert Workflow&#x27;s decisions cell; and its first cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>lineage/</code> in each Table folder, the table&#x27;s Lineage</td><td>its notebook&#x27;s lineage cell</td><td>nothing</td></tr><tr><td><code>&lt;db&gt;__&lt;table&gt;.hql</code> in each Table folder, such as <code>tables/mart__job_day_costs/mart__job_day_costs.hql</code>, the table&#x27;s Hive: each step its notebook&#x27;s logic sends, in the order they are sent, to read at a glance and to commit</td><td>its notebook&#x27;s <code>export_hive()</code> cell, the one after its lineage cell, which writes the file again each time it runs</td><td>nothing: never edit it. To change it, edit the notebook&#x27;s logic, save the notebook, and run its <code>export_hive()</code> cell again</td></tr><tr><td><code>scheduled_runs/weekly_team/weekly_team.ipynb</code>, the Scheduled run</td><td>the schedule Workflow, <code>admin/workflows/schedule/schedule.ipynb</code>, its names cell <code>NAME = &#x27;weekly_team&#x27;</code>: <code>project.new_scheduled_run(NAME)</code></td><td>its <code># parameters</code> cell&#x27;s <code>WEEK</code>, its <code># scheduled</code> cell&#x27;s Run values and <code>statements()</code>, and its setup cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>scheduled_runs/weekly_team/weekly_team.hql</code>, the run&#x27;s Hive: each Statement its Build cell builds, in the order its Run cell sends them, with its parameters&#x27; defaults, to read</td><td><code>project.export_run_hive(&quot;weekly_team&quot;)</code>, run by hand from <code>admin/scheduled_runs.ipynb</code></td><td>nothing: never edit it, nor send it, since the run builds its Hive again each time. To change it, edit the notebook and export it again</td></tr><tr><td><code>scheduled_runs/weekly_team/lineage/</code>, the run&#x27;s Lineage</td><td><code>project.export_run_lineage(&quot;weekly_team&quot;)</code>, run by hand from <code>admin/scheduled_runs.ipynb</code></td><td>nothing</td></tr><tr><td><code>lineage/</code> at the Project&#x27;s top, the Lineage of a Statement exported outside a Table notebook</td><td><code>export_lineage(...)</code>, from a notebook in the Project&#x27;s folder</td><td>nothing: every export here is a Table notebook&#x27;s, so there is none</td></tr><tr><td><code>admin/workflows/convert/team_failures.hql</code>, the Hive the ops team wrote</td><td>you, saved beside the convert notebook</td><td>nothing: convert reads it where it is</td></tr><tr><td><code>admin/workflows/convert/finished/team_failures/</code>, a finished batch</td><td><code>project.convert(&quot;team_failures&quot;, ...)</code>, then <code>project.compare_batch(...)</code></td><td>nothing: <code>batch.md</code>, naming the script and what each statement became, and <code>written.json</code>, moved here once its table passed its compare</td></tr></table></div>
+<div class="scroll"><table><tr><th>Path</th><th>Made by</th><th>What was filled in</th></tr><tr><td><code>intermediate/</code>, this Project&#x27;s folder</td><td>by hand</td><td>nothing</td></tr><tr><td><code>sqlglot_composer/</code></td><td>you: copy it in from the download, before you run anything</td><td>nothing: never edit a file inside it</td></tr><tr><td>the notebook <code>project.start()</code> was run from</td><td>by hand, in Jupyter; not kept here</td><td>nothing</td></tr><tr><td><code>warehouse.py</code></td><td><code>project.start()</code></td><td>nothing: it is left as <code>start</code> writes it; each notebook gives it the Example database with <code>connect(conn)</code></td></tr><tr><td><code>admin/</code>: check_project, check_references, new_block, refresh_reference_sheet, remove, run_tables and scheduled_runs, each an .ipynb, and <code>admin/workflows/</code>, a folder per Workflow holding its notebook</td><td><code>project.start()</code></td><td>each notebook&#x27;s line <code>connect(...)</code>, at its top, that reaches the warehouse: the Example database</td></tr><tr><td><code>admin/databases.py</code>, the Dev Database and Prod Database</td><td><code>project.start()</code></td><td><code>DEV</code>, <code>mart</code></td></tr><tr><td><code>admin/sent.csv</code>, a row for each change a notebook sends to the warehouse</td><td><code>project.start()</code></td><td>nothing: nothing was sent</td></tr><tr><td><code>admin/project_version.txt</code>, the Toolbox version that last wrote the Project</td><td><code>project.start()</code></td><td>nothing</td></tr><tr><td><code>admin/admin_log.md</code>, the Admin log</td><td><code>project.start()</code>, then each Project action added an entry</td><td>nothing</td></tr><tr><td><code>admin/registry.csv</code>, the registry</td><td><code>project.start()</code>, then each Project action that made or archived a Table folder, a Table reference, a Building block or a Conversion folder added a row</td><td>nothing</td></tr><tr><td><code>admin/templates/</code>, the Templates</td><td><code>project.start()</code></td><td>nothing</td></tr><tr><td><code>references/ops__job_events.py</code>, <code>references/ops__job_owners.py</code>, <code>references/ops__region_costs.py</code>, <code>references/ops__region_budgets.py</code> and <code>references/ops__team_notes.py</code></td><td><code>project.add_references([...], query=query)</code></td><td>their TODO lines, and an Alias, <code>ends_a_run</code>, the events that end a run, for ops.job_events, read by <code>building_blocks/events_per_job.py</code></td></tr><tr><td><code>references/mart__job_day_costs.py</code>, <code>references/mart__job_day_facts.py</code>, <code>references/mart__team_days.py</code>, <code>references/mart__job_events_checks.py</code>, <code>references/mart__budget_overruns.py</code> and <code>references/mart__job_notes.py</code></td><td><code>project.new_table(...)</code></td><td>their <code>&lt;...&gt;</code> and TODO lines</td></tr><tr><td><code>references/mart__team_failures.py</code></td><td><code>project.convert(&quot;team_failures&quot;, ...)</code></td><td>its location= and TODO lines, its Key proposed by convert</td></tr><tr><td><code>references/mart__job_hours.py</code></td><td><code>project.convert(&quot;job_hours&quot;, ...)</code>, then the convert Workflow&#x27;s decisions step, <code>project.write_decisions(...)</code>, which renamed it and folded its Pivot filter</td><td>its two TODO lines; its name, location, Pivot filter and Key answered in the decisions cell</td></tr><tr><td><code>references/ops.py</code> and <code>references/mart.py</code>, the Database modules</td><td>each Project action that added a Table reference</td><td>nothing</td></tr><tr><td><code>references/reference_sheet.csv</code>, the Reference sheet</td><td><code>project.refresh_reference_sheet()</code></td><td>nothing</td></tr><tr><td><code>building_blocks/costs_per_job.py</code>, <code>building_blocks/days_rewritten.py</code>, <code>building_blocks/events_per_job.py</code> and <code>building_blocks/owner_on_day.py</code>, the Building blocks</td><td><code>project.new_block(...)</code>, one Building block to a file</td><td>its <code>&lt;...&gt;</code> and TODO lines; <code>days_rewritten.py</code> and <code>owner_on_day.py</code> hold a number and a join, not a Derived table, so their Template&#x27;s code was written over</td></tr><tr><td><code>tables/mart__job_day_costs/mart__job_day_costs.ipynb</code>, and the same for each of the other five Saved tables</td><td><code>project.new_table(&quot;mart.job_day_costs&quot;)</code>, and so on; <code>template=&quot;quality_checks&quot;</code> for mart.job_events_checks</td><td>its <code>&lt;...&gt;</code> lines, and its first cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>tables/mart__team_failures/mart__team_failures.ipynb</code>, and <code>conversion/</code> beside it: the statement, the scan and the checklist</td><td><code>project.convert(&quot;team_failures&quot;, ...)</code></td><td>its <code># CONVERSION:</code> mark, deleted once decided, and its Decisions, answered in the convert Workflow&#x27;s decisions cell; and its first cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>lineage/</code> in each Table folder, the table&#x27;s Lineage</td><td>its notebook&#x27;s lineage cell</td><td>nothing</td></tr><tr><td><code>&lt;db&gt;__&lt;table&gt;.hql</code> in each Table folder, such as <code>tables/mart__job_day_costs/mart__job_day_costs.hql</code>, the table&#x27;s Hive: each step its notebook&#x27;s logic sends, in the order they are sent, to read at a glance and to commit</td><td>its notebook&#x27;s <code>export_hive()</code> cell, the one after its lineage cell, which writes the file again each time it runs</td><td>nothing: never edit it. To change it, edit the notebook&#x27;s logic, save the notebook, and run its <code>export_hive()</code> cell again</td></tr><tr><td><code>scheduled_runs/weekly_team/weekly_team.ipynb</code>, the Scheduled run</td><td>the schedule Workflow, <code>admin/workflows/schedule/schedule.ipynb</code>, its names cell <code>NAME = &#x27;weekly_team&#x27;</code>: <code>project.new_scheduled_run(NAME)</code></td><td>its <code># parameters</code> cell&#x27;s <code>WEEK</code>, its <code># scheduled</code> cell&#x27;s Run values and <code>statements()</code>, and its setup cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>scheduled_runs/weekly_team/weekly_team.hql</code>, the run&#x27;s Hive: each Statement its Build cell builds, in the order its Run cell sends them, with its parameters&#x27; defaults, to read</td><td><code>project.export_run_hive(&quot;weekly_team&quot;)</code>, run by hand from <code>admin/scheduled_runs.ipynb</code></td><td>nothing: never edit it, nor send it, since the run builds its Hive again each time. To change it, edit the notebook and export it again</td></tr><tr><td><code>scheduled_runs/weekly_team/lineage/</code>, the run&#x27;s Lineage</td><td><code>project.export_run_lineage(&quot;weekly_team&quot;)</code>, run by hand from <code>admin/scheduled_runs.ipynb</code></td><td>nothing</td></tr><tr><td><code>lineage/</code> at the Project&#x27;s top, the Lineage of a Statement exported outside a Table notebook</td><td><code>export_lineage(...)</code>, from a notebook in the Project&#x27;s folder</td><td>nothing: every export here is a Table notebook&#x27;s, so there is none</td></tr><tr><td><code>admin/workflows/convert/team_failures.hql</code>, the Hive the ops team wrote</td><td>you, saved beside the convert notebook</td><td>nothing: convert reads it where it is</td></tr><tr><td><code>admin/workflows/convert/finished/team_failures/</code>, a finished batch</td><td><code>project.convert(&quot;team_failures&quot;, ...)</code>, then <code>project.compare_batch(...)</code></td><td>nothing: <code>batch.md</code>, naming the script and what each statement became, and <code>written.json</code>, moved here once its table passed its compare</td></tr><tr><td><code>admin/workflows/convert/job_hours.xlsx</code>, the Excel workbook</td><td>you, saved beside the convert notebook</td><td>nothing: convert reads it where it is</td></tr><tr><td><code>admin/workflows/convert/finished/job_hours/</code>, a finished batch of the workbook</td><td><code>project.convert(&quot;job_hours&quot;, ...)</code>, then <code>project.compare_batch(...)</code></td><td>nothing: <code>batch.md</code>, with the Workbook check&#x27;s report, <code>scripts/</code>, the PivotTable&#x27;s Hive, and <code>written.json</code></td></tr><tr><td><code>tables/mart__job_hours/mart__job_hours.ipynb</code>, and <code>conversion/</code> beside it</td><td><code>project.convert(&quot;job_hours&quot;, ...)</code>, then the decisions step, which wrote its logic again for its Pivot filter&#x27;s answer</td><td>its <code># CONVERSION:</code> marks, deleted once decided, and its first cell&#x27;s <code>connect(...)</code>, with the Example database</td></tr><tr><td><code>admin/removed/</code>, the files a rename or a removal moved out</td><td>the decisions step&#x27;s rename of <code>mart.teams_pivot</code> to <code>mart.job_hours</code></td><td>nothing</td></tr></table></div>
 <p>This README was written by hand, as an Example project&#x27;s own note: a Project of yours needs none.</p>
 <p><code>ops.region_costs</code> is partitioned by region, then dt, which <code>add_references</code> read from the table into <code>references/ops__region_costs.py</code>, and writes its days like 20260924: <code>building_blocks/costs_per_job.py</code> writes them like 2026-09-24, as the project&#x27;s other tables do.</p></div>
 <h3>Its folders</h3>
-<div class="tree"><ul><li><a href="#intermediate/README.md">README.md</a></li><li>admin/<ul><li><a href="#intermediate/admin/admin_log.md">admin_log.md</a></li><li><a href="#intermediate/admin/check_project.ipynb">check_project.ipynb</a></li><li><a href="#intermediate/admin/check_references.ipynb">check_references.ipynb</a></li><li><a href="#intermediate/admin/databases.py">databases.py</a></li><li><a href="#intermediate/admin/lineage.ipynb">lineage.ipynb</a></li><li>lineage/<ul><li><a href="#intermediate/admin/lineage/20260925-080000-difference.html">20260925-080000-difference.html</a></li><li><a href="#intermediate/admin/lineage/20260925-080000-difference.md">20260925-080000-difference.md</a></li><li><a href="#intermediate/admin/lineage/lineage_state.csv">lineage_state.csv</a></li></ul></li><li><a href="#intermediate/admin/new_block.ipynb">new_block.ipynb</a></li><li><a href="#intermediate/admin/project_version.txt">project_version.txt</a></li><li><a href="#intermediate/admin/refresh_reference_sheet.ipynb">refresh_reference_sheet.ipynb</a></li><li><a href="#intermediate/admin/registry.csv">registry.csv</a></li><li><a href="#intermediate/admin/remove.ipynb">remove.ipynb</a></li><li><a href="#intermediate/admin/run_tables.ipynb">run_tables.ipynb</a></li><li><a href="#intermediate/admin/scheduled_runs.ipynb">scheduled_runs.ipynb</a></li><li><a href="#intermediate/admin/sent.csv">sent.csv</a></li><li>templates/<ul><li><a href="#intermediate/admin/templates/building_block.py">building_block.py</a></li><li><a href="#intermediate/admin/templates/quality_checks.py">quality_checks.py</a></li><li><a href="#intermediate/admin/templates/saved_table.py">saved_table.py</a></li><li><a href="#intermediate/admin/templates/saved_table_reference.py">saved_table_reference.py</a></li><li><a href="#intermediate/admin/templates/scheduled_run.py">scheduled_run.py</a></li></ul></li><li>workflows/<ul><li>change_a_saved_table/<ul><li><a href="#intermediate/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb">change_a_saved_table.ipynb</a></li></ul></li><li>convert/<ul><li><a href="#intermediate/admin/workflows/convert/convert.ipynb">convert.ipynb</a></li><li>finished/<ul><li>team_failures/<ul><li><a href="#intermediate/admin/workflows/convert/finished/team_failures/batch.md">batch.md</a></li><li><a href="#intermediate/admin/workflows/convert/finished/team_failures/written.json">written.json</a></li></ul></li></ul></li><li><a href="#intermediate/admin/workflows/convert/team_failures.hql">team_failures.hql</a></li></ul></li><li>new_table/<ul><li><a href="#intermediate/admin/workflows/new_table/new_table.ipynb">new_table.ipynb</a></li></ul></li><li>promote/<ul><li><a href="#intermediate/admin/workflows/promote/promote.ipynb">promote.ipynb</a></li></ul></li><li>references/<ul><li><a href="#intermediate/admin/workflows/references/references.ipynb">references.ipynb</a></li></ul></li><li>schedule/<ul><li><a href="#intermediate/admin/workflows/schedule/schedule.ipynb">schedule.ipynb</a></li></ul></li><li>upgrade/<ul><li><a href="#intermediate/admin/workflows/upgrade/upgrade.ipynb">upgrade.ipynb</a></li></ul></li></ul></li></ul></li><li>building_blocks/<ul><li><a href="#intermediate/building_blocks/costs_per_job.py">costs_per_job.py</a></li><li><a href="#intermediate/building_blocks/days_rewritten.py">days_rewritten.py</a></li><li><a href="#intermediate/building_blocks/events_per_job.py">events_per_job.py</a></li><li><a href="#intermediate/building_blocks/owner_on_day.py">owner_on_day.py</a></li></ul></li><li>references/<ul><li><a href="#intermediate/references/mart.py">mart.py</a></li><li><a href="#intermediate/references/mart__budget_overruns.py">mart__budget_overruns.py</a></li><li><a href="#intermediate/references/mart__job_day_costs.py">mart__job_day_costs.py</a></li><li><a href="#intermediate/references/mart__job_day_facts.py">mart__job_day_facts.py</a></li><li><a href="#intermediate/references/mart__job_events_checks.py">mart__job_events_checks.py</a></li><li><a href="#intermediate/references/mart__job_notes.py">mart__job_notes.py</a></li><li><a href="#intermediate/references/mart__team_days.py">mart__team_days.py</a></li><li><a href="#intermediate/references/mart__team_failures.py">mart__team_failures.py</a></li><li><a href="#intermediate/references/ops.py">ops.py</a></li><li><a href="#intermediate/references/ops__job_events.py">ops__job_events.py</a></li><li><a href="#intermediate/references/ops__job_owners.py">ops__job_owners.py</a></li><li><a href="#intermediate/references/ops__region_budgets.py">ops__region_budgets.py</a></li><li><a href="#intermediate/references/ops__region_costs.py">ops__region_costs.py</a></li><li><a href="#intermediate/references/ops__team_notes.py">ops__team_notes.py</a></li><li><a href="#intermediate/references/reference_sheet.csv">reference_sheet.csv</a></li></ul></li><li>scheduled_runs/<ul><li>weekly_team/<ul><li>lineage/<ul><li><a href="#intermediate/scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html">20260925-060000-weekly_team.html</a></li><li><a href="#intermediate/scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md">20260925-060000-weekly_team.md</a></li></ul></li><li><a href="#intermediate/scheduled_runs/weekly_team/weekly_team.hql">weekly_team.hql</a></li><li><a href="#intermediate/scheduled_runs/weekly_team/weekly_team.ipynb">weekly_team.ipynb</a></li></ul></li></ul></li><li>tables/<ul><li>mart__budget_overruns/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html">20260925-060000-mart__budget_overruns.html</a></li><li><a href="#intermediate/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md">20260925-060000-mart__budget_overruns.md</a></li></ul></li><li><a href="#intermediate/tables/mart__budget_overruns/mart__budget_overruns.hql">mart__budget_overruns.hql</a></li><li><a href="#intermediate/tables/mart__budget_overruns/mart__budget_overruns.ipynb">mart__budget_overruns.ipynb</a></li></ul></li><li>mart__job_day_costs/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html">20260925-060000-mart__job_day_costs.html</a></li><li><a href="#intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md">20260925-060000-mart__job_day_costs.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_day_costs/mart__job_day_costs.hql">mart__job_day_costs.hql</a></li><li><a href="#intermediate/tables/mart__job_day_costs/mart__job_day_costs.ipynb">mart__job_day_costs.ipynb</a></li></ul></li><li>mart__job_day_facts/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html">20260925-060000-mart__job_day_facts.html</a></li><li><a href="#intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md">20260925-060000-mart__job_day_facts.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_day_facts/mart__job_day_facts.hql">mart__job_day_facts.hql</a></li><li><a href="#intermediate/tables/mart__job_day_facts/mart__job_day_facts.ipynb">mart__job_day_facts.ipynb</a></li></ul></li><li>mart__job_events_checks/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html">20260925-060000-mart__job_events_checks.html</a></li><li><a href="#intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md">20260925-060000-mart__job_events_checks.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_events_checks/mart__job_events_checks.hql">mart__job_events_checks.hql</a></li><li><a href="#intermediate/tables/mart__job_events_checks/mart__job_events_checks.ipynb">mart__job_events_checks.ipynb</a></li></ul></li><li>mart__job_notes/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html">20260925-060000-mart__job_notes.html</a></li><li><a href="#intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md">20260925-060000-mart__job_notes.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_notes/mart__job_notes.hql">mart__job_notes.hql</a></li><li><a href="#intermediate/tables/mart__job_notes/mart__job_notes.ipynb">mart__job_notes.ipynb</a></li></ul></li><li>mart__team_days/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html">20260925-060000-mart__team_days.html</a></li><li><a href="#intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.md">20260925-060000-mart__team_days.md</a></li></ul></li><li><a href="#intermediate/tables/mart__team_days/mart__team_days.hql">mart__team_days.hql</a></li><li><a href="#intermediate/tables/mart__team_days/mart__team_days.ipynb">mart__team_days.ipynb</a></li></ul></li><li>mart__team_failures/<ul><li>conversion/<ul><li><a href="#intermediate/tables/mart__team_failures/conversion/checklist.md">checklist.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/compare.md">compare.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/in_dev.hql">in_dev.hql</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/scan.md">scan.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/statement.hql">statement.hql</a></li></ul></li><li>lineage/<ul><li><a href="#intermediate/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html">20260925-060000-mart__team_failures.html</a></li><li><a href="#intermediate/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md">20260925-060000-mart__team_failures.md</a></li></ul></li><li><a href="#intermediate/tables/mart__team_failures/mart__team_failures.hql">mart__team_failures.hql</a></li><li><a href="#intermediate/tables/mart__team_failures/mart__team_failures.ipynb">mart__team_failures.ipynb</a></li></ul></li></ul></li><li><a href="#intermediate/warehouse.py">warehouse.py</a></li></ul></div>
+<div class="tree"><ul><li><a href="#intermediate/README.md">README.md</a></li><li>admin/<ul><li><a href="#intermediate/admin/admin_log.md">admin_log.md</a></li><li><a href="#intermediate/admin/check_project.ipynb">check_project.ipynb</a></li><li><a href="#intermediate/admin/check_references.ipynb">check_references.ipynb</a></li><li><a href="#intermediate/admin/databases.py">databases.py</a></li><li><a href="#intermediate/admin/lineage.ipynb">lineage.ipynb</a></li><li>lineage/<ul><li><a href="#intermediate/admin/lineage/20260925-080000-difference.html">20260925-080000-difference.html</a></li><li><a href="#intermediate/admin/lineage/20260925-080000-difference.md">20260925-080000-difference.md</a></li><li><a href="#intermediate/admin/lineage/lineage_state.csv">lineage_state.csv</a></li></ul></li><li><a href="#intermediate/admin/new_block.ipynb">new_block.ipynb</a></li><li><a href="#intermediate/admin/project_version.txt">project_version.txt</a></li><li><a href="#intermediate/admin/refresh_reference_sheet.ipynb">refresh_reference_sheet.ipynb</a></li><li><a href="#intermediate/admin/registry.csv">registry.csv</a></li><li><a href="#intermediate/admin/remove.ipynb">remove.ipynb</a></li><li>removed/<ul><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot.py">20260925-060000-mart__teams_pivot.py</a></li><li>20260925-060000-mart__teams_pivot/<ul><li>conversion/<ul><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md">checklist.md</a></li><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql">in_dev.hql</a></li><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md">scan.md</a></li><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql">statement.hql</a></li></ul></li><li><a href="#intermediate/admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb">mart__teams_pivot.ipynb</a></li></ul></li></ul></li><li><a href="#intermediate/admin/run_tables.ipynb">run_tables.ipynb</a></li><li><a href="#intermediate/admin/scheduled_runs.ipynb">scheduled_runs.ipynb</a></li><li><a href="#intermediate/admin/sent.csv">sent.csv</a></li><li>templates/<ul><li><a href="#intermediate/admin/templates/building_block.py">building_block.py</a></li><li><a href="#intermediate/admin/templates/quality_checks.py">quality_checks.py</a></li><li><a href="#intermediate/admin/templates/saved_table.py">saved_table.py</a></li><li><a href="#intermediate/admin/templates/saved_table_reference.py">saved_table_reference.py</a></li><li><a href="#intermediate/admin/templates/scheduled_run.py">scheduled_run.py</a></li></ul></li><li>workflows/<ul><li>change_a_saved_table/<ul><li><a href="#intermediate/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb">change_a_saved_table.ipynb</a></li></ul></li><li>convert/<ul><li><a href="#intermediate/admin/workflows/convert/convert.ipynb">convert.ipynb</a></li><li>finished/<ul><li>job_hours/<ul><li><a href="#intermediate/admin/workflows/convert/finished/job_hours/batch.md">batch.md</a></li><li>scripts/<ul><li><a href="#intermediate/admin/workflows/convert/finished/job_hours/scripts/job_hours.hql">job_hours.hql</a></li></ul></li><li><a href="#intermediate/admin/workflows/convert/finished/job_hours/written.json">written.json</a></li></ul></li><li>team_failures/<ul><li><a href="#intermediate/admin/workflows/convert/finished/team_failures/batch.md">batch.md</a></li><li><a href="#intermediate/admin/workflows/convert/finished/team_failures/written.json">written.json</a></li></ul></li></ul></li><li><a href="#intermediate/admin/workflows/convert/job_hours.xlsx">job_hours.xlsx</a></li><li><a href="#intermediate/admin/workflows/convert/team_failures.hql">team_failures.hql</a></li></ul></li><li>new_table/<ul><li><a href="#intermediate/admin/workflows/new_table/new_table.ipynb">new_table.ipynb</a></li></ul></li><li>promote/<ul><li><a href="#intermediate/admin/workflows/promote/promote.ipynb">promote.ipynb</a></li></ul></li><li>references/<ul><li><a href="#intermediate/admin/workflows/references/references.ipynb">references.ipynb</a></li></ul></li><li>schedule/<ul><li><a href="#intermediate/admin/workflows/schedule/schedule.ipynb">schedule.ipynb</a></li></ul></li><li>upgrade/<ul><li><a href="#intermediate/admin/workflows/upgrade/upgrade.ipynb">upgrade.ipynb</a></li></ul></li></ul></li></ul></li><li>building_blocks/<ul><li><a href="#intermediate/building_blocks/costs_per_job.py">costs_per_job.py</a></li><li><a href="#intermediate/building_blocks/days_rewritten.py">days_rewritten.py</a></li><li><a href="#intermediate/building_blocks/events_per_job.py">events_per_job.py</a></li><li><a href="#intermediate/building_blocks/owner_on_day.py">owner_on_day.py</a></li></ul></li><li>references/<ul><li><a href="#intermediate/references/mart.py">mart.py</a></li><li><a href="#intermediate/references/mart__budget_overruns.py">mart__budget_overruns.py</a></li><li><a href="#intermediate/references/mart__job_day_costs.py">mart__job_day_costs.py</a></li><li><a href="#intermediate/references/mart__job_day_facts.py">mart__job_day_facts.py</a></li><li><a href="#intermediate/references/mart__job_events_checks.py">mart__job_events_checks.py</a></li><li><a href="#intermediate/references/mart__job_hours.py">mart__job_hours.py</a></li><li><a href="#intermediate/references/mart__job_notes.py">mart__job_notes.py</a></li><li><a href="#intermediate/references/mart__team_days.py">mart__team_days.py</a></li><li><a href="#intermediate/references/mart__team_failures.py">mart__team_failures.py</a></li><li><a href="#intermediate/references/ops.py">ops.py</a></li><li><a href="#intermediate/references/ops__job_events.py">ops__job_events.py</a></li><li><a href="#intermediate/references/ops__job_owners.py">ops__job_owners.py</a></li><li><a href="#intermediate/references/ops__region_budgets.py">ops__region_budgets.py</a></li><li><a href="#intermediate/references/ops__region_costs.py">ops__region_costs.py</a></li><li><a href="#intermediate/references/ops__team_notes.py">ops__team_notes.py</a></li><li><a href="#intermediate/references/reference_sheet.csv">reference_sheet.csv</a></li></ul></li><li>scheduled_runs/<ul><li>weekly_team/<ul><li>lineage/<ul><li><a href="#intermediate/scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html">20260925-060000-weekly_team.html</a></li><li><a href="#intermediate/scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md">20260925-060000-weekly_team.md</a></li></ul></li><li><a href="#intermediate/scheduled_runs/weekly_team/weekly_team.hql">weekly_team.hql</a></li><li><a href="#intermediate/scheduled_runs/weekly_team/weekly_team.ipynb">weekly_team.ipynb</a></li></ul></li></ul></li><li>tables/<ul><li>mart__budget_overruns/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html">20260925-060000-mart__budget_overruns.html</a></li><li><a href="#intermediate/tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md">20260925-060000-mart__budget_overruns.md</a></li></ul></li><li><a href="#intermediate/tables/mart__budget_overruns/mart__budget_overruns.hql">mart__budget_overruns.hql</a></li><li><a href="#intermediate/tables/mart__budget_overruns/mart__budget_overruns.ipynb">mart__budget_overruns.ipynb</a></li></ul></li><li>mart__job_day_costs/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html">20260925-060000-mart__job_day_costs.html</a></li><li><a href="#intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md">20260925-060000-mart__job_day_costs.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_day_costs/mart__job_day_costs.hql">mart__job_day_costs.hql</a></li><li><a href="#intermediate/tables/mart__job_day_costs/mart__job_day_costs.ipynb">mart__job_day_costs.ipynb</a></li></ul></li><li>mart__job_day_facts/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html">20260925-060000-mart__job_day_facts.html</a></li><li><a href="#intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md">20260925-060000-mart__job_day_facts.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_day_facts/mart__job_day_facts.hql">mart__job_day_facts.hql</a></li><li><a href="#intermediate/tables/mart__job_day_facts/mart__job_day_facts.ipynb">mart__job_day_facts.ipynb</a></li></ul></li><li>mart__job_events_checks/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html">20260925-060000-mart__job_events_checks.html</a></li><li><a href="#intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md">20260925-060000-mart__job_events_checks.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_events_checks/mart__job_events_checks.hql">mart__job_events_checks.hql</a></li><li><a href="#intermediate/tables/mart__job_events_checks/mart__job_events_checks.ipynb">mart__job_events_checks.ipynb</a></li></ul></li><li>mart__job_hours/<ul><li>conversion/<ul><li><a href="#intermediate/tables/mart__job_hours/conversion/checklist.md">checklist.md</a></li><li><a href="#intermediate/tables/mart__job_hours/conversion/compare.md">compare.md</a></li><li><a href="#intermediate/tables/mart__job_hours/conversion/in_dev.hql">in_dev.hql</a></li><li><a href="#intermediate/tables/mart__job_hours/conversion/pivot_filters.json">pivot_filters.json</a></li><li><a href="#intermediate/tables/mart__job_hours/conversion/scan.md">scan.md</a></li><li><a href="#intermediate/tables/mart__job_hours/conversion/statement.hql">statement.hql</a></li></ul></li><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html">20260925-060000-mart__job_hours.html</a></li><li><a href="#intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md">20260925-060000-mart__job_hours.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_hours/mart__job_hours.hql">mart__job_hours.hql</a></li><li><a href="#intermediate/tables/mart__job_hours/mart__job_hours.ipynb">mart__job_hours.ipynb</a></li></ul></li><li>mart__job_notes/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html">20260925-060000-mart__job_notes.html</a></li><li><a href="#intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md">20260925-060000-mart__job_notes.md</a></li></ul></li><li><a href="#intermediate/tables/mart__job_notes/mart__job_notes.hql">mart__job_notes.hql</a></li><li><a href="#intermediate/tables/mart__job_notes/mart__job_notes.ipynb">mart__job_notes.ipynb</a></li></ul></li><li>mart__team_days/<ul><li>lineage/<ul><li><a href="#intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html">20260925-060000-mart__team_days.html</a></li><li><a href="#intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.md">20260925-060000-mart__team_days.md</a></li></ul></li><li><a href="#intermediate/tables/mart__team_days/mart__team_days.hql">mart__team_days.hql</a></li><li><a href="#intermediate/tables/mart__team_days/mart__team_days.ipynb">mart__team_days.ipynb</a></li></ul></li><li>mart__team_failures/<ul><li>conversion/<ul><li><a href="#intermediate/tables/mart__team_failures/conversion/checklist.md">checklist.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/compare.md">compare.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/in_dev.hql">in_dev.hql</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/scan.md">scan.md</a></li><li><a href="#intermediate/tables/mart__team_failures/conversion/statement.hql">statement.hql</a></li></ul></li><li>lineage/<ul><li><a href="#intermediate/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html">20260925-060000-mart__team_failures.html</a></li><li><a href="#intermediate/tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md">20260925-060000-mart__team_failures.md</a></li></ul></li><li><a href="#intermediate/tables/mart__team_failures/mart__team_failures.hql">mart__team_failures.hql</a></li><li><a href="#intermediate/tables/mart__team_failures/mart__team_failures.ipynb">mart__team_failures.ipynb</a></li></ul></li></ul></li><li><a href="#intermediate/warehouse.py">warehouse.py</a></li></ul></div>
 <section class="file"><h3 id="intermediate/README.md"><code>README.md</code></h3>
 <p>The note at <a href="#intermediate">the top of this Project's part</a>. Its last part, on running the Project's folder, is left out: the download holds the Project as this page, not as a folder.</p></section>
 <section class="file"><h3 id="intermediate/admin/admin_log.md"><code>admin/admin_log.md</code></h3>
-<details><summary>Show its 139 lines</summary><pre># Admin log
+<details><summary>Show its 171 lines</summary><pre># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
 
@@ -3149,6 +3150,38 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
 - Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
 - Script: a notebook, at commit nogit
@@ -3180,6 +3213,7 @@ from sqlglot_composer import project</pre>
 <p class="label">Code cell 2</p><pre>project.check()</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p class="label">Code cell 3</p><pre>project.do_next()  # runs the next steps it can of each Workflow you have started</pre>
 <p class="label">It gives</p><pre class="out">  schedule: every step is done.</pre>
@@ -3215,7 +3249,7 @@ print(project.refresh_reference_sheet())
 sheet = pathlib.Path.cwd().parent / &quot;references&quot; / &quot;reference_sheet.csv&quot;
 with open(sheet, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as file:
     rows = list(csv.DictReader(file))</pre>
-<p class="label">It prints</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre>
+<p class="label">It prints</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre>
 <p class="label">Code cell 3</p><pre># Each table, as the Reference sheet holds it, compared with the table in the warehouse;
 # then its Key, where it has one.
 for name in sorted({row[&quot;table&quot;] for row in rows}):
@@ -3287,6 +3321,14 @@ mart.job_events_checks: DESCRIBE failed, so nothing was compared. Check the tabl
     Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
     Opt-out:        none - this one can&#x27;t be switched off.
 mart.job_events_checks: its Key is checked once the problems above are fixed.
+
+mart.job_hours: DESCRIBE failed, so nothing was compared. Check the table&#x27;s name, and that your query works. It said:
+    ValueError:
+    What happened:  The Example database has no table &#x27;mart.job_hours&#x27;.
+    Why it matters: It holds nine made-up tables, all in the database ops.
+    Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
+    Opt-out:        none - this one can&#x27;t be switched off.
+mart.job_hours: its Key is checked once the problems above are fixed.
 
 mart.job_notes: DESCRIBE failed, so nothing was compared. Check the table&#x27;s name, and that your query works. It said:
     ValueError:
@@ -3381,13 +3423,13 @@ from sqlglot_composer import project</pre>
 <p class="label">Code cell 3</p><pre>SINCE = None  # a time or a commit, such as &quot;2026-11-20&quot;; None: the one before
 TABLES = None  # a table&#x27;s name or a list, such as &quot;mart.team_days&quot;; None: all
 project.export_lineage_difference(since=SINCE, tables=TABLES)</pre>
-<p class="label">It gives</p><pre class="out">Wrote admin/lineage/20260925-060000-difference.html and its Markdown twin, 20260925-060000-difference.md: 3 tables changed, since the recording of 2026-09-25 06:00:09, to the newest, of 2026-09-25 07:00:00: 3 columns (1 own, 2 inherited).</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote admin/lineage/20260925-060000-difference.html and its Markdown twin, 20260925-060000-difference.md: 3 tables changed, since the recording of 2026-09-25 06:00:10, to the newest, of 2026-09-25 07:00:00: 3 columns (1 own, 2 inherited).</pre></section>
 <section class="file"><h3 id="intermediate/admin/lineage/20260925-080000-difference.html"><code>admin/lineage/20260925-080000-difference.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/admin/lineage/20260925-080000-difference.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/admin/lineage/20260925-080000-difference.md"><code>admin/lineage/20260925-080000-difference.md</code></h3>
 <p>The Markdown twin of the Lineage page <a href="example_projects/intermediate/admin/lineage/20260925-080000-difference.html">beside it</a>: the same text, without the drawing.</p></section>
 <section class="file"><h3 id="intermediate/admin/lineage/lineage_state.csv"><code>admin/lineage/lineage_state.csv</code></h3>
-<details><summary>Show its 70 lines</summary><pre>recorded_at,commit,recorded_by,toolbox_version,table,column,kind,change,type,own_logic,reads,rows_that_count,own_hash,effective_hash,because
+<details><summary>Show its 73 lines</summary><pre>recorded_at,commit,recorded_by,toolbox_version,table,column,kind,change,type,own_logic,reads,rows_that_count,own_hash,effective_hash,because
 2026-09-25 06:00:00,,&quot;project.add_references([&quot;&quot;ops.job_events&quot;&quot;, &quot;&quot;ops.job_owners&quot;&quot;, &quot;&quot;ops.region_costs&quot;&quot;, &quot;&quot;ops.region_budgets&quot;&quot;, &quot;&quot;ops.team_notes&quot;&quot;], query=...)&quot;,8.8,ops.job_events,dt,reference,first,string,,,,65d35a87b798e3b8,f55d471c82c74e4e,
 2026-09-25 06:00:00,,&quot;project.add_references([&quot;&quot;ops.job_events&quot;&quot;, &quot;&quot;ops.job_owners&quot;&quot;, &quot;&quot;ops.region_costs&quot;&quot;, &quot;&quot;ops.region_budgets&quot;&quot;, &quot;&quot;ops.team_notes&quot;&quot;], query=...)&quot;,8.8,ops.job_events,event_id,reference,first,bigint,,,,e251922c1a80e446,3bffbba228fd0af6,
 2026-09-25 06:00:00,,&quot;project.add_references([&quot;&quot;ops.job_events&quot;&quot;, &quot;&quot;ops.job_owners&quot;&quot;, &quot;&quot;ops.region_costs&quot;&quot;, &quot;&quot;ops.region_budgets&quot;&quot;, &quot;&quot;ops.team_notes&quot;&quot;], query=...)&quot;,8.8,ops.job_events,event_type,reference,first,string,,,,65d35a87b798e3b8,f55d471c82c74e4e,
@@ -3442,17 +3484,20 @@ ops.region_costs.job_id&quot;,ops.region_budgets.job_id;ops.region_budgets.regio
 2026-09-25 06:00:07,,&quot;project.convert(&quot;&quot;team_failures&quot;&quot;, ...)&quot;,8.8,mart.job_notes,note,saved_table,added,string,ops.team_notes.note,ops.job_owners.dt;ops.job_owners.team;ops.team_notes.note;ops.team_notes.team;ops.team_notes.written_on,INSERT OVERWRITE; JOIN ON: ops.job_owners.team = ops.team_notes.team AND ops.job_owners.dt = ops.team_notes.written_on AND ops.job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;,a0da12068fe4db3c,6807a93c63ffb4e5,
 2026-09-25 06:00:07,,&quot;project.convert(&quot;&quot;team_failures&quot;&quot;, ...)&quot;,8.8,mart.job_notes,team,saved_table,added,string,ops.team_notes.team,ops.job_owners.dt;ops.job_owners.team;ops.team_notes.team;ops.team_notes.written_on,INSERT OVERWRITE; JOIN ON: ops.job_owners.team = ops.team_notes.team AND ops.job_owners.dt = ops.team_notes.written_on AND ops.job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;,bb455e8728b93144,a7debe7accc80823,
 2026-09-25 06:00:07,,&quot;project.convert(&quot;&quot;team_failures&quot;&quot;, ...)&quot;,8.8,mart.job_notes,written_on,saved_table,added,string,ops.team_notes.written_on,ops.job_owners.dt;ops.job_owners.team;ops.team_notes.team;ops.team_notes.written_on,INSERT OVERWRITE; JOIN ON: ops.job_owners.team = ops.team_notes.team AND ops.job_owners.dt = ops.team_notes.written_on AND ops.job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;,0e2552f155aa6f55,dcf3622cf09d9ad0,
-2026-09-25 06:00:08,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.team_failures,dt,saved_table,added,string,ops.job_events.dt,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,b6b8bb94f81ca8c6,65c9b8eaf404cbe6,
-2026-09-25 06:00:08,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.team_failures,events,saved_table,added,bigint,&quot;(COUNT(*) GROUP BY ops.job_owners.team, ops.job_events.dt)&quot;,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,1ba04b87116e10fb,c63969addf81aaeb,
-2026-09-25 06:00:08,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.team_failures,fails,saved_table,added,bigint,&quot;(SUM(CASE WHEN ops.job_events.event_type = &#x27;fail&#x27; THEN 1 ELSE 0 END) GROUP BY ops.job_owners.team, ops.job_events.dt)&quot;,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,f87913514dfd2c9f,1258a097a3d096e9,
-2026-09-25 06:00:08,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.team_failures,team,saved_table,added,string,ops.job_owners.team,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,21d1b9549ce02a42,d0b3d742eddac91f,
-2026-09-25 06:00:08,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.team_failures,team_name,saved_table,added,string,CASE ops.job_owners.team WHEN &#x27;data&#x27; THEN &#x27;Data platform&#x27; WHEN &#x27;web&#x27; THEN &#x27;Web&#x27; ELSE &#x27;Other&#x27; END,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,56c5e7ebd0319995,bbf227120f4ca04d,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,cost_cents,scheduled_run,added,bigint,&quot;SUM(mart.team_days.cost_cents) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.cost_cents;mart.team_days.dt;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),3d4158920f524d37,636bd6cde62baf78,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,events,scheduled_run,added,bigint,&quot;SUM(mart.team_days.events) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.events;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),e9b7858fd83fe9bf,2d9ab2417bb537d4,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,minutes,scheduled_run,added,bigint,&quot;SUM(mart.team_days.minutes) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.minutes;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),5ee9ccf1b90c76e8,cfc33b6b986ea24d,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,runs,scheduled_run,added,bigint,&quot;SUM(mart.team_days.runs) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.runs;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),44fd5f3f40ffd063,e6c169a89df8075a,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,team,scheduled_run,added,string,mart.team_days.team,mart.team_days.dt;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),0b52c824a5ec0dc0,800eaaf6117f1b50,
-2026-09-25 06:00:09,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,week,scheduled_run,added,string,&quot;CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)&quot;,mart.team_days.dt,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),3f88fc00e78fcbd0,c458a16be709fc53,
+2026-09-25 06:00:08,,&quot;project.convert(&quot;&quot;job_hours&quot;&quot;, ...)&quot;,8.8,mart.team_failures,dt,saved_table,added,string,ops.job_events.dt,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,b6b8bb94f81ca8c6,65c9b8eaf404cbe6,
+2026-09-25 06:00:08,,&quot;project.convert(&quot;&quot;job_hours&quot;&quot;, ...)&quot;,8.8,mart.team_failures,events,saved_table,added,bigint,&quot;(COUNT(*) GROUP BY ops.job_owners.team, ops.job_events.dt)&quot;,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,1ba04b87116e10fb,c63969addf81aaeb,
+2026-09-25 06:00:08,,&quot;project.convert(&quot;&quot;job_hours&quot;&quot;, ...)&quot;,8.8,mart.team_failures,fails,saved_table,added,bigint,&quot;(SUM(CASE WHEN ops.job_events.event_type = &#x27;fail&#x27; THEN 1 ELSE 0 END) GROUP BY ops.job_owners.team, ops.job_events.dt)&quot;,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,f87913514dfd2c9f,1258a097a3d096e9,
+2026-09-25 06:00:08,,&quot;project.convert(&quot;&quot;job_hours&quot;&quot;, ...)&quot;,8.8,mart.team_failures,team,saved_table,added,string,ops.job_owners.team,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,21d1b9549ce02a42,d0b3d742eddac91f,
+2026-09-25 06:00:08,,&quot;project.convert(&quot;&quot;job_hours&quot;&quot;, ...)&quot;,8.8,mart.team_failures,team_name,saved_table,added,string,CASE ops.job_owners.team WHEN &#x27;data&#x27; THEN &#x27;Data platform&#x27; WHEN &#x27;web&#x27; THEN &#x27;Web&#x27; ELSE &#x27;Other&#x27; END,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,&quot;INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27; AND ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;finish&#x27;); JOIN ON: ops.job_owners.job_id = ops.job_events.job_id AND ops.job_owners.dt = ops.job_events.dt&quot;,56c5e7ebd0319995,bbf227120f4ca04d,
+2026-09-25 06:00:09,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.job_hours,job_id,saved_table,added,bigint,ops.job_events.job_id,ops.job_events.event_type;ops.job_events.job_id,INSERT OVERWRITE; WHERE: ops.job_events.event_type = &#x27;finish&#x27;,8a5d95b1914a2182,4b43569a1f34e0c1,
+2026-09-25 06:00:09,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.job_hours,sum_of_hours,saved_table,added,double,&quot;SUM(((ops.job_events.minutes / 60))) GROUP BY ops.job_events.job_id, ops.job_owners.team&quot;,ops.job_events.event_type;ops.job_events.job_id;ops.job_events.minutes;ops.job_owners.team,INSERT OVERWRITE; WHERE: ops.job_events.event_type = &#x27;finish&#x27;,9011d146bc7e989a,f7ef30fa43f462bb,
+2026-09-25 06:00:09,,&quot;project.new_scheduled_run(&quot;&quot;weekly_team&quot;&quot;)&quot;,8.8,mart.job_hours,team,saved_table,added,string,ops.job_owners.team,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id;ops.job_owners.dt;ops.job_owners.job_id;ops.job_owners.team,INSERT OVERWRITE; WHERE: ops.job_events.event_type = &#x27;finish&#x27;; LEFT JOIN ON: ops.job_events.job_id = ops.job_owners.job_id AND ops.job_events.dt = ops.job_owners.dt,e451d0a432cae048,f46859b920f0ec9c,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,cost_cents,scheduled_run,added,bigint,&quot;SUM(mart.team_days.cost_cents) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.cost_cents;mart.team_days.dt;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),3d4158920f524d37,636bd6cde62baf78,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,events,scheduled_run,added,bigint,&quot;SUM(mart.team_days.events) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.events;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),e9b7858fd83fe9bf,2d9ab2417bb537d4,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,minutes,scheduled_run,added,bigint,&quot;SUM(mart.team_days.minutes) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.minutes;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),5ee9ccf1b90c76e8,cfc33b6b986ea24d,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,runs,scheduled_run,added,bigint,&quot;SUM(mart.team_days.runs) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.runs;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),44fd5f3f40ffd063,e6c169a89df8075a,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,team,scheduled_run,added,string,mart.team_days.team,mart.team_days.dt;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),0b52c824a5ec0dc0,800eaaf6117f1b50,
+2026-09-25 06:00:10,,project.refresh_reference_sheet(),8.8,weekly_team.week_totals,week,scheduled_run,added,string,&quot;CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)&quot;,mart.team_days.dt,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),3f88fc00e78fcbd0,c458a16be709fc53,
 2026-09-25 07:00:00,,tables/mart__job_day_facts/mart__job_day_facts.ipynb export_hive(),8.8,mart.job_day_facts,runs,saved_table,own,bigint,&quot;(COUNT(CASE WHEN ops.job_events.event_type IN (&#x27;start&#x27;, &#x27;restart&#x27;) THEN 1 END) GROUP BY ops.job_events.job_id, ops.job_events.dt)&quot;,ops.job_events.dt;ops.job_events.event_type;ops.job_events.job_id,INSERT OVERWRITE; WHERE: ops.job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;,4dc9b32cf40b73bb,17b1f8c0f12c3e83,building_block:events_per_job
 2026-09-25 07:00:00,,tables/mart__job_day_facts/mart__job_day_facts.ipynb export_hive(),8.8,mart.team_days,runs,saved_table,inherited,bigint,&quot;SUM(mart.job_day_facts.runs) GROUP BY mart.job_day_facts.dt, mart.job_day_facts.team&quot;,mart.job_day_facts.dt;mart.job_day_facts.runs;mart.job_day_facts.team,INSERT OVERWRITE; WHERE: mart.job_day_facts.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;,ed439a8173889d8f,ca08c0b10c40ad35,mart.job_day_facts.runs
 2026-09-25 07:00:00,,tables/mart__job_day_facts/mart__job_day_facts.ipynb export_hive(),8.8,weekly_team.week_totals,runs,scheduled_run,inherited,bigint,&quot;SUM(mart.team_days.runs) GROUP BY CAST(NEXT_DAY(DATE_ADD(mart.team_days.dt, 7 * -1), &#x27;MO&#x27;) AS STRING), mart.team_days.team&quot;,mart.team_days.dt;mart.team_days.runs;mart.team_days.team,WHERE: mart.team_days.dt BETWEEN run_value(scheduled run weekly_team.week_first_day()) AND run_value(scheduled run weekly_team.week_last_day()),44fd5f3f40ffd063,cea6d0192550ac07,mart.job_day_facts.runs
@@ -3487,9 +3532,9 @@ sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project: one up from a
 from sqlglot_composer import project</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>project.refresh_reference_sheet()</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/admin/registry.csv"><code>admin/registry.csv</code></h3>
-<details><summary>Show its 26 lines</summary><pre>kind,table,created_at,removed_at
+<details><summary>Show its 31 lines</summary><pre>kind,table,created_at,removed_at
 reference,ops.job_events,2026-09-25 06:00:00,
 reference,ops.job_owners,2026-09-25 06:00:00,
 reference,ops.region_costs,2026-09-25 06:00:00,
@@ -3514,6 +3559,11 @@ reference,mart.job_notes,2026-09-25 06:00:00,
 reference,mart.team_failures,2026-09-25 06:00:00,
 table_folder,mart.team_failures,2026-09-25 06:00:00,
 conversion_folder,team_failures,2026-09-25 06:00:00,
+reference,mart.teams_pivot,2026-09-25 06:00:00,2026-09-25 06:00:00
+table_folder,mart.teams_pivot,2026-09-25 06:00:00,2026-09-25 06:00:00
+conversion_folder,job_hours,2026-09-25 06:00:00,
+reference,mart.job_hours,2026-09-25 06:00:00,
+table_folder,mart.job_hours,2026-09-25 06:00:00,
 scheduled_run,weekly_team,2026-09-25 06:00:00,
 </pre></details></section>
 <section class="file"><h3 id="intermediate/admin/remove.ipynb"><code>admin/remove.ipynb</code></h3>
@@ -3546,6 +3596,244 @@ SCHEDULED_RUNS = []  # Scheduled runs to archive, such as [&quot;weekly&quot;]</
 <p class="label">Code cell 7</p><pre>if SCHEDULED_RUNS:
     print(project.remove_scheduled_run(SCHEDULED_RUNS))</pre>
 <p class="muted">It shows nothing.</p></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot.py"><code>admin/removed/20260925-060000-mart__teams_pivot.py</code></h3>
+<details><summary>Show its 37 lines</summary><pre>&quot;&quot;&quot;mart.teams_pivot - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+teams_pivot = Table(
+    &quot;mart.teams_pivot&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;sum_of_hours&quot;: &quot;double&quot;,
+    },
+    key=[&quot;job_id&quot;],  # proposed from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
+    location=&quot;/data/mart.db/job_hours&quot;,
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)
+
+# The name of this table, proposed for its final in the workbook. Answer &quot;name&quot; in the
+# decisions cell: &quot;proposed&quot; keeps it; a name of your own renames this table, and its
+# total levels&#x27; tables with it.
+NAME = &quot;job_hours&quot;  # for PivotTable1 of job_hours.xlsx
+
+# What the PivotTable this table was made from leaves out: each Pivot filter, by its
+# field, a Decision. Answer &quot;pivot_filters&quot; in the decisions cell: &quot;keep&quot; keeps the
+# selection as converted; &quot;fold&quot;, &quot;batch&quot; or &quot;tables&quot; keeps every value instead, as its
+# checklist says.
+PIVOT_FILTERS = {
+    &quot;team&quot;: &quot;fold&quot;,  # the slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance)
+}
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__teams_pivot import teams_pivot, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = teams_pivot.sum_of_hours
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(teams_pivot.sum_of_hours, &lt;value&gt;)
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md"><code>admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md</code></h3>
+<details><summary>Show its 17 lines</summary><pre># Checklist: mart.teams_pivot
+
+Written again each time its Decisions are written: don&#x27;t tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
+
+## Open Decisions
+
+None: each Decision in references/mart__teams_pivot.py is made.
+
+## Notes, which block nothing
+
+- FROM(job_events, reads_all_partitions=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without reads_all_partitions=True the Toolbox refuses the logic, saying: FROM(job_events) reads ops.job_events, but filters none of its partition columns: dt. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- LEFT_JOIN(o, reads_all_partitions=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without reads_all_partitions=True the Toolbox refuses the logic, saying: LEFT_JOIN(o, ON=...) reads ops.job_owners, but filters none of its partition columns: dt. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- sum_of(run_hours.hours, adds_up=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without adds_up=True the Toolbox refuses the logic, saying: sum_of(run_hours.hours) adds up run_hours.hours, which is a division. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- project.convert proposed its Key, (job_id), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- Its name, teams_pivot, is proposed: PivotTable1 is Excel&#x27;s default name, so it is named for its sheet, Teams. It is a Decision: answer &quot;name&quot; in the decisions cell, &quot;proposed&quot; to keep it, or a name of your own, such as &quot;runs_by_job&quot;, which renames the table, and its total levels&#x27; tables with it.
+- From the workbook, marked (rule PF3, in Copilot file 20): PivotTable1: Pivot filter: slicer team, data kept: a Decision of its table. Next: check the values it gives are the ones you want, as the compare step shows them.
+- Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as &quot;pivot_filters&quot;: {&quot;team&quot;: ...}: &quot;keep&quot;, proposed: 1 table, that selection alone. &quot;fold&quot;: like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. &quot;batch&quot;: 1 table written one team at a time, each run writing its own team&#x27;s rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under &quot;tags&quot; with the Run value proposed there. &quot;tables&quot;: like Excel&#x27;s Show Report Filter Pages: a table per team, named mart.teams_pivot_&lt;value&gt;, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and &quot;at least&quot; as these are the values the PivotTable&#x27;s cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, &quot;fold&quot; keeps every team in one table to slice later; &quot;batch&quot; when each team is written on its own schedule; &quot;tables&quot; only for a handful; &quot;keep&quot; when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql"><code>admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql</code></h3>
+<details><summary>Show its 1 lines</summary><pre>WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = &#x27;finish&#x27;) INSERT OVERWRITE TABLE mart.teams_pivot SELECT job_id, SUM(hours) AS sum_of_hours FROM run_hours WHERE (team = &#x27;data&#x27;) /* Pivot filter: slicer team */ GROUP BY job_id</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md"><code>admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md</code></h3>
+<details><summary>Show its 9 lines</summary><pre># Conversion mart.teams_pivot
+
+- 28 lines of Hive, one query reading ops.job_events and ops.job_owners.
+- Found:
+  - the query becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...)
+- Opt-out added, marked # CONVERSION: at its line: FROM(job_events, reads_all_partitions=True)
+- Opt-out added, marked # CONVERSION: at its line: LEFT_JOIN(o, reads_all_partitions=True)
+- Opt-out added, marked # CONVERSION: at its line: sum_of(run_hours.hours, adds_up=True)
+- Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql"><code>admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql</code></h3>
+<details><summary>Show its 28 lines</summary><pre>WITH job_events AS (
+  SELECT
+    job_id,
+    event_type,
+    dt,
+    minutes / 60 AS hours
+  FROM ops.job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  job_id,
+  SUM(hours) AS sum_of_hours
+FROM run_hours
+WHERE
+  (
+    team = &#x27;data&#x27;
+  ) /* Pivot filter: slicer team */
+GROUP BY
+  job_id;
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb"><code>admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb</code></h3>
+<div class="md"><h3>mart.teams_pivot</h3>
+<p>A Saved table made by the batch job_hours, with project.convert(...), from the statements in <code>conversion/statement.hql</code>, as its script wrote them. Its logic cell builds the same query from the Toolbox&#x27;s own functions, with <code>create()</code>, <code>preview()</code> and <code>write()</code>.</p>
+<h4>Terms</h4>
+<ul><li><strong>Saved table</strong>: a table in the warehouse that only your own code writes, its files in a folder of its own.</li><li><strong>Logic cell</strong>: the code cell whose first line is <code># logic</code>: the table&#x27;s imports and functions alone.</li><li><strong>Decision</strong>: one thing about this table that only you decide, such as its location or its Key; <code>conversion/checklist.md</code> lists each one still open.</li><li><strong>Key</strong>: the columns whose values name exactly one row of the table.</li><li><strong>Original</strong>: the table the converted script writes, in the warehouse already, which this table copies, or, for a table made from a query, that query. <code>conversion/in_dev.hql</code> holds the original&#x27;s Hive, which the cells comparing it read.</li></ul>
+<h4>Steps</h4>
+<p>1. <strong>Answer its Decisions.</strong> Goal: each Decision made. Action: answer each open Decision <code>conversion/checklist.md</code> lists in the decisions cell of <code>admin/workflows/convert/convert.ipynb</code>. Done when <code>conversion/checklist.md</code> says None under Open Decisions, once that Workflow&#x27;s next step writes your answers in; then step 2. 2. <strong>Run the cells.</strong> Goal: its rows, its Hive and its lineage, tried. Action: run the code cells top to bottom. Done when each runs with no error.</p>
+<h4>Decision rules</h4>
+<ul><li>If you still want to compare it with the original, keep the cells comparing them.</li><li>If you don&#x27;t, delete those cells: they stay until you delete them.</li></ul>
+<h4>Self-check</h4>
+<ul><li><code>conversion/checklist.md</code> says None under Open Decisions.</li><li>Each code cell runs top to bottom with no error.</li></ul></div>
+<p class="label">Code cell 1</p><pre>import pathlib
+import sys
+sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up
+
+from sqlglot_composer import (compare_hive, compare_with_original, export_hive, export_lineage,
+                              project, run_query, show_hive)
+from warehouse import connect, query
+
+# Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+# its top, before it calls query or execute: write yours in the line below and delete its #,
+# such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+# such as team_connection.py, is imported by these lines, written in that line&#x27;s place:
+#     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+#     from team_connection import conn
+#     connect(conn)
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+<p class="label">It stops with this message</p><pre class="stop">ModuleNotFoundError:
+No module named &#x27;warehouse&#x27;</pre>
+<p class="label">Code cell 2</p><pre># logic
+from sqlglot_composer import (
+    AS,
+    Clause,
+    FROM,
+    GROUP_BY,
+    LEFT_JOIN,
+    SELECT,
+    Statement,
+    WHERE,
+    all_of,
+    derived,
+    equals,
+    statement,
+    sum_of,
+)
+from references import ops
+from sqlglot_composer import create_table  # for create()
+from sqlglot_composer import INSERT_OVERWRITE, Statement, statement  # for write()
+from references.mart__teams_pivot import teams_pivot  # the Saved table&#x27;s own Table reference
+
+job_events_2 = ops.job_events
+job_events = derived(&quot;job_events&quot;, statement(
+    SELECT(
+        job_events_2.job_id,
+        job_events_2.event_type,
+        job_events_2.dt,
+        AS(job_events_2.minutes / 60, &quot;hours&quot;),
+    ),
+    # CONVERSION: reads_all_partitions=True, as the original did; check it
+    FROM(job_events_2, reads_all_partitions=True),
+))
+e = AS(job_events, &quot;e&quot;)
+o = AS(ops.job_owners, &quot;o&quot;)
+run_hours = derived(&quot;run_hours&quot;, statement(
+    SELECT(
+        e.job_id,
+        o.team,
+        e.hours,
+    ),
+    FROM(e),
+    # CONVERSION: reads_all_partitions=True, as the original did; check it
+    LEFT_JOIN(o, ON=all_of(
+        equals(e.job_id, o.job_id),
+        equals(e.dt, o.dt),
+    ), reads_all_partitions=True),
+    WHERE(equals(e.event_type, &quot;finish&quot;)),
+))
+
+
+def rows() -&gt; list[Clause]:
+    &quot;&quot;&quot;The clauses of the query, which converted() and a write share.&quot;&quot;&quot;
+    return [
+        SELECT(
+            run_hours.job_id,
+            # CONVERSION: adds_up=True, as the original did; check it
+            AS(sum_of(run_hours.hours, adds_up=True), &quot;sum_of_hours&quot;),
+        ),
+        FROM(run_hours),
+        WHERE(equals(run_hours.team, &quot;data&quot;)),
+        GROUP_BY(run_hours.job_id),
+    ]
+
+
+def converted() -&gt; Statement:
+    &quot;&quot;&quot;The query, as the Hive this Conversion was made from writes it.&quot;&quot;&quot;
+    return statement(*rows())
+
+
+def create() -&gt; Statement:
+    &quot;&quot;&quot;Create mart.teams_pivot from its Table reference, if it isn&#x27;t there yet.&quot;&quot;&quot;
+    return create_table(teams_pivot, may_exist=True)
+
+
+def preview() -&gt; Statement:
+    &quot;&quot;&quot;The rows write() would save, as a SELECT to run and check first.&quot;&quot;&quot;
+    return converted()
+
+
+def write() -&gt; Statement:
+    &quot;&quot;&quot;Save the rows into mart.teams_pivot, as the original&#x27;s INSERT did.&quot;&quot;&quot;
+    return statement(INSERT_OVERWRITE(teams_pivot), *rows())
+</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 3</p><pre># Try it: its rows, then, once its Table reference has its location=, the Hive of
+# each step
+run_query(preview(), query)
+show_hive([create(), write()])</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 4</p><pre># Lineage: a new pair in lineage/, named by the time and this table
+export_lineage(write())</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 5</p><pre># Its Hive: mart__teams_pivot.hql beside this notebook, from the logic as last saved
+export_hive()</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 6</p><pre># Its Hive against the original&#x27;s, as conversion/in_dev.hql holds it
+ORIGINAL = pathlib.Path(&quot;conversion/in_dev.hql&quot;).read_text(encoding=&quot;utf-8&quot;)
+show_hive(preview())
+print(compare_hive(preview(), ORIGINAL))</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 7</p><pre># The convert Workflow&#x27;s compare step, project.compare_batch, compares this table once
+# written. This compares its query with the original&#x27;s first:
+# Its rows against the original&#x27;s, through your query, on one Partition:
+# print(compare_with_original(preview(), ORIGINAL, query=query, partition={&quot;dt&quot;: &quot;&lt;a value&gt;&quot;}))</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p>
+<p class="label">Code cell 8</p><pre># Its rows in the Reference sheet
+project.refresh_reference_sheet(&quot;mart.teams_pivot&quot;)</pre>
+<p class="muted">Not run: a cell above stopped, as Run All stops.</p></section>
 <section class="file"><h3 id="intermediate/admin/run_tables.ipynb"><code>admin/run_tables.ipynb</code></h3>
 <div class="md"><h3>Run the tables</h3>
 <p>Writes every table: each Table notebook&#x27;s <code>write()</code>, read from its logic cell with <code>project.load</code>, each before the tables that read it. First, with no <code>execute</code>, it prints each Hive in that order and sends nothing; then, with your query and execute, it sends them. <code>tables=</code> picks some; leave it out for every Table folder the registry lists. The cell under the Project&#x27;s path connects to the warehouse, as every notebook that reaches it does: a Run value that reads the warehouse needs it even to print.</p></div>
@@ -3567,7 +3855,7 @@ from sqlglot_composer import project</pre>
 connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.run_tables()  # first, with no execute: prints each Hive, sends nothing</pre>
-<p class="label">It prints</p><pre class="out">-- 1 of 8: mart.job_day_costs
+<p class="label">It prints</p><pre class="out">-- 1 of 9: mart.job_day_costs
 -- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -3601,7 +3889,7 @@ SELECT
   costs_per_job.cost_cents,
   costs_per_job.dt
 FROM costs_per_job;
--- 2 of 8: mart.job_day_facts
+-- 2 of 9: mart.job_day_facts
 -- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -3637,7 +3925,7 @@ LEFT JOIN ops.job_owners AS job_owners
   ON job_owners.job_id = events_per_job.job_id
   AND job_owners.dt = events_per_job.dt
   AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;;
--- 3 of 8: mart.team_days
+-- 3 of 9: mart.team_days
 -- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -3659,7 +3947,7 @@ WHERE
 GROUP BY
   job_day_facts.dt,
   job_day_facts.team;
--- 4 of 8: mart.job_events_checks
+-- 4 of 9: mart.job_events_checks
 -- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -3672,7 +3960,7 @@ WHERE
   job_events.dt = &#x27;2026-09-24&#x27;
 GROUP BY
   job_events.dt;
--- 5 of 8: mart.budget_overruns
+-- 5 of 9: mart.budget_overruns
 INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = &#x27;eu&#x27;)
 SELECT
   region_costs.job_id,
@@ -3687,7 +3975,7 @@ WHERE
 GROUP BY
   region_costs.job_id,
   region_budgets.budget_cents;
--- 6 of 8: mart.budget_overruns
+-- 6 of 9: mart.budget_overruns
 INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = &#x27;us&#x27;)
 SELECT
   region_costs.job_id,
@@ -3702,7 +3990,7 @@ WHERE
 GROUP BY
   region_costs.job_id,
   region_budgets.budget_cents;
--- 7 of 8: mart.job_notes
+-- 7 of 9: mart.job_notes
 INSERT OVERWRITE TABLE mart.job_notes
 SELECT
   job_owners.job_id,
@@ -3714,7 +4002,7 @@ JOIN ops.job_owners AS job_owners
   ON job_owners.team = team_notes.team
   AND job_owners.dt = team_notes.written_on
   AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;;
--- 8 of 8: mart.team_failures
+-- 8 of 9: mart.team_failures
 -- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -3747,8 +4035,36 @@ SELECT
   p.events,
   p.fails,
   p.dt
-FROM per_team AS p;</pre>
-<p class="label">It gives</p><pre class="out">Printed 8 writes in order, and sent nothing. Pass execute= to run them.</pre>
+FROM per_team AS p;
+-- 9 of 9: mart.job_hours
+WITH job_events AS (
+  SELECT
+    job_events.job_id,
+    job_events.event_type,
+    job_events.dt,
+    job_events.minutes / 60 AS hours
+  FROM ops.job_events AS job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+INSERT OVERWRITE TABLE mart.job_hours
+SELECT
+  run_hours.job_id,
+  run_hours.team,
+  SUM(run_hours.hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  run_hours.job_id,
+  run_hours.team;</pre>
+<p class="label">It gives</p><pre class="out">Printed 9 writes in order, and sent nothing. Pass execute= to run them.</pre>
 <p class="label">Code cell 4</p><pre># project.run_tables(execute=execute)</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="intermediate/admin/scheduled_runs.ipynb"><code>admin/scheduled_runs.ipynb</code></h3>
@@ -3774,9 +4090,10 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 <p class="label">Code cell 3</p><pre>project.check()  # a loop among your tables, and what else needs you</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p class="label">Code cell 4</p><pre>project.export_project_lineage()  # every Saved table, and the runs that write each</pre>
-<p class="label">It gives</p><pre class="out">Wrote admin/lineage/20260925-060000-project.html and its Markdown twin, 20260925-060000-project.md: 12 tables and 1 Scheduled run.</pre>
+<p class="label">It gives</p><pre class="out">Wrote admin/lineage/20260925-060000-project.html and its Markdown twin, 20260925-060000-project.md: 13 tables and 1 Scheduled run.</pre>
 <p class="label">Code cell 5</p><pre>RUNS = []  # Scheduled runs, for each one&#x27;s lineage and Hive, such as [&quot;weekly&quot;]
 TABLES = []  # tables whose logic to describe, such as [&quot;mart.team_days&quot;]</pre>
 <p class="muted">It shows nothing.</p>
@@ -4575,6 +4892,102 @@ else:
 <p class="muted">Not run: a cell above stopped, as Run All stops.</p>
 <p class="label">Code cell 13</p><pre>project.do_next()</pre>
 <p class="muted">Not run: a cell above stopped, as Run All stops.</p></section>
+<section class="file"><h3 id="intermediate/admin/workflows/convert/finished/job_hours/batch.md"><code>admin/workflows/convert/finished/job_hours/batch.md</code></h3>
+<details><summary>Show its 20 lines</summary><pre># Batch job_hours
+
+admin/workflows/convert/job_hours.xlsx, a workbook read where it is, its final kept as its Hive in scripts/: job_hours.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
+
+## Tables
+
+- mart.job_hours, from its query: tables/mart__job_hours/, its checklist tables/mart__job_hours/conversion/checklist.md
+  - # CONVERSION: FROM(job_events, reads_all_partitions=True), a note on its checklist
+  - # CONVERSION: LEFT_JOIN(o, reads_all_partitions=True), a note on its checklist
+  - # CONVERSION: sum_of(run_hours.hours, adds_up=True), a note on its checklist
+
+## The Workbook check of job_hours.xlsx
+
+It ran the Hive of each table the workbook gave, on this computer, over the workbook&#x27;s own Tables, and compared its rows with the values the workbook shows, as last saved. A difference means the Hive doesn&#x27;t give what the workbook&#x27;s formula, query or PivotTable gave on the same rows: look at each one, though none stops anything. The workbook&#x27;s rows are an old sample, so the warehouse&#x27;s rows will differ from them: this compares the Hive with the workbook alone, never with the warehouse.
+
+- mart.job_hours, from PivotTable &quot;PivotTable1&quot;: every cell matches the workbook, 2 cells compared.
+
+## Each statement, in the order they run
+
+1. job_hours.hql line 1, `WITH job_events AS ( SELECT job_id, event_type, dt, minutes / 60 AS hours FRO...`: mart.job_hours, written by its notebook
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/workflows/convert/finished/job_hours/scripts/job_hours.hql"><code>admin/workflows/convert/finished/job_hours/scripts/job_hours.hql</code></h3>
+<details><summary>Show its 28 lines</summary><pre>WITH job_events AS (
+  SELECT
+    job_id,
+    event_type,
+    dt,
+    minutes / 60 AS hours
+  FROM ops.job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  job_id,
+  SUM(hours) AS sum_of_hours
+FROM run_hours
+WHERE
+  (
+    team = &#x27;data&#x27;
+  ) /* Pivot filter: slicer team */
+GROUP BY
+  job_id;
+</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/workflows/convert/finished/job_hours/written.json"><code>admin/workflows/convert/finished/job_hours/written.json</code></h3>
+<details><summary>Show its 43 lines</summary><pre>{
+ &quot;files&quot;: {
+  &quot;admin/workflows/convert/job_hours/batch.md&quot;: &quot;23c4245a494b2a1ffe50ba4231f0276ca3692d4955efd1b549c87b9c6f0dfb97&quot;,
+  &quot;admin/workflows/convert/job_hours/scripts/teams_pivot.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
+  &quot;references/mart__job_hours.py&quot;: &quot;281bdd6b58bc40c50edb30e8e1c2005c227d8f1df01472d5d047812c78b54e2a&quot;,
+  &quot;tables/mart__job_hours/conversion/checklist.md&quot;: &quot;1c472b43e5ffb9669442409ffa6071cb7bfa218f637f67ce3e109b0734062c10&quot;,
+  &quot;tables/mart__job_hours/conversion/in_dev.hql&quot;: &quot;131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4&quot;,
+  &quot;tables/mart__job_hours/conversion/scan.md&quot;: &quot;d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e&quot;,
+  &quot;tables/mart__job_hours/conversion/statement.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
+  &quot;tables/mart__job_hours/mart__job_hours.ipynb&quot;: &quot;f45a7e1e9ce2a2c054316522fd5a5043da4a2f3dec8f116dae78fe8913c08647&quot;
+ },
+ &quot;originals&quot;: {
+  &quot;mart.job_hours&quot;: null
+ },
+ &quot;pivot_filters&quot;: {
+  &quot;mart.job_hours&quot;: [
+   {
+    &quot;bottom&quot;: false,
+    &quot;field&quot;: &quot;team&quot;,
+    &quot;field_values&quot;: [
+     &quot;data&quot;,
+     &quot;finance&quot;
+    ],
+    &quot;final&quot;: &quot;mart.job_hours&quot;,
+    &quot;kind&quot;: &quot;slicer&quot;,
+    &quot;ranked_by&quot;: &quot;&quot;,
+    &quot;values&quot;: [
+     &quot;data&quot;
+    ]
+   }
+  ]
+ },
+ &quot;seeded&quot;: [],
+ &quot;tables&quot;: [
+  &quot;mart.job_hours&quot;
+ ],
+ &quot;workbook_finals&quot;: {
+  &quot;mart.job_hours&quot;: {
+   &quot;final&quot;: &quot;PivotTable1&quot;,
+   &quot;workbook&quot;: &quot;admin/workflows/convert/job_hours.xlsx&quot;
+  }
+ }
+}</pre></details></section>
 <section class="file"><h3 id="intermediate/admin/workflows/convert/finished/team_failures/batch.md"><code>admin/workflows/convert/finished/team_failures/batch.md</code></h3>
 <details><summary>Show its 12 lines</summary><pre># Batch team_failures
 
@@ -4608,6 +5021,198 @@ else:
   &quot;mart.team_failures&quot;
  ]
 }</pre></details></section>
+<section class="file"><h3 id="intermediate/admin/workflows/convert/job_hours.xlsx"><code>admin/workflows/convert/job_hours.xlsx</code></h3>
+<p>An Excel workbook, shown as its text, as <code>python copilot/workbook_text.py</code> writes it for a Copilot chat.</p><details><summary>Show its 190 lines</summary><pre>Sheet &quot;Steps&quot;: the empty Formula workbook&#x27;s steps, as it ships.
+Sheet &quot;Parameters&quot;
+  Excel Table &quot;Parameters&quot;, A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP(&quot;tax_rate&quot;, Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet &quot;Keys&quot;
+  Excel Table &quot;Keys&quot;, A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table&#x27;s name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet &quot;job_events&quot;
+  Excel Table &quot;job_events&quot;, A1:F58
+    Headers: event_id | job_id | event_type | minutes | dt | hours
+    Row 2: 1 | 1 | start | 0 | 2026-09-11 | =[@minutes]/60
+    Row 3: 2 | 1 | finish | 12 | 2026-09-11 | =[@minutes]/60
+    Row 4: 3 | 2 | start | 0 | 2026-09-11 | =[@minutes]/60
+    Row 5: 4 | 2 | finish | 18 | 2026-09-11 | =[@minutes]/60
+    Row 6: 5 | 3 | start | 0 | 2026-09-11 | =[@minutes]/60
+    Row 7: 6 | 3 | finish | 30 | 2026-09-11 | =[@minutes]/60
+    Row 8: 7 | 1 | start | 0 | 2026-09-12 | =[@minutes]/60
+    Row 9: 8 | 1 | finish | 11 | 2026-09-12 | =[@minutes]/60
+    Row 10: 9 | 1 | start | 0 | 2026-09-13 | =[@minutes]/60
+    Row 11: 10 | 1 | finish | 13 | 2026-09-13 | =[@minutes]/60
+    Row 12: 11 | 1 | start | 0 | 2026-09-14 | =[@minutes]/60
+    Row 13: 12 | 1 | finish | 12 | 2026-09-14 | =[@minutes]/60
+    Row 14: 13 | 2 | start | 0 | 2026-09-14 | =[@minutes]/60
+    Row 15: 14 | 2 | finish | 20 | 2026-09-14 | =[@minutes]/60
+    Row 16: 15 | 3 | start | 0 | 2026-09-14 | =[@minutes]/60
+    Row 17: 16 | 3 | retry | 8 | 2026-09-14 | =[@minutes]/60
+    Row 18: 17 | 3 | finish | 41 | 2026-09-14 | =[@minutes]/60
+    Row 19: 18 | 1 | start | 0 | 2026-09-15 | =[@minutes]/60
+    Row 20: 19 | 1 | finish | 10 | 2026-09-15 | =[@minutes]/60
+    Row 21: 20 | 2 | start | 0 | 2026-09-15 | =[@minutes]/60
+    Row 22: 21 | 2 | finish | 17 | 2026-09-15 | =[@minutes]/60
+    Row 23: 22 | 1 | start | 0 | 2026-09-16 | =[@minutes]/60
+    Row 24: 23 | 1 | retry | 5 | 2026-09-16 | =[@minutes]/60
+    Row 25: 24 | 1 | finish | 25 | 2026-09-16 | =[@minutes]/60
+    Row 26: 25 | 2 | start | 0 | 2026-09-16 | =[@minutes]/60
+    Row 27: 26 | 2 | finish | 19 | 2026-09-16 | =[@minutes]/60
+    Row 28: 27 | 1 | start | 0 | 2026-09-17 | =[@minutes]/60
+    Row 29: 28 | 1 | finish | 12 | 2026-09-17 | =[@minutes]/60
+    Row 30: 29 | 2 | start | 0 | 2026-09-17 | =[@minutes]/60
+    Row 31: 30 | 2 | finish | 16 | 2026-09-17 | =[@minutes]/60
+    Row 32: 31 | 1 | start | 0 | 2026-09-18 | =[@minutes]/60
+    Row 33: 32 | 1 | finish | 14 | 2026-09-18 | =[@minutes]/60
+    Row 34: 33 | 2 | start | 0 | 2026-09-18 | =[@minutes]/60
+    Row 35: 34 | 2 | finish | 22 | 2026-09-18 | =[@minutes]/60
+    Row 36: 35 | 3 | start | 0 | 2026-09-18 | =[@minutes]/60
+    Row 37: 36 | 3 | fail | 12 | 2026-09-18 | =[@minutes]/60
+    Row 38: 37 | 1 | start | 0 | 2026-09-19 | =[@minutes]/60
+    Row 39: 38 | 1 | finish | 11 | 2026-09-19 | =[@minutes]/60
+    Row 40: 39 | 1 | start | 0 | 2026-09-20 | =[@minutes]/60
+    Row 41: 40 | 1 | finish | 12 | 2026-09-20 | =[@minutes]/60
+    Row 42: 41 | 1 | start | 0 | 2026-09-21 | =[@minutes]/60
+    Row 43: 42 | 1 | finish | 13 | 2026-09-21 | =[@minutes]/60
+    Row 44: 43 | 2 | start | 0 | 2026-09-21 | =[@minutes]/60
+    Row 45: 44 | 2 | finish | 21 | 2026-09-21 | =[@minutes]/60
+    Row 46: 45 | 3 | start | 0 | 2026-09-21 | =[@minutes]/60
+    Row 47: 46 | 3 | finish | 33 | 2026-09-21 | =[@minutes]/60
+    Row 48: 47 | 1 | start | 0 | 2026-09-22 | =[@minutes]/60
+    Row 49: 48 | 1 | finish | 10 | 2026-09-22 | =[@minutes]/60
+    Row 50: 49 | 2 | start | 0 | 2026-09-22 | =[@minutes]/60
+    Row 51: 50 | 2 | finish | 18 | 2026-09-22 | =[@minutes]/60
+    Row 52: 51 | 1 | start | 0 | 2026-09-23 | =[@minutes]/60
+    Row 53: 52 | 1 | finish | 12 | 2026-09-23 | =[@minutes]/60
+    Row 54: 53 | 2 | start | 0 | 2026-09-23 | =[@minutes]/60
+    Row 55: 54 | 2 | finish | 18 | 2026-09-23 | =[@minutes]/60
+    Row 56: 55 | 1 | start | 0 | 2026-09-24 | =[@minutes]/60
+    Row 57: 56 | 1 | finish | 10 | 2026-09-24 | =[@minutes]/60
+    Row 58: 57 | 2 | start | 0 | 2026-09-24 | =[@minutes]/60
+Sheet &quot;job_owners&quot;
+  Excel Table &quot;job_owners&quot;, A1:D57
+    Headers: job_id | team | owner | dt
+    Row 2: 1 | data | ana | 2026-09-11
+    Row 3: 2 | finance | ben | 2026-09-11
+    Row 4: 3 | data | ana | 2026-09-11
+    Row 5: 4 | web |  | 2026-09-11
+    Row 6: 1 | data | ana | 2026-09-12
+    Row 7: 2 | finance | ben | 2026-09-12
+    Row 8: 3 | data | ana | 2026-09-12
+    Row 9: 4 | web |  | 2026-09-12
+    Row 10: 1 | data | ana | 2026-09-13
+    Row 11: 2 | finance | ben | 2026-09-13
+    Row 12: 3 | data | ana | 2026-09-13
+    Row 13: 4 | web |  | 2026-09-13
+    Row 14: 1 | data | ana | 2026-09-14
+    Row 15: 2 | finance | ben | 2026-09-14
+    Row 16: 3 | data | ana | 2026-09-14
+    Row 17: 4 | web |  | 2026-09-14
+    Row 18: 1 | data | ana | 2026-09-15
+    Row 19: 2 | finance | ben | 2026-09-15
+    Row 20: 3 | data | ana | 2026-09-15
+    Row 21: 4 | web |  | 2026-09-15
+    Row 22: 1 | data | ana | 2026-09-16
+    Row 23: 2 | finance | ben | 2026-09-16
+    Row 24: 3 | data | ana | 2026-09-16
+    Row 25: 4 | web |  | 2026-09-16
+    Row 26: 1 | data | ana | 2026-09-17
+    Row 27: 2 | finance | ben | 2026-09-17
+    Row 28: 3 | data | ana | 2026-09-17
+    Row 29: 4 | web |  | 2026-09-17
+    Row 30: 1 | data | ana | 2026-09-18
+    Row 31: 2 | finance | ben | 2026-09-18
+    Row 32: 3 | finance | chloe | 2026-09-18
+    Row 33: 4 | web |  | 2026-09-18
+    Row 34: 1 | data | ana | 2026-09-19
+    Row 35: 2 | finance | ben | 2026-09-19
+    Row 36: 3 | finance | chloe | 2026-09-19
+    Row 37: 4 | web |  | 2026-09-19
+    Row 38: 1 | data | ana | 2026-09-20
+    Row 39: 2 | finance | ben | 2026-09-20
+    Row 40: 3 | finance | chloe | 2026-09-20
+    Row 41: 4 | web |  | 2026-09-20
+    Row 42: 1 | data | ana | 2026-09-21
+    Row 43: 2 | finance | ben | 2026-09-21
+    Row 44: 3 | finance | chloe | 2026-09-21
+    Row 45: 4 | web |  | 2026-09-21
+    Row 46: 1 | data | ana | 2026-09-22
+    Row 47: 2 | finance | ben | 2026-09-22
+    Row 48: 3 | finance | chloe | 2026-09-22
+    Row 49: 4 | web |  | 2026-09-22
+    Row 50: 1 | data | ana | 2026-09-23
+    Row 51: 2 | finance | ben | 2026-09-23
+    Row 52: 3 | finance | chloe | 2026-09-23
+    Row 53: 4 | web |  | 2026-09-23
+    Row 54: 1 | data | ana | 2026-09-24
+    Row 55: 2 | finance | ben | 2026-09-24
+    Row 56: 3 | finance | chloe | 2026-09-24
+    Row 57: 4 | web |  | 2026-09-24
+Sheet &quot;run_hours&quot;
+  Excel Table &quot;run_hours&quot;, A1:D27, loaded by Power Query &quot;run_hours&quot;
+    Headers: job_id | team | hours | dt
+    Row 2: 1 | data | 0.2 | 2026-09-11
+    Row 3: 2 | finance | 0.3 | 2026-09-11
+    Row 4: 3 | data | 0.5 | 2026-09-11
+    Row 5: 1 | data | 0.1833333333333333 | 2026-09-12
+    Row 6: 1 | data | 0.2166666666666667 | 2026-09-13
+    Row 7: 1 | data | 0.2 | 2026-09-14
+    Row 8: 2 | finance | 0.3333333333333333 | 2026-09-14
+    Row 9: 3 | data | 0.6833333333333333 | 2026-09-14
+    Row 10: 1 | data | 0.1666666666666667 | 2026-09-15
+    Row 11: 2 | finance | 0.2833333333333333 | 2026-09-15
+    Row 12: 1 | data | 0.4166666666666667 | 2026-09-16
+    Row 13: 2 | finance | 0.3166666666666667 | 2026-09-16
+    Row 14: 1 | data | 0.2 | 2026-09-17
+    Row 15: 2 | finance | 0.2666666666666667 | 2026-09-17
+    Row 16: 1 | data | 0.2333333333333333 | 2026-09-18
+    Row 17: 2 | finance | 0.3666666666666666 | 2026-09-18
+    Row 18: 1 | data | 0.1833333333333333 | 2026-09-19
+    Row 19: 1 | data | 0.2 | 2026-09-20
+    Row 20: 1 | data | 0.2166666666666667 | 2026-09-21
+    Row 21: 2 | finance | 0.35 | 2026-09-21
+    Row 22: 3 | finance | 0.55 | 2026-09-21
+    Row 23: 1 | data | 0.1666666666666667 | 2026-09-22
+    Row 24: 2 | finance | 0.3 | 2026-09-22
+    Row 25: 1 | data | 0.2 | 2026-09-23
+    Row 26: 2 | finance | 0.3 | 2026-09-23
+    Row 27: 1 | data | 0.1666666666666667 | 2026-09-24
+Sheet &quot;Power Query&quot;
+Sheet &quot;Teams&quot;
+  PivotTable &quot;PivotTable1&quot;, A3:B5
+    Source: Excel Table &quot;run_hours&quot;, loaded by Power Query &quot;run_hours&quot;
+    Rows: job_id
+    Value &quot;Sum of hours&quot;: Sum of hours
+    Slicer &quot;team&quot; on sheet &quot;Teams&quot;, field team: selected data; connected to PivotTable1
+    Totals shown: none
+    Cells: each value cell, what Excel last stored in it, then the Value it shows and the Rows and Columns items it stands for:
+      B4: 2.95 (Sum of hours; Rows job_id 1)
+      B5: 1.183333333333333 (Sum of hours; Rows job_id 3)
+Power Query &quot;run_hours&quot; (loads into Excel Table &quot;run_hours&quot;):
+    let
+        Source = Excel.CurrentWorkbook(){[Name=&quot;job_events&quot;]}[Content],
+        Owners = Excel.CurrentWorkbook(){[Name=&quot;job_owners&quot;]}[Content],
+        Finished = Table.SelectRows(Source, each [event_type] = &quot;finish&quot;),
+        Joined = Table.NestedJoin(Finished, {&quot;job_id&quot;, &quot;dt&quot;}, Owners, {&quot;job_id&quot;, &quot;dt&quot;}, &quot;owner&quot;,
+            JoinKind.LeftOuter),
+        Expanded = Table.ExpandTableColumn(Joined, &quot;owner&quot;, {&quot;team&quot;}),
+        Kept = Table.SelectColumns(Expanded, {&quot;job_id&quot;, &quot;team&quot;, &quot;hours&quot;, &quot;dt&quot;})
+    in
+        Kept
+Order, each piece after every piece it reads:
+  1. Excel Table &quot;Parameters&quot;
+  2. Excel Table &quot;Keys&quot;
+  3. Excel Table &quot;job_events&quot;
+  4. Excel Table &quot;job_owners&quot;
+  5. Power Query &quot;run_hours&quot;, reads Excel Table &quot;job_events&quot;, Excel Table &quot;job_owners&quot;
+  6. Excel Table &quot;run_hours&quot;, loaded by Power Query &quot;run_hours&quot;
+  7. PivotTable &quot;PivotTable1&quot;, reads Excel Table &quot;run_hours&quot;
+Each final&#x27;s query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.
+</pre></details></section>
 <section class="file"><h3 id="intermediate/admin/workflows/convert/team_failures.hql"><code>admin/workflows/convert/team_failures.hql</code></h3>
 <details><summary>Show its 21 lines</summary><pre>-- Events and failures per team and day, as the ops team wrote it
 WITH ev AS (
@@ -4794,11 +5399,12 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <p class="label">It gives</p><pre class="out">  promote: TABLES is left [], so it promotes each finished table not promoted yet, or changed in dev since it was, each with why:
+    mart.job_hours: not promoted yet
     mart.team_failures: not promoted yet
     mart.job_day_facts: not promoted yet
   promote: 1. Promote each table: a prod copy of its folder and Table reference
     Stopped by what this says: mend it.
-      What happened:  project.promote([&#x27;mart.team_failures&#x27;, &#x27;mart.job_day_facts&#x27;]): PROD in admin/databases.py isn&#x27;t filled in.
+      What happened:  project.promote([&#x27;mart.job_hours&#x27;, &#x27;mart.team_failures&#x27;, &#x27;mart.job_day_facts&#x27;]): PROD in admin/databases.py isn&#x27;t filled in.
       Why it matters: Promotion copies each table to your Prod Database, the one PROD names.
       Usual fix:      Write your Prod Database&#x27;s name in admin/databases.py, as PROD&#x27;s &quot;database&quot;, such as PROD = {&quot;database&quot;: &quot;mart&quot;, ...}, and save it.
       Opt-out:        none - this one can&#x27;t be switched off.
@@ -4836,11 +5442,12 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <p class="label">It gives</p><pre class="out">  promote: TABLES is left [], so it promotes each finished table not promoted yet, or changed in dev since it was, each with why:
+    mart.job_hours: not promoted yet
     mart.team_failures: not promoted yet
     mart.job_day_facts: not promoted yet
   promote: 1. Promote each table: a prod copy of its folder and Table reference
     Stopped by what this says: mend it.
-      What happened:  project.promote([&#x27;mart.team_failures&#x27;, &#x27;mart.job_day_facts&#x27;]): PROD in admin/databases.py isn&#x27;t filled in.
+      What happened:  project.promote([&#x27;mart.job_hours&#x27;, &#x27;mart.team_failures&#x27;, &#x27;mart.job_day_facts&#x27;]): PROD in admin/databases.py isn&#x27;t filled in.
       Why it matters: Promotion copies each table to your Prod Database, the one PROD names.
       Usual fix:      Write your Prod Database&#x27;s name in admin/databases.py, as PROD&#x27;s &quot;database&quot;, such as PROD = {&quot;database&quot;: &quot;mart&quot;, ...}, and save it.
       Opt-out:        none - this one can&#x27;t be switched off.
@@ -5241,16 +5848,16 @@ def owner_on_day(job_id_column: Column, day_column: Column, first_day: str,
     )
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/mart.py"><code>references/mart.py</code></h3>
-<details><summary>Show its 46 lines</summary><pre>&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
+<details><summary>Show its 47 lines</summary><pre>&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
 Why: `from references import mart` gives each of its Table references by its name, so a column
 is reached as mart.budget_overruns.job_id.
 
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
-job_events_checks (references/mart__job_events_checks.py), job_notes
-(references/mart__job_notes.py), team_days (references/mart__team_days.py), team_failures
-(references/mart__team_failures.py).
+job_events_checks (references/mart__job_events_checks.py), job_hours
+(references/mart__job_hours.py), job_notes (references/mart__job_notes.py), team_days
+(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -5264,13 +5871,14 @@ from references.mart__budget_overruns import budget_overruns
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_hours import job_hours
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
 from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_hours&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -5460,6 +6068,56 @@ job_events_checks = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(job_events_checks.&lt;column&gt;, &lt;value&gt;)
+</pre></details></section>
+<section class="file"><h3 id="intermediate/references/mart__job_hours.py"><code>references/mart__job_hours.py</code></h3>
+<details><summary>Show its 48 lines</summary><pre>&quot;&quot;&quot;mart.job_hours - one row per job and team: the hours its runs took.
+
+Why: the project&#x27;s notebooks read the table through this file, so each column they name, and the
+key each join and count relies on, where it has one, is checked as the Statement is built.
+
+project.convert wrote this file from the workbook&#x27;s PivotTable, its columns from the Hive the
+workbook gave; the convert Workflow&#x27;s decisions cell then answered its name, its location and
+its Pivot filter, and accepted its proposed Key. Its two TODO lines were then filled in by hand:
+this docstring&#x27;s first line and does_not_add_up.
+&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_hours = Table(
+    &quot;mart.job_hours&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;sum_of_hours&quot;: &quot;double&quot;,
+    },
+    key=[&quot;job_id&quot;, &quot;team&quot;],
+    location=&quot;/data/mart.db/job_hours&quot;,
+    # filled in by hand: none of the columns is an average, a ratio or a distinct count
+    does_not_add_up=[],
+)
+
+# The name of this table, proposed for its final in the workbook. Answer &quot;name&quot; in the
+# decisions cell: &quot;proposed&quot; keeps it; a name of your own renames this table, and its
+# total levels&#x27; tables with it.
+NAME = &quot;job_hours&quot;  # for PivotTable1 of job_hours.xlsx
+
+# What the PivotTable this table was made from leaves out: each Pivot filter, by its
+# field, a Decision. Answer &quot;pivot_filters&quot; in the decisions cell: &quot;keep&quot; keeps the
+# selection as converted; &quot;fold&quot;, &quot;batch&quot; or &quot;tables&quot; keeps every value instead, as its
+# checklist says.
+PIVOT_FILTERS = {
+    &quot;team&quot;: &quot;fold&quot;,  # the slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance)
+}
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__job_hours import job_hours, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_hours.sum_of_hours
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_hours.sum_of_hours, &lt;value&gt;)
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/mart__job_notes.py"><code>references/mart__job_notes.py</code></h3>
 <details><summary>Show its 42 lines</summary><pre>&quot;&quot;&quot;mart.job_notes - one row per note and each job its team owned that day.
@@ -5822,7 +6480,7 @@ team_notes = Table(
 #     &lt;alias&gt; = equals(team_notes.team, &lt;value&gt;)
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/reference_sheet.csv"><code>references/reference_sheet.csv</code></h3>
-<details><summary>Show its 51 lines</summary><pre>table,column,type,partition,in_key,aliases,description,exported_at
+<details><summary>Show its 54 lines</summary><pre>table,column,type,partition,in_key,aliases,description,exported_at
 mart.budget_overruns,job_id,bigint,,yes,,,2026-09-25 06:00:00
 mart.budget_overruns,budget_cents,bigint,,,,the most a day of the job should cost in the region,2026-09-25 06:00:00
 mart.budget_overruns,days,bigint,,,,&quot;the days the job has a cost row in the region, its bill in or not&quot;,2026-09-25 06:00:00
@@ -5839,6 +6497,9 @@ mart.job_day_facts,minutes,bigint,,,,the minutes of the runs that ended that day
 mart.job_day_facts,dt,string,yes,yes,,&quot;the day, as yyyy-MM-dd&quot;,2026-09-25 06:00:00
 mart.job_events_checks,row_count,bigint,,,,ops.job_events&#x27; rows that day,2026-09-25 06:00:00
 mart.job_events_checks,dt,string,yes,yes,,&quot;the day counted, as yyyy-MM-dd&quot;,2026-09-25 06:00:00
+mart.job_hours,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.job_hours,team,string,,yes,,,2026-09-25 06:00:00
+mart.job_hours,sum_of_hours,double,,,,,2026-09-25 06:00:00
 mart.job_notes,job_id,bigint,,,,a job the team owned on the day the note was written,2026-09-25 06:00:00
 mart.job_notes,team,string,,,,,2026-09-25 06:00:00
 mart.job_notes,note,string,,,,,2026-09-25 06:00:00
@@ -6394,7 +7055,7 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__budget_overruns.py
 project.refresh_reference_sheet(&quot;mart.budget_overruns&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html"><code>tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md"><code>tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md</code></h3>
@@ -6576,7 +7237,7 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__job_day_costs.py
 project.refresh_reference_sheet(&quot;mart.job_day_costs&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html"><code>tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md"><code>tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md</code></h3>
@@ -6773,7 +7434,7 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__job_day_facts.py
 project.refresh_reference_sheet(&quot;mart.job_day_facts&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html"><code>tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md"><code>tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md</code></h3>
@@ -6940,7 +7601,335 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__job_events_checks.py
 project.refresh_reference_sheet(&quot;mart.job_events_checks&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/checklist.md"><code>tables/mart__job_hours/conversion/checklist.md</code></h3>
+<details><summary>Show its 17 lines</summary><pre># Checklist: mart.job_hours
+
+Written again each time its Decisions are written: don&#x27;t tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
+
+## Open Decisions
+
+None: each Decision in references/mart__job_hours.py is made.
+
+## Notes, which block nothing
+
+- FROM(job_events, reads_all_partitions=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without reads_all_partitions=True the Toolbox refuses the logic, saying: FROM(job_events) reads ops.job_events, but filters none of its partition columns: dt. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- LEFT_JOIN(o, reads_all_partitions=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without reads_all_partitions=True the Toolbox refuses the logic, saying: LEFT_JOIN(o, ON=...) reads ops.job_owners, but filters none of its partition columns: dt. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- sum_of(run_hours.hours, adds_up=True), in the logic cell, keeps what the original did, as its `# CONVERSION:` mark says until you delete it. Without adds_up=True the Toolbox refuses the logic, saying: sum_of(run_hours.hours) adds up run_hours.hours, which is a division. If you want to, change what made it needed, such as a WHERE on the partition column, then take the opt-out off; the compare step checks the rows either way.
+- project.convert proposed its Key, (job_id), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- Its name, teams_pivot, is proposed: PivotTable1 is Excel&#x27;s default name, so it is named for its sheet, Teams. It is a Decision: answer &quot;name&quot; in the decisions cell, &quot;proposed&quot; to keep it, or a name of your own, such as &quot;runs_by_job&quot;, which renames the table, and its total levels&#x27; tables with it.
+- From the workbook, marked (rule PF3, in Copilot file 20): PivotTable1: Pivot filter: slicer team, data kept: a Decision of its table. Next: check the values it gives are the ones you want, as the compare step shows them.
+- Pivot filter team, a Decision. What mart.job_hours shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as &quot;pivot_filters&quot;: {&quot;team&quot;: ...}: &quot;keep&quot;, proposed: 1 table, that selection alone. &quot;fold&quot;: like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.job_hours and part of what one row is, a row for each job_id and team. &quot;batch&quot;: 1 table written one team at a time, each run writing its own team&#x27;s rows: mart.job_hours is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under &quot;tags&quot; with the Run value proposed there. &quot;tables&quot;: like Excel&#x27;s Show Report Filter Pages: a table per team, named mart.job_hours_&lt;value&gt;, such as mart.job_hours_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and &quot;at least&quot; as these are the values the PivotTable&#x27;s cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, &quot;fold&quot; keeps every team in one table to slice later; &quot;batch&quot; when each team is written on its own schedule; &quot;tables&quot; only for a handful; &quot;keep&quot; when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.
+</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/compare.md"><code>tables/mart__job_hours/conversion/compare.md</code></h3>
+<details><summary>Show its 11 lines</summary><pre># mart.job_hours against its query, in conversion/statement.hql
+
+Below, the Statement is mart.job_hours&#x27;s rows, and the original its query&#x27;s.
+
+## Every row
+
+Passed: every row: it has no Partitions.
+Compared at 2026-09-25 06:00:00.
+
+The Statement and the original give the same rows: 4 rows each.
+mart.job_hours: the key (job_id, team) holds.
+</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/in_dev.hql"><code>tables/mart__job_hours/conversion/in_dev.hql</code></h3>
+<details><summary>Show its 1 lines</summary><pre>WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = &#x27;finish&#x27;) INSERT OVERWRITE TABLE mart.job_hours SELECT job_id, team, SUM(hours) AS sum_of_hours FROM run_hours GROUP BY job_id, team</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/pivot_filters.json"><code>tables/mart__job_hours/conversion/pivot_filters.json</code></h3>
+<details><summary>Show its 7 lines</summary><pre>{
+ &quot;converted_as&quot;: &quot;mart.job_hours&quot;,
+ &quot;in_dev&quot;: &quot;WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = &#x27;finish&#x27;) INSERT OVERWRITE TABLE mart.job_hours SELECT job_id, SUM(hours) AS sum_of_hours FROM run_hours WHERE (team = &#x27;data&#x27;) /* Pivot filter: slicer team */ GROUP BY job_id&quot;,
+ &quot;slice&quot;: {},
+ &quot;statement&quot;: &quot;WITH job_events AS (\n  SELECT\n    job_id,\n    event_type,\n    dt,\n    minutes / 60 AS hours\n  FROM ops.job_events\n), run_hours AS (\n  SELECT\n    e.job_id,\n    o.team,\n    e.hours\n  FROM job_events AS e\n  LEFT JOIN ops.job_owners AS o\n    ON e.job_id = o.job_id AND e.dt = o.dt\n  WHERE\n    e.event_type = &#x27;finish&#x27;\n)\nSELECT\n  job_id,\n  SUM(hours) AS sum_of_hours\nFROM run_hours\nWHERE\n  (\n    team = &#x27;data&#x27;\n  ) /* Pivot filter: slicer team */\nGROUP BY\n  job_id;\n&quot;,
+ &quot;written&quot;: &quot;WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = &#x27;finish&#x27;) INSERT OVERWRITE TABLE mart.job_hours SELECT job_id, team, SUM(hours) AS sum_of_hours FROM run_hours GROUP BY job_id, team&quot;
+}</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/scan.md"><code>tables/mart__job_hours/conversion/scan.md</code></h3>
+<details><summary>Show its 9 lines</summary><pre># Conversion mart.job_hours
+
+- 28 lines of Hive, one query reading ops.job_events and ops.job_owners.
+- Found:
+  - the query becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...)
+- Opt-out added, marked # CONVERSION: at its line: FROM(job_events, reads_all_partitions=True)
+- Opt-out added, marked # CONVERSION: at its line: LEFT_JOIN(o, reads_all_partitions=True)
+- Opt-out added, marked # CONVERSION: at its line: sum_of(run_hours.hours, adds_up=True)
+- Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.
+</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/conversion/statement.hql"><code>tables/mart__job_hours/conversion/statement.hql</code></h3>
+<details><summary>Show its 26 lines</summary><pre>WITH job_events AS (
+  SELECT
+    job_id,
+    event_type,
+    dt,
+    minutes / 60 AS hours
+  FROM ops.job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  job_id,
+  team,
+  SUM(hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  job_id,
+  team;
+</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html"><code>tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html</code></h3>
+<p>A Lineage page: <a href="example_projects/intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md"><code>tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md</code></h3>
+<p>The Markdown twin of the Lineage page <a href="example_projects/intermediate/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html">beside it</a>: the same text, without the drawing.</p></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/mart__job_hours.hql"><code>tables/mart__job_hours/mart__job_hours.hql</code></h3>
+<details><summary>Show its 43 lines</summary><pre>-- The Hive of mart.job_hours, generated by export_hive() from the logic cell of
+-- mart__job_hours.ipynb, beside this file. Edit the logic there, not this file: each
+-- export_hive() writes it again, from the notebook as last saved. It holds 2 steps, in
+-- the order they are sent: create() and write().
+
+-- 1 of 2: create()
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_hours (
+  job_id BIGINT,
+  team STRING,
+  sum_of_hours DOUBLE,
+  PRIMARY KEY (job_id, team) DISABLE NOVALIDATE
+)
+STORED AS ORC
+LOCATION &#x27;/data/mart.db/job_hours&#x27;;
+
+-- 2 of 2: write()
+WITH job_events AS (
+  SELECT
+    job_events.job_id,
+    job_events.event_type,
+    job_events.dt,
+    job_events.minutes / 60 AS hours
+  FROM ops.job_events AS job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+INSERT OVERWRITE TABLE mart.job_hours
+SELECT
+  run_hours.job_id,
+  run_hours.team,
+  SUM(run_hours.hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  run_hours.job_id,
+  run_hours.team;
+</pre></details></section>
+<section class="file"><h3 id="intermediate/tables/mart__job_hours/mart__job_hours.ipynb"><code>tables/mart__job_hours/mart__job_hours.ipynb</code></h3>
+<div class="md"><h3>mart.job_hours</h3>
+<p>A Saved table made by the batch job_hours, with project.convert(...), from the statements in <code>conversion/statement.hql</code>, as its script wrote them. Its logic cell builds the same query from the Toolbox&#x27;s own functions, with <code>create()</code>, <code>preview()</code> and <code>write()</code>.</p>
+<h4>Terms</h4>
+<ul><li><strong>Saved table</strong>: a table in the warehouse that only your own code writes, its files in a folder of its own.</li><li><strong>Logic cell</strong>: the code cell whose first line is <code># logic</code>: the table&#x27;s imports and functions alone.</li><li><strong>Decision</strong>: one thing about this table that only you decide, such as its location or its Key; <code>conversion/checklist.md</code> lists each one still open.</li><li><strong>Key</strong>: the columns whose values name exactly one row of the table.</li><li><strong>Original</strong>: the table the converted script writes, in the warehouse already, which this table copies, or, for a table made from a query, that query. <code>conversion/in_dev.hql</code> holds the original&#x27;s Hive, which the cells comparing it read.</li></ul>
+<h4>Steps</h4>
+<p>1. <strong>Answer its Decisions.</strong> Goal: each Decision made. Action: answer each open Decision <code>conversion/checklist.md</code> lists in the decisions cell of <code>admin/workflows/convert/convert.ipynb</code>. Done when <code>conversion/checklist.md</code> says None under Open Decisions, once that Workflow&#x27;s next step writes your answers in; then step 2. 2. <strong>Run the cells.</strong> Goal: its rows, its Hive and its lineage, tried. Action: run the code cells top to bottom. Done when each runs with no error.</p>
+<h4>Decision rules</h4>
+<ul><li>If you still want to compare it with the original, keep the cells comparing them.</li><li>If you don&#x27;t, delete those cells: they stay until you delete them.</li></ul>
+<h4>Self-check</h4>
+<ul><li><code>conversion/checklist.md</code> says None under Open Decisions.</li><li>Each code cell runs top to bottom with no error.</li></ul></div>
+<p class="label">Code cell 1</p><pre>import pathlib
+import sys
+sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up
+
+from sqlglot_composer import (compare_hive, compare_with_original, export_hive, export_lineage,
+                              project, run_query, show_hive)
+from warehouse import connect, query
+
+# Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+# its top, before it calls query or execute: write yours in the line below and delete its #,
+# such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+# such as team_connection.py, is imported by these lines, written in that line&#x27;s place:
+#     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+#     from team_connection import conn
+#     connect(conn)
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+<p class="muted">It shows nothing.</p>
+<p class="label">Code cell 2</p><pre># logic
+from sqlglot_composer import (
+    AS,
+    Clause,
+    FROM,
+    GROUP_BY,
+    LEFT_JOIN,
+    SELECT,
+    Statement,
+    WHERE,
+    all_of,
+    derived,
+    equals,
+    statement,
+    sum_of,
+)
+from references import ops
+from sqlglot_composer import create_table  # for create()
+from sqlglot_composer import INSERT_OVERWRITE, Statement, statement  # for write()
+from references.mart__job_hours import job_hours  # the Saved table&#x27;s own Table reference
+
+job_events_2 = ops.job_events
+job_events = derived(&quot;job_events&quot;, statement(
+    SELECT(
+        job_events_2.job_id,
+        job_events_2.event_type,
+        job_events_2.dt,
+        AS(job_events_2.minutes / 60, &quot;hours&quot;),
+    ),
+    FROM(job_events_2, reads_all_partitions=True),
+))
+e = AS(job_events, &quot;e&quot;)
+o = AS(ops.job_owners, &quot;o&quot;)
+run_hours = derived(&quot;run_hours&quot;, statement(
+    SELECT(
+        e.job_id,
+        o.team,
+        e.hours,
+    ),
+    FROM(e),
+    LEFT_JOIN(o, ON=all_of(
+        equals(e.job_id, o.job_id),
+        equals(e.dt, o.dt),
+    ), reads_all_partitions=True),
+    WHERE(equals(e.event_type, &quot;finish&quot;)),
+))
+
+
+def rows() -&gt; list[Clause]:
+    &quot;&quot;&quot;The clauses of the query, which converted() and a write share.&quot;&quot;&quot;
+    return [
+        SELECT(
+            run_hours.job_id,
+            run_hours.team,
+            AS(sum_of(run_hours.hours, adds_up=True), &quot;sum_of_hours&quot;),
+        ),
+        FROM(run_hours),
+        GROUP_BY(run_hours.job_id, run_hours.team),
+    ]
+
+
+def converted() -&gt; Statement:
+    &quot;&quot;&quot;The query, as the Hive this Conversion was made from writes it.&quot;&quot;&quot;
+    return statement(*rows())
+
+
+def create() -&gt; Statement:
+    &quot;&quot;&quot;Create mart.job_hours from its Table reference, if it isn&#x27;t there yet.&quot;&quot;&quot;
+    return create_table(job_hours, may_exist=True)
+
+
+def preview() -&gt; Statement:
+    &quot;&quot;&quot;The rows write() would save, as a SELECT to run and check first.&quot;&quot;&quot;
+    return converted()
+
+
+def write() -&gt; Statement:
+    &quot;&quot;&quot;Save the rows into mart.job_hours, as the original&#x27;s INSERT did.&quot;&quot;&quot;
+    return statement(INSERT_OVERWRITE(job_hours), *rows())
+</pre>
+<p class="muted">It shows nothing.</p>
+<p class="label">Code cell 3</p><pre># Try it: its rows, then, once its Table reference has its location=, the Hive of
+# each step
+run_query(preview(), query)
+show_hive([create(), write()])</pre>
+<p class="label">It prints</p><pre class="out">-- 1 of 2
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_hours (
+  job_id BIGINT,
+  team STRING,
+  sum_of_hours DOUBLE,
+  PRIMARY KEY (job_id, team) DISABLE NOVALIDATE
+)
+STORED AS ORC
+LOCATION &#x27;/data/mart.db/job_hours&#x27;;
+
+-- 2 of 2
+WITH job_events AS (
+  SELECT
+    job_events.job_id,
+    job_events.event_type,
+    job_events.dt,
+    job_events.minutes / 60 AS hours
+  FROM ops.job_events AS job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+INSERT OVERWRITE TABLE mart.job_hours
+SELECT
+  run_hours.job_id,
+  run_hours.team,
+  SUM(run_hours.hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  run_hours.job_id,
+  run_hours.team;</pre>
+<p class="label">It gives</p><pre class="out">&quot;-- 1 of 2\nCREATE EXTERNAL TABLE IF NOT EXISTS mart.job_hours (\n  job_id BIGINT,\n  team STRING,\n  sum_of_hours DOUBLE,\n  PRIMARY KEY (job_id, team) DISABLE NOVALIDATE\n)\nSTORED AS ORC\nLOCATION &#x27;/data/mart.db/job_hours&#x27;;\n\n-- 2 of 2\nWITH job_events AS (\n  SELECT\n    job_events.job_id,\n    job_events.event_type,\n    job_events.dt,\n    job_events.minutes / 60 AS hours\n  FROM ops.job_events AS job_events\n), run_hours AS (\n  SELECT\n    e.job_id,\n    o.team,\n    e.hours\n  FROM job_events AS e\n  LEFT JOIN ops.job_owners AS o\n    ON e.job_id = o.job_id AND e.dt = o.dt\n  WHERE\n    e.event_type = &#x27;finish&#x27;\n)\nINSERT OVERWRITE TABLE mart.job_hours\nSELECT\n  run_hours.job_id,\n  run_hours.team,\n  SUM(run_hours.hours) AS sum_of_hours\nFROM run_hours\nGROUP BY\n  run_hours.job_id,\n  run_hours.team;&quot;</pre>
+<p class="label">Code cell 4</p><pre># Lineage: a new pair in lineage/, named by the time and this table
+export_lineage(write())</pre>
+<p class="label">It gives</p><pre class="out">(Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html&#x27;), Path(&#x27;&lt;the Project&#x27;s folder&gt;/tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md&#x27;))</pre>
+<p class="label">Code cell 5</p><pre># Its Hive: mart__job_hours.hql beside this notebook, from the logic as last saved
+export_hive()</pre>
+<p class="label">It gives</p><pre class="out">Wrote mart__job_hours.hql beside its notebook, the Hive of 2 steps, in the order they are sent: create() and write().
+Lineage state: no change since the last recording.</pre>
+<p class="label">Code cell 6</p><pre># Its Hive against the original&#x27;s, as conversion/in_dev.hql holds it
+ORIGINAL = pathlib.Path(&quot;conversion/in_dev.hql&quot;).read_text(encoding=&quot;utf-8&quot;)
+show_hive(preview())
+print(compare_hive(preview(), ORIGINAL))</pre>
+<p class="label">It prints</p><pre class="out">WITH job_events AS (
+  SELECT
+    job_events.job_id,
+    job_events.event_type,
+    job_events.dt,
+    job_events.minutes / 60 AS hours
+  FROM ops.job_events AS job_events
+), run_hours AS (
+  SELECT
+    e.job_id,
+    o.team,
+    e.hours
+  FROM job_events AS e
+  LEFT JOIN ops.job_owners AS o
+    ON e.job_id = o.job_id AND e.dt = o.dt
+  WHERE
+    e.event_type = &#x27;finish&#x27;
+)
+SELECT
+  run_hours.job_id,
+  run_hours.team,
+  SUM(run_hours.hours) AS sum_of_hours
+FROM run_hours
+GROUP BY
+  run_hours.job_id,
+  run_hours.team;
+The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
+<p class="label">Code cell 7</p><pre># The convert Workflow&#x27;s compare step, project.compare_batch, compares this table once
+# written. This compares its query with the original&#x27;s first:
+# Its rows against the original&#x27;s, through your query, on one Partition:
+# print(compare_with_original(preview(), ORIGINAL, query=query, partition={&quot;dt&quot;: &quot;&lt;a value&gt;&quot;}))</pre>
+<p class="muted">It shows nothing.</p>
+<p class="label">Code cell 8</p><pre># Its rows in the Reference sheet
+project.refresh_reference_sheet(&quot;mart.job_hours&quot;)</pre>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html"><code>tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md"><code>tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md</code></h3>
@@ -7076,7 +8065,7 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__job_notes.py
 project.refresh_reference_sheet(&quot;mart.job_notes&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html"><code>tables/mart__team_days/lineage/20260925-060000-mart__team_days.html</code></h3>
 <p>A Lineage page: <a href="example_projects/intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.html">open it</a>, from the download's docs folder. Its Markdown twin, the .md file of the same name, holds the same text.</p></section>
 <section class="file"><h3 id="intermediate/tables/mart__team_days/lineage/20260925-060000-mart__team_days.md"><code>tables/mart__team_days/lineage/20260925-060000-mart__team_days.md</code></h3>
@@ -7319,7 +8308,7 @@ export_hive()</pre>
 Lineage state: no change since the last recording.</pre>
 <p class="label">Code cell 6</p><pre># 6. The Reference sheet: this table&#x27;s rows, from references/mart__team_days.py
 project.refresh_reference_sheet(&quot;mart.team_days&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/tables/mart__team_failures/conversion/checklist.md"><code>tables/mart__team_failures/conversion/checklist.md</code></h3>
 <details><summary>Show its 12 lines</summary><pre># Checklist: mart.team_failures
 
@@ -7667,7 +8656,7 @@ The Statement&#x27;s Hive and the original are the same query, once both are wri
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 8</p><pre># Its rows in the Reference sheet
 project.refresh_reference_sheet(&quot;mart.team_failures&quot;)</pre>
-<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 50 rows, 12 tables.</pre></section>
+<p class="label">It gives</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre></section>
 <section class="file"><h3 id="intermediate/warehouse.py"><code>warehouse.py</code></h3>
 <details><summary>Show its 86 lines</summary><pre>&quot;&quot;&quot;warehouse - connect, which takes your connection, and its two calls.
 

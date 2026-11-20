@@ -1,0 +1,43 @@
+{
+ "files": {
+  "admin/workflows/convert/job_hours/batch.md": "23c4245a494b2a1ffe50ba4231f0276ca3692d4955efd1b549c87b9c6f0dfb97",
+  "admin/workflows/convert/job_hours/scripts/teams_pivot.hql": "3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7",
+  "references/mart__job_hours.py": "281bdd6b58bc40c50edb30e8e1c2005c227d8f1df01472d5d047812c78b54e2a",
+  "tables/mart__job_hours/conversion/checklist.md": "1c472b43e5ffb9669442409ffa6071cb7bfa218f637f67ce3e109b0734062c10",
+  "tables/mart__job_hours/conversion/in_dev.hql": "131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4",
+  "tables/mart__job_hours/conversion/scan.md": "d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e",
+  "tables/mart__job_hours/conversion/statement.hql": "3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7",
+  "tables/mart__job_hours/mart__job_hours.ipynb": "f45a7e1e9ce2a2c054316522fd5a5043da4a2f3dec8f116dae78fe8913c08647"
+ },
+ "originals": {
+  "mart.job_hours": null
+ },
+ "pivot_filters": {
+  "mart.job_hours": [
+   {
+    "bottom": false,
+    "field": "team",
+    "field_values": [
+     "data",
+     "finance"
+    ],
+    "final": "mart.job_hours",
+    "kind": "slicer",
+    "ranked_by": "",
+    "values": [
+     "data"
+    ]
+   }
+  ]
+ },
+ "seeded": [],
+ "tables": [
+  "mart.job_hours"
+ ],
+ "workbook_finals": {
+  "mart.job_hours": {
+   "final": "PivotTable1",
+   "workbook": "admin/workflows/convert/job_hours.xlsx"
+  }
+ }
+}

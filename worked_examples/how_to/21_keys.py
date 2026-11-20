@@ -120,10 +120,10 @@ module references/mart.py again from the Table references, as it does once you f
 so `from references import mart` gives the new table by its name:
 
 >>> project.refresh_reference_sheet()
-Wrote references/reference_sheet.csv: 54 rows, 13 tables.
+Wrote references/reference_sheet.csv: 57 rows, 14 tables.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns,
     mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks,
-    mart.job_notes, mart.team_days and mart.team_failures.
+    mart.job_hours, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> from references import mart
 >>> job_day_events = mart.job_day_events  # -> Table

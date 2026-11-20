@@ -27,6 +27,11 @@ For each project, in a Python of its own, started in an empty folder, it:
   them, makes its Decisions by filling in its Table reference from `references/`, writes its
   checklist again with project.write_decisions, and compares it with its original, which
   finishes the batch, its folder moved to `admin/workflows/convert/finished/`;
+- saves each Conversion of an Excel workbook beside the convert notebook, the workbook built
+  by dev's Formula workbook tool (`job_hours_workbook`), runs project.convert(...) on it,
+  answers its Decisions with project.write_decisions(...), as the convert notebook's
+  decisions cell gives them, deletes its `# CONVERSION:` marks, fills in its Table
+  reference's TODO lines and compares it with its query, which finishes the batch;
 - names each Scheduled run in the schedule Workflow's names cell, `NAME`, and runs it with
   project.run_workflow("schedule"), which calls project.new_scheduled_run(...), then fills in
   the cells its Template left from `scheduled_runs/<name>.py`, each code cell written over the
@@ -53,11 +58,14 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import io
 import os
+import re
 import shutil
 import subprocess
 import sys
 import textwrap
+import zipfile
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from unittest import mock
@@ -160,6 +168,18 @@ CONVERSIONS = {
     "starter": [],
     "intermediate": [("team_failures", "ops_reports.team_failures", "mart.team_failures")],
 }
+# Each project's finished Conversions of an Excel workbook (Toolbox 8.9), as how-to "Convert an
+# Excel workbook" makes one: the batch's name, the workbook, which `job_hours_workbook` builds
+# and which is saved beside the convert notebook as a user saves one, the Saved table it
+# became, and the answers a user gives in the convert notebook's decisions cell, by the name
+# convert proposed for the table; then the table's one-line description, filled in by hand.
+WORKBOOK_CONVERSIONS = {
+    "starter": [],
+    "intermediate": [("job_hours", "job_hours.xlsx", "mart.job_hours", {
+        "mart.teams_pivot": {"name": "job_hours", "location": "/data/mart.db/job_hours",
+                             "pivot_filters": {"team": "fold"}}},
+        "one row per job and team: the hours its runs took.")],
+}
 # Each project's Scheduled runs (Toolbox 8.6), each made with the schedule Workflow (8.7), then
 # its cells filled in from `scheduled_runs/<name>.py` of its sources: each of its code cells
 # written over the notebook's cell with the same first line, such as # parameters, as a user
@@ -186,6 +206,13 @@ HOW = (
     "if any, among it. Its three TODO lines were then filled in by hand: this docstring's "
     "first line, the key, and does_not_add_up."
 )
+# How a workbook's converted table's Table reference was written, as its docstring says.
+CONVERTED_HOW = (
+    "project.convert wrote this file from the workbook's PivotTable, its columns from the "
+    "Hive the workbook gave; the convert Workflow's decisions cell then answered its name, its "
+    "location and its Pivot filter, and accepted its proposed Key. Its two TODO lines were "
+    "then filled in by hand: this docstring's first line and does_not_add_up."
+)
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
 # Each notebook's line connect(...), as the Example projects fill it in: the Example database
@@ -195,9 +222,11 @@ EXAMPLE_CONNECTION = "import example_database\nconnect(example_database)"
 
 def saved_and_converted_tables(name: str) -> list[str]:
     """Each Saved table of the project `name` that has a Table folder: its SAVED_TABLES, in
-    the order a user makes them, then the tables its CONVERSIONS became."""
+    the order a user makes them, then the tables its CONVERSIONS and WORKBOOK_CONVERSIONS
+    became."""
     tables = [table for table, _ in SAVED_TABLES[name]]
-    return tables + [table for _, _, table in CONVERSIONS[name]]
+    return (tables + [table for _, _, table in CONVERSIONS[name]]
+            + [table for _, _, table, _, _ in WORKBOOK_CONVERSIONS[name]])
 
 
 class TodoMissing(RuntimeError):
@@ -267,6 +296,10 @@ def _does_not_add_up_line(columns: dict[str, str]) -> str:
     return f"    {BY_HAND}: {why}\n    does_not_add_up={_python_list(columns)},"
 
 
+# The files of a project that aren't text: a workbook, which a test compares byte by byte.
+BINARY_SUFFIXES = (".xlsx",)
+
+
 # --- In the second Python, whose folder is the new project's ----------------------------------
 
 
@@ -306,6 +339,7 @@ def write_here(name: str) -> None:
     _add_building_blocks(name, folder)
     _add_saved_tables(name, folder)
     _add_conversions(name, folder)
+    _add_workbook_conversions(name, folder)
     _add_scheduled_runs(name, folder)
     _connect_each_notebook(folder)
     project.refresh_reference_sheet()
@@ -397,6 +431,113 @@ def _add_conversions(name: str, folder: Path) -> None:
             raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
 
 
+def job_hours_workbook() -> bytes:
+    """The workbook of the batch job_hours, as Excel saves it, built by dev's Formula workbook
+    tool: a Table of ops.job_events' rows with a formula column, hours; a Table of
+    ops.job_owners' rows; a Power Query, typed on its Power Query sheet, keeping each run's
+    finish event and joining it to the team that owned its job that day, loaded into a Table,
+    run_hours; and a PivotTable over run_hours, the hours of each job, keeping Excel's default
+    name PivotTable1, with a slicer on team keeping data. Its stored values are worked out
+    from the Example database's rows, and its time is pinned, so it is the same file on every
+    computer."""
+    path_before = list(sys.path)
+    try:
+        from formula_workbook import ExcelTable, FormulaWorkbook, saved
+        from pivot_tables import Pivot, Slicer, Value
+    finally:
+        sys.path[:] = path_before
+    events = ("event_id", "job_id", "event_type", "minutes", "dt")
+    owners = ("job_id", "team", "owner", "dt")
+    query = """let
+    Source = Excel.CurrentWorkbook(){[Name="job_events"]}[Content],
+    Owners = Excel.CurrentWorkbook(){[Name="job_owners"]}[Content],
+    Finished = Table.SelectRows(Source, each [event_type] = "finish"),
+    Joined = Table.NestedJoin(Finished, {"job_id", "dt"}, Owners, {"job_id", "dt"}, "owner",
+        JoinKind.LeftOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "owner", {"team"}),
+    Kept = Table.SelectColumns(Expanded, {"job_id", "team", "hours", "dt"})
+in
+    Kept"""
+    described = FormulaWorkbook(
+        (ExcelTable("job_events", (*events, "hours"),
+                    f"SELECT {', '.join(events)} FROM ops.job_events ORDER BY event_id",
+                    {"hours": "=[@minutes]/60"}),
+         ExcelTable("job_owners", owners,
+                    f"SELECT {', '.join(owners)} FROM ops.job_owners ORDER BY dt, job_id"),
+         ExcelTable("run_hours", ("job_id", "team", "hours", "dt"),
+                    "SELECT e.job_id, o.team, e.minutes / 60 AS hours, e.dt FROM "
+                    "ops.job_events e LEFT JOIN ops.job_owners o ON e.job_id = o.job_id AND "
+                    "e.dt = o.dt WHERE e.event_type = 'finish' ORDER BY e.event_id",
+                    loaded_by="run_hours")),
+        queries=(("run_hours", query),), queries_on_sheet=True,
+        pivots=(Pivot("run_hours", ("job_id",), (Value("hours"),), sheet="Teams",
+                      grand_total_row=False),),
+        slicers=(Slicer("team", ("PivotTable1",), ("data",)),))
+    return pinned_workbook(saved(described))
+
+
+# A workbook's part holding when it was made, which pinned_workbook pins.
+MADE_AT = "docProps/core.xml"
+
+
+def pinned_workbook(workbook: bytes) -> bytes:
+    """The workbook with every time it holds pinned to PINNED_TIME, and each part stored as on
+    every computer, so the same workbook gives the same bytes wherever it is built."""
+    stamp = PINNED_TIME.strftime("%Y-%m-%dT%H:%M:%SZ").encode("ascii")
+    held = io.BytesIO()
+    with (zipfile.ZipFile(io.BytesIO(workbook)) as parts,
+          zipfile.ZipFile(held, "w", zipfile.ZIP_DEFLATED) as pinned):
+        for name in parts.namelist():
+            data = parts.read(name)
+            if name == MADE_AT:
+                data = re.sub(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*",
+                              rb"\g<1>" + stamp, data)
+            entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            entry.create_system = 0
+            pinned.writestr(entry, data, zipfile.ZIP_DEFLATED)
+    return held.getvalue()
+
+
+def _add_workbook_conversions(name: str, folder: Path) -> None:
+    """Convert each Conversion of a workbook and finish it, as a user does with the convert
+    Workflow: the workbook saved beside the convert notebook, converted, its Decisions answered
+    in the decisions cell, its proposed Key accepted, its marks decided by keeping each
+    opt-out, its Table reference's TODO lines filled in by hand, and its table compared with
+    its query, which finishes the batch."""
+    import example_database
+    from sqlglot_composer import converting, notebooks, project
+
+    convert = folder / "admin" / "workflows" / "convert"
+    for conversion, workbook, table, answers, one_row in WORKBOOK_CONVERSIONS[name]:
+        (convert / workbook).write_bytes(job_hours_workbook())
+        os.chdir(convert)
+        project.convert(conversion, files=[workbook], query=example_database.query,
+                        database="ops")
+        os.chdir(folder)
+        project.write_decisions(answers, tables=project.batch_tables(conversion))
+        project.write_decisions({table: {"key": "proposed"}})
+        stem = project.table_stem(table)
+        notebook = folder / "tables" / stem / f"{stem}.ipynb"
+        cells = []
+        for kind, text in notebooks.read_cells(notebook):
+            kept = [line for line in text.split("\n")
+                    if not converting.CONVERSION_MARK_LINE.search(line)]
+            cells.append((kind, "\n".join(kept)))
+        notebooks.write_notebook(notebook, cells)
+        reference = folder / "references" / f"{stem}.py"
+        text = reference.read_text(encoding="utf-8")
+        text = text.replace(f'"""{table} - TODO: say in one line what one row is."""',
+                            f'"""{table} - {one_row}\n\n{_wrapped(WHY)}\n\n'
+                            f'{_wrapped(CONVERTED_HOW)}\n"""', 1)
+        text = text.replace(
+            "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct "
+            "counts", _does_not_add_up_line({}), 1)
+        reference.write_text(text, encoding="utf-8")
+        report = project.compare_batch(conversion, query=_same_rows(table, None))
+        if "finished" not in repr(report):
+            raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
+
+
 def _add_scheduled_runs(name: str, folder: Path) -> None:
     """Make each Scheduled run with the schedule Workflow, named in its notebook's names cell
     and run as its last cell runs it, then fill in its cells from the project's hand-written
@@ -469,9 +610,10 @@ def connected_text(text: str, placeholder: str) -> str:
     return "\n".join(filled)
 
 
-def _same_rows(table: str, original: str) -> Callable[[str], pd.DataFrame]:
-    """A query reading the Example database, a converted table and its original each read as
-    the rows its converted query gives, and SHOW PARTITIONS answered with the day it writes."""
+def _same_rows(table: str, original: str | None) -> Callable[[str], pd.DataFrame]:
+    """A query reading the Example database, a converted table and its original, if it has
+    one, each read as the rows its converted query gives, and SHOW PARTITIONS answered with
+    the day it writes."""
     import example_database
     from sqlglot_composer import project, to_hive
 
@@ -481,7 +623,8 @@ def _same_rows(table: str, original: str) -> Callable[[str], pd.DataFrame]:
         if hive.startswith("SHOW PARTITIONS"):
             return pd.DataFrame({"partition": ["dt=2026-09-24"]})
         for name in (table, original):
-            hive = hive.replace(name, f"({rows})")
+            if name:
+                hive = hive.replace(name, f"({rows})")
         return example_database.query(hive)
     return query
 
@@ -577,9 +720,10 @@ def _change_later(name: str, folder: Path) -> None:
 
 
 def _tidy(folder: Path) -> None:
-    """Give every file \\n line endings, and remove Python's caches."""
+    """Give every file of text \\n line endings, and remove Python's caches."""
     for path in folder.rglob("*"):
-        if path.is_file() and "__pycache__" not in path.parts:
+        if (path.is_file() and "__pycache__" not in path.parts
+                and path.suffix not in BINARY_SUFFIXES):
             _write_with_unix_endings(path)
     for cache in folder.rglob("__pycache__"):
         shutil.rmtree(cache, ignore_errors=True)

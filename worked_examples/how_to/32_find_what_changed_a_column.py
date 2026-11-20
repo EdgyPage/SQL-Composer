@@ -116,6 +116,8 @@ The Lineage state is behind: 3 columns' logic differs from its last recording, i
     project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook's cell 5,
     export_hive(), records the whole Project too.
 Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its
+    compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 

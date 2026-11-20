@@ -37,6 +37,22 @@ which finished the batch: its folder is in `admin/workflows/convert/finished/tea
 folder's `conversion/` keeps the statement it came from, and its notebook the cells that
 compare the two.
 
+And an eighth, `mart.job_hours`, the hours each job's runs took while each team owned it,
+is a finished Conversion of an Excel workbook, `admin/workflows/convert/job_hours.xlsx`, as
+how-to "Convert an Excel workbook" makes it: a Table of `ops.job_events`' rows with a formula,
+`hours`, a Power Query keeping each run's finish event and joining it to `ops.job_owners` for
+the team that owned the job that day, and a PivotTable over the query's Table, the hours of
+each job, with a slicer keeping the data team. It was converted with
+`project.convert("job_hours", files=["job_hours.xlsx"], query=query, database="ops")`, the
+Workbook check matching each of the PivotTable's cells, and its Decisions answered in the
+convert Workflow's decisions cell: its name, `"name": "job_hours"` in place of the proposed
+`teams_pivot`, which moved the files convert first wrote to `admin/removed/`; its location;
+and its Pivot filter, the slicer on team, `"pivot_filters": {"team": "fold"}`, so the table
+keeps every team, a row for each job and team, where the PivotTable showed the data team's.
+Its proposed Key, `["job_id", "team"]`, was accepted, and its compare against its query
+finished the batch: its folder is in `admin/workflows/convert/finished/job_hours/`, which
+keeps its Hive in `scripts/job_hours.hql`, renamed with the table.
+
 And a Scheduled run, `weekly_team`, a notebook a scheduler runs top to bottom each week: it
 adds up a week of `mart.team_days` with `week_totals`, and its build writes the three tables
 that week reads first, `mart.job_day_costs` and `mart.job_day_facts`, then `mart.team_days`.
@@ -72,6 +88,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `references/ops__job_events.py`, `references/ops__job_owners.py`, `references/ops__region_costs.py`, `references/ops__region_budgets.py` and `references/ops__team_notes.py` | `project.add_references([...], query=query)` | their TODO lines, and an Alias, `ends_a_run`, the events that end a run, for ops.job_events, read by `building_blocks/events_per_job.py` |
 | `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines |
 | `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location= and TODO lines, its Key proposed by convert |
+| `references/mart__job_hours.py` | `project.convert("job_hours", ...)`, then the convert Workflow's decisions step, `project.write_decisions(...)`, which renamed it and folded its Pivot filter | its two TODO lines; its name, location, Pivot filter and Key answered in the decisions cell |
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |
@@ -85,6 +102,10 @@ file, the Project action that made it, and what was filled in by hand.
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | `admin/workflows/convert/team_failures.hql`, the Hive the ops team wrote | you, saved beside the convert notebook | nothing: convert reads it where it is |
 | `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: `batch.md`, naming the script and what each statement became, and `written.json`, moved here once its table passed its compare |
+| `admin/workflows/convert/job_hours.xlsx`, the Excel workbook | you, saved beside the convert notebook | nothing: convert reads it where it is |
+| `admin/workflows/convert/finished/job_hours/`, a finished batch of the workbook | `project.convert("job_hours", ...)`, then `project.compare_batch(...)` | nothing: `batch.md`, with the Workbook check's report, `scripts/`, the PivotTable's Hive, and `written.json` |
+| `tables/mart__job_hours/mart__job_hours.ipynb`, and `conversion/` beside it | `project.convert("job_hours", ...)`, then the decisions step, which wrote its logic again for its Pivot filter's answer | its `# CONVERSION:` marks, deleted once decided, and its first cell's `connect(...)`, with the Example database |
+| `admin/removed/`, the files a rename or a removal moved out | the decisions step's rename of `mart.teams_pivot` to `mart.job_hours` | nothing |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs
 none.
