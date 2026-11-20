@@ -1,0 +1,153 @@
+# Copilot file 22: Pivot filters at scale, and batched inserts (sqlglot Composer 8.9)
+
+**Find the request in Patterns, copy the rule or worked pattern it names, change only the
+tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
+
+Objective: answer the Pivot filters of a table convert made from a PivotTable, each answer's
+table count said first, and make pivots that differ only in their filter one table.
+Load this file when a user asks what to do with a Pivot filter, how many tables it makes,
+or for one table of several pivots, with files 06 (saving a table) and 17 (Run values and
+the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "keep every status", "slice it later" | "fold" | W1 |
+| P2 | "a run for each value", "my scheduler gives it" | "batch" | F4 |
+| P3 | "a table for each region" | "tables", its count first | F5 |
+| P4 | "how many tables would that make?" | each layer's count, and the product | F5 |
+| P5 | "only what the PivotTable showed" | "keep" | F2 |
+| P6 | check() says a Key or a tag is proposed | accept it, or answer another | D2 |
+| P7 | two pivots the same but their filter | one table, a Partition each | B1 |
+| P8 | "write one region a run" | one Partition a write | B2 |
+
+## Terms
+
+- **Pivot filter**: what a PivotTable left out: a Report filter, hidden items, a slicer, a
+  Timeline (dates) or a value filter (Top 10). Each is a **Decision** of its table, answered
+  by its field under "pivot_filters" in the convert notebook's **decisions cell**,
+  DECISIONS, then `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
+- **Layer**: each field a table is filtered on. **Partition**: the rows sharing one value of
+  a partition column. **Script tag**: a value a run fills in, answered under "tags".
+
+## Rules: the four answers
+
+- **F1** Say each answer's table count before giving it; check() and the table's checklist
+  give each layer's, from the values the PivotTable's cache held, "at least".
+- **F2** "keep", proposed: 1 table, the selection as last saved. Pick it when that one
+  selection is all anyone needs.
+- **F3** "fold", like dragging the field from Filters to Rows: 1 table, every value, the
+  field a column and part of what one row is. Pick it to slice later, as with a slicer.
+- **F4** "batch": 1 table partitioned on the field, a Partition per value, each run writing
+  one value's rows, its value a Script tag whose answer is proposed. Pick it for a value a
+  run. **Answer "batch" alone, with no tag**: its tag is a Decision only once "batch" is
+  written, and write_decisions refuses a tag answered before it. **Reply with that cell
+  alone, no tag in any cell**: once it runs, check() prints a DECISIONS with the tag's
+  proposal, to paste over the cell's DECISIONS and run again, the proposal kept to accept
+  it. The proposal:
+  - if the field is a partition column of a table it reads, as a Timeline's day: a Run
+    value, `project.new_run_value("latest_dt", latest_partition="ops.job_runs.dt")`, then
+    `"DT": latest_dt` under "tags"; accept it for a day each run works out;
+  - else a Hivevar, `"STATUS": hivevar("STATUS", default="FAILED")`, the first value kept;
+    accept it when your scheduler gives each run its value.
+- **F5** "tables", like Show Report Filter Pages: a table per value, `<table>_<value>` in
+  snake case (a blank `_blank`, a day `_2026_09_23`, a clash `_2`), at least one per value
+  the cache held. Two layers answered "tables" make one per pair, their counts multiplied:
+  Region 3 and Site 100 make at least 300. **A filter with 100 conditions would make 100
+  tables, but the higher layer filter may have only 3, which is manageable.** Pick it for a
+  handful; for a hundred, "fold" or "batch". A Timeline's days each make a table: count
+  them first.
+- **F6** A value filter (Top 10) has only "keep" or "fold", as its ranks change with the
+  rows.
+- **F7** A filter of a Copilot .hql converted without its workbook has no count, so not
+  "tables": answer "fold" or "batch", or convert the .hql beside its workbook.
+
+## Rules: answering
+
+- **D1** "fold" and "batch" are refused for a filter in a step, a CTE other parts of the
+  query read: answer "keep" or "tables", or move the filter out of the step.
+- **D2** A Key you answered is kept while it still fits; else a Key is proposed again,
+  open: `"key": "proposed"` accepts it.
+- **D3** Once the table is created in dev, another answer is refused.
+- **D4** Answering again with another answer undoes "tables": its other tables go, and the
+  first is renamed back.
+
+## Rules: what no Decision does
+
+- **B1** **Pivots the same but for their filter's values are one table**, its Table
+  reference partitioned on the field (`PARTITIONED_BY`); rows() keeps each pivot's values
+  with `is_in`, the field last in SELECT and in GROUP_BY. One write fills each Partition,
+  a pivot's rows each; a reader of one pivot reads its Partition, `equals(t.region, "us")`.
+- **B2** A Partition a write: rows(region) bounded by `equals(t.region, region)`, write()
+  `statement(INSERT_OVERWRITE(t, partition={"region": REGION}), *rows(REGION))`, the field
+  out of SELECT, REGION a constant or a Run value (file 17).
+
+## Always
+
+- A1 to A10: as the files named in the Load line give them.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
+
+## Names for this objective, with their arguments
+
+- project.write_decisions(answers, tables=None)
+- project.batch_tables(name, seeded=False)
+- project.new_run_value(name, *, latest_partition)
+- hivevar(name, *, default)
+- INSERT_OVERWRITE(table, unproven_key=False, partition=None)
+- is_in(column, values)
+
+## Worked patterns
+
+### W1: the decisions cell: status folded, a table per region
+
+```python
+DECISIONS = {
+    "mart_dev.runs_pivot": {"pivot_filters": {"status": "fold"}},
+    "mart_dev.costs_pivot": {"pivot_filters": {"region": "tables"}},
+}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+```
+
+### W2: two pivots, eu and us costs, one table partitioned by region
+
+```python
+# logic
+from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, Clause, is_in, sum_of
+from references.ops__region_costs import region_costs
+
+PARTITIONED_BY = ["region"]
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), "cents"),
+               region_costs.region),
+        FROM(region_costs),
+        WHERE(is_in(region_costs.region, ["eu", "us"])),
+        GROUP_BY(region_costs.job_id, region_costs.region),
+    ]
+```
+
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Count.** For "tables", say each layer's count and their product. Then step 3.
+3. **Copy.** Copy the rule or worked pattern it names, with the user's names. Done when
+   every name is imported; then step 4.
+4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. **Code**: one ```python block: the decisions cell and its write, or the logic cell.
+2. **Notes**: a few plain sentences: how many tables each answer makes, what check() asks
+   next, such as a proposed tag.
+
+## Self-check
+
+- [ ] **C1** Each answer is "keep", "fold", "batch" or "tables", by its filter's field.
+- [ ] **C2** A "tables" answer says each layer's count and their product.
+- [ ] **C3** One table of several pivots is partitioned on their filter's field, last.

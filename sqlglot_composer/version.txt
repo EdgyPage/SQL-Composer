@@ -1,29 +1,32 @@
-sqlglot Composer 8.8
-exported 2026-11-17 15:55 from dev commit 63050726b645f3cb88cb9a2515cd22cb0ec88a78
+sqlglot Composer 8.9
+exported 2026-11-20 13:58 from dev commit 478606c0f92535333cb3a1921716d15296c13a77
 # Each file of this folder, and a code worked out from its contents (its git hash),
 # so the import can warn about a file that differs. Written by the export: don't
 # edit it.
-dfce43d88501980beb12783844401f0917d31bc6  __init__.py
+40ecb44239dd7911b5d43e82e5e6c8d80cec1d05  __init__.py
 bf67e8a07716ee46a32ccc793b67b00a030ecd26  admin.py
 3cb07d5453ff7c9b2cf0ecb89755c89b343c4428  calculations.py
 e1504302f93ad7d07bcfe948243913be929d1b03  checks.py
 f596aecec32e70ca1e6c295cd028f5ceb5f5a334  clauses.py
 e0f03cd7c9f1860ee8a4e067a9c057e082454f37  comparisons.py
 c6810743aa114bba3973bbeec26d271b44344ec2  conditions.py
-11c65b3c212e558467962f9a647e46ca73406dd1  converting.py
-b790d7a9bc061b450820a33fe5bde4d6a5565687  decisions.py
+baba2929e6a642ab4334533a0650e2ba2f9b4fff  converting.py
+9cb5d009feba1a838376005fdc0ac3e3c981ec05  decisions.py
 0e2e2addebecfe0c511fd2b8b1e91cf4d243ec13  describe.py
 322e6172a2e1a8cbfc52aece9cffceccc642eca5  effective_logic.py
 a908fb7982fcc0e48e2d97f7a0ecee003cf355c0  engine.py
+4313feec48dfb57144da4eda950c54e6a3e14b58  hive_executor.py
 3de37bbb464a996431557d9cc9fe2d4285ec188c  html_page.py
 e99d0a850c0214b574835a3d36841439b210aca6  joins.py
 1a46237fa68fb0d6bff3af9598a65a087e73b35f  keys.py
 371289240f350cef5b9f88f2d98b68a9375e0688  kinds.py
+595f851a5023f26c8082ae70294c0668c07a1d68  lean_hive.py
 312c36980d65c05baf206c8f8018bc6754e415a2  lineage.py
 b885c0ee7907199ca4f2b327b886c8376d8c5a00  lineage_difference.py
 7c44ee77cefb965a445e2f13817d89afbe547f61  lineage_state.py
 79bd848b5317728cdd6de00035ecd05b9ca34637  notebooks.py
-41faf9f3fdd0635ade6f95956e27dda0a09ef355  project.py
+66ce19cffee3f7060e76c6542a60d2c68c4e904c  pivot_filters.py
+67440635f8f326e7c96165c9ff2d86bfc2ff68e1  project.py
 699af03ef83711081019e364fb8c2a2e73c3818d  project_files.py
 daeef53ff3d2aa00ded3a45a9e0a85721f2fa228  project_lineage.py
 4945ede190a3896b8858a3a896feb904221df5a5  project_templates.py
@@ -38,9 +41,19 @@ d3365444000eb8bdb8a44d83215564960580f9cc  python_steps.py
 9919f5c61994fe4acd52ebe945400a6ad687bd54  stacking.py
 247dea931c0d2655559ef07c6ace19da0dd7a852  tables.py
 0476634c9abdc3fc25f9a869e9755395754c45e1  trees.py
-471de2470aa774ef875076208d7848bbbe67a8c7  unchecked.py
-62db1743cb90325fdae3df60d06f2a922ced5c80  upgrades.py
+d0158bfdc657388765f675bb2cbfbb6e11f34e3d  unchecked.py
+abc554ef54e3b8476bf5d7f47be32eb06fc804eb  upgrades.py
 15f2c4fbeb72411ef9326bedfa6d3579aa25d044  upkeep.py
 1ed2ae0dd9d654d88d8c176fe24175c7a54f9589  windows.py
-976c45b4c1c8b43bb123823a752d3e5b226f92ac  workflows.py
-6913280c2dd7eaa963fb4b399466eb095a49ee2c  writing.py
+a3b6742ef2002a025d0c6e81e2ce059824d39c6a  workbook_check.py
+a4b4ec93106086467b4faa57e4a078065b42a1f6  workbook_conversion.py
+80aadd62dff38a0e37add0026eab52e530529d46  workbook_formula_reader.py
+2615fc5c90bba7f533bd0604ba9aaa34d2614ed1  workbook_formulas.py
+9583ac315e0bd982ca395901036003305972eb29  workbook_hive.py
+7ab205bcae6a2625d0867fb1be165cdd5c063b82  workbook_m_reader.py
+3bb603ac6e62ccf4ebd1b4b1c497dae90e08d736  workbook_pivot_hive.py
+081e10ffc9acf5fc7dba8fbd02fe75b037b25869  workbook_power_query.py
+4a6e10005d98f3d7ed5a8652d219fd181f277ceb  workbook_reader.py
+daaf4aa1c1c2696a0eac2263cb234daf5c5be9c9  workbook_totals.py
+6fa52858a6e40cdca1aad7e838480bea507f1a5a  workflows.py
+21ddf40faa0da0f4daa8242087fab099cf10640a  writing.py

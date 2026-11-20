@@ -1,12 +1,12 @@
-# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.8)
+# Copilot file 12: Power Query into Hive (sqlglot Composer 8.9)
 
-**Use this file as reference while you follow file 15's steps: find each Power Query step,
-whole-column total and Total Row in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each Power Query step
+in Patterns, then write the Hive its rule gives.**
 
-Objective: write each Power Query, each whole-column total and each Total Row of an Excel
-workbook as the Hive that gives the same rows.
+Objective: write each Power Query of an Excel workbook as the Hive that gives the same rows.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
+file 15 (the steps, the map and the reply), file 11 (formulas), for a total file 23, and for
+a PivotTable file 20.
 
 ## Patterns: when the workbook has X, look up Y
 
@@ -17,19 +17,16 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 | P3 | Select, Remove, Rename, Reorder, AddColumn, ReplaceValue | Q5, Q6 |
 | P4 | Text., Number., Date. functions | Q7 |
 | P5 | Table.Group, NestedJoin, Combine, Distinct, Unpivot | G1 to G5 |
-| P6 | SUM(t[v]) in a formula column; a Total Row | T1 to T4 |
+| P6 | SUM(t[v]) in a formula column; a Total Row | file 23 |
 | P7 | Table.Sort, FirstN, AddIndexColumn | S1 to S3 |
 | P8 | Sql.Database, Table.Pivot; Web.Contents, FillDown | M1, M2; X1 |
 
 ## Terms
 
-- **M**: Power Query's language. A query is a `let` of named steps, each reading the one
-  before; `in` names the step it gives. Read the steps in order.
-- **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
-  SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
-  Total Row, never a row of data.
-- A query step no rule here lists is refused: NULL for each column it makes, or the query
-  left out, named with why.
+- **M**: Power Query's language: a `let` of named steps, each reading the one before; `in`
+  names the one it gives.
+- A step no rule here lists is refused: NULL in each column it makes, or the query left out,
+  named with why.
 
 ## Rules: reading a table and its rows
 
@@ -38,8 +35,9 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   (...)`, after each CTE q reads: a query, then the Table it loads, then a formula column
   reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
 - **Q2** Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's
-  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
-  `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
+  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`; two columns:
+  `(a <> b OR (a IS NULL) <> (b IS NULL))`. `=` between two columns: `(a = b OR (a IS NULL
+  AND b IS NULL))`. `[c] = null`: `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
 - **Q3** Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`,
   `'%x'`, case kept, as M keeps it. `not`: NOT.
 - **Q4** List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k
@@ -75,30 +73,19 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **G3** A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
   `INTERSECT`, LeftAnti is `EXCEPT`. Table.AddColumn(t, "u", each u), expanded: `CROSS JOIN
   u`.
-- **G4** Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone:
-  SELECT DISTINCT.
+- **G4** Table.Combine: UNION ALL, columns matched by name, NULL where missing; inside
+  Table.Distinct, UNION. Table.Distinct alone: SELECT DISTINCT.
 - **G5** Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT
-  per column, stacked with UNION ALL, `'a' AS measure, a AS amount`, each `WHERE a IS NOT
-  NULL`, as M drops a null there.
-
-## Rules: a whole column, and the Total Row
-
-- **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
-  and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
-  t[b]): `SUM(a * b) OVER ()`.
-- **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
-  cell holding a total, in the Table's order, none for an empty cell or a label such as
-  "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM, 101 AVG,
-  102 or 103 COUNT, 104 MAX, 105 MIN.
-- **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
-- **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
+  per column, stacked with UNION ALL, `'a' AS measure, a AS amount` after the kept columns,
+  each `WHERE a IS NOT NULL`, as M drops a null there.
 
 ## Rules: sorting
 
 - **S1** Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone:
   LIMIT.
 - **S2** Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY
-  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
+  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys. From s by k:
+  `(ROW_NUMBER() OVER (..) - 1) * k + s`; none given, 0.
 - **S3** A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
   order; mark "order dropped".
 
@@ -109,48 +96,31 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **M2** Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value
   in the sample, THEN 1 to count, THEN v to add up v, NULL where none; mark "pivot": its
   columns are now fixed.
-- **X1** Refused, and named: Web.Contents or any web source (that query left out);
-  Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp; Table.Distinct with
-  a column list; List.Median.
+- **X1** Refused, and named: Web.Contents or any web source (that query left out); a native
+  `[Query=..]`; Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp;
+  Table.Distinct with a column list; List.Median.
 
 ## Worked patterns
 
-### W1: a query filtering, grouping, keeping groups over one
+### W1: a query to filter, group, keep groups over one
 
-Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads busy_jobs:
 
     let
-        Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
-        Ok = Table.SelectRows(Source, each [status] <> null
-            and Text.StartsWith([status], "SUCC")),
-        Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_), Int64.Type}}),
-        Busy = Table.SelectRows(Grouped, each [runs] > 1)
+      Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
+      Ok = Table.SelectRows(Source, each [status] <> null
+        and Text.StartsWith([status], "SUCC")),
+      Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_)}}),
+      Busy = Table.SelectRows(Grouped, each [runs] > 1)
     in
-        Busy
+      Busy
 
 Map: Sources job_runs. Finals busy_jobs (job_id, runs).
 
 ```sql
-SELECT job_id, COUNT(*) AS runs
-FROM <database>.job_runs
+SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs
 WHERE status IS NOT NULL AND status LIKE 'SUCC%'
-GROUP BY job_id
-HAVING COUNT(*) > 1
-```
-
-### W2: a summary's Total Row, reading its final as a CTE
-
-Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
-summing runs; its typed job_ids, 1 and 2, are written in (file 15):
-
-```sql
-WITH by_job AS (
-  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
-  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
-  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
-    ON j.job_id = c.job_id
-)
-SELECT SUM(runs) AS runs FROM by_job
+GROUP BY job_id HAVING COUNT(*) > 1
 ```
 
 ## Self-check
@@ -160,4 +130,3 @@ SELECT SUM(runs) AS runs FROM by_job
   has: "Sql.Database", "pivot", "order dropped".
 - [ ] **C3** A query named in another query's M is a CTE, never `<database>.<query>`.
 - [ ] **C4** A query and the Table it loads, even of one name, each have a role.
-- [ ] **C5** Each Total Row is its own final; its Table's final holds only its rows.

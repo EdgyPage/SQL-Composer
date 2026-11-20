@@ -2373,7 +2373,7 @@ def to_8_8(upgrade: Upgrade) -> None:
     _write_one_workflow_notebook_again(upgrade, "change_a_saved_table")
     upgrade.add_what_start_makes()
     _rehash_records(upgrade, hashes)
-    _record_the_first_lineage_state(upgrade)
+    _record_the_lineage_state(upgrade)
 
 
 # Each Template as 8.7 wrote it, by its hash, which 8.8 writes again, its cell 5 saying
@@ -2394,7 +2394,8 @@ HIVE_CELL_8_8 = ("# 5. Its Hive: {stem}.hql beside this notebook, from the logic
 NO_HIVE_CELL_8_8 = ("this notebook has no export_hive() cell, which 8.8 records the Project's "
                     "Lineage state in: add one after its lineage cell, as a new Table "
                     "notebook's cell 5 is, and run it after each change to the logic")
-RECORDED_BY_8_8 = "project.upgrade() to 8.8"
+# The call the Lineage state says made the recording an Upgrade step makes, from 8.8 on.
+RECORDED_BY = "project.upgrade() to {version}"
 
 
 def _say_export_hive_records(upgrade: Upgrade, relative: str) -> None:
@@ -2448,18 +2449,32 @@ def _write_one_workflow_notebook_again(upgrade: Upgrade, name: str) -> None:
             upgrade.rewrite_notebook(*written)
 
 
-def _record_the_first_lineage_state(upgrade: Upgrade) -> None:
-    """Record the Project's Lineage state as the Upgrade's: its first recording, every column
-    first, where the Project has none, as an 8.7 Project has; where it has one, each change it
-    finds marked the Toolbox's, never yours (ADR 0015). A recording that fails leaves the rest
-    of the step done, and says which call records."""
+def _record_the_lineage_state(upgrade: Upgrade) -> None:
+    """Record the Project's Lineage state as the Upgrade's, as RECORDED_BY says: its first
+    recording, every column first, where the Project has none, as an 8.7 Project has; where it
+    has one, each change it finds marked the Toolbox's, never yours (ADR 0015). A recording
+    that fails leaves the rest of the step done, and says which call records."""
     from .project import record_after_a_change  # project.py imports this file
 
-    lines = record_after_a_change(upgrade.root, RECORDED_BY_8_8, by_upgrade=True)
+    lines = record_after_a_change(upgrade.root, RECORDED_BY.format(version=upgrade.version),
+                                  by_upgrade=True)
     upgrade.changed.append(f"recorded the Lineage state: {' '.join(lines)}")
+
+
+def to_8_9(upgrade: Upgrade) -> None:
+    """8.8 to 8.9: the convert Workflow converts an Excel workbook as well as Hive scripts, its
+    FILES naming one, such as ["runs.xlsx"], and its step 1 a Saved table for each of the
+    workbook's calculations that nothing else in it reads. So its notebook is written again,
+    each name given and each step cell you wrote in kept, and an answered decisions cell too;
+    it isn't one a record of promote or convert names. No Template and no other admin notebook
+    changed. Last, the Lineage state is recorded as the Upgrade's, each change it finds, as
+    the Toolbox's new way of writing Hive, such as VAR_SAMP's, made one, marked the Toolbox's,
+    never yours; it needs no connection and sends nothing."""
+    _write_one_workflow_notebook_again(upgrade, "convert")
+    _record_the_lineage_state(upgrade)
 
 
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
                                                "8.5": to_8_5, "8.6": to_8_6, "8.7": to_8_7,
-                                               "8.8": to_8_8}
+                                               "8.8": to_8_8, "8.9": to_8_9}

@@ -398,7 +398,7 @@ def _hive_line(node: exp.Expression, text: str) -> int | None:
     return None if at is None else text.count("\n", 0, at) + 1
 
 
-def _python_of_literal(node: exp.Expression) -> str | None:
+def python_of_literal(node: exp.Expression) -> str | None:
     """A Hive literal as a Python one, or None if it isn't a plain string or number."""
     if (isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal)
             and not node.this.is_string):
@@ -414,7 +414,7 @@ def _python_of_literal(node: exp.Expression) -> str | None:
 
 def _is_plain_value(node: exp.Expression) -> bool:
     """Whether `node` is a plain value: a literal, or a bare Script tag, standing for one."""
-    return (_python_of_literal(node) is not None
+    return (python_of_literal(node) is not None
             or (isinstance(node, exp.Column) and tag_name(node.name) is not None))
 
 
@@ -443,7 +443,7 @@ def _is_filled_with_zero(node: exp.Expression) -> bool:
     parent = node.parent
     return (isinstance(parent, exp.Coalesce) and parent.this is node
             and len(parent.expressions) == 1
-            and _python_of_literal(parent.expressions[0]) == "0")
+            and python_of_literal(parent.expressions[0]) == "0")
 
 
 def _python_name(text: str) -> str:
@@ -700,7 +700,7 @@ class _Converter:
                 continue
             name = item.alias_or_name if isinstance(item, (exp.Alias, exp.Column)) else ""
             inner = item.this if isinstance(item, exp.Alias) else item
-            if _python_of_literal(inner) is not None or isinstance(inner, exp.Null):
+            if python_of_literal(inner) is not None or isinstance(inner, exp.Null):
                 value = self.unchecked(
                     inner, scope, "unchecked_column",
                     "no Toolbox function gives a plain value as a column yet")
@@ -923,7 +923,7 @@ class _Converter:
 
     def value(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """A Column's Python: a column, a literal, or a calculation the Toolbox writes."""
-        literal = _python_of_literal(node)
+        literal = python_of_literal(node)
         if literal is not None:
             return literal
         for kinds, write in self._writers():
@@ -995,7 +995,7 @@ class _Converter:
                 and not inner.args.get("default") and not inner.this):
             branch = inner.args["ifs"][0]
             where = self.condition_or_unchecked(branch.this, scope)
-            if isinstance(node, exp.Sum) and _python_of_literal(branch.args["true"]) == "1":
+            if isinstance(node, exp.Sum) and python_of_literal(branch.args["true"]) == "1":
                 return self.count_where(node, where)
             name = self.use(_AGGREGATES[type(node)])
             return (f"{name}({self.column_or_unchecked(branch.args['true'], scope)}, "
@@ -1026,8 +1026,8 @@ class _Converter:
                   if node.this is not None else branch.this, branch.args["true"])
                  for branch in branches]
         looked_up = [compared for compared, then in keyed
-                     if isinstance(compared, exp.EQ) and _python_of_literal(compared.expression)
-                     and _python_of_literal(then)]
+                     if isinstance(compared, exp.EQ) and python_of_literal(compared.expression)
+                     and python_of_literal(then)]
         if (len(looked_up) == len(keyed) and (node.this is not None or len(keyed) > 1)
                 and len({sql_text(compared.this) for compared in looked_up}) == 1):
             return self.mapped(keyed, otherwise, node, scope)
@@ -1048,7 +1048,7 @@ class _Converter:
         """A CASE comparing one column with plain values, each giving a plain value:
         mapped(column, A_NAMED_DICT)."""
         column = keyed[0][0].this
-        pairs = [f"{_python_of_literal(compared.expression)}: {_python_of_literal(then)}"
+        pairs = [f"{python_of_literal(compared.expression)}: {python_of_literal(then)}"
                  for compared, then in keyed]
         looked_up = self.value(column, scope)
         named = node.parent.alias if isinstance(node.parent, exp.Alias) else ""
@@ -1247,7 +1247,7 @@ class _Converter:
         if node.args.get("query"):
             raise Unconvertible("no condition function writes IN (SELECT ...): SEMI_JOIN(...) "
                                 "writes it as a join")
-        values = [_python_of_literal(one) for one in node.expressions]
+        values = [python_of_literal(one) for one in node.expressions]
         if None in values:
             raise Unconvertible("is_in(...) takes a list of plain values only")
         listed = _python_list(values)
@@ -1442,7 +1442,7 @@ def _rows_typed_in(query: exp.Expression) -> list[tuple[str, ...]] | None:
         return None if first is None or rest is None else first + rest
     if not isinstance(query, exp.Select) or query.args.get("from_"):
         return None
-    values = tuple(_compared_as_hive(_python_of_literal(item.unalias()))
+    values = tuple(_compared_as_hive(python_of_literal(item.unalias()))
                    for item in query.expressions)
     return None if None in values else [values]
 
@@ -1595,7 +1595,7 @@ def _partition_given(name: str, value: exp.Expression) -> str:
     else. Refused for anything else."""
     if isinstance(value, exp.Column) and tag_name(value.name) is not None:
         return f"script_tag(TAGS[{python_literal(tag_name(value.name))}])"
-    python = _python_of_literal(value)
+    python = python_of_literal(value)
     if python is None:
         raise ConversionRefused(f"its PARTITION gives {name} the value {sql_text(value)}, not "
                                 "a plain one")
@@ -1945,25 +1945,28 @@ def _without_comments(text: str) -> str:
 
 
 def batch_statements(scripts: list[tuple[str, str]], database: str,
-                     query_table: str | None = None) -> list[BatchStatement]:
+                     query_table: str | None = None,
+                     named_for_files: bool = False) -> list[BatchStatement]:
     """Each statement of each script, `scripts` as (its name, its text), in the order given:
     what it is, what it writes and what it reads. A table named without its database is in
     `database`. A query alone, the only statement but SET lines, writes `query_table`; of
-    several scripts, a script that holds one query alone, but SET lines, writes the table
-    named for the script, <database>.<its file's name>; a query among other statements writes
-    nothing, and is listed as Hive."""
+    several scripts, or of one with `named_for_files`, as a workbook's finals are, a script
+    that holds one query alone, but SET lines, writes the table named for the script,
+    <database>.<its file's name>; a query among other statements writes nothing, and is
+    listed as Hive."""
     statements = []
     for script, text in scripts:
         for line, piece in split_statements(text):
             statements += _read_statements(script, line, piece, database)
     queries = [each for each in statements if each.kind == QUERY]
     rest = [each for each in statements if each.kind not in (SETTING, QUERY)]
-    alone = len(queries) == 1 and not rest and query_table is not None
+    alone = (len(queries) == 1 and not rest and query_table is not None
+             and not named_for_files)
     for each in queries:
         each.table = None
         if alone:
             each.table = query_table
-        elif len(scripts) > 1:
+        elif len(scripts) > 1 or named_for_files:
             each.table = _script_query_table(each, statements, database)
         if each.table is None:
             each.kind = OTHER

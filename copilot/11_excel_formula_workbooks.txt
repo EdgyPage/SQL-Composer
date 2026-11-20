@@ -1,11 +1,12 @@
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.9)
 
-**Use this file as reference while you follow file 15's steps: find each formula of an
-attached workbook in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each formula in
+Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
+file 15 (the steps, the map and the reply), 12 (Power Query), 23 (totals) and, for a
+PivotTable, 20.
 
 ## Patterns: when the formula has X, look up Y
 
@@ -22,7 +23,7 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 ## Terms
 
-- **Formula column**: a column whose cells hold a formula, `=[@duration_mins]/60`.
+- **Formula column**: a column of formulas, `=[@duration_mins]/60`.
 - `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
   row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map.
@@ -66,10 +67,11 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   table won't follow. A summary's groups, written in (file 15): said in the map too.
 - **F9** SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN
   v END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
-  FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
-  nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
-  AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]):
-  the -IFS form, one match.
+  FROM t WHERE s = 'x' GROUP BY a)`; several grouped on t's a: one join, each `SUM(CASE WHEN
+  s = 'x' THEN v END)`, as Hive reads t again for each join. Either way COALESCE(.., 0), as
+  Excel gives 0 where nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each
+  with COALESCE too; AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]),
+  COUNTIF(t[a], [@a]): the -IFS form, one match.
 - **F10** RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third
   argument, ASC.
 
@@ -77,7 +79,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 - **I1** "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS
   NULL)`, as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against
-  this row's d.
+  this row's typed d (and a typed t[d] over its own Table); refused where rows repeat or hold
+  a blank on their Keys (V1, V2).
 - **I2** Every condition of one -IFS form holds at once: join them with AND, two on one
   column too (">10" and "<=30": `v > 10 AND v <= 30`). Two -IFS forms added that differ in
   one value only: one form, `s IN ('x', 'y')`.
@@ -120,14 +123,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
   reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
   row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
-  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
+  files 11 and 12 don't list. Left alone, named: charts, cells outside a Table.
 
 ## Worked patterns
 
 ### W1: a formula column typed over in one row
 
 Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
-as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
+as 9 where run_id is 103; Keys: job_runs, run_id. Map: Sources job_runs. Finals job_runs
 (run_id, job_id, duration_mins, hours). Typed over: hours where run_id is 103.
 
 ```sql

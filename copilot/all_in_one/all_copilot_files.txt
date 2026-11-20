@@ -4,12 +4,12 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.8: start here
+# Copilot files for sqlglot Composer 8.9: start here
 
 **Find the words you would type in the Index, load the file it names into a new chat, then
 follow the steps below in order.**
 
-sqlglot Composer 8.8 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
+sqlglot Composer 8.9 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
 Clause functions, such as SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses
 one that would give a wrong number or read too much. These files teach Microsoft Copilot to
 write that Python, so you can ask it in plain words.
@@ -35,6 +35,11 @@ write that Python, so you can ask it in plain words.
 | P15 | "a notebook my scheduler runs", "papermill", "parameters" | 18 |
 | P16 | "a new metric", "what should this column count?" | 19 |
 | P17 | an Excel workbook attached, "its formulas", "Power Query" | 15, 11, 12 |
+| P18 | a workbook with a PivotTable | 15, 11, 12, 20 |
+| P19 | a table made from a PivotTable, "add % of total" | 21, 03, 05, 06 |
+| P20 | its Pivot filter, "how many tables?" | 22, 06, 17 |
+| P21 | a workbook with a Total Row or "SUM(t[v])" | 15, 11, 12, 23 |
+| P22 | a PivotTable with a slicer, Filter or Top 10 | 15, 11, 12, 20, 24 |
 
 ## Rules: when two lines seem to fit
 
@@ -49,8 +54,9 @@ write that Python, so you can ask it in plain words.
   Scheduled run's own value of it: 18.
 - **R5** Your chatbot's Hive (file 19's end): as Toolbox code, 07; as a Saved table, saved
   as a .hql file, 14.
-- **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
-  its own), then the workbook: a chat holds one file at a time, but for this one task.
+- **R6** A workbook is the one task with several files in a chat: attach files 15, 11 and
+  12; 23 if it has a total; 20 if a PivotTable, 24 if one is filtered (or paste each as a
+  message), then the workbook.
 - **R7** Two tasks: a new chat for each, with each task's file.
 - **R8** One file each: a request that ends "and run it with my query", or reads "using my
   Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
@@ -73,7 +79,7 @@ write that Python, so you can ask it in plain words.
 ## Steps
 
 1. **Choose.** Find your words in the Index, and the Rules where two lines fit. Done when
-   you have one file, or three for a workbook. Then step 2.
+   you have each file its row names. Then step 2.
 2. **Load.** Open a new chat in Copilot; paste the file as your first message and send it,
    or attach it if a paste is cut short. Then step 3.
 3. **Ask.** Name each table to read: paste its Table reference, or say its import line and
@@ -107,43 +113,43 @@ write that Python, so you can ask it in plain words.
 - `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
   Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
 - `11_excel_formula_workbooks.txt`: each formula of a Formula workbook, an Excel workbook
-  laid out as `formula_workbook.xlsx` shows, as Hive; loaded with files 15 and 12.
-- `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
-  Rows as Hive; loaded with files 15 and 11.
-- `13_workflows.txt`: converting Hive into Saved tables in dev, a whole job step by step,
-  from the convert Workflow's notebook in admin/workflows/.
+  laid out as `formula_workbook.xlsx` shows, as Hive.
+- `12_excel_power_query.txt`: the same workbook's Power Query as Hive.
+- `13_workflows.txt`: converting Hive into Saved tables in dev, step by step.
 - `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
-  Table references, an upgrade, a change to a Saved table, each a whole job step by step.
-- `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: which
-  Tables and queries become which queries, and the reply; loaded with files 11 and 12.
-- `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
-  the promote Workflow's notebook.
-- `17_run_values_and_seed_limits.txt`: a Run value, the value a function of yours works out
-  each time a table is written, such as a Script tag's day, or a Hivevar; answers for every
-  table of a Workflow notebook; and seed limits, the Partitions a seed copies.
-- `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
-  papermill runs top to bottom: its parameters, the Statements it runs, from a
-  `project.describe_logic([...])` paste, and its Build cell.
-- `19_metric_request.txt`: a new metric, defined a question at a time from your column
-  definitions: one column or two, each quantity, the rows, the days, what is left out, and
-  any data missing; it ends with a Metric request, text for your chatbot, not code or sums.
+  Table references, an upgrade, a change to a Saved table, each step by step.
+- `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: each
+  piece's role, and the reply.
+- `16_workflows_promote.txt`: promoting dev tables to prod, step by step.
+- `17_run_values_and_seed_limits.txt`: a Run value, such as a Script tag's day, or a
+  Hivevar; answers for every table; seed limits.
+- `18_scheduled_runs.txt`: a Scheduled run, a notebook your scheduler (papermill) runs:
+  its parameters, Statements and Build cell.
+- `19_metric_request.txt`: a new metric, a question at a time from your column
+  definitions, ending in a Metric request for your chatbot, not code.
+- `20_excel_pivot_tables.txt`: the same workbook's PivotTables as Hive.
+- `21_growing_a_converted_pivot.txt`: add to a table made from a PivotTable: a share, a
+  rank, a month, the wide shape, totals.
+- `22_pivot_filters_at_scale.txt`: its Pivot filters, each answer's table count; one table
+  of two pivots.
+- `23_excel_totals.txt`: its Total Rows and whole-column totals as Hive.
+- `24_excel_pivot_filters.txt`: its PivotTables' Pivot filters as Hive.
 
 ## Fitting Copilot
 
-- Each file is at most 9,000 characters, so it goes to Copilot in one message. Count an
-  edited copy from the download's top folder: `python copilot/count_characters.py my_copy.txt`.
+- Each file is at most 9,000 characters, one message to Copilot. Count an edited copy
+  from the download's top folder: `python copilot/count_characters.py my_copy.txt`.
 
 ## Self-check
 
-- [ ] **C1** The chat is new, and its first message is the file the Index names (for a
-  workbook, files 15, 11 and 12).
+- [ ] **C1** The chat is new, and its first messages are the files the Index row names.
 - [ ] **C2** Your question names each table to read; for file 19, your column definitions
   and the metric.
 - [ ] **C3** For a refusal, the new chat holds file 09, your code and the whole message.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.8)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -171,7 +177,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.8, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.9, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -201,7 +207,7 @@ something and see its rows.
   then `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`.
 - **R8** A Windows path is typed with forward slashes, `"C:/work/my_project"`.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -231,6 +237,9 @@ something and see its rows.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -322,7 +331,7 @@ rows = run_query(s, query)
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.8)
+# Copilot file 02: Table references (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -351,7 +360,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.8, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.9, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -388,7 +397,7 @@ table, or asks about a table's columns, partitions or Key.
   marked `# proposed` is a guess the user accepts or changes; if they doubt a Key,
   `check_key` on one Partition first (W2).
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -418,6 +427,9 @@ table, or asks about a table's columns, partitions or Key.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -483,7 +495,7 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.8)
+# Copilot file 03: building a Statement (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -540,7 +552,7 @@ tables.
 - **R9** `d = derived("d", statement(...))`, then `FROM(d)` and `d.runs`; no LIMIT inside
   it. One used in several notebooks is a function in building_blocks/<name>.py.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -570,6 +582,8 @@ tables.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining.
 
 ## Names for this objective, with their arguments
 
@@ -636,7 +650,7 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, der
 from references.ops__job_events import job_events
 
 ends = derived("ends", statement(
-    SELECT(job_events.job_id, job_events.event_type),
+    SELECT(job_events.event_type),
     FROM(job_events),
     WHERE(equals(job_events.dt, "2026-09-24"), is_in(job_events.event_type, ["finish", "fail"])),
 ))
@@ -669,7 +683,7 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.8)
+# Copilot file 04: joins (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -725,7 +739,7 @@ match in another table, or a count of matches.
 - **R7** Join on the joined table's whole Key; on less, one row can match many and counts
   come out too big: join a Derived table of one row per value (W3). Opt-outs only if asked.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -755,6 +769,9 @@ match in another table, or a count of matches.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -846,7 +863,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.8)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -900,7 +917,7 @@ row before or after, a running total, subtotals, or Statements stacked.
 - **R7** `UNION_ALL(s1, s2)` gives the rows of both, each Statement with the same columns in
   the same order, each bounded; `UNION` drops repeats; `INTERSECT`, `EXCEPT` as in SQL.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -930,6 +947,7 @@ row before or after, a running total, subtotals, or Statements stacked.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only columns read.
 
 ## Names for this objective, with their arguments
 
@@ -1027,7 +1045,7 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.8)
+# Copilot file 06: saving a table (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1089,7 +1107,7 @@ it, add to it, or write the logic cell of a Table notebook.
 - **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
   `export_hive()` cell writes <db>__<table>.hql beside it, to read.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1119,6 +1137,9 @@ it, add to it, or write the logic cell of a Table notebook.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1206,7 +1227,7 @@ One ```python block the user can paste into a notebook cell, then a few plain se
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.8)
+# Copilot file 07: converting Hive (sqlglot Composer 8.9)
 
 **Find each Hive part in Patterns, write the code it names, then tick the Self-check. Add
 nothing the Hive doesn't hold.**
@@ -1266,7 +1287,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1296,6 +1317,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1365,7 +1389,7 @@ One ```python block building the Statement `s`, then a line naming each part kep
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.8)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1425,7 +1449,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   lineage cell; it writes <db>__<table>.hql beside it, to read, never to edit. One
   Statement's: `export_hive(weekly)` writes weekly.hql, one call per variable.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1455,6 +1479,9 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1529,7 +1556,7 @@ on what the Verdict means when it holds and when it doesn't.
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.8)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.9)
 
 **Find the message's What happened in Patterns, write the fix its rule gives, then tick the
 Self-check. Keep the user's columns, tables and days; add nothing else.**
@@ -1602,7 +1629,7 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 - **R17** `send=` went in 7.0: `run_query(s, query)` reads, `run_execute(s, execute)`
   writes.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1632,6 +1659,9 @@ GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1676,7 +1706,7 @@ s = statement(
 1. **Find.** Match the message's What happened to a Patterns row. Then step 2.
 2. **Fix.** Write the rule's fix, keeping the user's columns, tables, days and names. Then
    step 3.
-3. **Read again.** Read the code against rules A1 to A10; fix each other refusal it would
+3. **Read again.** Read the code against rules A1 to A11; fix each other refusal it would
    meet. Then step 4.
 4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
@@ -1686,7 +1716,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ## Self-check
 
-- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A10.
+- [ ] **C1** The fix is the rule's, and the code passes each of A1 to A11.
 - [ ] **C2** The user's columns, tables, days and order are kept.
 - [ ] **C3** An opt-out appears only where the user asked for it.
 - [ ] **C4** Names the user's own code defines, such as `write()`, are kept.
@@ -1694,7 +1724,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.8)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1754,7 +1784,7 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   Show each first with `show_hive(change)`; file 14's change_a_saved_table Workflow takes
   one through as a whole job.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -1784,6 +1814,9 @@ datediff, Hive no Toolbox function writes, or dropping, repairing or counting a 
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 
@@ -1859,14 +1892,15 @@ naming each hand-written piece.
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.9)
 
-**Use this file as reference while you follow file 15's steps: find each formula of an
-attached workbook in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each formula in
+Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
+file 15 (the steps, the map and the reply), 12 (Power Query), 23 (totals) and, for a
+PivotTable, 20.
 
 ## Patterns: when the formula has X, look up Y
 
@@ -1883,7 +1917,7 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 ## Terms
 
-- **Formula column**: a column whose cells hold a formula, `=[@duration_mins]/60`.
+- **Formula column**: a column of formulas, `=[@duration_mins]/60`.
 - `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
   row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map.
@@ -1927,10 +1961,11 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   table won't follow. A summary's groups, written in (file 15): said in the map too.
 - **F9** SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN
   v END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
-  FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
-  nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
-  AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]):
-  the -IFS form, one match.
+  FROM t WHERE s = 'x' GROUP BY a)`; several grouped on t's a: one join, each `SUM(CASE WHEN
+  s = 'x' THEN v END)`, as Hive reads t again for each join. Either way COALESCE(.., 0), as
+  Excel gives 0 where nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each
+  with COALESCE too; AVERAGEIFS: AVG, left NULL. SUMIF and AVERAGEIF(t[a], [@a], t[v]),
+  COUNTIF(t[a], [@a]): the -IFS form, one match.
 - **F10** RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third
   argument, ASC.
 
@@ -1938,7 +1973,8 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 - **I1** "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS
   NULL)`, as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against
-  this row's d.
+  this row's typed d (and a typed t[d] over its own Table); refused where rows repeat or hold
+  a blank on their Keys (V1, V2).
 - **I2** Every condition of one -IFS form holds at once: join them with AND, two on one
   column too (">10" and "<=30": `v > 10 AND v <= 30`). Two -IFS forms added that differ in
   one value only: one form, `s IN ('x', 'y')`.
@@ -1981,14 +2017,14 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   name, by its address, such as C2; a LAMBDA, or a defined name holding a formula; a formula
   reading its own column, named "circular"; ROW(), the row before, anything on the sheet's
   row order; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS; any formula
-  files 11 and 12 don't list. Left alone, named: charts, PivotTables, cells outside a Table.
+  files 11 and 12 don't list. Left alone, named: charts, cells outside a Table.
 
 ## Worked patterns
 
 ### W1: a formula column typed over in one row
 
 Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
-as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
+as 9 where run_id is 103; Keys: job_runs, run_id. Map: Sources job_runs. Finals job_runs
 (run_id, job_id, duration_mins, hours). Typed over: hours where run_id is 103.
 
 ```sql
@@ -2007,15 +2043,15 @@ FROM <database>.job_runs
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.8)
+# Copilot file 12: Power Query into Hive (sqlglot Composer 8.9)
 
-**Use this file as reference while you follow file 15's steps: find each Power Query step,
-whole-column total and Total Row in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each Power Query step
+in Patterns, then write the Hive its rule gives.**
 
-Objective: write each Power Query, each whole-column total and each Total Row of an Excel
-workbook as the Hive that gives the same rows.
+Objective: write each Power Query of an Excel workbook as the Hive that gives the same rows.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
+file 15 (the steps, the map and the reply), file 11 (formulas), for a total file 23, and for
+a PivotTable file 20.
 
 ## Patterns: when the workbook has X, look up Y
 
@@ -2026,19 +2062,16 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 | P3 | Select, Remove, Rename, Reorder, AddColumn, ReplaceValue | Q5, Q6 |
 | P4 | Text., Number., Date. functions | Q7 |
 | P5 | Table.Group, NestedJoin, Combine, Distinct, Unpivot | G1 to G5 |
-| P6 | SUM(t[v]) in a formula column; a Total Row | T1 to T4 |
+| P6 | SUM(t[v]) in a formula column; a Total Row | file 23 |
 | P7 | Table.Sort, FirstN, AddIndexColumn | S1 to S3 |
 | P8 | Sql.Database, Table.Pivot; Web.Contents, FillDown | M1, M2; X1 |
 
 ## Terms
 
-- **M**: Power Query's language. A query is a `let` of named steps, each reading the one
-  before; `in` names the step it gives. Read the steps in order.
-- **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
-  SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
-  Total Row, never a row of data.
-- A query step no rule here lists is refused: NULL for each column it makes, or the query
-  left out, named with why.
+- **M**: Power Query's language: a `let` of named steps, each reading the one before; `in`
+  names the one it gives.
+- A step no rule here lists is refused: NULL in each column it makes, or the query left out,
+  named with why.
 
 ## Rules: reading a table and its rows
 
@@ -2047,8 +2080,9 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   (...)`, after each CTE q reads: a query, then the Table it loads, then a formula column
   reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
 - **Q2** Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's
-  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
-  `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
+  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`; two columns:
+  `(a <> b OR (a IS NULL) <> (b IS NULL))`. `=` between two columns: `(a = b OR (a IS NULL
+  AND b IS NULL))`. `[c] = null`: `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
 - **Q3** Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`,
   `'%x'`, case kept, as M keeps it. `not`: NOT.
 - **Q4** List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k
@@ -2084,30 +2118,19 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **G3** A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
   `INTERSECT`, LeftAnti is `EXCEPT`. Table.AddColumn(t, "u", each u), expanded: `CROSS JOIN
   u`.
-- **G4** Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone:
-  SELECT DISTINCT.
+- **G4** Table.Combine: UNION ALL, columns matched by name, NULL where missing; inside
+  Table.Distinct, UNION. Table.Distinct alone: SELECT DISTINCT.
 - **G5** Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT
-  per column, stacked with UNION ALL, `'a' AS measure, a AS amount`, each `WHERE a IS NOT
-  NULL`, as M drops a null there.
-
-## Rules: a whole column, and the Total Row
-
-- **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
-  and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
-  t[b]): `SUM(a * b) OVER ()`.
-- **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
-  cell holding a total, in the Table's order, none for an empty cell or a label such as
-  "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM, 101 AVG,
-  102 or 103 COUNT, 104 MAX, 105 MIN.
-- **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
-- **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
+  per column, stacked with UNION ALL, `'a' AS measure, a AS amount` after the kept columns,
+  each `WHERE a IS NOT NULL`, as M drops a null there.
 
 ## Rules: sorting
 
 - **S1** Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone:
   LIMIT.
 - **S2** Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY
-  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
+  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys. From s by k:
+  `(ROW_NUMBER() OVER (..) - 1) * k + s`; none given, 0.
 - **S3** A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
   order; mark "order dropped".
 
@@ -2118,48 +2141,31 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - **M2** Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value
   in the sample, THEN 1 to count, THEN v to add up v, NULL where none; mark "pivot": its
   columns are now fixed.
-- **X1** Refused, and named: Web.Contents or any web source (that query left out);
-  Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp; Table.Distinct with
-  a column list; List.Median.
+- **X1** Refused, and named: Web.Contents or any web source (that query left out); a native
+  `[Query=..]`; Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp;
+  Table.Distinct with a column list; List.Median.
 
 ## Worked patterns
 
-### W1: a query filtering, grouping, keeping groups over one
+### W1: a query to filter, group, keep groups over one
 
-Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads busy_jobs:
 
     let
-        Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
-        Ok = Table.SelectRows(Source, each [status] <> null
-            and Text.StartsWith([status], "SUCC")),
-        Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_), Int64.Type}}),
-        Busy = Table.SelectRows(Grouped, each [runs] > 1)
+      Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
+      Ok = Table.SelectRows(Source, each [status] <> null
+        and Text.StartsWith([status], "SUCC")),
+      Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_)}}),
+      Busy = Table.SelectRows(Grouped, each [runs] > 1)
     in
-        Busy
+      Busy
 
 Map: Sources job_runs. Finals busy_jobs (job_id, runs).
 
 ```sql
-SELECT job_id, COUNT(*) AS runs
-FROM <database>.job_runs
+SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs
 WHERE status IS NOT NULL AND status LIKE 'SUCC%'
-GROUP BY job_id
-HAVING COUNT(*) > 1
-```
-
-### W2: a summary's Total Row, reading its final as a CTE
-
-Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
-summing runs; its typed job_ids, 1 and 2, are written in (file 15):
-
-```sql
-WITH by_job AS (
-  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
-  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
-  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
-    ON j.job_id = c.job_id
-)
-SELECT SUM(runs) AS runs FROM by_job
+GROUP BY job_id HAVING COUNT(*) > 1
 ```
 
 ## Self-check
@@ -2169,17 +2175,16 @@ SELECT SUM(runs) AS runs FROM by_job
   has: "Sql.Database", "pivot", "order dropped".
 - [ ] **C3** A query named in another query's M is a CTE, never `<database>.<query>`.
 - [ ] **C4** A query and the Table it loads, even of one name, each have a role.
-- [ ] **C5** Each Total Row is its own final; its Table's final holds only its rows.
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.8)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database
-with sqlglot Composer 8.8, each step a cell of the convert Workflow's notebook, in order.
+with sqlglot Composer 8.9, each step a cell of the convert Workflow's notebook, in order.
 Load this file when the user asks to turn Hive into tables. File 16 promotes to prod; file
 14 covers new tables, Table references, upgrades and changes to a Saved table.
 
@@ -2348,12 +2353,12 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.8)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through a job on their own Project with sqlglot Composer 8.8, each step a
+Objective: take the user through a job on their own Project with sqlglot Composer 8.9, each step a
 cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
 change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
@@ -2549,59 +2554,73 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 ===== 15_excel_workbook_steps.txt =====
 
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.8)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.9)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
-each final's Hive by files 11 and 12, then tick the Self-check. Reply as Output says.**
+each final's Hive by files 11, 12, 20, 23 and 24, then tick the Self-check. Reply as Output says.**
 
 Objective: turn the calculations of an Excel workbook the user attaches, or the text
-`workbook_text.py` writes of it, into one Hive query per final, for the user's convert
-Workflow to check and make Toolbox code of.
+`workbook_text.py` writes of it, into one Hive query per final, for the convert Workflow.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and Total Rows).
+file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTable, 20 and 24.
 
 ## Patterns: when the workbook has X, its role is Y
 
 | ID | The workbook has | Role |
 |---|---|---|
 | P1 | a Table of typed columns only, no query loading it | source, never a final |
-| P2 | a Table with a formula column that another Table or a query reads | step, a CTE |
+| P2 | a Table with a formula column that another Table, a query or a PivotTable reads | step, a CTE |
 | P3 | a Table with a formula column nothing else reads | final |
 | P4 | a Table whose only typed columns are its -IFS match columns | summary final (R1) |
 | P5 | a query named in another query's M | step, a CTE in each final reading it |
-| P6 | a query loading a Table another Table's formula reads | that Table a step |
+| P6 | a query loading a Table a PivotTable or another Table's formula reads | that Table a step |
 | P7 | a query loading a Table nothing reads | that Table a final, its rows the query's |
 | P8 | a query that loads nothing and nothing reads | left out, and named |
 | P9 | a Table with a Total Row | also a final, `<Table> (Total Row)` (R2) |
 | P10 | Parameters, Keys | settings: never a source, step or final |
-| P11 | pieces reading each other in a loop | each final in it refused, named |
+| P11 | pieces reading each other in a loop | the workbook refused, each link named |
+| P12 | a PivotTable a Table's GETPIVOTDATA reads | step, a CTE (file 20) |
+| P13 | any other PivotTable | final, its totals left out (file 20) |
 
 ## Terms
 
-- **Table**: an Excel Table; the workbook shows each as `Excel Table "name"`, its headers and
-  rows, and any Total Row.
+- **Table**: an Excel Table, shown as `Excel Table "name"`, its headers, rows and any Total
+  Row.
 - **Typed column**: a column whose cells hold values; a **formula column** holds formulas.
 - **Query**: a Power Query, listed after the sheets as `Power Query "name"`, its M below. A
-  query and the Table it loads are two pieces, even with one name. A query's name inside
-  another query's M, as in `Table.Sort(owner_load, ...)`, is that query.
+  query and the Table it loads are two pieces, even with one name. A query's name in
+  another query's M, as `Table.Sort(owner_load, ...)`, is that query.
 - **Sample**: a Table's typed rows are a sample of a database table of the Table's name,
   which holds more rows: read the table, never the sample.
 - **Source**: a database table a final reads, `<database>.<table>`. **Step**: a Table or
-  query a final reads, as a CTE. **Final**: a Table that gets a query of its own.
+  query a final reads, as a CTE. **Final**: a Table or PivotTable given a query of its own.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map (file 11).
 - **Parameters**, **Keys**: the workbook's two settings Tables, read by step 5.
 
 ## Rules
 
 - **R1** A summary is a Table whose only typed columns are the ones its SUMIFS, COUNTIFS,
-  AVERAGEIFS, MAXIFS or MINIFS match on. Its final is a GROUP BY of the Table it reads, its
-  typed rows kept, written into the Hive and named in the map, since a later day or team
-  won't be in the table; it keeps the summary Table's own name.
+  AVERAGEIFS, MAXIFS, MINIFS or GETPIVOTDATA match on. Its final is a GROUP BY of the Table it reads, its typed rows kept,
+  written into the Hive and named in the map, since a later day or team won't be in the
+  table; it keeps the summary Table's own name.
 - **R2** A Total Row's final has a column for each Total Row cell holding a total, no other.
-- **R3** A Table with a formula column and no query loading it is a step if another Table's
-  formula or a query reads it, else a final; its own formula columns reading its own row
-  don't count. A query loading a Table: the Table is a step if another Table's formula reads
+- **R3** A Table with a formula column and no query loading it is a step if any other piece
+  reads it (a Table, query or PivotTable), else a final; its own formula columns reading its
+  own row don't count. A query loading a Table: the Table is a step if any other piece reads
   it, else a final, its rows the query's.
+
+## Rules: Hive that stays small
+
+- **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
+  with totals read over 3 times). Forms grouped alike share one join (file 11's F9); a lookup
+  needs its own.
+- **H2** A CTE selects only the columns read after it, never `*`: a short CTE is quicker to
+  check.
+- **H3** Each WHERE goes in the SELECT that reads its source, before any join.
+- **H4** For reading: rename or add columns in the SELECT that reads a step, never in a CTE
+  that only copies it.
+- **H5** No ORDER BY without LIMIT in a CTE or subquery: Hive drops it. Fix a join that
+  repeats rows in its ON, never with a DISTINCT after it.
 
 ## Steps
 
@@ -2610,8 +2629,8 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
    sheets, with what each reads: its line under `Order, each piece after every piece it
    reads:`, or else each Table and query its M or formulas name. Done when every piece is
    listed with what it reads. Then step 2.
-2. **Decide each role.** Action: give each Table and each query its role from Patterns, one
-   row per piece, a query apart from its Table. Done when each piece has a role. Then step 3.
+2. **Decide each role.** Action: give each piece its role from Patterns, one row per piece,
+   a query apart from its Table. Done when each piece has a role. Then step 3.
 3. **Write the map.** Action: write the Output's map from steps 1 and 2. Done when it names
    each piece. Then step 4.
 4. **Write each final's reads.** Action: start each final's query: each source as
@@ -2620,7 +2639,7 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
    `<database>.<table>`, never typed in**; only a summary's groups are written into the
    Hive. Then step 5.
 5. **Write each final's columns.** Action: the columns in the Table's order, each formula by
-   file 11, each query step and total by file 12, each calculated one named with AS; a
+   file 11, each query step by file 12, total by 23, pivot by 20, each named with AS; a
    Parameters value read in as its value; a value typed over a formula matched on its Keys
    row's columns. Done when each final's block is whole. Then step 6.
 6. **Name what changed.** Action: list each mark, each refusal (NULL in its place, with
@@ -2636,16 +2655,15 @@ Reply with these parts, in this order, and nothing else:
    each `<...>` to fill in.
 2. **Hive**: a heading and one ```sql block per final, Total Rows included, nothing between.
 3. **Next**: "Take out what you don't want, fill in each `<...>`, save each query as a .hql
-   file named for its final, and run the convert Workflow on them as one batch (file 13). It
-   writes and checks the Toolbox code."
+   file named for its final, and run the convert Workflow on them as one batch (file 13)."
 
 ## Worked patterns
 
 ### W1: a lookup into a typed Table
 
 Table jobs (job_id, job_name), typed. Table job_runs (run_id, job_id, duration_mins) adds
-job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs (its
-typed columns). Finals job_runs (run_id, job_id, duration_mins, job_name).
+job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs. Finals
+job_runs.
 
 ```sql
 SELECT r.run_id, r.job_id, r.duration_mins, j.job_name
@@ -2657,7 +2675,7 @@ LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
 
 Query ok_runs keeps job_runs' SUCCESS rows and loads Table ok_runs; query ok_by_job reads
 query ok_runs and loads Table ok_by_job. Map: Sources job_runs. Steps query ok_runs. Finals
-Table ok_runs and Table ok_by_job: no formula reads either Table. A block each:
+Tables ok_runs and ok_by_job, which no formula reads.
 
 ```sql
 SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
@@ -2665,7 +2683,7 @@ SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SU
 
 ```sql
 WITH ok_runs AS (
-  SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+  SELECT job_id FROM <database>.job_runs WHERE status = 'SUCCESS'
 )
 SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 ```
@@ -2674,7 +2692,7 @@ SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
 summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
-file 12's W2. Values written in: by_job's groups, job_ids 1 and 2:
+file 23's W1. Values written in: by_job's groups, job_ids 1 and 2:
 
 ```sql
 SELECT j.job_id, COALESCE(c.runs, 0) AS runs
@@ -2685,7 +2703,7 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 
 ## Self-check
 
-- [ ] **C1** Each `Excel Table` and `Power Query` the workbook lists has a role in the map.
+- [ ] **C1** Each `Excel Table`, `Power Query` and `PivotTable` listed has a role in the map.
 - [ ] **C2** Each final, Total Rows included, has its own ```sql block; no step alone.
 - [ ] **C3** Each final's columns are its Table's, in order; a refused one is `NULL AS` its
   header.
@@ -2696,16 +2714,17 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - [ ] **C7** Each step a final reads is a CTE in its block, after each CTE it reads.
 - [ ] **C8** Each value typed over a formula is in a CASE, matched on its Keys row.
 - [ ] **C9** Each mark, refusal, thing left alone and `<...>` is named in the map.
+- [ ] **C10** Each CTE is read once in its block, its columns each read after it (H1, H2).
 
 ===== 16_workflows_promote.txt =====
 
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.8)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database with sqlglot Composer 8.8, each step a cell of the promote Workflow's notebook, in order.
+Database with sqlglot Composer 8.9, each step a cell of the promote Workflow's notebook, in order.
 Load this file when the user asks how to carry dev tables to prod. File 13 converts Hive into
 dev first; file 14 covers new tables, Table references, upgrades and changes to a Saved
 table.
@@ -2854,7 +2873,7 @@ project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 ===== 17_run_values_and_seed_limits.txt =====
 
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.8)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Answer only what the user gives; add no cell they didn't ask for.**
@@ -3023,7 +3042,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 ===== 18_scheduled_runs.txt =====
 
-# Copilot file 18: Scheduled runs (sqlglot Composer 8.8)
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Call only the logic functions the paste lists.**
@@ -3207,7 +3226,7 @@ def statements() -> dict[str, Statement]:
 
 ===== 19_metric_request.txt =====
 
-# Copilot file 19: Metric request (sqlglot Composer 8.8)
+# Copilot file 19: Metric request (sqlglot Composer 8.9)
 
 **Look each case up by its rule id and do what it says. Reply as Output says.**
 
@@ -3361,3 +3380,599 @@ A finished request, from a user's definitions of `ops.orders`:
 - S8. No number worked out; part 8 is in words (N1).
 - S9. Each gap has "Missing data:" and "Fix:" in part 9, with nothing in its place unasked.
 - S10. The user's choices stand; no SQL; the closing line follows.
+
+===== 20_excel_pivot_tables.txt =====
+
+# Copilot file 20: PivotTables into Hive (sqlglot Composer 8.9)
+
+**Use this file as reference while you follow file 15's steps: find each PivotTable part
+in Patterns, then write the Hive its rule gives.**
+
+Objective: write each PivotTable of an Excel workbook as the Hive giving the values it shows.
+Load this file when the workbook attached has a `PivotTable "name"`, with file 15 (the steps,
+the map and the reply), file 11 (formulas), file 12 (Power Query), for a total file 23, and
+for a Pivot filter file 24.
+
+## Patterns: when the PivotTable has X, look up Y
+
+| ID | The PivotTable has | Rules |
+|---|---|---|
+| P1 | Source, its name | PS1 to PS4, PN1, PN2 |
+| P2 | Rows, Columns, a grouping | PR1 to PR5 |
+| P3 | a Value, Show Values As, a Calculated Field | PV1 to PV7 |
+| P4 | a Calculated Item | PC1, PC2 |
+| P5 | Totals shown | PL1, PL2 |
+| P6 | Filter, Items hidden, Slicer, Timeline, Value Filter | file 24 |
+| P7 | GETPIVOTDATA in a Table's formula | PG1, PG2 |
+| P8 | DAX, OLAP, Show items with no data | PX1 to PX7 |
+
+## Terms
+
+- **Total**: each grand total or subtotal `Totals shown:` lists. **Calculated Field**: a
+  Value worked out from fields; **Calculated Item**: an item worked out from a field's items.
+  **Show Values As**: a Value shown against others, its **base field** (and item) what it is
+  shown against.
+- **Pivot filter**: a Report filter, hidden items, a slicer, a Timeline or a value filter
+  (file 24). **A Decision in convert**: a question convert's notebook asks you.
+
+## Rules: source, name and rows
+
+- **PS1** A Table: FROM `<database>.<table>` or its step's CTE (file 15); never its cells typed
+  in, never a CTE named for the table it reads. A source with no Hive: refused.
+- **PS2** A Table a query loads: that query's Hive as a CTE named for the query, a step
+  (file 15's P6), never FROM the Table's name.
+- **PS3** A plain range: its sheet in snake case, as `<database>.runs`; which table it samples
+  is a Decision in convert.
+- **PS4** A Data Model pivot of one table: FROM what loads it; of several: refused.
+- **PN1** The pivot's own name, in snake case, names its final.
+- **PN2** Excel's default name, as PivotTable1, stays, marked "default name"; the map
+  proposes one, a second with `_2`:
+  - if the sheet's name ends in pivot: that name in snake case (`pivot`);
+  - else: the sheet's name in snake case and `_pivot` (`job_days_pivot`).
+- **PR1** Its final groups by each Row field, then each Column field, then each Value, named
+  its caption in snake case: `SELECT f, SUM(x) AS sum_of_x FROM <database>.t GROUP BY f`.
+- **PR2** A Column field is written as rows, never a column per item; mark "Column field
+  <name>: written as rows".
+- **PR3** Dates grouped, in SELECT and GROUP BY: Years YEAR(d), Quarters CONCAT('Qtr',
+  QUARTER(d)), Months DATE_FORMAT(d, 'MMM'), Days of one day DATE_FORMAT(d, 'd-MMM'); the
+  field keeps its name (dt holds Sep), a coarser one Excel's (Years).
+- **PR4** Numbers By 10, 0 to 49: CASE WHEN x < 0 THEN '<0' WHEN x < 10 THEN '0-9' .. WHEN x
+  <= 49 THEN '40-49' ELSE '>49' END.
+- **PR5** Grouped by hand: CASE WHEN f IN (a, b) THEN 'Group1' ELSE f END.
+
+## Rules: values and calculated items
+
+- **PV1** Sum SUM, Count and Count Numbers COUNT, Average AVG, Max MAX, Min MIN, StdDev
+  STDDEV_SAMP, StdDevp STDDEV_POP, Var POWER(STDDEV_SAMP(x), 2), Varp POWER(STDDEV_POP(x),
+  2), never VARIANCE.
+- **PV2** Distinct Count: COUNT(DISTINCT x).
+- **PV3** A Calculated Field: its formula over the SUM of each field it names, a quoted 'Unit
+  Price' too: duration_mins/60 is SUM(duration_mins) / 60; ^ is POWER.
+- **PV4** % of Grand, Row or Column Total: SUM(x) / SUM(SUM(x)) OVER (), or PARTITION BY its
+  Row fields, or Column fields.
+- **PV5** Running Total In b: SUM(SUM(x)) OVER (PARTITION BY the other fields ORDER BY b ROWS
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW); a grouped b by MIN of its column. Text items
+  A to Z whatever their case, a blank last: ORDER BY LOWER(b) NULLS LAST.
+- **PV6** Difference From, % Of, % Difference From item i of b: i's value is MAX(CASE WHEN b
+  = i THEN SUM(x) END) OVER (PARTITION BY the other fields); a difference NULL on i's row.
+- **PV7** Rank Largest to Smallest: RANK() OVER (PARTITION BY the other fields ORDER BY
+  SUM(x) DESC); Smallest to Largest ASC.
+- **PC1** An item adding items, as done = SUCCESS+FAILED on status: a column beside the real
+  rows, SUM(SUM(CASE WHEN status IN ('SUCCESS', 'FAILED') THEN x END)) OVER (PARTITION BY
+  the row's other fields) AS done.
+  - If there are several Values: a column each, `<item>_<value>`.
+- **PC2** Any other, as a ratio: its formula over each item's own such sum, each
+  COALESCE(.., 0), as Excel reads an item with no rows as 0.
+
+## Rules: totals
+
+- **PL1** **A pivot is one table, its totals left out**: its final is its rows at the
+  finest grain, a column for each Row and Column field and each Value (PR1). Never a total
+  row, a ROLLUP or a block for a total.
+- **PL2** Name each total `Totals shown:` lists under Left alone, with the GROUP BY giving it:
+  - if each Value is a Sum, Count, Max or Min, no Show Values As: of the pivot's table,
+    `SELECT dt, SUM(count_of_x) AS count_of_x FROM job_days_pivot GROUP BY dt` (MAX, MIN);
+  - else (an Average, a Distinct Count, a StdDev or Var, a Calculated Field, Show Values
+    As): say it isn't a sum of the rows; give the source's, its final grouped by fewer;
+  - PV5 to PV7 without its base field: say Excel shows it blank;
+  - a Calculated Item on a field it doesn't group by: say Excel's total has it added into
+    the total, counted twice.
+  To keep every total in one table: file 21's R9.
+
+## Rules: GETPIVOTDATA, and refused
+
+- **PG1** Naming every Row and Column field: the pivot is a step, no final, its CTE only the
+  Values read, no Calculated Item; LEFT JOIN it on the fields named, each to its item's Hive,
+  once a final where one join serves (file 15's H1). An item it lacks, Excel's #REF!: NULL,
+  marked; IFERROR as COALESCE.
+- **PG2** Naming fewer: that total, a step too, the source's GROUP BY as Excel totals it,
+  joined, CROSS JOIN for the grand total. A total not shown: refused, NULL.
+- **PX1** A DAX measure: NULL.
+- **PX2** OLAP, a data connection, another workbook, consolidation ranges: no final.
+- **PX3** Show items with no data: no final.
+- **PX4** Product, Index, % of Parent Total, % Running Total In; a base field off Rows and
+  Columns; a (previous) or (next) item: NULL.
+- **PX5** A label or date filter; a value filter by percent or sum, on an inner field or a
+  Value not shown: no final.
+- **PX6** Grouped by seconds, minutes, hours, days of several; other bins: no final.
+- **PX7** A calculated formula beyond names, numbers, + - * / ^: NULL; a Calculated Item
+  beside a Value not a Sum: no final.
+
+## Worked patterns
+
+### W1: one table, each total named
+
+PivotTable1, sheet "Job days", on job_runs: Rows job_id, Columns dt, Count of run_id, Slicer
+status: SUCCESS, both Grand Totals. Map: Sources job_runs. Finals PivotTable1. Marks: Column
+field dt: written as rows; default name, job_days_pivot proposed; slicer status. Left alone:
+its total by job_id, `SELECT job_id, SUM(count_of_run_id) AS count_of_run_id FROM
+job_days_pivot GROUP BY job_id`; by dt, the same by dt; its grand total, `SELECT
+SUM(count_of_run_id) AS count_of_run_id FROM job_days_pivot`.
+
+```sql
+SELECT job_id, dt, COUNT(run_id) AS count_of_run_id FROM <database>.job_runs
+WHERE -- Pivot filter: slicer status
+status = 'SUCCESS' GROUP BY job_id, dt
+```
+
+### W2: a total no sum of the rows gives
+
+Rows dt, Average of duration_mins, Grand Total row. Left alone: its grand total isn't a sum of
+the rows: `SELECT AVG(duration_mins) AS average_of_duration_mins FROM <database>.job_runs`.
+
+## Self-check
+
+- [ ] **C1** Each pivot is a step GETPIVOTDATA reads (PG1), or one final, no block for a
+  total (PL1), none a column per item (PR2).
+- [ ] **C2** The map's Marks name each PR2, PN2, PG1 and Pivot filter; Left alone each total
+  with its GROUP BY (PL2).
+
+===== 21_growing_a_converted_pivot.txt =====
+
+# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.9)
+
+**Find the request in Patterns, copy the rule or worked pattern it names, change only the
+tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
+
+Objective: add to a table convert made from a PivotTable, in its Table notebook: Show
+Values As, a Calculated Field, a grouping, the wide shape, every total in one Statement.
+Load this file when a user's table came from a PivotTable and they want more from it, with
+files 03 (Statements), 05 (windows and subtotals) and 06 (saving a table), whose functions
+and rules A1 to A10 it uses. Its Pivot filters and one table of two pivots: file 22.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "% of the total", "share of each day" | a Window over a Derived table | W1 |
+| P2 | "running total", "so far" | `rows=(None, 0)` | R4 |
+| P3 | "rank", "top job of each day" | `rank(over=window(...))` | W1 |
+| P4 | "hours from minutes", "a ratio" | the formula over the sums | R6 |
+| P5 | "by month", "by week" | `month_start(t.dt)` | W2 |
+| P6 | "wide, as the PivotTable showed it" | a column per value | R8 |
+| P7 | "every total in one table" | `cube(...)`, `rollup(...)` | R9 |
+| P8 | "it reads every day", "make it scale" | a day a run | S1 |
+| P9 | a Pivot filter, "one table for both pivots" | load file 22 | Load line |
+
+## Terms
+
+- **Converted pivot**: a Saved table convert made from a PivotTable. Its **Table
+  notebook**'s logic cell has rows(), the clauses convert wrote, which create(), preview()
+  and write() read. Its **Table reference** lists its columns, partitions and Key.
+- **Total**: each grand total or subtotal the PivotTable showed, left out of its table.
+- `d`: a Derived table; `t`: a table.
+
+## Rules: where an add-on goes
+
+- **R1** Change rows(), and the Derived tables above it, in the logic cell; create(),
+  preview() and write() stay as convert wrote them. **Never a change to the workbook**, nor
+  a convert again: the workbook is a one-time way in.
+- **R2** Each column added or renamed goes in the Table reference's columns, in SELECT's
+  order, the partition column last; a share, an average or a rank in does_not_add_up. A
+  table created in dev already: file 14's change to a Saved table first.
+
+## Rules: each add-on
+
+- **R3** **A Window over the pivot's sums reads them from a Derived table** grouped as
+  rows() was; never a sum_of inside a sum_of. % of Grand Total: `AS(d.x / sum_of(d.x,
+  over=window()), "share")`; % of Row or Column Total, `window(PARTITION_BY=d.dt)`.
+- **R4** Running Total In b: `sum_of(d.x, over=window(PARTITION_BY=d.job_id, ORDER_BY=d.b,
+  rows=(None, 0)))`.
+- **R5** Rank Largest to Smallest: `rank(over=window(PARTITION_BY=d.dt,
+  ORDER_BY=descending(d.x)))`; Smallest to Largest, `ORDER_BY=d.x`.
+- **R6** A Calculated Field: its formula over the sums, in one AS:
+  `AS(sum_of(t.duration_mins) / 60, "hours")`; a ratio, one sum over the other.
+- **R7** By month: `AS(month_start(t.dt), "month")` in SELECT, `"month"` in GROUP_BY; by
+  week, `week_start(t.dt)`. It gives a day, 2026-09-01, where convert's Months grouping
+  gave a label, Sep, adding up every year's September: so `month` is a new column, in
+  place of the label's, in SELECT and the Table reference.
+- **R8** Wide, a column per value: `AS(sum_of(t.x, where=equals(t.status, "FAILED")),
+  "failed_x")`, the field out of GROUP_BY. A new value has no column, and its rows are
+  left out: convert wrote a Column field as rows for that.
+- **R9** Every total in one Statement (file 05's R5), where convert left the totals out of
+  the pivot's table and named each in its checklist:
+  - if Rows and Columns, both Grand Totals shown: `GROUP_BY(cube(t.job_id, t.dt))`;
+  - if Rows alone, with subtotals: `GROUP_BY(rollup(t.team, t.job_id))`.
+  A total's row is NULL in each column it totals over.
+- **S1** A converted pivot reads every day, `reads_all_partitions=True`. To scale: dt in
+  SELECT, last, and in GROUP_BY; the table partitioned by dt; rows(day) bounded by
+  `equals(t.dt, day)`: each run writes one day (file 06's R6).
+
+## Always
+
+- A1 to A10: as the files named in the Load line give them.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
+
+## Names for this objective, with their arguments
+
+- derived(name, statement)
+- window(PARTITION_BY=None, ORDER_BY=None, rows=None)
+- rank(*, over)
+- month_start(column)
+- week_start(column)
+- rollup(*columns)
+- cube(*columns)
+
+## Worked patterns
+
+### W1: rows() with each job's share of its day and its rank in the day
+
+```python
+# logic
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, Clause, derived, descending, rank,
+                              statement, sum_of, window)
+from references.ops__job_runs import job_runs
+
+by_day = derived("by_day", statement(
+    SELECT(job_runs.job_id, job_runs.dt, AS(sum_of(job_runs.duration_mins), "mins")),
+    FROM(job_runs, reads_all_partitions=True),  # as convert wrote it
+    GROUP_BY(job_runs.job_id, job_runs.dt),
+))
+each_day = window(PARTITION_BY=by_day.dt)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(by_day.job_id, by_day.dt, by_day.mins,
+               AS(by_day.mins / sum_of(by_day.mins, over=each_day), "share_of_day"),
+               AS(rank(over=window(PARTITION_BY=by_day.dt, ORDER_BY=descending(by_day.mins))),
+                  "rank_in_day")),
+        FROM(by_day),
+    ]
+```
+
+### W2: rows() grouped by month, in place of Months' label
+
+```python
+# logic
+from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, Clause, month_start, sum_of
+from references.ops__job_events import job_events
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(job_events.job_id, AS(month_start(job_events.dt), "month"),
+               AS(sum_of(job_events.minutes), "sum_of_minutes")),
+        FROM(job_events, reads_all_partitions=True),  # as convert wrote it
+        GROUP_BY(job_events.job_id, "month"),
+    ]
+```
+
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Copy.** Copy the rule or worked pattern it names, with the user's names. Done when
+   every name is imported; then step 3.
+3. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. **Code**: one ```python block: the logic cell, whole if the user asks for it.
+2. **Notes**: a few plain sentences: each column the Table reference gains or loses.
+
+## Self-check
+
+- [ ] **C1** The change is in the logic cell's rows() and Derived tables, not the workbook.
+- [ ] **C2** Each Window over sums reads a Derived table; no sum_of holds a sum_of.
+- [ ] **C3** Each new column has AS and is in the Table reference, the partition last.
+
+===== 22_pivot_filters_at_scale.txt =====
+
+# Copilot file 22: Pivot filters at scale, and batched inserts (sqlglot Composer 8.9)
+
+**Find the request in Patterns, copy the rule or worked pattern it names, change only the
+tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
+
+Objective: answer the Pivot filters of a table convert made from a PivotTable, each answer's
+table count said first, and make pivots that differ only in their filter one table.
+Load this file when a user asks what to do with a Pivot filter, how many tables it makes,
+or for one table of several pivots, with files 06 (saving a table) and 17 (Run values and
+the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
+
+## Patterns: when the user says X, do Y
+
+| ID | The user says | Do | Copy |
+|---|---|---|---|
+| P1 | "keep every status", "slice it later" | "fold" | W1 |
+| P2 | "a run for each value", "my scheduler gives it" | "batch" | F4 |
+| P3 | "a table for each region" | "tables", its count first | F5 |
+| P4 | "how many tables would that make?" | each layer's count, and the product | F5 |
+| P5 | "only what the PivotTable showed" | "keep" | F2 |
+| P6 | check() says a Key or a tag is proposed | accept it, or answer another | D2 |
+| P7 | two pivots the same but their filter | one table, a Partition each | B1 |
+| P8 | "write one region a run" | one Partition a write | B2 |
+
+## Terms
+
+- **Pivot filter**: what a PivotTable left out: a Report filter, hidden items, a slicer, a
+  Timeline (dates) or a value filter (Top 10). Each is a **Decision** of its table, answered
+  by its field under "pivot_filters" in the convert notebook's **decisions cell**,
+  DECISIONS, then `project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))`.
+- **Layer**: each field a table is filtered on. **Partition**: the rows sharing one value of
+  a partition column. **Script tag**: a value a run fills in, answered under "tags".
+
+## Rules: the four answers
+
+- **F1** Say each answer's table count before giving it; check() and the table's checklist
+  give each layer's, from the values the PivotTable's cache held, "at least".
+- **F2** "keep", proposed: 1 table, the selection as last saved. Pick it when that one
+  selection is all anyone needs.
+- **F3** "fold", like dragging the field from Filters to Rows: 1 table, every value, the
+  field a column and part of what one row is. Pick it to slice later, as with a slicer.
+- **F4** "batch": 1 table partitioned on the field, a Partition per value, each run writing
+  one value's rows, its value a Script tag whose answer is proposed. Pick it for a value a
+  run. **Answer "batch" alone, with no tag**: its tag is a Decision only once "batch" is
+  written, and write_decisions refuses a tag answered before it. **Reply with that cell
+  alone, no tag in any cell**: once it runs, check() prints a DECISIONS with the tag's
+  proposal, to paste over the cell's DECISIONS and run again, the proposal kept to accept
+  it. The proposal:
+  - if the field is a partition column of a table it reads, as a Timeline's day: a Run
+    value, `project.new_run_value("latest_dt", latest_partition="ops.job_runs.dt")`, then
+    `"DT": latest_dt` under "tags"; accept it for a day each run works out;
+  - else a Hivevar, `"STATUS": hivevar("STATUS", default="FAILED")`, the first value kept;
+    accept it when your scheduler gives each run its value.
+- **F5** "tables", like Show Report Filter Pages: a table per value, `<table>_<value>` in
+  snake case (a blank `_blank`, a day `_2026_09_23`, a clash `_2`), at least one per value
+  the cache held. Two layers answered "tables" make one per pair, their counts multiplied:
+  Region 3 and Site 100 make at least 300. **A filter with 100 conditions would make 100
+  tables, but the higher layer filter may have only 3, which is manageable.** Pick it for a
+  handful; for a hundred, "fold" or "batch". A Timeline's days each make a table: count
+  them first.
+- **F6** A value filter (Top 10) has only "keep" or "fold", as its ranks change with the
+  rows.
+- **F7** A filter of a Copilot .hql converted without its workbook has no count, so not
+  "tables": answer "fold" or "batch", or convert the .hql beside its workbook.
+
+## Rules: answering
+
+- **D1** "fold" and "batch" are refused for a filter in a step, a CTE other parts of the
+  query read: answer "keep" or "tables", or move the filter out of the step.
+- **D2** A Key you answered is kept while it still fits; else a Key is proposed again,
+  open: `"key": "proposed"` accepts it.
+- **D3** Once the table is created in dev, another answer is refused.
+- **D4** Answering again with another answer undoes "tables": its other tables go, and the
+  first is renamed back.
+
+## Rules: what no Decision does
+
+- **B1** **Pivots the same but for their filter's values are one table**, its Table
+  reference partitioned on the field (`PARTITIONED_BY`); rows() keeps each pivot's values
+  with `is_in`, the field last in SELECT and in GROUP_BY. One write fills each Partition,
+  a pivot's rows each; a reader of one pivot reads its Partition, `equals(t.region, "us")`.
+- **B2** A Partition a write: rows(region) bounded by `equals(t.region, region)`, write()
+  `statement(INSERT_OVERWRITE(t, partition={"region": REGION}), *rows(REGION))`, the field
+  out of SELECT, REGION a constant or a Run value (file 17).
+
+## Always
+
+- A1 to A10: as the files named in the Load line give them.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
+
+## Names for this objective, with their arguments
+
+- project.write_decisions(answers, tables=None)
+- project.batch_tables(name, seeded=False)
+- project.new_run_value(name, *, latest_partition)
+- hivevar(name, *, default)
+- INSERT_OVERWRITE(table, unproven_key=False, partition=None)
+- is_in(column, values)
+
+## Worked patterns
+
+### W1: the decisions cell: status folded, a table per region
+
+```python
+DECISIONS = {
+    "mart_dev.runs_pivot": {"pivot_filters": {"status": "fold"}},
+    "mart_dev.costs_pivot": {"pivot_filters": {"region": "tables"}},
+}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+```
+
+### W2: two pivots, eu and us costs, one table partitioned by region
+
+```python
+# logic
+from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, Clause, is_in, sum_of
+from references.ops__region_costs import region_costs
+
+PARTITIONED_BY = ["region"]
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), "cents"),
+               region_costs.region),
+        FROM(region_costs),
+        WHERE(is_in(region_costs.region, ["eu", "us"])),
+        GROUP_BY(region_costs.job_id, region_costs.region),
+    ]
+```
+
+## Steps
+
+1. **Find.** Match each part of the request to a Patterns row. Then step 2.
+2. **Count.** For "tables", say each layer's count and their product. Then step 3.
+3. **Copy.** Copy the rule or worked pattern it names, with the user's names. Done when
+   every name is imported; then step 4.
+4. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
+
+## Output
+
+1. **Code**: one ```python block: the decisions cell and its write, or the logic cell.
+2. **Notes**: a few plain sentences: how many tables each answer makes, what check() asks
+   next, such as a proposed tag.
+
+## Self-check
+
+- [ ] **C1** Each answer is "keep", "fold", "batch" or "tables", by its filter's field.
+- [ ] **C2** A "tables" answer says each layer's count and their product.
+- [ ] **C3** One table of several pivots is partitioned on their filter's field, last.
+
+===== 23_excel_totals.txt =====
+
+# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.9)
+
+**Use this file as reference while you follow file 15's steps: find each whole-column total
+and Total Row in Patterns, then write the Hive its rule gives.**
+
+Objective: write each whole-column total and each Total Row of an Excel workbook as the Hive
+that gives the same rows.
+Load this file when the workbook attached has a Total Row, or a formula totalling a whole
+column such as SUM(t[v]), with file 15 (the steps, the map and the reply), file 11
+(formulas), file 12 (Power Query) and, for a PivotTable, file 20.
+
+## Patterns: when the workbook has X, look up Y
+
+| ID | The workbook has | Rules |
+|---|---|---|
+| P1 | SUM(t[v]), COUNTA, SUMPRODUCT(t[a], t[b]) in a formula column | T1 |
+| P2 | a Total Row, SUBTOTAL(109, ...) | T2 to T4 |
+
+## Terms
+
+- **Whole column**: `t[v]`, every row of Table t's column v; `[@v]` is this row's alone.
+- **Total Row**: the row under a Table's last row, each total a SUBTOTAL(...) of a column,
+  shown as its `Total Row`: never a row of data.
+
+## Rules: a whole column, and the Total Row
+
+- **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
+  and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
+  t[b]): `SUM(a * b) OVER ()`. Another Table's column: CROSS JOIN its total. COUNT, or T2's
+  102, of a text column: refused, as Excel's counts numbers.
+- **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
+  cell holding a total, in the Table's order, none for an empty cell or a label such as
+  "Total", reading the Table's final query as a CTE that selects only the columns totalled.
+  SUBTOTAL(109, ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+- **T3** If the user says no one needs a Total Row kept: no block; name it as left out.
+- **T4** The Table's own final holds only its rows: a Saved table holds no Subtotal row.
+
+## Worked patterns
+
+### W1: a summary's Total Row, reading its final as a CTE
+
+Table by_job (job_id typed, 1 and 2, written in by file 15; runs
+`=COUNTIFS(job_runs[job_id],[@job_id])`), its Total Row summing runs:
+
+```sql
+WITH by_job AS (
+  SELECT COALESCE(c.runs, 0) AS runs
+  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+    ON j.job_id = c.job_id
+)
+SELECT SUM(runs) AS runs FROM by_job
+```
+
+### W2: a share of a whole column's total
+
+Table job_runs (run_id, duration_mins typed) adds share
+`=[@duration_mins]/SUM(job_runs[duration_mins])`:
+
+```sql
+SELECT run_id, duration_mins, duration_mins / SUM(duration_mins) OVER () AS share
+FROM <database>.job_runs
+```
+
+## Self-check
+
+- [ ] **C1** Each whole-column total is a window over every row, or a CROSS JOIN of another
+  Table's total, never a sum typed in.
+- [ ] **C2** Each Total Row is its own final; its Table's final holds only its rows.
+
+===== 24_excel_pivot_filters.txt =====
+
+# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.9)
+
+**Use this file as reference while you follow file 15's steps and write each PivotTable by
+file 20: find each Pivot filter in Patterns, then write the condition its rule gives.**
+
+Objective: write each Pivot filter of an Excel workbook's PivotTables as the condition giving
+the rows the PivotTable kept, marked so convert asks you what to do with it.
+Load this file when a `PivotTable "name"` of the workbook attached has a Filter, items
+hidden, a slicer, a Timeline or a Top 10, with file 15 (the steps, the map and the reply),
+file 11 (formulas), file 12 (Power Query) and file 20 (PivotTables).
+
+## Patterns: when the PivotTable has X, look up Y
+
+| ID | The PivotTable has | Rules |
+|---|---|---|
+| P1 | `Filter f:`, a Report filter | PF1 |
+| P2 | Items hidden on a Row or Column field | PF2 |
+| P3 | Slicer, Timeline | PF3, PF4 |
+| P4 | Value Filter: Top or Bottom n | PF5 |
+
+## Terms
+
+- **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
+  **slicer** (a box of a field's items, on each pivot connected to it), a **Timeline** (the
+  same of dates), a value filter (Top or Bottom).
+- **Blank item**: the pivot's `(blank)`, the rows where f is NULL.
+- **A Decision in convert**: a question convert's notebook asks you, here whether to keep
+  the filter, fold it into the grain or write a table or batch per value (file 22).
+
+## Rules: Pivot filters
+
+- **PF1** A Report filter: f = x, f IN (..), a blank f IS NULL; (All): none.
+- **PF2** Items hidden on f: f <> x, or NOT f IN (..).
+  - If f's blank item is kept: `f IS NULL OR` before it.
+  - If f's blank item is hidden: `NOT f IS NULL AND` before it.
+- **PF3** A slicer, on each pivot it is connected to: f IN (..); none if it keeps all.
+- **PF4** A Timeline: d BETWEEN 'start' AND 'end', on the date column itself.
+- **PF5** Top or Bottom n on the outer field: f IN (SELECT f FROM (SELECT f, RANK() OVER
+  (ORDER BY SUM(x) DESC) AS item_rank FROM the source WHERE the other filters GROUP BY f) r
+  WHERE item_rank <= n); Bottom ASC. Its second read stays.
+  - If the pivot shows f's blank item: `f IS NULL OR` before it, as NULL is in no IN list.
+- Each goes in the WHERE of the source's read, at every level. **On the line above each
+  condition, write `-- Pivot filter: <kind> <field>`** (in a CASE, before its WHEN), its kind
+  Report filter, hidden items, slicer, Timeline or value filter; and in the map's Marks.
+
+## Worked patterns
+
+### W1: hidden items and a Bottom 2, the blank shown
+
+PivotTable quiet_runs on job_runs: Rows status, Sum of duration_mins; TEST hidden on status;
+Value Filter Bottom 2 by Sum of duration_mins on status, its rows (blank) and FAILED; Totals
+shown: none. Map: Finals quiet_runs. Marks: hidden items status; value filter status.
+
+```sql
+SELECT status, SUM(duration_mins) AS sum_of_duration_mins FROM <database>.job_runs
+WHERE -- Pivot filter: hidden items status
+(status IS NULL OR status <> 'TEST')
+AND -- Pivot filter: value filter status
+(status IS NULL OR status IN (SELECT status FROM (SELECT status, RANK() OVER (ORDER BY
+SUM(duration_mins)) AS item_rank FROM <database>.job_runs WHERE status IS NULL OR
+status <> 'TEST' GROUP BY status) r WHERE item_rank <= 2))
+GROUP BY status
+```
+
+## Self-check
+
+- [ ] **C1** Each Pivot filter's condition has its `-- Pivot filter:` line, in each block.
+- [ ] **C2** A blank item the pivot keeps is kept with `IS NULL`, as no IN list holds NULL.

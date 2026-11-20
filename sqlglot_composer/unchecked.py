@@ -970,7 +970,7 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     ...     WHERE r.dt = '2026-09-24'
     ... ''', columns={"run_id": "bigint", "step": "string"})
     >>> print(to_hive(statement(
-    ...     SELECT(steps.step, AS(count_rows(), "runs")),
+    ...     SELECT(steps.step, AS(count_distinct(steps.run_id), "runs")),
     ...     FROM(steps, reads_all_partitions=True),
     ...     GROUP_BY(steps.step),
     ... )))
@@ -986,7 +986,7 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     )
     SELECT
       steps.step,
-      COUNT(*) AS runs
+      COUNT(DISTINCT steps.run_id) AS runs
     FROM steps
     GROUP BY
       steps.step
@@ -994,7 +994,9 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     Each run's status is split at each _ (explode(split(r.status, '_'))), and LATERAL VIEW
     gives one row for each part, named s, beside the rest of the run's row: steps has a row
     for each run and each part of its status, which no Clause function writes yet. The
-    Example database can't run it, as its executor has no LATERAL VIEW; Hive can.
+    Statement counts the runs of each part with count_distinct(steps.run_id), so a run whose
+    status names a part twice counts once. The Example database can't run it, as its executor
+    has no LATERAL VIEW; Hive can.
 
     It gives back a Table, read as a Derived table made by derived(...) is: its columns are
     the ones `columns` declares, each with its Hive type or None, so steps.step works and a

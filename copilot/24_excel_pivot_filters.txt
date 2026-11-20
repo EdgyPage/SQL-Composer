@@ -1,0 +1,68 @@
+# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.9)
+
+**Use this file as reference while you follow file 15's steps and write each PivotTable by
+file 20: find each Pivot filter in Patterns, then write the condition its rule gives.**
+
+Objective: write each Pivot filter of an Excel workbook's PivotTables as the condition giving
+the rows the PivotTable kept, marked so convert asks you what to do with it.
+Load this file when a `PivotTable "name"` of the workbook attached has a Filter, items
+hidden, a slicer, a Timeline or a Top 10, with file 15 (the steps, the map and the reply),
+file 11 (formulas), file 12 (Power Query) and file 20 (PivotTables).
+
+## Patterns: when the PivotTable has X, look up Y
+
+| ID | The PivotTable has | Rules |
+|---|---|---|
+| P1 | `Filter f:`, a Report filter | PF1 |
+| P2 | Items hidden on a Row or Column field | PF2 |
+| P3 | Slicer, Timeline | PF3, PF4 |
+| P4 | Value Filter: Top or Bottom n | PF5 |
+
+## Terms
+
+- **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
+  **slicer** (a box of a field's items, on each pivot connected to it), a **Timeline** (the
+  same of dates), a value filter (Top or Bottom).
+- **Blank item**: the pivot's `(blank)`, the rows where f is NULL.
+- **A Decision in convert**: a question convert's notebook asks you, here whether to keep
+  the filter, fold it into the grain or write a table or batch per value (file 22).
+
+## Rules: Pivot filters
+
+- **PF1** A Report filter: f = x, f IN (..), a blank f IS NULL; (All): none.
+- **PF2** Items hidden on f: f <> x, or NOT f IN (..).
+  - If f's blank item is kept: `f IS NULL OR` before it.
+  - If f's blank item is hidden: `NOT f IS NULL AND` before it.
+- **PF3** A slicer, on each pivot it is connected to: f IN (..); none if it keeps all.
+- **PF4** A Timeline: d BETWEEN 'start' AND 'end', on the date column itself.
+- **PF5** Top or Bottom n on the outer field: f IN (SELECT f FROM (SELECT f, RANK() OVER
+  (ORDER BY SUM(x) DESC) AS item_rank FROM the source WHERE the other filters GROUP BY f) r
+  WHERE item_rank <= n); Bottom ASC. Its second read stays.
+  - If the pivot shows f's blank item: `f IS NULL OR` before it, as NULL is in no IN list.
+- Each goes in the WHERE of the source's read, at every level. **On the line above each
+  condition, write `-- Pivot filter: <kind> <field>`** (in a CASE, before its WHEN), its kind
+  Report filter, hidden items, slicer, Timeline or value filter; and in the map's Marks.
+
+## Worked patterns
+
+### W1: hidden items and a Bottom 2, the blank shown
+
+PivotTable quiet_runs on job_runs: Rows status, Sum of duration_mins; TEST hidden on status;
+Value Filter Bottom 2 by Sum of duration_mins on status, its rows (blank) and FAILED; Totals
+shown: none. Map: Finals quiet_runs. Marks: hidden items status; value filter status.
+
+```sql
+SELECT status, SUM(duration_mins) AS sum_of_duration_mins FROM <database>.job_runs
+WHERE -- Pivot filter: hidden items status
+(status IS NULL OR status <> 'TEST')
+AND -- Pivot filter: value filter status
+(status IS NULL OR status IN (SELECT status FROM (SELECT status, RANK() OVER (ORDER BY
+SUM(duration_mins)) AS item_rank FROM <database>.job_runs WHERE status IS NULL OR
+status <> 'TEST' GROUP BY status) r WHERE item_rank <= 2))
+GROUP BY status
+```
+
+## Self-check
+
+- [ ] **C1** Each Pivot filter's condition has its `-- Pivot filter:` line, in each block.
+- [ ] **C2** A blank item the pivot keeps is kept with `IS NULL`, as no IN list holds NULL.

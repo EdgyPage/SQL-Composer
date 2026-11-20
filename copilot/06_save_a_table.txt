@@ -1,4 +1,4 @@
-# Copilot file 06: saving a table (sqlglot Composer 8.8)
+# Copilot file 06: saving a table (sqlglot Composer 8.9)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -60,7 +60,7 @@ it, add to it, or write the logic cell of a Table notebook.
 - **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
   `export_hive()` cell writes <db>__<table>.hql beside it, to read.
 
-## Always: rules A1 to A10
+## Always: rules A1 to A11
 
 - **A1** Import each name you use, by name: `from sqlglot_composer import FROM, SELECT,
   statement`, never `import *`. Write only Toolbox names this file or the user's code shows:
@@ -90,6 +90,9 @@ it, add to it, or write the logic cell of a Table notebook.
   subtotals, 06 saving a table, 07 converting Hive, 08 checks, 09 a refusal, 10 labels and
   Hive by hand, 13 convert, 14 new tables and upkeep, 16 promote, 17 Run values and seeds, 18
   a Scheduled run, 19 a Metric request; an Excel workbook, 15 with 11 and 12.
+- **A11** Read each Derived table once; SELECT in it only what is read after; filter and
+  group before joining; fix rows a join repeats by its whole Key or a total first, not
+  SELECT_DISTINCT.
 
 ## Names for this objective, with their arguments
 

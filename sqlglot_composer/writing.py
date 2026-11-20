@@ -13,8 +13,10 @@ import re
 from typing import TYPE_CHECKING, NamedTuple
 
 import sqlglot
+import sqlglot.executor
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
+from sqlglot.optimizer import optimize
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
 
@@ -33,7 +35,24 @@ from .trees import (
 if TYPE_CHECKING:
     from sqlglot.optimizer.scope import Scope
 
-_DIALECT = "hive"
+def _population_variance(args: list[exp.Expression]) -> exp.VariancePop:
+    """Hive's VARIANCE(x), read: the population variance, which sqlglot calls VariancePop,
+    marked to be written as VARIANCE again."""
+    population = exp.VariancePop.from_arg_list(args)
+    population.meta["hive_name"] = "VARIANCE"
+    return population
+
+
+def _sample_variance_hive(generator: sqlglot.Generator, variance: exp.Variance) -> str:
+    """sqlglot's Variance, the sample variance, as Hive names it: VAR_SAMP(x)."""
+    return generator.func("VAR_SAMP", variance.this)
+
+
+def _population_variance_hive(generator: sqlglot.Generator,
+                              variance: exp.VariancePop) -> str:
+    """sqlglot's VariancePop, the population variance, as Hive names it: VAR_POP(x), or
+    VARIANCE(x) where the Hive read held VARIANCE."""
+    return generator.func(variance.meta_get("hive_name", "VAR_POP"), variance.this)
 
 
 def _hive_with_hints() -> sqlglot.Dialect:
@@ -41,10 +60,21 @@ def _hive_with_hints() -> sqlglot.Dialect:
     reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed.
 
     It also escapes a string value's characters by the Toolbox's table, trees.HIVE_ESCAPES,
-    whatever sqlglot version runs.
+    whatever sqlglot version runs; and keeps each variance's meaning and Hive's name for it.
+    sqlglot's Hive writes VAR_SAMP as VARIANCE, which Hive reads as the population variance,
+    and VAR_POP as VARIANCE_POP, which Hive hasn't got; and reads VARIANCE as the sample one.
     """
-    hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
-    hive.generator_class = type("HiveWithHints", (hive.generator_class,), {"QUERY_HINTS": True})
+    hive = type(sqlglot.Dialect.get_or_raise("hive"))()
+    hive.parser_class = type("HiveVariances", (hive.parser_class,), {
+        "FUNCTIONS": {**hive.parser_class.FUNCTIONS, "VARIANCE": _population_variance}})
+    hive.generator_class = type("HiveWithHints", (hive.generator_class,), {
+        "QUERY_HINTS": True,
+        "TRANSFORMS": {
+            **hive.generator_class.TRANSFORMS,
+            exp.Variance: _sample_variance_hive,
+            exp.VariancePop: _population_variance_hive,
+        },
+    })
     # A string value's characters are escaped by the Toolbox's table, not sqlglot's own,
     # which changed within the supported range. The quote is left to sqlglot, which escapes it
     # as the table does.
@@ -53,12 +83,13 @@ def _hive_with_hints() -> sqlglot.Dialect:
     return hive
 
 
-_HIVE = _hive_with_hints()
+# sqlglot's Hive as the Toolbox reads and writes it: every read and write here goes through it.
+_DIALECT = _hive_with_hints()
 
 
 def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=_HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
+    return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
 def read_hive(text: str) -> list[exp.Expression]:
@@ -76,6 +107,30 @@ def typed_hive(query: exp.Expression,
     return annotate_types(qualify(query, schema=schema, dialect=_DIALECT,
                                   validate_qualify_columns=False),
                           schema=schema, dialect=_DIALECT)
+
+
+def qualified_hive(query: exp.Expression,
+                   schema: dict[str, dict[str, dict[str, str]]]) -> exp.Expression:
+    """A query with each `*` written as its columns and each column named with its table, by
+    sqlglot from `schema`, as sqlglot's executor reads it (`hive_executor.py`)."""
+    return qualify(query, schema=schema, dialect=_DIALECT)
+
+
+def optimized_hive(query: exp.Expression,
+                   schema: dict[str, dict[str, dict[str, str]]]) -> exp.Expression:
+    """A query written out in full by sqlglot's optimizer from `schema`, each table kept apart,
+    as sqlglot's executor writes it before it runs it (`hive_executor.py`)."""
+    return optimize(query, schema, leave_tables_isolated=True, dialect=_DIALECT)
+
+
+def executed_hive(query: str | exp.Expression,
+                  schema: dict[str, dict[str, dict[str, str]]] | None,
+                  tables: dict[str, object]) -> sqlglot.executor.table.Table:
+    """A query run on sqlglot's own executor, over `tables`, each table's rows by its
+    database and name, their types in `schema`, or worked out from the rows where it is None:
+    what the executor gives back (`hive_executor.py`). Through its module, each call, so a test
+    can stand another executor in."""
+    return sqlglot.executor.execute(query, schema=schema, tables=tables, dialect=_DIALECT)
 
 
 def hive_text(node: Node) -> str:
