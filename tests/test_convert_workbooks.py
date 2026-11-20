@@ -364,6 +364,20 @@ def test_converting_again_keeps_the_name_answered(
     assert not (started / "tables" / f"{DEV}__pivot").exists()
 
 
+def test_a_table_renamed_is_placed_in_its_own_folder_under_the_location_root(
+        started: Path, books: dict[str, bytes]) -> None:
+    """A location placed under DEV's location_root moves with the name; the old name's folder
+    would be another table's, the one it was converted as."""
+    databases = started / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8").replace(
+        '"<DEV_LOCATION_ROOT>"', '"/data/team/dev"'), encoding="utf-8")
+    converted(started, books, "slicer")
+    decide({f"{DEV}.pivot": {"name": "runs_by_job"}})
+    reference = (started / "references" / f"{DEV}__runs_by_job.py").read_text(encoding="utf-8")
+    assert f'    location="/data/team/dev/{DEV}.db/runs_by_job",  # under its' in reference
+    assert project.load(f"{DEV}.runs_by_job") is not None
+
+
 def test_answering_a_name_again_renames_it_again(started: Path,
                                                  books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
