@@ -64,14 +64,9 @@ PF5 = ("rule PF5 (ticket 06): a Top or Bottom value filter keeps its items with 
        "RANK of the step's rows, read again, since a total of the kept items, an Average or a "
        "Distinct Count, needs the kept rows before they are grouped")
 # Each pivot final a Top or Bottom value filter keeps items of, and the CTE it reads twice.
-TOP_FILTERED = [("workbook fixture 06_pivot_query_sheet", "job_hours", "ok_runs")] + [
-    (f"Excel task {task}", f"{pivot}{level}", cte)
-    for task, pivot, cte, levels in (
-        ("X104", "top_job_days", "by_job_day", ("", " (by job_id)", " (by dt)",
-                                                " (grand total)")),
-        ("X122", "top_team_sizes", "job_runs", ("", " (by team)", " (by size)",
-                                                " (grand total)")))
-    for level in levels]
+TOP_FILTERED = [("workbook fixture 06_pivot_query_sheet", "job_hours", "ok_runs"),
+                ("Excel task X104", "top_job_days", "by_job_day"),
+                ("Excel task X122", "top_team_sizes", "job_runs")]
 
 # Each break that stays: where it is, a file or an Excel final, and what it is, as `breaks`
 # says it, with the reason.
@@ -89,15 +84,14 @@ KEPT = {
 
 # The Excel evaluation's reference Hive: each task's CTE whose unread columns stay. A task's
 # steps are one CTE text for each of its finals (`tools/excel_eval_tasks.py`'s
-# `RUNS_WITH_ALERTS`, `OK_RUNS` and the others, and its pivots' levels), so each final reads
+# `RUNS_WITH_ALERTS`, `OK_RUNS` and the others), so each final reads
 # its own columns of it; the scorer compares a reply's rows with the reference's rows alone,
 # and no person reads or copies the reference. Hive's pruner drops the columns a final doesn't
 # read. Making each final's copy lean is left to a ticket of its own.
 REFERENCE_STEPS = {
     ("X67", "runs"), ("X68", "base"), ("X68", "g"), ("X69", "costs"), ("X70", "staffed"),
     ("X70", "per_owner"), ("X71", "ok"), ("X72", "totals"), ("X73", "eu"), ("X74", "alerts"),
-    ("X75", "long"), ("X77", "high"), ("X78", "known"), ("X91", "by_job"),
-    ("X111", "by_status"),
+    ("X75", "long"), ("X77", "high"), ("X78", "known"),
 }
 
 

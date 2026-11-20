@@ -3,11 +3,11 @@
 `sqlglot_composer/workbook_check.py` runs each final's Hive on sqlglot's executor, on this
 computer, each `<database>.<table>` it reads standing for the workbook's rows of that Table (a
 plain range's for a range), and compares its rows with the values Excel last stored: a Table's
-cells, formulas' results among them, a Total Row's, and a pivot's cells at each total level. A
-difference is one line a cell and stops nothing; what the executor can't run is named, with
-why. It never reads the warehouse and never calls `query`. A convert of a batch holding a
-workbook ends with it, in its report and in batch.md, and a Copilot `.hql` standing for a final
-is checked the same way.
+cells, formulas' results among them, a Total Row's, and a pivot's body cells, never its
+totals'. A difference is one line a cell and stops nothing; what the executor can't run is
+named, with why. It never reads the warehouse and never calls `query`. A convert of a batch
+holding a workbook ends with it, in its report and in batch.md, and a Copilot `.hql` standing
+for a final is checked the same way.
 
 The dev tool's workbooks are saved by openpyxl, which stores no formula's result, as Excel
 would: where a test needs one, it gives the read workbook the value Excel would have stored.
@@ -227,15 +227,27 @@ def test_a_total_row_that_differs_is_one_line(books: dict[str, bytes]) -> None:
         f"Total Row, duration_mins: Excel {total + 6:,}, Hive {total:,}"]
 
 
-def test_a_pivot_and_each_total_level_match_every_stored_cell() -> None:
-    found = checked(fixture("04_pivot_rows_columns"))
-    assert list(found) == ["PivotTable1", "PivotTable1 (by job_id)", "PivotTable1 (by dt)",
-                           "PivotTable1 (grand total)"]
-    for final in found.values():
-        assert (final.differences, final.not_checked) == ([], ""), final.final.final
-        assert final.compared > 0
-    assert sum(final.compared for final in found.values()) == len(
-        fixture("04_pivot_rows_columns").pivot_tables[0].cells)
+def body_and_total_cells(book: Workbook) -> tuple[int, int]:
+    """How many of the first pivot's cells are its body's, at its own level, and how many its
+    totals', which group by fewer fields."""
+    pivot = book.pivot_tables[0]
+    fields = len(pivot.rows) + len(pivot.columns)
+    body = [cell for cell in pivot.cells
+            if len(cell.row.items) + len(cell.column.items) == fields]
+    return len(body), len(pivot.cells) - len(body)
+
+
+def test_a_pivots_body_cells_match_and_its_totals_are_said_not_compared() -> None:
+    book = fixture("04_pivot_rows_columns")
+    found = checked(book)
+    assert list(found) == ["PivotTable1"]
+    body, totals = body_and_total_cells(book)
+    assert (found["PivotTable1"].differences, found["PivotTable1"].compared) == ([], body)
+    assert found["PivotTable1"].totals_not_compared == totals > 0
+    report = report_lines(check_workbook(book, "runs.xlsx", finals_of(book), "ops"))
+    assert (f"pivottable1, from PivotTable \"PivotTable1\": its totals, {totals} cells, not "
+            "compared: its table holds the PivotTable's rows alone, each total left out, as "
+            "its checklist says.") in report
 
 
 @pytest.mark.parametrize("name", ["05_pivot_slicer_two_pivots", "07_pivot_groups",
@@ -257,29 +269,21 @@ def test_a_pivot_cell_that_differs_is_one_line_naming_its_items() -> None:
         f"{items}: Excel 1,204, Hive {stored:,}"]
 
 
-def test_a_total_levels_cell_that_differs_is_its_own_finals() -> None:
+def test_a_total_cell_is_never_compared() -> None:
     book = fixture("04_pivot_rows_columns")
     grand = next(cell for cell in book.pivot_tables[0].cells
                  if not cell.row.items and not cell.column.items)
-    stored = grand.stored
-    grand.stored = stored + 6
-    found = checked(book)
-    assert found["PivotTable1 (grand total)"].differences == [
-        f"Grand Total: Excel {stored + 6:,}, Hive {stored:,}"]
-    assert found["PivotTable1"].differences == []
+    grand.stored += 6
+    assert checked(book)["PivotTable1"].differences == []
 
 
-def test_a_level_whose_hive_gives_rows_the_pivot_doesnt_show_is_named() -> None:
-    # Fixture 10's ranked pivot shows its grand total blank: its level's Hive is one NULL row
-    # (PV8, ticket 13), which matches. A Hive giving a NULL row per row of job_runs is named.
-    book = fixture("10_pivot_calculated_item_rank")
-    assert checked(book)["PivotTable2 (grand total)"].differences == []
-    per_row = FinalHive("PivotTable2 (grand total)", "pivot_grand_total",
-                        "SELECT NULL AS sum_of_duration_mins FROM ops.job_runs")
-    found = checked(book, [per_row])["PivotTable2 (grand total)"]
-    runs = len(table_named(book, "job_runs").columns[0].stored)
-    assert found.differences == [
-        f"Grand Total: the Hive gives {runs} rows where the PivotTable shows one: fix the "
+def test_a_pivots_hive_giving_rows_the_pivot_doesnt_show_is_named() -> None:
+    book = fixture("04_pivot_rows_columns")
+    extra = FinalHive("PivotTable1", "pivot", "SELECT job_id, dt, SUM(duration_mins) AS "
+                      "sum_of_duration_mins FROM ops.job_runs GROUP BY job_id, dt UNION ALL "
+                      "SELECT 9 AS job_id, '2026-09-23' AS dt, 1 AS sum_of_duration_mins")
+    assert checked(book, [extra])["PivotTable1"].differences == [
+        "job_id 9, dt 2026-09-23: the Hive gives a row the PivotTable doesn't show: fix the "
         "Hive, in the `# logic` cell of its table's notebook"]
 
 
@@ -389,7 +393,11 @@ def test_a_convert_of_a_workbook_ends_with_its_check_in_the_report_and_batch_md(
     assert "compares the Hive with the workbook alone, never with the warehouse" in lines[first]
     assert lines[first + 1] == ('mart_dev.pivot, from PivotTable "PivotTable1": every cell '
                                 "matches the workbook, 6 cells compared.")
-    assert lines[first + 5].startswith("Next: ")
+    # Its totals, left out of its table, are said not compared, in one line.
+    assert lines[first + 2] == ('mart_dev.pivot, from PivotTable "PivotTable1": its totals, 6 '
+                                "cells, not compared: its table holds the PivotTable's rows "
+                                "alone, each total left out, as its checklist says.")
+    assert lines[first + 3].startswith("Next: ")
     written = batch_md(started)
     assert "## The Workbook check of runs.xlsx" in written
     assert ('- mart_dev.pivot, from PivotTable "PivotTable1": every cell matches the '
@@ -417,9 +425,7 @@ def test_a_copilot_hql_that_differs_lists_each_cell_and_blocks_nothing(started: 
     assert "pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": 1 of 3 cells" in report
     assert re.search(r"\n  job_id \d+: Excel [\d,]+, Hive [\d,]+\n", report)
     # It blocks nothing: the batch's tables are made, and the report says what is next.
-    assert project.batch_tables("book") == [f"{DEV}.pivot", f"{DEV}.runs_by_day",
-                                            f"{DEV}.pivot_grand_total",
-                                            f"{DEV}.runs_by_day_grand_total"]
+    assert project.batch_tables("book") == [f"{DEV}.pivot", f"{DEV}.runs_by_day"]
     assert "- pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": " in batch_md(started)
 
 
@@ -467,7 +473,9 @@ def test_a_pivot_filter_answered_otherwise_than_keep_is_checked_as_converted(
                         "workbook, 3 cells compared.")
     said = (f"{DEV}.{table}: checked as converted, before its Pivot filter's answer "
             f'"{answer}"; the table now holds {holds}.')
-    assert lines[first + 1] == said
+    assert lines[first + 1].startswith(f'{DEV}.{table}, from PivotTable "PivotTable1": its '
+                                       "totals, 1 cell, not compared")
+    assert lines[first + 2] == said
     assert f"- {said}" in batch_md_written(started)
 
 

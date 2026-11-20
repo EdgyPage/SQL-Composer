@@ -155,9 +155,10 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
 
 # Ticket 06's pivot rules, by their IDs (.scratch/toolbox-8-9/issues/06-pivots-in-code.md):
 # file 20 holds each, but the Pivot filters' (PF), which file 24 holds since ticket 14 split
-# them out to fit, so the Copilot path and the code path give the same Hive.
-PIVOT_RULES = ([f"PR{n}" for n in range(1, 6)] + [f"PV{n}" for n in range(1, 9)]
-               + [f"PC{n}" for n in range(1, 4)] + ["PL1", "PL2"]
+# them out to fit, so the Copilot path and the code path give the same Hive. Ticket 18 took
+# out PV8 and PC3, a total's blank and its calculated item, which PL2 names now.
+PIVOT_RULES = ([f"PR{n}" for n in range(1, 6)] + [f"PV{n}" for n in range(1, 8)]
+               + ["PC1", "PC2", "PL1", "PL2"]
                + [f"PF{n}" for n in range(1, 6)] + ["PG1", "PG2"]
                + [f"PS{n}" for n in range(1, 5)] + ["PN1", "PN2"]
                + [f"PX{n}" for n in range(1, 8)])
@@ -220,12 +221,25 @@ def test_file_22_says_what_the_pivot_filter_decision_does_and_the_users_words() 
         assert said in text, said
 
 
-def test_file_21_names_convert_s_total_level_tables_and_what_months_gave() -> None:
-    # Ticket 07's names for a total level's table, and ticket 06's PR3 label for Months.
+def test_file_21_says_convert_left_the_totals_out_and_what_months_gave() -> None:
+    # Ticket 18's totals, left out of a pivot's table and named in its checklist, and ticket
+    # 06's PR3 label for Months.
     text = " ".join((COPILOT / GROWING_A_PIVOT).read_text(encoding="utf-8").split())
-    for said in ("`<table>_by_<field>` and `<table>_grand_total`",
-                 "where convert's Months grouping gave a label, Sep"):
+    for said in ("where convert left the totals out of the pivot's table and named each in "
+                 "its checklist", "where convert's Months grouping gave a label, Sep"):
         assert said in text, said
+
+
+def test_file_20_has_copilot_name_each_total_left_out_as_the_code_does() -> None:
+    # Ticket 18 (the user, 2026-11-19): a pivot is one table, each total named with the GROUP
+    # BY that gives it, of its table or, for a total no sum of the rows gives, of the source.
+    text = " ".join((COPILOT / "20_excel_pivot_tables.txt").read_text(encoding="utf-8").split())
+    for said in ("**A pivot is one table, its totals left out**", "Never a total row, a ROLLUP "
+                 "or a block for a total", "say it isn't a sum of the rows",
+                 "say Excel shows it blank", "added into the total, counted twice",
+                 "file 21's R9"):
+        assert said in text, said
+    assert "(grand total)" not in text and "PV8" not in text and "PC3" not in text
 
 
 def test_start_here_names_every_other_file() -> None:

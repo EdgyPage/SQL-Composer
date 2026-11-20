@@ -53,9 +53,9 @@ from .lean_hive import lean_ctes
 from .workbook_formula_reader import Refused
 from .workbook_pivot_hive import (
     PIVOT_FUNCTIONS,
+    add_pivot_total_notes,
     add_range_read,
     write_pivot_query,
-    write_pivot_total_finals,
 )
 from .workbook_power_query import power_query_hive, web_source
 from .workbook_reader import (
@@ -181,8 +181,7 @@ def workbook_hive(workbook: Workbook, database: str = DATABASE,
         if role in (FINAL, SUMMARY_FINAL):
             finals[piece.name] = lean_ctes(written)
     finals.update(total_row_finals(workbook, tables, book, total_rows_left_out))
-    levels = write_pivot_total_finals(workbook, finals, book)
-    finals.update({name: lean_ctes(level) for name, level in levels.items()})
+    add_pivot_total_notes(workbook, finals, book)
     notes = book.notes + _left_alone(workbook, roles) + _to_fill_in(workbook, finals, database)
     return WorkbookHive(roles, finals, notes)
 

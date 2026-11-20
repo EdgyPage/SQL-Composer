@@ -174,7 +174,7 @@ class RowTotals:
 class PivotJoin:
     """A LEFT JOIN of a PivotTable's rows on the fields a GETPIVOTDATA names, each matched to
     the Hive of the item it names, or a CROSS JOIN where it names none: its alias, the
-    `pivot_rows` it joins, the pivot's CTE or the query of one of its total levels
+    `pivot_rows` it joins, the pivot's CTE or the query of one of its totals
     (`workbook_pivot_hive.py`)."""
 
     alias: str

@@ -355,71 +355,77 @@ def as_compared(value: object) -> object:
     return excel_eval._as_pivot_value(excel_eval._normal(value))
 
 
-def level_final(pivot: str, fields: list[str], every: list[str]) -> str:
-    """The final a pivot's total level is, by the fields it groups by: the pivot's own, its
-    grand total's, or `<pivot> (by <field>)`."""
-    if len(fields) == len(every):
-        return pivot
-    if not fields:
-        return f"{pivot} (grand total)"
-    return f"{pivot} (by {', '.join(fields)})"
+def is_a_body_cell(cell: PivotCell, pivot: Pivot) -> bool:
+    """Whether a pivot's stored cell is of its body, on an item of every Row and Column field,
+    which its table's rows hold, and not of a total, which its table leaves out."""
+    items = dict([*cell.row.items, *cell.column.items])
+    return all(field in items for field in (*pivot.rows, *pivot.columns))
 
 
-def where_stored(cell: PivotCell, pivot: Pivot
-                 ) -> tuple[str, list[int], tuple[object, ...], int]:
-    """Where a pivot's stored cell sits among its finals: the final; the places, in its rows,
-    of the fields the cell names and their items there; and the place of the cell's value.
+def where_stored(cell: PivotCell, pivot: Pivot) -> tuple[list[int], tuple[object, ...], int]:
+    """Where a pivot's stored body cell sits in its final's rows: the places of the fields
+    the cell names and their items there; and the place of the cell's value.
 
     A final's columns are its fields, outermost Row field first, then its values, then each
-    calculated item: a calculated item's cell is its column in the final of the level its
-    field is a key of, on each row of the other items the cell names."""
+    calculated item: a calculated item's cell is its column, on each row of the other items
+    the cell names."""
     every = [*pivot.rows, *pivot.columns]
     captions = [caption(value) for value in pivot.values]
     calculated = [(field, item) for field, item, _ in pivot.calculated_items]
     items = dict([*cell.row.items, *cell.column.items])
-    named = [field for field in every if field in items]
-    fields = [field for field in named if (field, items[field]) not in calculated]
+    fields = [field for field in every if (field, items[field]) not in calculated]
     key = tuple(as_compared(items[field]) for field in fields)
-    final = level_final(pivot.name, named, every)
-    if len(fields) == len(named):
-        return final, list(range(len(fields))), key, len(fields) + captions.index(cell.value)
-    [item] = [(field, items[field]) for field in named if field not in fields]
-    return (final, [named.index(field) for field in fields], key,
-            len(named) + len(captions) + calculated.index(item))
+    if len(fields) == len(every):
+        return list(range(len(fields))), key, len(fields) + captions.index(cell.value)
+    [item] = [(field, items[field]) for field in every if field not in fields]
+    return ([every.index(field) for field in fields], key,
+            len(every) + len(captions) + calculated.index(item))
 
 
 @pytest.mark.parametrize("task", PIVOT_TASKS, ids=lambda task: task.id)
 def test_each_pivot_finals_reference_gives_the_values_the_pivot_stored(
         task: ExcelTask, hive: sqlite3.Connection) -> None:
-    # A Workbook check in small: each value cell the pivot stored is its final's row's value,
-    # and each row of each final is a line the pivot shows. A total level the pivot shows
-    # has a final; a pivot a Table's GETPIVOTDATA reads is a step, with none.
+    # A Workbook check in small: each body cell the pivot stored is its final's row's value,
+    # and each row of its final is a line the pivot shows. Its totals are left out of its
+    # table, never compared; a pivot a Table's GETPIVOTDATA reads is a step, with no final.
     expected = {name: excel_eval._as_pivot_rows(rows)
                 for name, rows in excel_eval.reference_rows(hive, task).items()}
     cells = {pivot.name: pivot.cells for pivot in read_workbook(saved(task.workbook))
              .pivot_tables}
     for pivot in task.workbook.pivots:
-        finals = [final for final in task.finals
-                  if excel_eval.table_or_pivot_of(final) == pivot.name]
-        if not finals:
+        if pivot.name not in task.finals:
             continue
-        seen: dict[str, set[tuple[object, ...]]] = {final: set() for final in finals}
+        seen: set[tuple[object, ...]] = set()
         for cell in cells[pivot.name]:
-            final, places, key, column = where_stored(cell, pivot)
-            stored = as_compared(cell.stored)
-            if final not in task.finals:
-                assert stored is None, (final, cell)
+            if not is_a_body_cell(cell, pivot):
                 continue
-            matching = [row for row in expected[final]
+            places, key, column = where_stored(cell, pivot)
+            stored = as_compared(cell.stored)
+            matching = [row for row in expected[pivot.name]
                         if tuple(row[place] for place in places) == key]
-            assert [row[column] for row in matching] == [stored] * len(matching), (final, cell)
-            assert matching or stored is None, (final, cell)
+            assert [row[column] for row in matching] == [stored] * len(matching), cell
+            assert matching or stored is None, cell
             if column < len(places) + len(pivot.values):  # not a calculated item's cell
-                seen[final] |= {row[:len(places)] for row in matching}
-        for final in finals:
-            assert expected[final], final
-            width = len(next(iter(seen[final]), ()))
-            assert {row[:width] for row in expected[final]} == seen[final], final
+                seen |= {row[:len(places)] for row in matching}
+        assert expected[pivot.name], pivot.name
+        width = len(next(iter(seen), ()))
+        assert {row[:width] for row in expected[pivot.name]} == seen, pivot.name
+
+
+def test_a_pivot_tasks_finals_are_its_tables_and_pivots_never_a_total() -> None:
+    for task in PIVOT_TASKS:
+        own = {pivot.name for pivot in task.workbook.pivots}
+        own |= {table.name for table in task.workbook.tables}
+        assert set(task.finals) <= own, task.id
+
+
+def test_a_reply_that_also_writes_a_pivots_total_is_not_wrong_for_it(
+        hive: sqlite3.Connection) -> None:
+    # X85 shows its grand total: the pivot's table leaves it out, and a reply that writes it
+    # as well, as a query of its own, still passes.
+    task = BY_ID["X85"]
+    total = "```sql\nSELECT SUM(duration_mins) AS mins FROM <database>.job_runs\n```\n"
+    assert scored(task, reference_reply(task) + total, hive).passed
 
 
 def pivot_filters_of(pivot: Pivot, task: ExcelTask) -> set[tuple[str, str]]:
@@ -457,7 +463,7 @@ def test_each_pivot_filter_is_marked_in_each_final_it_ends_up_in(task: ExcelTask
                          ids=lambda each: each if isinstance(each, str) else each.id)
 def test_a_reply_without_one_of_a_pivot_tasks_finals_is_not_correct(
         task: ExcelTask, final: str, hive: sqlite3.Connection) -> None:
-    # Each total level is a final of its own: a reply that leaves one out loses it.
+    # Each pivot's table is a final: a reply that leaves one out loses it.
     others = {name: sql for name, sql in task.finals.items() if name != final}
     result = scored(task, reference_reply(task, others), hive)
     assert not result.correct and not result.passed, result
@@ -520,7 +526,7 @@ def test_a_pivot_filter_mark_above_its_condition_or_after_it_is_named(
                             "duration_mins END) AS success, SUM(CASE WHEN status = 'FAILED' "
                             "THEN duration_mins END) AS failed FROM ops.job_runs GROUP BY "
                             "job_id")),
-    # a subtotal row in the pivot's own final, not a final of its own
+    # a subtotal row in the pivot's table, which leaves its totals out
     ("X93", "monthly_runs", ("GROUP BY DATE_FORMAT(dt, 'MMM'), job_id",
                              "GROUP BY DATE_FORMAT(dt, 'MMM'), job_id WITH ROLLUP")),
     # a ratio item worked out over every status, not the ratio of the two items' sums
@@ -532,12 +538,8 @@ def test_a_pivot_filter_mark_above_its_condition_or_after_it_is_named(
     # a calculated field as the mean of each row's ratio, not the ratio of the sums
     ("X112", "retry_rate", ("SUM(avg_retry_secs) / SUM(duration_mins)",
                             "AVG(avg_retry_secs / duration_mins)")),
-    # a Distinct Count's grand total as the sum of each day's
-    ("X100", "jobs_by_day (grand total)", ("SELECT COUNT(DISTINCT job_id) AS jobs FROM "
-                                           "ops.job_runs",
-                                           "SELECT SUM(jobs) AS jobs FROM (SELECT dt, "
-                                           "COUNT(DISTINCT job_id) AS jobs FROM ops.job_runs "
-                                           "GROUP BY dt) d")),
+    # a Distinct Count as a count of each day's runs
+    ("X100", "jobs_by_day", ("COUNT(DISTINCT job_id)", "COUNT(job_id)")),
     # a Top 2 value filter that keeps three
     ("X91", "top_jobs", ("place <= 2", "place <= 3")),
     # a Bottom 2 read as a Top 2
@@ -549,7 +551,7 @@ def test_a_pivot_filter_mark_above_its_condition_or_after_it_is_named(
     ("X97", "late_runs", ("BETWEEN '2026-09-24' AND '2026-09-24'",
                           "BETWEEN '2026-09-23' AND '2026-09-24'")),
     # a % of grand total worked out over each day's total
-    ("X108", "share_grid (by dt)", ("OVER ()", "OVER (PARTITION BY dt)")),
+    ("X108", "share_grid", ("OVER ()", "OVER (PARTITION BY dt)")),
     # GETPIVOTDATA read by an inner join, which drops the job the pivot has no item for
     ("X99", "jobs", ("LEFT JOIN runs_by_job", "JOIN runs_by_job")),
     # a running total that runs over the whole pivot, not along each job's days

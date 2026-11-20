@@ -6,9 +6,10 @@
 test names the rule it holds, so ticket 13 can tie each ID to its test: the pivot gives the Hive
 the rule gives, compared as sqlglot writes both.
 
-The strongest test is the rows: each pivot fixture's finals, run by ticket 09's Workbook check
-over the workbook's own Tables, give the value each of the pivot's cells stored, cell by cell,
-at every total level and for every Show Values As.
+The strongest test is the rows: each pivot fixture's final, run by ticket 09's Workbook check
+over the workbook's own Tables, gives the value each of the pivot's body cells stored, cell by
+cell, for every Show Values As. A pivot is one table, its totals left out and named, each with
+the GROUP BY that gives it (PL1, PL2; ticket 18).
 The stored values were worked out by ticket 02's tool from its own Hive, never by Excel, so they
 test the conversion, not Excel's arithmetic. What the tool can't write (a DAX measure, an OLAP
 cube, items grouped by hand) is a read pivot with one part changed in place.
@@ -20,6 +21,7 @@ import copy
 import dataclasses
 import datetime
 import math
+import re
 import sqlite3
 import sys
 from collections.abc import Iterator
@@ -27,11 +29,20 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
+import sqlglot
+import sqlglot.executor
 from sqlglot import exp
 
 from sqlglot_composer import workbook_hive, workbook_pivot_hive
 from sqlglot_composer.workbook_check import FinalHive, check_workbook
-from sqlglot_composer.workbook_formulas import MARK, REFUSED, WRITTEN_IN, Book, Note
+from sqlglot_composer.workbook_formulas import (
+    LEFT_ALONE,
+    MARK,
+    REFUSED,
+    WRITTEN_IN,
+    Book,
+    Note,
+)
 from sqlglot_composer.workbook_pivot_hive import (
     HIDDEN_ITEMS,
     REPORT_FILTER,
@@ -252,9 +263,10 @@ def test_pr4_a_number_grouping_is_a_case_of_its_bins() -> None:
             "WHEN duration_mins < 20 THEN '10-19' WHEN duration_mins < 30 THEN '20-29' "
             "WHEN duration_mins < 40 THEN '30-39' WHEN duration_mins <= 49 THEN '40-49' "
             "ELSE '>49' END")
-    check(fixture("07_pivot_groups"), "PivotTable1 (by duration_mins)",
-          f"SELECT {bins} AS duration_mins, SUM(duration_mins) AS sum_of_duration_mins "
-          f"FROM db.job_runs GROUP BY {bins}")
+    check(fixture("07_pivot_groups"), "PivotTable1",
+          f"SELECT YEAR(dt) AS Years, DATE_FORMAT(dt, 'MMM') AS dt, {bins} AS duration_mins, "
+          "SUM(duration_mins) AS sum_of_duration_mins FROM db.job_runs GROUP BY YEAR(dt), "
+          f"DATE_FORMAT(dt, 'MMM'), {bins}")
 
 
 def test_pr5_items_grouped_by_hand_are_a_case_of_their_groups() -> None:
@@ -324,9 +336,11 @@ def test_pv4_percent_of_grand_row_and_column_totals_are_a_window(
         assert finals[name] == normal(
             f"SELECT job_id, dt, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER ({over}) "
             f"AS sum_of_duration_mins {grouped}")
-    assert finals["PivotTable3 (by dt)"] == normal(
-        "SELECT dt, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER (PARTITION BY dt) AS "
-        "sum_of_duration_mins FROM db.job_runs GROUP BY dt")
+    # Its total by dt, left out, is the source's GROUP BY (PL2), a share of each day's total.
+    assert ("its total by dt is left out of its table, and Sum of duration_mins isn't a sum "
+            "of its rows: `SELECT dt, SUM(duration_mins) / SUM(SUM(duration_mins)) OVER "
+            "(PARTITION BY dt) AS sum_of_duration_mins FROM <database>.job_runs GROUP BY dt` "
+            "gives it, from the source") in totals_named(built["shown_as"])
 
 
 def test_pv5_a_running_total_is_a_window_down_its_base_field(
@@ -381,18 +395,6 @@ def test_pv7_rank_is_a_rank_window_within_its_base_field() -> None:
           "AS sum_of_duration_mins FROM db.job_runs GROUP BY job_id, dt")
 
 
-def test_pv8_a_total_without_the_base_field_is_null_and_marked() -> None:
-    book = fixture("10_pivot_calculated_item_rank")
-    check(book, "PivotTable2 (by dt)",
-          "SELECT dt, NULL AS sum_of_duration_mins FROM db.job_runs GROUP BY dt")
-    # The grand total, grouping by nothing, is Excel's one blank cell: one row, read from
-    # nothing, never a row per source row (ticket 09's Workbook check found it, ticket 13).
-    check(book, "PivotTable2 (grand total)", "SELECT NULL AS sum_of_duration_mins")
-    assert ("PV8", "PivotTable2 (by dt)[Sum of duration_mins]",
-            "Rank Largest to Smallest job_id: blank at this total, as Excel shows it"
-            ) in notes_of(book, MARK)
-
-
 # --- PC: calculated items --------------------------------------------------------------------
 
 
@@ -441,52 +443,109 @@ def test_pc2_an_item_with_no_rows_in_a_group_is_0_in_the_formula_as_excel_reads_
     assert found[2] == 20 / (18 + 20)
 
 
-def test_pc3_at_a_total_without_its_field_the_item_is_added_in_and_marked() -> None:
-    book = fixture("10_pivot_calculated_item_rank")
-    check(book, "PivotTable1 (grand total)",
-          "SELECT SUM(duration_mins) + COALESCE(SUM(CASE WHEN status IN ('SUCCESS', "
-          "'FAILED') THEN duration_mins END), 0) AS sum_of_duration_mins FROM db.job_runs")
-    assert ("PC3", "PivotTable1 (grand total)[Sum of duration_mins]",
-            "calculated item done on status: added into this total, as Excel adds it"
-            ) in notes_of(book, MARK)
+# --- PL: a pivot is one table, its totals left out --------------------------------------------
 
 
-# --- PL: total levels ------------------------------------------------------------------------
+def totals_named(book: Workbook) -> list[str]:
+    """What the map says of each total a pivot shows, left out of its table (PL2)."""
+    return [text for rule, _, text in notes_of(book, LEFT_ALONE) if rule == "PL2"]
 
 
-def test_pl1_each_total_level_shown_is_a_final_of_its_own() -> None:
+def total_query(said: str) -> str:
+    """The query a total's note gives, between its backticks."""
+    found = re.search(r"`([^`]+)`", said)
+    assert found, said
+    return found.group(1)
+
+
+def test_pl1_a_pivot_with_grand_totals_and_subtotals_is_one_table(
+        built: dict[str, Workbook]) -> None:
+    # Fixture 04 shows both Grand Totals; two_row_fields's first pivot dt's subtotals too.
+    assert list(finals_of(fixture("04_pivot_rows_columns"))) == ["PivotTable1"]
+    assert list(finals_of(built["two_row_fields"])) == ["PivotTable1", "PivotTable2"]
+    assert list(finals_of(built["two_column_fields"])) == ["PivotTable1"]
+    for book in (fixture("04_pivot_rows_columns"), built["two_row_fields"]):
+        assert all("ROLLUP" not in hive and "GROUPING" not in hive
+                   for hive in finals_of(book).values())
+
+
+def test_pl2_each_total_is_named_with_the_group_by_of_its_table_that_gives_it() -> None:
+    assert totals_named(fixture("04_pivot_rows_columns")) == [
+        "its total by job_id is left out of its table: `SELECT job_id, "
+        "SUM(sum_of_duration_mins) AS sum_of_duration_mins FROM pivot GROUP BY job_id` gives "
+        "it",
+        "its total by dt is left out of its table: `SELECT dt, SUM(sum_of_duration_mins) AS "
+        "sum_of_duration_mins FROM pivot GROUP BY dt` gives it",
+        "its grand total is left out of its table: `SELECT SUM(sum_of_duration_mins) AS "
+        "sum_of_duration_mins FROM pivot` gives it"]
+
+
+def test_pl2_a_subtotals_group_by_is_by_its_field_and_those_outside_it(
+        built: dict[str, Workbook]) -> None:
+    named = totals_named(built["two_row_fields"])
+    assert ("its total by dt is left out of its table: `SELECT dt, SUM(sum_of_duration_mins) "
+            "AS sum_of_duration_mins FROM pivot GROUP BY dt` gives it") in named
+    assert "its total by dt and job_id" in " ".join(totals_named(built["two_column_fields"]))
+
+
+def test_pl2_the_group_by_of_the_table_gives_each_total_excel_stored(
+        stand_in: sqlite3.Connection) -> None:
     book = fixture("04_pivot_rows_columns")
-    finals = finals_of(book)
-    assert list(finals) == ["PivotTable1", "PivotTable1 (by job_id)", "PivotTable1 (by dt)",
-                            "PivotTable1 (grand total)"]
-    assert finals["PivotTable1 (grand total)"] == normal(
-        "SELECT SUM(duration_mins) AS sum_of_duration_mins FROM db.job_runs")
-    assert all("ROLLUP" not in hive and "GROUPING" not in hive for hive in finals.values())
+    final = workbook_hive.workbook_hive(book, database="ops").finals["PivotTable1"]
+    rows = run(stand_in, final)
+    grand = total_query(totals_named(book)[2])
+    (found,) = sqlglot.executor.execute(grand, dialect="hive", tables={"pivot": rows}).rows
+    (stored,) = [cell.stored for cell in book.pivot_tables[0].cells
+                 if not cell.row.items and not cell.column.items]
+    assert found == (stored,)
 
 
-def test_pl1_an_outer_fields_subtotals_are_a_final_by_it(built: dict[str, Workbook]) -> None:
-    finals = finals_of(built["two_row_fields"])
-    assert [name for name in finals if name.startswith("PivotTable1")] == [
-        "PivotTable1", "PivotTable1 (by dt)", "PivotTable1 (grand total)"]
-    assert [name for name in finals if name.startswith("PivotTable2")] == [
-        "PivotTable2", "PivotTable2 (grand total)"]
-    assert "PivotTable1 (by dt and job_id)" in finals_of(built["two_column_fields"])
+def test_pl2_a_total_no_sum_of_the_rows_gives_is_the_group_by_of_the_source(
+        built: dict[str, Workbook], stand_in: sqlite3.Connection) -> None:
+    # The Data Model's Distinct Count of job_id by day: its grand total counts each job once.
+    (said,) = totals_named(built["data_model"])
+    assert said == (
+        "its grand total is left out of its table, and Distinct Count of job_id isn't a sum "
+        "of its rows: `SELECT COUNT(DISTINCT job_id) AS distinct_count_of_job_id FROM "
+        "<database>.job_runs` gives it, from the source")
+    every_summary = " ".join(totals_named(built["every_summary"]))
+    assert "Average of duration_mins, StdDev of duration_mins and Var of" in every_summary
+    assert "FROM <database>.job_runs` gives it, from the source" in every_summary
+    query = read_hive(total_query(said).replace("<database>.", "ops."))[0]
+    (stored,) = [cell.stored for cell in built["data_model"].pivot_tables[0].cells
+                 if not cell.row.items]
+    assert run(stand_in, query) == [{"distinct_count_of_job_id": stored}]
 
 
-def test_pl2_a_pivot_showing_no_total_has_its_own_final_alone() -> None:
-    assert list(finals_of(fixture("09_pivot_plain_range"))) == ["PivotTable1"]
+def test_pl2_a_total_excel_shows_blank_is_named_blank() -> None:
+    # A rank within job_id has nothing to rank at a total without job_id.
+    named = [said for said in totals_named(fixture("10_pivot_calculated_item_rank"))
+             if "blank" in said]
+    assert named == ["its total by dt is left out of its table, and Excel shows it blank",
+                     "its grand total is left out of its table, and Excel shows it blank"]
 
 
-def test_pl2_subtotals_of_chosen_functions_are_refused_and_named(
+def test_pl2_a_calculated_items_total_is_named_counted_twice_as_excel_adds_it_in() -> None:
+    named = totals_named(fixture("10_pivot_calculated_item_rank"))
+    assert ("its grand total is left out of its table: `SELECT SUM(sum_of_duration_mins) AS "
+            "sum_of_duration_mins FROM pivot` gives it, without the calculated item done, "
+            "which Excel's total has added into the total, its items counted twice") in named
+
+
+def test_pl2_a_pivot_showing_no_total_names_none() -> None:
+    assert totals_named(fixture("09_pivot_plain_range")) == []
+
+
+def test_pl2_subtotals_of_chosen_functions_are_named_left_out(
         built: dict[str, Workbook]) -> None:
     book = copy.deepcopy(built["two_row_fields"])
     book.pivot_tables[0].fields["dt"].subtotals = ["Sum", "Count"]
-    assert "PivotTable1 (by dt)" not in finals_of(book)
-    assert ("PL2", "PivotTable1", "the subtotals of dt are Sum and Count: no final"
-            ) in notes_of(book, REFUSED)
+    assert ("its subtotals of dt, Sum and Count, are left out of its table: each is its "
+            "function of the source's rows by dt") in totals_named(book)
     hive = workbook_hive.workbook_hive(book)
-    assert ("- PivotTable1: the subtotals of dt are Sum and Count: no final (PL2)"
-            in workbook_hive.map_text(hive, book).split("Refused:")[1])
+    assert ("- PivotTable1: its subtotals of dt, Sum and Count, are left out of its table: "
+            "each is its function of the source's rows by dt (PL2)"
+            in workbook_hive.map_text(hive, book).split("Left alone:")[1])
 
 
 # --- PF: Pivot filters -----------------------------------------------------------------------
@@ -523,8 +582,9 @@ def test_pf2_a_hidden_blank_is_not_null() -> None:
 
 def test_pf3_a_slicers_selection_is_on_each_pivot_it_is_connected_to() -> None:
     finals = finals_of(fixture("05_pivot_slicer_two_pivots"))
-    for name in ("PivotTable1", "runs_by_day", "runs_by_day (grand total)"):
-        assert "WHERE status IN ('FAILED', 'SUCCESS')" in finals[name]
+    assert list(finals) == ["PivotTable1", "runs_by_day"]
+    for hive in finals.values():
+        assert "WHERE status IN ('FAILED', 'SUCCESS')" in hive
 
 
 def test_pf4_a_timelines_dates_are_between() -> None:
@@ -571,17 +631,14 @@ def test_pf5_a_blank_item_the_value_filter_shows_is_kept_with_is_null(
 def test_each_pivot_filter_carries_the_mark_file_20_writes_in_its_hive(
         name: str, marks: dict[str, list[str]]) -> None:
     """`-- Pivot filter: <kind> <field>`, as ticket 10's `pivot_filter` writes it; sqlglot keeps
-    it as a comment beside the condition, at every total level too, and reads it back."""
+    it as a comment beside the condition, and reads it back."""
     book = fixture(name)
     texts = workbook_hive.hive_texts(workbook_hive.workbook_hive(book, database="db"))
     for final, kinds in marks.items():
-        for text_name, text in texts.items():
-            if text_name != final and not text_name.startswith(final + " ("):
-                continue
-            found = []
-            for node in read_hive(text)[0].walk():
-                found += [comment.strip() for comment in node.comments or []]
-            assert found == [f"Pivot filter: {kind}" for kind in kinds], text_name
+        found = []
+        for node in read_hive(texts[final])[0].walk():
+            found += [comment.strip() for comment in node.comments or []]
+        assert found == [f"Pivot filter: {kind}" for kind in kinds], final
 
 
 def test_each_pivot_filter_is_written_for_its_decision() -> None:
@@ -699,14 +756,16 @@ def test_pg1_the_pivots_cte_carries_only_the_values_a_getpivotdata_reads(
     assert hive.count("JOIN PivotTable1 AS") == 1
 
 
-def test_pl1_a_total_levels_final_carries_only_the_ctes_it_reads(
+def test_pl2_a_totals_group_by_of_the_source_carries_only_the_ctes_it_reads(
         built: dict[str, Workbook]) -> None:
-    book = built["hours_step"]
-    finals = finals_of(book)
-    assert finals["PivotTable1 (grand total)"] == (
-        "WITH job_runs AS (SELECT duration_mins / 60 AS hours FROM db.job_runs) "
-        "SELECT SUM(hours) AS sum_of_hours FROM job_runs")
-    assert cells_differing(book) == []
+    book = copy.deepcopy(built["hours_step"])
+    values = book.pivot_tables[0].values
+    values[0] = dataclasses.replace(values[0], summary="Average", caption="Average of hours")
+    assert totals_named(book) == [
+        "its grand total is left out of its table, and Average of hours isn't a sum of its "
+        "rows: `WITH job_runs AS (SELECT duration_mins / 60 AS hours FROM "
+        "<database>.job_runs) SELECT AVG(hours) AS average_of_hours FROM job_runs` gives it, "
+        "from the source"]
     pivot = workbook_hive.workbook_hive(book).finals["PivotTable1"]
     level = exp.select("x").from_("t")
     assert workbook_pivot_hive.ctes_read(level, pivot.ctes) == []
@@ -722,8 +781,8 @@ def test_ps1_a_table_is_read_as_it_is_read() -> None:
 def test_ps1_never_its_cells_typed_in_never_a_cte_named_for_the_table_it_reads(
         built: dict[str, Workbook]) -> None:
     # File 20's PS1 (ticket 11, from ticket 10's baseline misses): a pivot's rows are read from
-    # its source, never typed in (no VALUES, no SELECT without a FROM but PV8's grand total of
-    # NULLs alone), and no CTE reads a table of its own name as itself, the "circular
+    # its source, never typed in (no VALUES, no SELECT without a FROM but of NULLs alone), and
+    # no CTE reads a table of its own name as itself, the "circular
     # reference" a step Table's CTE avoids by reading `<database>.<table>`. A summary's groups
     # are the one set of rows file 15 writes in (R1, C4).
     books = [fixture(name) for name in ROW_FIXTURES] + list(built.values())
@@ -753,12 +812,12 @@ def test_file_15_p12_a_pivot_a_tables_getpivotdata_reads_is_a_step(
     assert finals["job_mins"].startswith("WITH PivotTable1 AS (")
 
 
-def test_file_15_p13_any_other_pivot_is_a_final_and_each_total_level_shown() -> None:
+def test_file_15_p13_any_other_pivot_is_a_final_its_totals_left_out() -> None:
     book = fixture("04_pivot_rows_columns")
     (pivot,) = pivot_pieces(book)
     assert workbook_hive.piece_roles(book)[pivot] == workbook_hive.FINAL
-    assert list(finals_of(book)) == ["PivotTable1", "PivotTable1 (by job_id)",
-                                     "PivotTable1 (by dt)", "PivotTable1 (grand total)"]
+    assert list(finals_of(book)) == ["PivotTable1"]
+    assert len(totals_named(book)) == 3
 
 
 def test_ps2_a_querys_table_is_read_as_its_cte() -> None:

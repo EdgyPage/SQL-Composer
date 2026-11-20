@@ -4031,7 +4031,7 @@ def _record_workbook_parts(files: _BatchFiles, dev: str,
     if final is not None:
         files.pivot_filters[dev] = workbook_conversion.filters_retargeted_to(final, dev)
         files.origins[dev] = FinalOrigin(files.workbooks.places[final.workbook], final.final)
-        return final.notes
+        return workbook_conversion.notes_retargeted_to(final, dev)
     marked: list[ConvertedPivotFilter] = []
     for each in pieces:
         marked += pivot_filters_in(each.text, dev)
@@ -5130,11 +5130,12 @@ def write_decisions(answers: dict[str, dict[str, object]],
 
     A table made from an Excel workbook may have three more. "name" answers its NAME, the
     name proposed for it: "proposed" keeps it; a name of your own, such as "runs_by_job",
-    renames the table, its Table folder and its Table reference, and its total levels' tables
-    with it, before it is created in dev. "sources" answers its SOURCES, the database table
-    proposed for each Table or cells of the workbook it reads, from its name, such as
-    {"ops.table1": "ops.job_runs"}, each a table with a Table reference, in any database:
-    "proposed" keeps it; its logic reads the table given then, with any opt-out it now needs.
+    renames the table, its Table folder and its Table reference, and its Total Row's table,
+    if it has one, with it, before it is created in dev. "sources" answers its SOURCES, the
+    database table proposed for each Table or cells of the workbook it reads, from its name,
+    such as {"ops.table1": "ops.job_runs"}, each a table with a Table reference, in any
+    database: "proposed" keeps it; its logic reads the table given then, with any opt-out it
+    now needs.
     "pivot_filters" answers its PIVOT_FILTERS, what the PivotTable it was made from leaves
     out, each Pivot filter by its field, such as {"status": "fold"}: "keep" keeps the filter
     as converted; "fold" makes its column part of what one row is; "batch" partitions the
@@ -5813,8 +5814,8 @@ def _tables_reading(root: Path, table: str) -> list[str]:
 
 def rename_converted_tables(root: Path, renamed: dict[str, str]) -> list[str]:
     """Rename each table a Conversion made, by its full name, to the full name `renamed` gives
-    it, before it is created in dev: with it, each table made from its workbook final's total
-    levels and its Total Row, named for it. Its Table folder and its Table reference move, its
+    it, before it is created in dev: with it, the table made from its workbook final's Total
+    Row, named for it. Its Table folder and its Table reference move, its
     name is written again in each of their files and in its batch's record, batch.md and
     scripts/, and its registry rows follow; a line saying each. The answer to a "name"
     Decision renames through it; so may any change that names a converted table afresh, as a
@@ -5845,8 +5846,8 @@ def rename_converted_tables(root: Path, renamed: dict[str, str]) -> list[str]:
 
 def _tables_named_with(root: Path, table: str, name: str) -> dict[str, str]:
     """Each table renamed with `table` renamed to `name`, by its full name, and its new one:
-    the table, and each table its batch made from the total levels or the Total Row of the
-    workbook final it came from, its name the new one and its level's."""
+    the table, and the table its batch made from the Total Row of the workbook final it came
+    from, its name the new one and `_total_row`."""
     database, short = split_table_name(table)
     family = {table: f"{database}.{split_table_name(name)[1]}"}
     for batch in _batch_names(root):
@@ -6212,8 +6213,8 @@ def _pivot_filter_tables_problems(root: Path, table: str,
 def _rename_and_write_pivot_filters(root: Path, renamed: dict[str, str],
                                     filters_answered: list[str]) -> list[str]:
     """Rename each table a "name" answer renames, then write again each table whose Pivot
-    filters' answers changed, by the name it has then: a table renamed moves its total
-    levels' tables with it, their Pivot filters answered too. A line saying each."""
+    filters' answers changed, by the name it has then: a table renamed moves its Total Row's
+    table with it. A line saying each."""
     moved = {}
     for table, name in renamed.items():
         moved.update(_tables_named_with(root, table, name))

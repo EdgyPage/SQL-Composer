@@ -33,10 +33,11 @@ Each answer is scored on these checks, in order:
   as `ops`, and a name by the workbook's names, as the task maps them to the Hive's;
 - runs: each runs on the stand-in Hive;
 - correct: for each final Table, one query gives its reference's rows, column by column in the
-  Table's order, whatever the columns are called; for each final of a PivotTable, the pivot's
-  own and each total level's it shows (`<pivot> (grand total)`, `<pivot> (by <field>)`), one
-  query gives its reference's rows with its columns in any order, a number written as text
-  matching the number, since a pivot's columns have no order a Table gives them;
+  Table's order, whatever the columns are called; for each PivotTable's final, its rows at
+  the finest grain, its totals left out, one query gives its reference's rows with its
+  columns in any order, a number written as text matching the number, since a pivot's columns
+  have no order a Table gives them; a reply's other queries, such as one giving a total, cost
+  it nothing;
 - mapped: before the first query, the reply says which Tables are the sources and which the
   finals, naming each source Table of sample rows and each final;
 - named: the reply's words, outside its code, name each refused piece, each mark and each
@@ -723,8 +724,7 @@ def sources(task: ExcelTask) -> list[str]:
 
 def table_or_pivot_of(final: str) -> str:
     """The name of the Table or PivotTable a final belongs to, as `finals` names it: a Total
-    Row's, `job_runs (Total Row)`, is its Table's; a pivot's total level's,
-    `runs_by_job (grand total)`, its pivot's."""
+    Row's, `job_runs (Total Row)`, is its Table's."""
     return final.split(" (", 1)[0]
 
 
@@ -738,7 +738,7 @@ def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
 
 
 def is_a_pivots(final: str, task: ExcelTask) -> bool:
-    """Whether a final is a PivotTable's: its own, or one of its total levels'."""
+    """Whether a final is a PivotTable's."""
     return table_or_pivot_of(final) in {pivot.name for pivot in task.workbook.pivots}
 
 

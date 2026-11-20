@@ -79,7 +79,7 @@ NAME_LINE = re.compile(r'^NAME = "(?P<name>[a-z0-9_]*)"  # (?P<todo>TODO: )?(?:p
 NAME_COMMENT = (
     "# The name of this table, proposed for its final in the workbook. Answer \"name\" in the",
     '# decisions cell: "proposed" keeps it; a name of your own renames this table, and its',
-    "# total levels' tables with it.",
+    "# Total Row's table, if it has one, with it.",
 )
 # The database table each source a workbook's final reads samples, a Table of typed rows or a
 # plain range, proposed from its name, a line each in SOURCES, open while it holds TODO:

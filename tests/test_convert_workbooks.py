@@ -116,9 +116,9 @@ TABLES = {
     "formulas": ["job_runs_report"],
     "power_query": ["long_runs"],
     "total_row": ["job_runs_report", "job_runs_report_total_row"],
-    "pivot": ["pivot", "pivot_by_job_id", "pivot_by_dt", "pivot_grand_total"],
-    "slicer": ["pivot", "runs_by_day", "pivot_grand_total", "runs_by_day_grand_total"],
-    "mix": ["hours_by_job", "long_runs", "hours_by_job_grand_total"],
+    "pivot": ["pivot"],
+    "slicer": ["pivot", "runs_by_day"],
+    "mix": ["hours_by_job", "long_runs"],
     "range": ["pivot"],
 }
 FIXTURE_OF = {"pivot": "04_pivot_rows_columns", "slicer": "05_pivot_slicer_two_pivots",
@@ -223,8 +223,8 @@ def test_each_finals_hive_is_kept_in_the_batchs_scripts_and_the_workbook_read_wh
     assert "FROM ops.job_runs" in hive and "<database>" not in hive
     assert "/* Pivot filter: slicer status */" in hive
     batch = (folder / "batch.md").read_text(encoding="utf-8")
-    assert ("runs.xlsx, a workbook read where it is, each of its 4 finals kept as its Hive in "
-            "scripts/: pivot.hql, ") in batch
+    assert ("runs.xlsx, a workbook read where it is, each of its 2 finals kept as its Hive in "
+            "scripts/: pivot.hql and runs_by_day.hql.") in batch
     # The workbook itself is never copied.
     assert not list(folder.rglob("*.xlsx"))
 
@@ -233,10 +233,24 @@ def test_the_batch_records_the_workbook_and_the_final_each_table_came_from(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
     origins = workbook_conversion.final_origins_of_batch(started, "book")
-    assert origins[f"{DEV}.pivot"] == FinalOrigin("runs.xlsx", "PivotTable1")
-    assert origins[f"{DEV}.runs_by_day_grand_total"] == FinalOrigin(
-        "runs.xlsx", "runs_by_day (grand total)")
+    assert origins == {f"{DEV}.pivot": FinalOrigin("runs.xlsx", "PivotTable1"),
+                       f"{DEV}.runs_by_day": FinalOrigin("runs.xlsx", "runs_by_day")}
     assert workbook_conversion.final_origins_of_batch(started, "none") == {}
+
+
+def test_each_total_a_pivot_shows_is_in_its_tables_checklist_with_how_to_get_it(
+        started: Path, books: dict[str, bytes]) -> None:
+    # Fixture 04's pivot shows both Grand Totals: its table is its rows alone.
+    converted(started, books, "pivot")
+    assert project.batch_tables("book") == [f"{DEV}.pivot"]
+    notes = checklist(started, "pivot")
+    assert ("From the workbook, left alone (rule PL2, in Copilot file 20): PivotTable1: its "
+            "grand total is left out of its table: `SELECT SUM(sum_of_duration_mins) AS "
+            "sum_of_duration_mins FROM mart_dev.pivot` gives it. Next: nothing to do, unless "
+            "you need it: run the query, or keep every total in one table as Copilot file "
+            "21's R9 says.") in notes
+    assert "its total by job_id is left out of its table: `SELECT job_id, " in notes
+    assert "its total by dt is left out of its table: `SELECT dt, " in notes
 
 
 def test_a_workbook_converts_beside_scripts_in_one_batch(
@@ -299,7 +313,7 @@ def test_each_mark_refusal_and_thing_left_alone_is_in_its_tables_checklist(
 def test_a_pivot_filter_is_in_its_tables_checklist(started: Path,
                                                    books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
-    for name in ("pivot", "pivot_grand_total", "runs_by_day"):
+    for name in ("pivot", "runs_by_day"):
         assert "From the workbook, marked (rule PF3, in Copilot file 24): " in checklist(
             started, name)
         assert ("Pivot filter: slicer status, FAILED and SUCCESS kept: a Decision of its "
@@ -328,8 +342,7 @@ def test_a_pivots_default_name_is_a_decision_check_lists(
     assert ("Its name, pivot, is proposed: PivotTable1 is Excel's default name, so it is named "
             "for its sheet, Pivot.") in notes
     assert "name: pivot, proposed" in repr(project.check())
-    # Its total levels' tables are named with it, and wait on it; runs_by_day is its own name.
-    assert "name:" not in checklist(started, "pivot_grand_total")
+    # runs_by_day is its own name.
     assert "name:" not in checklist(started, "runs_by_day")
 
 
@@ -342,16 +355,25 @@ def test_answering_proposed_keeps_the_name(started: Path, books: dict[str, bytes
     assert 'NAME = "pivot"  # for PivotTable1 of runs.xlsx' in reference
 
 
-def test_answering_a_name_renames_the_table_and_its_total_levels(
+def test_answering_a_name_renames_the_table_and_its_total_row_with_it(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "total_row")
+    report = decide({f"{DEV}.job_runs_report": {"name": "runs_report"}})
+    assert f"Renamed {DEV}.job_runs_report to {DEV}.runs_report: its Table folder is " in report
+    assert f"Renamed {DEV}.job_runs_report_total_row to {DEV}.runs_report_total_row" in report
+    assert project.batch_tables("book") == [f"{DEV}.runs_report",
+                                            f"{DEV}.runs_report_total_row"]
+
+
+def test_answering_a_name_renames_the_pivots_table(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")
     report = decide({f"{DEV}.pivot": {"name": "runs_by_job",
                                       "location": "/data/team/mart_dev.db/runs_by_job"}})
     assert f"Renamed {DEV}.pivot to {DEV}.runs_by_job: its Table folder is " in report
-    assert f"Renamed {DEV}.pivot_grand_total to {DEV}.runs_by_job_grand_total" in report
-    assert project.batch_tables("book") == [
-        f"{DEV}.runs_by_job", f"{DEV}.runs_by_day", f"{DEV}.runs_by_job_grand_total",
-        f"{DEV}.runs_by_day_grand_total"]
+    assert project.batch_tables("book") == [f"{DEV}.runs_by_job", f"{DEV}.runs_by_day"]
+    # Its checklist's totals name the table by its new name.
+    assert f"FROM {DEV}.runs_by_job` gives it" in checklist(started, "runs_by_job")
     assert not (started / "tables" / f"{DEV}__pivot").exists()
     assert not (started / "references" / f"{DEV}__pivot.py").exists()
     reference = (started / "references" / f"{DEV}__runs_by_job.py").read_text(encoding="utf-8")

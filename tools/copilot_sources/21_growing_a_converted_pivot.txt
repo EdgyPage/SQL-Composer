@@ -28,7 +28,7 @@ and rules A1 to A10 it uses. Its Pivot filters and one table of two pivots: file
 - **Converted pivot**: a Saved table convert made from a PivotTable. Its **Table
   notebook**'s logic cell has rows(), the clauses convert wrote, which create(), preview()
   and write() read. Its **Table reference** lists its columns, partitions and Key.
-- **Total level**: each total the PivotTable showed, a table of its own.
+- **Total**: each grand total or subtotal the PivotTable showed, left out of its table.
 - `d`: a Derived table; `t`: a table.
 
 ## Rules: where an add-on goes
@@ -58,8 +58,8 @@ and rules A1 to A10 it uses. Its Pivot filters and one table of two pivots: file
 - **R8** Wide, a column per value: `AS(sum_of(t.x, where=equals(t.status, "FAILED")),
   "failed_x")`, the field out of GROUP_BY. A new value has no column, and its rows are
   left out: convert wrote a Column field as rows for that.
-- **R9** Every total level in one Statement (file 05's R5), in place of reading convert's
-  `<table>_by_<field>` and `<table>_grand_total` tables:
+- **R9** Every total in one Statement (file 05's R5), where convert left the totals out of
+  the pivot's table and named each in its checklist:
   - if Rows and Columns, both Grand Totals shown: `GROUP_BY(cube(t.job_id, t.dt))`;
   - if Rows alone, with subtotals: `GROUP_BY(rollup(t.team, t.job_id))`.
   A total's row is NULL in each column it totals over.

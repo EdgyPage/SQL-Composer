@@ -14,9 +14,9 @@ A final's table is named for it: a Table's name, or a pivot's (PN1), in snake ca
 are proposed, each a Decision of its table, the table made under the proposal until the
 person answers "name" in the decisions cell: a pivot keeping Excel's default name, named for
 its sheet (PN2); and a final named as a database table the batch reads, as a Table with
-formula columns over its own rows is, `<name>_report`. A total level or a Total Row is named
-for its pivot's or its Table's table, `pivot_grand_total`, and renamed with it. Converted
-again, a batch keeps the name each final's table has.
+formula columns over its own rows is, `<name>_report`. A Total Row is named for its Table's
+table, `job_runs_report_total_row`, and renamed with it; a pivot's totals are no table of
+their own (file 20's PL1). Converted again, a batch keeps the name each final's table has.
 
 A source's database table is proposed from its name, `<database>.<name>`: a Table's name in
 lower case, which is its snake case, or a range's defined name or sheet in snake case (PS3),
@@ -102,6 +102,11 @@ NEXT_STEPS = {
     LEFT_ALONE: "nothing to do",
     TO_FILL_IN: "write the database's name in its place",
 }
+# What the person does about a PivotTable's total, left out of its table (file 20's PL2), in
+# place of its kind's.
+TOTAL_LEFT_OUT = "PL2"
+TOTAL_NEXT_STEP = ("nothing to do, unless you need it: run the query, or keep every total in "
+                   "one table as Copilot file 21's R9 says")
 # The Copilot file each rule's ID is explained in, by its first letters: a rule M or X is in
 # file 11 for a formula, and in file 12 for a Power Query; a total's (T) in file 23 and a Pivot
 # filter's (PF) in file 24, split out of files 12 and 20 to fit (Toolbox 8.9, ticket 14).
@@ -156,8 +161,9 @@ class WorkbookFinal:
     named for; its Hive; why that name was proposed, "" where it is the final's own; each line
     of the workbook's map about it, for its table's checklist; each `<...>` its Hive still
     holds, which stops it converting; each Pivot filter its rows go through, its `final` the
-    workbook's name of the pivot it is in; its workbook's file's name; and each source it
-    reads, a Table of typed rows or a plain range."""
+    workbook's name of the pivot it is in; its workbook's file's name; each source it reads,
+    a Table of typed rows or a plain range; and, for a PivotTable, the name its notes' queries
+    of its totals read its table by, as the map writes it (`notes_retargeted_to`)."""
 
     final: str
     table: str
@@ -168,6 +174,7 @@ class WorkbookFinal:
     filters: list[ConvertedPivotFilter] = field(default_factory=list)
     workbook: str = ""
     sources: list[WorkbookSource] = field(default_factory=list)
+    totals_read: str = ""
 
     @property
     def script(self) -> str:
@@ -264,6 +271,7 @@ def converted_workbook(call: str, path: Path, database: str,
     names = final_table_names(workbook, hive, names_kept)
     owned, of_no_final = notes_by_final(workbook, hive)
     filters = pivot_filters(workbook)
+    pivots = pivot_table_names(workbook)
     finals = []
     for final, text in hive_texts(hive).items():
         name = names[final]
@@ -277,7 +285,7 @@ def converted_workbook(call: str, path: Path, database: str,
         finals.append(WorkbookFinal(
             final, name.table, text, name.proposed, notes, to_fill_in,
             [each for each in filters if each.final.lower() in read_names], path.name,
-            sources_of(text, read, workbook, database, path.name)))
+            sources_of(text, read, workbook, database, path.name), pivots.get(final, "")))
     return ConvertedWorkbook(path.name, finals,
                              [checklist_note_text(note) for note in of_no_final])
 
@@ -343,9 +351,8 @@ def final_table_names(workbook: Workbook, hive: WorkbookHive,
 
 def _final_name(final: str, workbook: Workbook, pivots: dict[str, str], read: set[str],
                 names_kept: dict[str, str]) -> FinalName:
-    """One final's table's name: the one the batch kept for it; else, for a total level or a
-    Total Row, its pivot's or its Table's table's name and the level's, in snake case; else
-    its own, or the one proposed for it."""
+    """One final's table's name: the one the batch kept for it; else, for a Total Row, its
+    Table's table's name and `total_row`; else its own, or the one proposed for it."""
     if final in names_kept:
         return FinalName(names_kept[final])
     base, _, level = final.partition(" (")
@@ -406,8 +413,8 @@ def proposed_name_note(name: FinalName) -> str:
     it."""
     return (f"Its name, {name.table}, is proposed: {name.proposed}. It is a Decision: answer "
             '"name" in the decisions cell, "proposed" to keep it, or a name of your own, such '
-            'as "runs_by_job", which renames the table, and its total levels\' tables with '
-            "it.")
+            'as "runs_by_job", which renames the table, and its Total Row\'s table, if it has '
+            "one, with it.")
 
 
 def names_kept_of(origins: dict[str, FinalOrigin], workbook: str) -> dict[str, str]:
@@ -502,9 +509,11 @@ def _guessed_columns(columns: list[Column]) -> dict[str, str]:
 def checklist_note_text(note: Note) -> str:
     """One line of the workbook's map in plain words, as a checklist or batch.md lists it: what
     it is, the rule and the Copilot file that explains it, and what to do about it."""
+    next_step = NEXT_STEPS[note.kind]
+    if note.rule == TOTAL_LEFT_OUT:
+        next_step = TOTAL_NEXT_STEP
     return (f"From the workbook, {NOTE_WORDS[note.kind]} (rule {note.rule}, in Copilot file "
-            f"{_rule_file(note.rule)}): {note.where}: {note.text}. Next: "
-            f"{NEXT_STEPS[note.kind]}.")
+            f"{_rule_file(note.rule)}): {note.where}: {note.text}. Next: {next_step}.")
 
 
 def _rule_file(rule: str) -> str:
@@ -557,8 +566,8 @@ def _named_in(where: str) -> str:
 
 
 def _pieces_a_final_reads(final: str, workbook: Workbook) -> set[Piece]:
-    """The piece a final is, a total level's or a Total Row's its pivot's or its Table's, and
-    every piece it reads, at any depth."""
+    """The piece a final is, a Total Row's its Table's, and every piece it reads, at any
+    depth."""
     base = final.partition(" (")[0]
     start = [piece for piece in workbook.order if piece.name.lower() == base.lower()]
     found: set[Piece] = set()
@@ -576,6 +585,16 @@ def filters_retargeted_to(final: WorkbookFinal, table: str) -> list[ConvertedPiv
     """Each Pivot filter a final's rows go through, its `final` the name of the table the final
     became, as the Copilot path's Hive gives it."""
     return [replace(each, final=table) for each in final.filters]
+
+
+def notes_retargeted_to(final: WorkbookFinal, table: str) -> list[str]:
+    """Each line of the map about a final, for its table's checklist, each query of a
+    PivotTable's total reading the table the final became, `table`, by its full name, which a
+    rename writes again (file 20's PL2)."""
+    if not final.totals_read:
+        return list(final.notes)
+    read = re.compile(rf"FROM {re.escape(final.totals_read)}(?=`| GROUP BY )")
+    return [read.sub(f"FROM {table}", note) for note in final.notes]
 
 
 def not_converted_text(final: WorkbookFinal) -> str:
