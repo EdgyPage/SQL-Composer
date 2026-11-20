@@ -25,7 +25,7 @@ job_hours = Table(
 
 # The name of this table, proposed for its final in the workbook. Answer "name" in the
 # decisions cell: "proposed" keeps it; a name of your own renames this table, and its
-# total levels' tables with it.
+# Total Row's table, if it has one, with it.
 NAME = "job_hours"  # for PivotTable1 of job_hours.xlsx
 
 # The database table each Table or range of the workbook it reads samples, proposed from

@@ -110,6 +110,19 @@ X122) and X91's and X111's reference steps, which only the totals made. `docs/co
 Excel section follows. Memo keys: file 20 and the pivot tasks changed, so ticket 14's pivot
 rounds are best run after this.
 
+### On ticket 20, every generated output at 8.9 (2026-11-20)
+
+Rebased onto dev's 3e478d74 (ticket 20): `write_decisions`' docstring and the module docstring
+of `workbook_conversion.py` keep both tickets' words, and `WorkbookFinal` keeps ticket 20's
+`sources` (each a SOURCES Decision) beside this ticket's `totals_read`. Then one regeneration
+with the tools: both Example projects, `docs/main/*.html`, the README charts, the Copilot files
+and the all-in-one, and the usability scenarios (H2's `key.json` at 8.9). The section below is
+settled by it. `tests/snapshot/known.txt` is the union of both sides, pruned of what the test
+set below made on dev and no longer makes. `test_example_projects_page.py`'s committed-page
+test fails under `-n 6` on dev and here alike, its notebook stopping at "No module named
+'warehouse'" when another test in the worker runs first; alone, or with the Example project
+and how-to tests in one process, it passes.
+
 ### For ticket 15's outputs: regenerate after this merges
 
 On this branch `test_example_projects.py::test_the_committed_project_is_what_the_generator_writes[intermediate]`
