@@ -1944,12 +1944,22 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      and each Template still as 8.7 wrote it again, saying that cell records it now. A Table
      notebook with no `export_hive()` cell is marked, since it records nothing when its logic
      changes.
-   - If your Project was at 8.8, the 8.9 Upgrade carries it to 8.9, with nothing for you to
-     change: it writes the convert Workflow's notebook,
-     `admin/workflows/convert/convert.ipynb`, again, saying its `FILES` may name an Excel
-     workbook, and keeps each name you gave it and each cell you wrote in. It then records the
-     Lineage state: a column whose Hive 8.9 writes differently, such as one using `VAR_SAMP`,
-     is marked `toolbox`, never as a change of yours.
+   - If your Project was at 8.8, the 8.9 Upgrade carries it to 8.9. It writes the convert
+     Workflow's notebook, `admin/workflows/convert/convert.ipynb`, again, saying its `FILES`
+     may name an Excel workbook. It keeps each name you gave it, each step cell you wrote in
+     and your answered decisions cell, and keeps the notebook as it was in `admin/removed/`.
+     Then check each variance column, since its numbers may change. Search your Project's
+     `tables/` and `building_blocks/` for `var_samp`, `var_pop` and `variance`, such as
+     `hive_function("var_samp", ...)`. 8.8 wrote `var_samp` as Hive's `VARIANCE`, the
+     population variance; 8.9 writes `VAR_SAMP`, the sample variance, so that column's values
+     change, to the right ones, the next time its table is written: check them, and tell
+     whoever reads the table. 8.8 wrote `var_pop` as `VARIANCE_POP`, which Hive hasn't got;
+     8.9 writes `VAR_POP`, so its write now works. `variance` is written as before, the
+     population variance. Last, the Upgrade records the Lineage state, which needs no
+     connection and sends nothing: a column whose Hive 8.9 writes differently gets a row
+     marked `toolbox` in the `change` column of `admin/lineage/lineage_state.csv`, and the
+     Lineage difference, written from `admin/lineage.ipynb`, shows it apart from your own
+     changes.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
