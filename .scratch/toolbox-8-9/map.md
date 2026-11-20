@@ -311,6 +311,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   15, 11, 12; the evaluation loads 20 only for a pivot task (`PIVOT_FILE`, `files_of`). Files
   00, 15 and 20 have 16, 23 and 3 characters to spare: ticket 14's tuning splits a file that
   outgrows 9,000. Merged 2026-11-19.
+- [13 The two paths tied](issues/13-the-two-paths-tied.md): `tests/repo/test_rules_tied_to_tests.py`
+  reads every rule ID from files 11, 12, 15 and 20 (`copilot_files.rule_ids`) and fails on an ID
+  with no test named for it, or a test naming none; every disagreement settled (P11 the whole
+  workbook refused; I1's limits named; Q2's `<>` and `=` null-safe; COUNT of text refused, COUNTA
+  suggested; PV8's all-NULL total one row; PV5's text order A to Z). Two file lines wait for
+  ticket 14's split of files 12 and 20: Q2's `=` and PV5's text order. Merged 2026-11-19.
 
 ## Not yet specified
 
