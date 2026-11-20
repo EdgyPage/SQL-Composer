@@ -576,6 +576,35 @@ def answers_in_words(keyed: dict[str, ConvertedPivotFilter], answers: dict[str, 
     return "; ".join(said)
 
 
+def answered_since_converted(keyed: dict[str, ConvertedPivotFilter], answers: dict[str, str],
+                             held: dict[str, object]) -> str:
+    """What a table's Pivot filters' answers other than "keep" made of it since it was
+    converted, as the Workbook check says it, `held` giving the value a table per value holds:
+    such as `before its Pivot filter's answer "fold"; the table now holds every status`, or ""
+    where every answer keeps its filter."""
+    given, holds = [], []
+    for key, written in keyed.items():
+        answer = answers.get(key, PivotFilterAnswer.KEEP)
+        column = column_name(written.field)
+        if answer == PivotFilterAnswer.FOLD:
+            holds.append(f"every {column}")
+        elif answer == PivotFilterAnswer.BATCH:
+            holds.append(f"every {column}, a Partition per {column}, each run writing one")
+        elif answer == PivotFilterAnswer.TABLES:
+            holds.append(f"{column} {value_shown(held.get(key))} alone")
+        else:
+            continue
+        given.append((column, answer))
+    if not given:
+        return ""
+    if len(given) == 1:
+        said = f'its Pivot filter\'s answer "{given[0][1]}"'
+    else:
+        said = "its Pivot filters' answers " + in_words(
+            [f'"{answer}" on {column}' for column, answer in given])
+    return f"before {said}; the table now holds {in_words(holds)}"
+
+
 def table_slices(table: str, keyed: dict[str, ConvertedPivotFilter],
                  answers: dict[str, str]) -> dict[str, dict[str, object]]:
     """Each table a Pivot filter's answers make of `table`, by its full name, and the value

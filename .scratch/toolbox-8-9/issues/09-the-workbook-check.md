@@ -251,3 +251,42 @@ new tests, the convert and workbook tests, `tests/sqlglot_checks`, `tests/repo/`
 the import self-check, the Excel eval and the Example database's).
 
 **Left.** The code-review skill's sub-agents' runs are the lead's to record in the ledger.
+
+## Follow-up
+
+After ticket 08 (2026-11-19): a table whose Pivot filter is answered "fold", "batch" or
+"tables" was rewritten from the Hive it was converted from, so its rows are no longer the
+PivotTable's selection. When a convert runs again, the check still runs the Hive the table was
+converted from (the workbook's own, or Copilot's script), never the one the answers wrote, and
+now says so in a line under the final's own:
+
+    mart_dev.pivot: checked as converted, before its Pivot filter's answer "fold"; the table
+    now holds every status.
+
+"batch" says "the table now holds every status, a Partition per status, each run writing
+one"; "tables", on the first table per value, which keeps the workbook's final, "the table now
+holds status FAILED alone". Two filters answered read "its Pivot filters' answers "fold" on
+status and "tables" on dt". Each table per value made beside the first stands for no final of
+the workbook, so it is not checked, and a line says why:
+
+    mart_dev.pivot_success, mart_dev.pivot_test and mart_dev.pivot_blank: not checked: each
+    is a table per value, made beside mart_dev.pivot_failed by its Pivot filter's answer
+    "tables", and the workbook holds no PivotTable of one value's rows alone to compare it
+    with.
+
+"keep" is checked and reported as before. batch.md gets the same lines, as items.
+
+- `workbook_check.FinalHive` gains `as_converted` and `beside`; `_pivot_filter_lines` says
+  them after the final's own lines (the "checked as converted" line only where it was
+  checked). The module docstring says so.
+- `pivot_filters.answered_since_converted(keyed, answers, held)` gives the words.
+- `project._as_converted(root, final)` fills both from `_pivot_filter_tables`, the tables per
+  value in the order of their values; `_workbook_checks` passes each final through it.
+- Tests (`tests/test_workbook_check.py`): fold, batch and tables, each converted again and
+  matching as converted, the line in the report and in batch.md; the tables beside the first
+  named; "keep" as today. 6 new hashes in `tests/snapshot/known.txt`, none left stale (the
+  touched test files' hashes compared before and after).
+
+Left, from ticket 08: converting again writes the files write_decisions rewrote to the batch's
+fresh/, and after "tables" batch.md too, as they are no longer the batch's as it wrote them;
+the new test reads batch.md's fresh copy where there is one.

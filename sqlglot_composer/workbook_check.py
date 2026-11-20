@@ -22,6 +22,10 @@ each total level.
 - **A difference** is a cell whose value the Hive doesn't give: one line each, such as
   "region East, dt Mar: Excel 1,204, Hive 1,198". It stops nothing. A final the executor can't
   run, such as one using a function it has no Python for, is named with why, never guessed at.
+- **A Pivot filter answered** "fold", "batch" or "tables" (ticket 08) rewrote its table, whose
+  rows are no longer the PivotTable's selection: the table is checked as converted, on the Hive
+  it was converted from, and the report says so in a line. A table per value made beside the
+  first stands for no final of the workbook, so it is not checked, and the report says why.
 
 It never reads the warehouse, and never calls the user's `query`: the workbook's rows are an
 old sample, which the warehouse's rows have moved on from, so it compares the Hive with the
@@ -154,12 +158,21 @@ WORKBOOK_FUNCTIONS: dict[str, Callable[..., object]] = {
 class FinalHive:
     """One final to check: its name in the workbook, such as `PivotTable1`; the Saved table it
     became, by its full name, such as `mart_dev.pivot`; its Hive; and the script it is, where
-    Copilot wrote it, "" for the workbook's own."""
+    Copilot wrote it, "" for the workbook's own.
+
+    Where its table's Pivot filters were answered other than "keep" since, its rows are no
+    longer the PivotTable's selection, so its Hive is the one it was converted from, never the
+    one the answers wrote: `as_converted` says what the answers made of the table, such as
+    `before its Pivot filter's answer "fold"; the table now holds every status`, "" where they
+    made nothing; and `beside` names each table per value made beside it, which no final of
+    the workbook stands for, so none is checked."""
 
     final: str
     table: str
     hive: str
     script: str = ""
+    as_converted: str = ""
+    beside: tuple[str, ...] = ()
 
 
 @dataclass
@@ -723,10 +736,12 @@ def _named(checked: CheckedFinal) -> str:
 
 def _final_lines(checked: CheckedFinal) -> list[str]:
     """What the report says of one final: a line, then each difference and each cell where the
-    workbook shows an Excel error indented below it, a line said more than once said once."""
+    workbook shows an Excel error indented below it, a line said more than once said once; and
+    the lines of its Pivot filters' answers (_pivot_filter_lines)."""
     named = _named(checked)
     if checked.not_checked:
-        return [f"{named}: not checked: {checked.not_checked}. {BY_HAND}"]
+        return [f"{named}: not checked: {checked.not_checked}. {BY_HAND}",
+                *_pivot_filter_lines(checked)]
     if not (checked.differences or checked.errors):
         compared = counted(checked.compared, "cell")
         lines = [f"{named}: every cell matches the workbook, {compared} compared."]
@@ -747,6 +762,23 @@ def _final_lines(checked: CheckedFinal) -> list[str]:
         lines.append(f"{named}: not compared: {in_words(checked.unstored)}, as the file holds "
                      "no value saved for them: a file saved by a tool, not by Excel, holds "
                      "none. Open it in Excel, save it, and convert again to compare them.")
+    return lines + _pivot_filter_lines(checked)
+
+
+def _pivot_filter_lines(checked: CheckedFinal) -> list[str]:
+    """What the report says of a final whose table's Pivot filters were answered other than
+    "keep": that it was checked as converted, where it was, and why each table per value made
+    beside it is not checked."""
+    table = checked.final.table
+    lines = []
+    if checked.final.as_converted and not checked.not_checked:
+        lines.append(f"{table}: checked as converted, {checked.final.as_converted}.")
+    beside = list(checked.final.beside)
+    if beside:
+        each = singular_or_plural(len(beside), "it is", "each is")
+        lines.append(f"{in_words(beside)}: not checked: {each} a table per value, made beside "
+                     f"{table} by its Pivot filter's answer \"tables\", and the workbook holds "
+                     "no PivotTable of one value's rows alone to compare it with.")
     return lines
 
 

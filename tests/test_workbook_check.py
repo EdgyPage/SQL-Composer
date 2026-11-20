@@ -423,6 +423,73 @@ def test_a_copilot_hql_that_differs_lists_each_cell_and_blocks_nothing(started: 
     assert "- pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": " in batch_md(started)
 
 
+def converted_again_after(root: Path, answer: str) -> str:
+    """convert's report of fixture 05, converted, its PivotTable1's slicer on status answered
+    `answer` in the decisions cell, then converted again."""
+    (root / "runs.xlsx").write_bytes(
+        (FIXTURES / "05_pivot_slicer_two_pivots.xlsx").read_bytes())
+
+    def convert() -> str:
+        return repr(project.convert("book", files=["runs.xlsx"], query=example_database.query,
+                                    database="ops"))
+
+    convert()
+    project.write_decisions({f"{DEV}.pivot": {"pivot_filters": {"status": answer}}},
+                            tables=project.batch_tables("book"))
+    return convert()
+
+
+def batch_md_written(root: Path) -> str:
+    """The batch.md the last convert wrote: its fresh copy, where write_decisions changed the
+    batch's own since, as "tables" does in renaming the table."""
+    fresh = (root / "admin" / "workflows" / "convert" / "book" / "fresh" / "admin"
+             / "workflows" / "convert" / "book" / "batch.md")
+    if fresh.is_file():
+        return fresh.read_text(encoding="utf-8")
+    return batch_md(root)
+
+
+@pytest.mark.parametrize(("answer", "table", "holds"), [
+    ("fold", "pivot", "every status"),
+    ("batch", "pivot", "every status, a Partition per status, each run writing one"),
+    ("tables", "pivot_failed", "status FAILED alone"),
+])
+def test_a_pivot_filter_answered_otherwise_than_keep_is_checked_as_converted(
+        started: Path, answer: str, table: str, holds: str) -> None:
+    """The table's rows are no longer the PivotTable's selection, so the Hive checked is the
+    one it was converted from, and the report says so."""
+    report = converted_again_after(started, answer)
+    in_dev = (started / "tables" / f"{DEV}__{table}" / "conversion" / "in_dev.hql").read_text(
+        encoding="utf-8")
+    assert "status IN ('FAILED', 'SUCCESS')" not in in_dev
+    lines = report.splitlines()
+    first = lines.index(f'{DEV}.{table}, from PivotTable "PivotTable1": every cell matches the '
+                        "workbook, 3 cells compared.")
+    said = (f"{DEV}.{table}: checked as converted, before its Pivot filter's answer "
+            f'"{answer}"; the table now holds {holds}.')
+    assert lines[first + 1] == said
+    assert f"- {said}" in batch_md_written(started)
+
+
+def test_each_table_per_value_beside_the_first_is_not_checked_and_the_report_says_why(
+        started: Path) -> None:
+    report = converted_again_after(started, "tables")
+    said = (f"{DEV}.pivot_success, {DEV}.pivot_test and {DEV}.pivot_blank: not checked: each "
+            f"is a table per value, made beside {DEV}.pivot_failed by its Pivot filter's "
+            'answer "tables", and the workbook holds no PivotTable of one value\'s rows alone '
+            "to compare it with.")
+    lines = report.splitlines()
+    assert lines[lines.index(said) - 1].startswith(f"{DEV}.pivot_failed: checked as converted")
+    assert f"- {said}" in batch_md_written(started)
+
+
+def test_a_pivot_filter_kept_is_checked_as_today(started: Path) -> None:
+    report = converted_again_after(started, "keep")
+    assert (f'{DEV}.pivot, from PivotTable "PivotTable1": every cell matches the workbook, 3 '
+            "cells compared.") in report
+    assert "checked as converted" not in report
+
+
 def test_the_check_never_calls_query(started: Path) -> None:
     """Every Hive convert sends to query is a DESCRIBE; the check reads no warehouse, and the
     offline trap every test runs under refuses any lookup off this computer."""
