@@ -141,8 +141,8 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 One thing about one table that only the user decides, which the table's files show made or
 not: its location, its Key, a column type the Toolbox could only guess, the value a Script
 tag stands for, the Partitions its Seed copies, the name proposed for a table made from a
-Formula workbook, the database table proposed for cells a PivotTable reads, or a
-`<...>` left to fill in. The user answers
+Formula workbook, the database table proposed for cells a PivotTable reads, each Pivot
+filter kept or its every slice kept instead, or a `<...>` left to fill in. The user answers
 each in a Workflow's decisions cell, and a step writes each answer into the table's Table
 reference. An answer may be given once for every table of a batch, and a table's own answer
 overrides it; an answer may also be a Run value's function, called each time the table is
@@ -373,7 +373,8 @@ hidden on a Row or Column field, a slicer's selection, a Timeline's dates, or a 
 such as Top 10. It is converted as the condition it is, its values written in. Keeping it is a
 Decision of the table it ends up in, whose other answers keep every slice instead: the filtered
 column becomes part of what one row is, each value is written as its own batch, or each value
-gets a table of its own, as many tables as the filter has values.
+gets a table of its own, as many tables as the filter has values. A value filter keeps items
+by their rank, so only the first keeps its every item.
 _Avoid_: slicer filter, page filter, applied filter, sliced view
 
 **Saved table**:

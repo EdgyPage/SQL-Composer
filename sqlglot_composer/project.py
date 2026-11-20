@@ -137,6 +137,7 @@ from . import (converting, decisions, describe, keys, kinds, unchecked, upgrades
                workbook_conversion, workflows)
 from .pivot_filters import (PIVOT_FILTERS, pivot_filter_record, pivot_filters_in,
                             with_field_values_of)
+from . import pivot_filters  # each Pivot filter's Decision (Toolbox 8.9, ticket 08)
 from .workbook_conversion import (WORKBOOK_FINALS, BatchWorkbooks, ConvertedWorkbook,
                                   FinalOrigin, WorkbookFinal)
 from .workbook_pivot_hive import ConvertedPivotFilter, pivot_filter_text
@@ -3479,7 +3480,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     # After its first line, which says what it converted: each staging table, and its choice,
     # and each name proposed for a workbook's final, a Decision.
     report[1:1] = [*_staging_lines(staging_found, folded, unfoldable),
-                   *_workbook_report_lines(files, names)]
+                   *_workbook_report_lines(files, names), *_pivot_filter_report_lines(files)]
     return ProjectReport([*report, *_unrecorded_lines(root, call)])
 
 
@@ -3935,11 +3936,12 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     files.marks[dev] = list(opt_outs)
     proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
+    workbook_notes = _record_workbook_parts(files, dev, pieces)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
-                           _guessed(columns), proposed=proposed,
+                           _guessed(columns), proposed=proposed, seeded=seeded,
                            tag_is_quoted=hive_read.tag_is_quoted,
-                           tag_places=_first_place_of_each_tag(pieces), seeded=seeded,
-                           decided=_workbook_decision_blocks(files, first.script))
+                           tag_places=_first_place_of_each_tag(pieces),
+                           decided=_workbook_decision_blocks(files, first.script, dev))
     if seeded:
         files.seeded.append(dev)
     whole_hive = None
@@ -3952,7 +3954,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
         items.append(SEED_NOTE)
-    items += _record_workbook_parts(files, dev, pieces)
+    items += [*workbook_notes, *_pivot_filter_notes(dev, files.pivot_filters[dev], text)]
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
@@ -3985,19 +3987,21 @@ def _record_workbook_parts(files: _BatchFiles, dev: str,
             for each in files.pivot_filters[dev]]
 
 
-def _workbook_decision_blocks(files: _BatchFiles, script: str) -> list[list[str]]:
-    """The Decisions a workbook's final gives its table's Table reference: its name, where it
-    was proposed, and the database table each plain range it reads samples."""
+def _workbook_decision_blocks(files: _BatchFiles, script: str, dev: str) -> list[list[str]]:
+    """The Decisions a workbook's final gives its table's Table reference, `dev`'s: its name,
+    where it was proposed, and the database table each plain range it reads samples; and, a
+    script's too, each of its Pivot filters (ticket 08)."""
+    pivot_filter_blocks = _pivot_filters_blocks(files.pivot_filters.get(dev, []))
     final = files.workbooks.final_of_script().get(script)
     if final is None:
-        return []
+        return pivot_filter_blocks
     blocks = []
     if final.proposed:
         blocks.append(decisions.name_block(final.table, final.final, final.workbook))
     if final.sources:
         blocks.append(decisions.sources_block({source.table: source.range
                                                for source in final.sources}))
-    return blocks
+    return [*blocks, *pivot_filter_blocks]
 
 
 # The checklist's note of a table that reads itself, which the seed step fills once.
@@ -5046,18 +5050,28 @@ def write_decisions(answers: dict[str, dict[str, object]],
     no longer repeats rows without it, and the report names each one; one still needed stays.
     Its Workflow's next step names each Decision still open.
 
-    A table made from an Excel workbook may have two more. "name" answers its NAME, the name
-    proposed for it: "proposed" keeps it; a name of your own, such as "runs_by_job",
+    A table made from an Excel workbook may have three more. "name" answers its NAME, the
+    name proposed for it: "proposed" keeps it; a name of your own, such as "runs_by_job",
     renames the table, its Table folder and its Table reference, and its total levels' tables
     with it, before it is created in dev. "sources" answers its SOURCES, the database table
     proposed for cells a PivotTable reads, such as {"ops.runs": "ops.job_runs"}, a table with
     a Table reference: its logic reads that table then, with any opt-out it now needs.
+    "pivot_filters" answers its PIVOT_FILTERS, what the PivotTable it was made from leaves
+    out, each Pivot filter by its field, such as {"status": "fold"}: "keep" keeps the filter
+    as converted; "fold" makes its column part of what one row is; "batch" partitions the
+    table on its column, each write inserting the slice of one value, a Script tag answered
+    under "tags", such as with a Run value; and "tables" makes a table per value,
+    <table>_<value>, as its checklist says how many. Each rewrites the table's logic, its
+    Table reference and its conversion/ Hive from the Hive it was converted from, so answering
+    again changes it back, before it is created in dev.
 
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
-    kind other than location, key, types, tags, name, sources and seed, a "types", "tags",
-    "sources" or "seed" that isn't a dict, a seed limit on a column that isn't a partition
-    column, a column the table doesn't have, a tag its TAGS doesn't hold, or a name it can't
-    take, as one another table has, or once it is created in dev. The refusal names each
+    kind other than location, key, types, tags, name, sources, pivot_filters and seed, a
+    "types", "tags", "sources", "pivot_filters" or "seed" that isn't a dict, a seed limit on
+    a column that isn't a partition column, a column the table doesn't have, a tag its TAGS
+    doesn't hold, a name it can't take, as one another table has, or once it is created in
+    dev, or a Pivot filter it doesn't have or an answer its Hive can't take, as "tables" for
+    a value filter. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
 
@@ -5091,6 +5105,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
     lines, files = [], []
     before, written = {}, {}
     renamed: dict[str, str] = {}
+    filters_answered: list[str] = []
     keys_written = False
     for table in named:
         stem = table_stem(table)
@@ -5108,8 +5123,13 @@ def write_decisions(answers: dict[str, dict[str, object]],
                          f"{REFERENCE.shown(stem)}.")
             lines += _point_sources_answered(root, table, before[table], answered.text)
             renamed.update(_name_answered_change(table, before[table], answered.text))
-        lines += _answered_lines(root, table, answer, answered)
-    lines += rename_converted_tables(root, renamed)
+            if (decisions.pivot_filter_answers(before[table])
+                    != decisions.pivot_filter_answers(answered.text)):
+                filters_answered.append(table)
+        # A table its Pivot filters' answers write again says what is open once they have.
+        lines += _answered_lines(root, table, answer, answered,
+                                 says_open=table not in filters_answered)
+    lines += _rename_and_write_pivot_filters(root, renamed, filters_answered)
     lines += _all_tables_report_lines(answers, before, written)
     if keys_written:
         lines += _take_out_needless_many_matches(root)
@@ -5118,21 +5138,29 @@ def write_decisions(answers: dict[str, dict[str, object]],
 
 
 def _answered_lines(root: Path, table: str, answer: dict[str, object],
-                     answered: decisions.Answered) -> list[str]:
+                     answered: decisions.Answered, says_open: bool = True) -> list[str]:
     """What write_decisions says of one table once its answers are written, its checklist
     written again: each answer that changed one before, each left unwritten, each Hive
-    variable's note, each TODO line left, and each Decision still open."""
+    variable's note, each TODO line left, and, when it `says_open`, each Decision still
+    open."""
     lines = [f"{table}: {each}: if the table is written already, write it and compare it "
              "again." for each in answered.changed]
     lines += [f"{table}: {each}." for each in answered.unwritten]
     lines += _hivevar_notes(root, table, answer)
     _write_checklist_again(root, table)
-    still_open = decisions.open_decisions(answered.text, table)
     lines += _todo_lines_report(table, answered.text)
-    lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
-    if not still_open:
-        lines.append(f"Each Decision of {table} is made.")
+    if says_open:
+        lines += _still_open_lines(table, answered.text)
     return lines
+
+
+def _still_open_lines(table: str, text: str) -> list[str]:
+    """What write_decisions says of each Decision a table's Table reference, `text`, leaves
+    open, or that each is made."""
+    still_open = decisions.open_decisions(text, table)
+    if not still_open:
+        return [f"Each Decision of {table} is made."]
+    return [f"Still open in {table}: {decision.question()}." for decision in still_open]
 
 
 def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict[str, str],
@@ -5383,7 +5411,7 @@ def _unmatched_workbook_answers(root: Path, table: str, answer: dict[str, object
                   and not REFERENCE.path(root, table_stem(str(given))).exists()):
                 problems.append(f"{table}: sources: {given} has no Table reference: add it "
                                 f'first, with project.add_references("{given}", query=query)')
-    return problems
+    return problems + _unmatched_pivot_filter_answers(root, table, answer, reference_text)
 
 
 def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,
@@ -5433,6 +5461,7 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
     for kind, example in ((types, '{"fails": "bigint"}'),
                           (tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
                           (decisions.ANSWERS[decisions.SOURCE], '{"ops.runs": "ops.job_runs"}'),
+                          (decisions.ANSWERS[decisions.PIVOT_FILTER], '{"status": "fold"}'),
                           (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in answer and not isinstance(answer[kind], dict):
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
@@ -5831,6 +5860,437 @@ def _record_renamed(record: dict[str, object], old: str, new: str) -> dict[str, 
     return renamed
 
 
+# --- A Pivot filter's Decision (Toolbox 8.9, ticket 08) --------------------------------------
+
+# What a table a Pivot filter's answers rewrote keeps in its conversion/: the table it was
+# converted as, the Hive it was converted from, the value each "tables" answer holds it to,
+# and the in_dev.hql the answers last wrote, which tells it from one convert wrote again.
+PIVOT_FILTER_RECORD = "pivot_filters.json"
+# The note a table per value's checklist opens its notes with.
+MADE_BY_PIVOT_FILTERS = "Made by its Pivot filters' answers: "
+
+
+@dataclasses.dataclass
+class _PivotFilterTables:
+    """The tables a Pivot filter's answers made of one converted table: `converted_as`, its
+    name as converted; the Hive it was converted from, its conversion/statement.hql and
+    in_dev.hql then, each naming it so; and each table made of it now, by its full name, with
+    the value each "tables" answer holds it to, by the Pivot filter's name."""
+
+    converted_as: str
+    statement: str
+    in_dev: str
+    made: dict[str, dict[str, object]]
+
+
+def _pivot_filter_report_lines(files: _BatchFiles) -> list[str]:
+    """What convert's report says of the batch's Pivot filters: each table holding one, each
+    a Decision kept as converted, and how to answer it."""
+    held = []
+    for table, filters in files.pivot_filters.items():
+        if filters:
+            said = in_words([pivot_filters.pivot_filter_in_words(each) for each in filters])
+            held.append(f"{table}, where {said}")
+    if not held:
+        return []
+    return [f"Kept each Pivot filter as converted, a Decision of its table: {'; '.join(held)}. "
+            'Answer "pivot_filters" in the decisions cell: "keep" keeps one; "fold", "batch" '
+            'or "tables" keeps every slice instead, and each table\'s checklist says how many '
+            "tables a table per value makes."]
+
+
+def _pivot_filters_blocks(filters: list[ConvertedPivotFilter]) -> list[list[str]]:
+    """The PIVOT_FILTERS a table's Table reference holds, a line for each of its Pivot
+    filters: none for a table with none."""
+    if not filters:
+        return []
+    keyed = pivot_filters.pivot_filter_keys(filters)
+    return [decisions.pivot_filters_block(
+        {key: pivot_filters.pivot_filter_line_text(key, keyed) for key in keyed})]
+
+
+def _pivot_filter_notes(table: str, filters: list[ConvertedPivotFilter],
+                        text: str) -> list[str]:
+    """The note of each Pivot filter's Decision in a table's checklist, `text` the Hive it was
+    converted from: what it shows, and what each answer makes of it."""
+    keyed = pivot_filters.pivot_filter_keys(filters)
+    return [pivot_filters.pivot_filter_note(table, key, keyed, text) for key in keyed]
+
+
+def _keyed_pivot_filters(root: Path, table: str) -> dict[str, ConvertedPivotFilter]:
+    """Each Pivot filter of a converted table, by its name in PIVOT_FILTERS, as its batch's
+    record keeps them: none for a table no batch made, or with none."""
+    for batch in _batch_names(root):
+        filters = pivot_filters.pivot_filters_of_batch(root, batch).get(table)
+        if filters:
+            return pivot_filters.pivot_filter_keys(filters)
+    return {}
+
+
+def _pivot_filter_record_of(root: Path, table: str) -> dict[str, object] | None:
+    """What a table's conversion/pivot_filters.json keeps, as _write_pivot_filter_table
+    wrote it: None where it has none, or its in_dev.hql was written since, as converting it
+    again writes it."""
+    folder = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION
+    path = folder / PIVOT_FILTER_RECORD
+    if not path.is_file():
+        return None
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if record.get("written") != workflows.file_text(folder / IN_DEV):
+        return None
+    return record
+
+
+def _pivot_filter_tables(root: Path, table: str) -> _PivotFilterTables:
+    """The tables a Pivot filter's answers made of the table `table` is, or was made from: the
+    table alone, and the Hive in its conversion/, where no answer rewrote it."""
+    record = _pivot_filter_record_of(root, table)
+    if record is None:
+        folder = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION
+        return _PivotFilterTables(table, workflows.file_text(folder / STATEMENT),
+                                  workflows.file_text(folder / IN_DEV), {table: {}})
+    made = {}
+    for stem in TABLE_FOLDER.found(root):
+        name = TABLE_FOLDER.name_of(stem)
+        other = _pivot_filter_record_of(root, name)
+        if other is not None and other["converted_as"] == record["converted_as"]:
+            made[name] = {key: pivot_filters.value_of_json(value)
+                          for key, value in other["slice"].items()}
+    return _PivotFilterTables(str(record["converted_as"]), str(record["statement"]),
+                              str(record["in_dev"]), made)
+
+
+def _unmatched_pivot_filter_answers(root: Path, table: str, answer: dict[str, object],
+                                    reference_text: str) -> list[str]:
+    """A line naming each part of one table's "pivot_filters" that can't be written: a table
+    with no Pivot filter, a filter it doesn't have, an answer that is none of the four or
+    that its Hive can't take; and, for answers that change its tables, one created in dev
+    already, a table per value's name another table has, or a table read by another that the
+    answers take away."""
+    given = answer.get(decisions.ANSWERS[decisions.PIVOT_FILTER])
+    if not isinstance(given, dict):
+        return []
+    held = decisions.pivot_filter_answers(reference_text)
+    if not held:
+        return [f"{table}: pivot_filters: {table} has no Pivot filter to decide: only a table "
+                "made from a PivotTable that leaves rows out has one"]
+    keyed = _keyed_pivot_filters(root, table)
+    tables = _pivot_filter_tables(root, table)
+    problems, answers = [], dict(held)
+    for key, value in given.items():
+        if key not in held or key not in keyed:
+            problems.append(f"{table}: pivot_filters: {key} is no Pivot filter of {table}"
+                            f"{_nearest_or_all(key, list(held), 'Pivot filters')}")
+        elif decisions.is_left_to_fill_in(value):
+            continue
+        elif value not in (*decisions.PIVOT_FILTER_ANSWERS, decisions.ACCEPT_PROPOSED):
+            problems.append(f'{table}: pivot_filters: {key}: give "keep", "fold", "batch" or '
+                            f'"tables", not {value!r}')
+        else:
+            answers[key] = decisions.KEEP if value == decisions.ACCEPT_PROPOSED else value
+            problem = pivot_filters.answer_problem(tables.in_dev, keyed[key], answers[key])
+            if problem is not None:
+                problems.append(f"{table}: pivot_filters: {key}: {problem}")
+    if problems or answers == held:
+        return problems
+    return _pivot_filter_tables_problems(root, table, tables, keyed, answers)
+
+
+def _pivot_filter_tables_problems(root: Path, table: str, tables: _PivotFilterTables,
+                                  keyed: dict[str, ConvertedPivotFilter],
+                                  answers: dict[str, str]) -> list[str]:
+    """Why a table's Pivot filters can't take answers that change its tables, a line each: a
+    table made of it created in dev already, a table per value's name another table has, or
+    a table another reads that the answers take away."""
+    said = f"{table}: pivot_filters"
+    created = [made for made in tables.made if workflows.was_sent(root, "create", made)]
+    if created:
+        return [f"{said}: {in_words(created)} is created in dev already, as admin/sent.csv "
+                "records, so its Pivot filters keep their answers: drop it with "
+                "admin.drop_table first to answer them again"]
+    slices = pivot_filters.table_slices(tables.converted_as, keyed, answers)
+    problems = [f"{said}: {name} has a Table reference already, which a table per value needs"
+                for name in slices if name not in tables.made
+                and REFERENCE.path(root, table_stem(name)).exists()]
+    for made in tables.made:
+        readers = [each for each in _tables_reading(root, made) if each not in tables.made]
+        if made not in slices and readers:
+            problems.append(f"{said}: {in_words(readers)} read {made}, which these answers "
+                            "take away")
+    return problems
+
+
+def _rename_and_write_pivot_filters(root: Path, renamed: dict[str, str],
+                                    filters_answered: list[str]) -> list[str]:
+    """Rename each table a "name" answer renames, then write again each table whose Pivot
+    filters' answers changed, by the name it has then: a table renamed moves its total
+    levels' tables with it, their Pivot filters answered too. A line saying each."""
+    moved = {}
+    for table, name in renamed.items():
+        moved.update(_tables_named_with(root, table, name))
+    lines = rename_converted_tables(root, renamed)
+    return lines + _write_pivot_filters_answered(root, [moved.get(table, table)
+                                                        for table in filters_answered])
+
+
+def _write_pivot_filters_answered(root: Path, tables: list[str]) -> list[str]:
+    """Write again each table a Pivot filter's answer changed, and the tables its answers make
+    of it, a table per value made or taken away: a line saying each."""
+    lines, done = [], set()
+    for table in tables:
+        if table in done or not REFERENCE.path(root, table_stem(table)).is_file():
+            continue
+        made, written = _write_pivot_filter_tables(root, table)
+        done |= set(made)
+        lines += written
+    if lines:
+        _write_databases(root)
+    return lines
+
+
+def _write_pivot_filter_tables(root: Path, table: str) -> tuple[list[str], list[str]]:
+    """Make the tables a Pivot filter's answers, as `table`'s Table reference holds them, give
+    of the table it was converted as: renamed, copied for a table per value, or taken away,
+    and each written again from the Hive it was converted from. The tables it made, and a line
+    saying each change."""
+    tables = _pivot_filter_tables(root, table)
+    keyed = _keyed_pivot_filters(root, table)
+    answers = decisions.pivot_filter_answers(
+        workflows.file_text(REFERENCE.path(root, table_stem(table))))
+    slices = pivot_filters.table_slices(tables.converted_as, keyed, answers)
+    lines, template = [], table
+    if table not in slices:
+        template = list(slices)[0]
+        if template in tables.made:
+            lines += _remove_pivot_filter_table(root, template)
+        _rename_converted_table(root, table, template)
+        lines.append(f"Renamed {table} to {template}, for its Pivot filters' answers.")
+    for name in slices:
+        if name == template:
+            continue
+        if name in tables.made:
+            _remove_pivot_filter_table(root, name)
+        _copy_converted_table(root, template, name)
+    for name in tables.made:
+        if name not in slices and REFERENCE.path(root, table_stem(name)).exists():
+            lines += _remove_pivot_filter_table(root, name)
+    _place_in_batch_records(root, list(slices))
+    for name, held in slices.items():
+        lines += _write_pivot_filter_table(root, tables, name, keyed, answers, held)
+    return list(slices), lines
+
+
+def _write_pivot_filter_table(root: Path, tables: _PivotFilterTables, name: str,
+                              keyed: dict[str, ConvertedPivotFilter], answers: dict[str, str],
+                              held: dict[str, object]) -> list[str]:
+    """Write one table a Pivot filter's answers make again from the Hive it was converted
+    from, each condition as its answer says, `held` the value each "tables" answer holds it
+    to: its conversion/ Hive, its notebook's logic, its Table reference's columns, partition
+    columns, Key and Script tags, and its checklist. The lines saying so, and each Decision
+    of it open."""
+    answered = [(written, answers.get(key, decisions.KEEP), held.get(key))
+                for key, written in keyed.items()]
+    # Its query, which the compare step reads, gives every batch's rows: compared on one
+    # Partition, they are the rows that one write inserts.
+    every_batch = []
+    for written, answer, value in answered:
+        if answer == decisions.BATCH:
+            answer = pivot_filters.EVERY_BATCH
+        every_batch.append((written, answer, value))
+    statement_hive = pivot_filters.hive_answered(tables.statement, every_batch, pretty=True)
+    if not statement_hive.rstrip().endswith(";"):
+        statement_hive += ";\n"
+    in_dev = _qualified_name_renamed(pivot_filters.hive_answered(tables.in_dev, answered),
+                                     tables.converted_as, name)
+    folder = TABLE_FOLDER.path(root, table_stem(name)) / CONVERSION
+    (folder / STATEMENT).write_text(
+        _qualified_name_renamed(statement_hive, tables.converted_as, name), encoding="utf-8")
+    (folder / IN_DEV).write_text(in_dev, encoding="utf-8")
+    (folder / COMPARED).unlink(missing_ok=True)
+    hive_read = _converted_query(f"project.write_decisions(...) on {name}", in_dev, root,
+                                 split_table_name(name)[0])
+    _write_pivot_filter_logic(root, name, hive_read, in_dev)
+    record = {"converted_as": tables.converted_as, "statement": tables.statement,
+              "in_dev": tables.in_dev, "written": in_dev,
+              "slice": {key: pivot_filters.json_value(value) for key, value in held.items()}}
+    (folder / PIVOT_FILTER_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
+                                              encoding="utf-8")
+    _write_pivot_filter_checklist(root, name, tables, keyed, held)
+    said = (f"{name}: wrote its logic, its Table reference and its {CONVERSION}/ Hive again "
+            f"for its Pivot filters' answers: "
+            f"{pivot_filters.answers_in_words(keyed, answers, held)}.")
+    return [said, *_still_open_lines(name, workflows.file_text(
+        REFERENCE.path(root, table_stem(name))))]
+
+
+def _write_pivot_filter_logic(root: Path, name: str, hive_read: converting.ConvertedQuery,
+                              in_dev: str) -> None:
+    """Write a table's notebook again from the Hive its Pivot filters' answers give, and its
+    Table reference's columns, partition columns, Key and Script tags from the logic built."""
+    logic, built, _, _ = _logic_with_opt_outs(root, hive_read)
+    short = split_table_name(name)[1]
+    whole_hive = in_dev if hive_read.kept_whole else None
+    table_logic = converting.saved_table_logic(logic, name, short, hive_read.write,
+                                               hive_read.static_partition, whole_hive)
+    batch, made_for = _batch_of(root, name)
+    stem = table_stem(name)
+    (root / table_notebook(stem)).write_bytes(notebook_bytes(
+        _converted_table_cells(name, batch, table_logic, hive_read, made_for)))
+    reference = REFERENCE.path(root, stem)
+    text = reference.read_text(encoding="utf-8")
+    # A query kept whole as Hive gives no outputs: its columns are kept as they were.
+    columns = dict(_reference_types(root).get(name, {}))
+    if isinstance(built, Statement):
+        columns = {column_name: column._type or "" for column, column_name in built._outputs}
+    partitions = list(hive_read.partition_columns)
+    for column in partitions:
+        columns.setdefault(column, _type_read(root, hive_read, column))
+    proposed = _proposed_keys(built, partitions)
+    key = proposed[0] if proposed else None
+    tags = converting.tags_block(hive_read.tag_is_quoted)
+    text = decisions.with_logic_columns(text, columns, partitions, key, tags)
+    reference.write_text(_with_name_of(text, short), encoding="utf-8")
+
+
+def _type_read(root: Path, hive_read: converting.ConvertedQuery, column: str) -> str:
+    """A column's type, as the Table reference of the first table a query reads that has it
+    gives it; "" where none does."""
+    types = _reference_types(root)
+    for table in hive_read.tables:
+        if column in types.get(table, {}):
+            return types[table][column]
+    return ""
+
+
+def _with_name_of(text: str, short: str) -> str:
+    """A Table reference's text with its NAME line, where it has one naming another table,
+    naming this one, `short`, made: a table per value of a Pivot filter is named for its
+    value."""
+    lines = text.split("\n")
+    for number, line in enumerate(lines):
+        found = decisions.NAME_LINE.match(line)
+        if found and found["name"] != short:
+            what = found["what"].removeprefix("proposed ")
+            lines[number] = f'NAME = "{short}"  # {what}'
+    return "\n".join(lines)
+
+
+def _write_pivot_filter_checklist(root: Path, name: str, tables: _PivotFilterTables,
+                                  keyed: dict[str, ConvertedPivotFilter],
+                                  held: dict[str, object]) -> None:
+    """Write a table's checklist again, its notes kept but each Pivot filter's, written again
+    of the table it was converted as, which its answers are about; with a note first saying
+    which value of each Pivot filter answered "tables" it holds, where it is a table per
+    value."""
+    checklist = TABLE_FOLDER.path(root, table_stem(name)) / CONVERSION / CHECKLIST
+    text = workflows.file_text(checklist)
+    notes = [note for note in _notes_of(text)
+             if not note.startswith((MADE_BY_PIVOT_FILTERS, pivot_filters.NOTE_START))]
+    notes += _pivot_filter_notes(tables.converted_as, list(keyed.values()), tables.in_dev)
+    if held:
+        values = [f"{keyed[key].field} {pivot_filters.value_shown(value)}"
+                  for key, value in held.items()]
+        notes.insert(0, f"{MADE_BY_PIVOT_FILTERS}this table holds the rows of "
+                        f"{in_words(values)} alone, a table per value of the table it was "
+                        "converted as.")
+    checklist.write_text(_checklist_text(root, name, notes, _decisions_notebook_of(text)),
+                         encoding="utf-8")
+
+
+def _batch_of(root: Path, table: str) -> tuple[str, str]:
+    """The batch that made a table, by its name, and the Workflow it was made for, when not
+    convert's; ("", "") where no batch did."""
+    for batch in _batch_names(root):
+        record = workflows.batch_record(root, batch)
+        if table in record.get("tables", []):
+            return batch, str(record.get("made_for", ""))
+    return "", ""
+
+
+def _copy_converted_table(root: Path, old: str, new: str) -> None:
+    """Copy a converted table's Table reference and Table folder as `new`'s, each file's text
+    naming it again, its location= its own, as a new table's is; then its batch's record and
+    the registry."""
+    old_stem, new_stem = table_stem(old), table_stem(new)
+    copied = {REFERENCE.shown(old_stem): REFERENCE.shown(new_stem)}
+    for path in sorted(TABLE_FOLDER.path(root, old_stem).rglob("*")):
+        if path.is_file():
+            relative = path.relative_to(root).as_posix()
+            copied[relative] = relative.replace(old_stem, new_stem)
+    for before, after in copied.items():
+        (root / after).parent.mkdir(parents=True, exist_ok=True)
+        (root / after).write_bytes(_renamed_content(root / before, old, new))
+    reference = REFERENCE.path(root, new_stem)
+    text = re.sub(r"^    location=.*$", "    location=None,  # TODO: its own folder, such as "
+                  '"/data/your_team/mart_dev.db/this_table"', reference.read_text(
+                      encoding="utf-8"), count=1, flags=re.MULTILINE)
+    reference.write_text(_with_location_placed(root, text, new), encoding="utf-8")
+    for batch in _batch_names(root):
+        path = workflows.batch_record_path(root, batch)
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if old in record.get("tables", []):
+            path.write_text(json.dumps(_record_copied(record, old, new), indent=1,
+                                       sort_keys=True), encoding="utf-8")
+    Registry(root).add([(REFERENCE, new), (TABLE_FOLDER, new)], unchecked.now())
+
+
+def _record_copied(record: dict[str, object], old: str, new: str) -> dict[str, object]:
+    """A batch's record with the table `new` beside `old`, a copy of it: in each list and by
+    each key, its Pivot filters' records naming it. The workbook final `old` came from stays
+    its alone, so converting again names the final as before, and the Workbook check reads
+    it, not each slice of it."""
+    copied = dict(record)
+    for key in ("tables", "seeded"):
+        if old in record.get(key, []):
+            copied[key] = [*record[key], new]
+    for key in ("originals", PIVOT_FILTERS):
+        if old in record.get(key, {}):
+            copied[key] = {**record[key], new: json.loads(json.dumps(record[key][old]))}
+    for each in copied.get(PIVOT_FILTERS, {}).get(new, []):
+        each["final"] = new
+    return copied
+
+
+def _remove_pivot_filter_table(root: Path, table: str) -> list[str]:
+    """Take away a table a Pivot filter's answers no longer make: its Table folder and Table
+    reference moved to admin/removed/, its registry rows marked removed, and its batch's
+    record naming it no more; a line saying so."""
+    stem, now = table_stem(table), unchecked.now()
+    registry = Registry(root)
+    for kind in (TABLE_FOLDER, REFERENCE):
+        if kind.path(root, stem).exists():
+            kind.archive(root, stem, now)
+        registry.mark_removed(kind, table, now)
+    for batch in _batch_names(root):
+        path = workflows.batch_record_path(root, batch)
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if table not in record.get("tables", []):
+            continue
+        for key in ("tables", "seeded"):
+            record[key] = [each for each in record.get(key, []) if each != table]
+        for key in ("originals", PIVOT_FILTERS, WORKBOOK_FINALS):
+            record.get(key, {}).pop(table, None)
+        path.write_text(json.dumps(record, indent=1, sort_keys=True), encoding="utf-8")
+    return [f"Moved {TABLE_FOLDER.shown(stem)} and {REFERENCE.shown(stem)} to admin/removed/: "
+            f"its Pivot filters' answers no longer make {table}."]
+
+
+def _place_in_batch_records(root: Path, tables: list[str]) -> None:
+    """Put the tables a Pivot filter's answers make in the order given, in each batch's record
+    of its tables, where the first of them stands."""
+    for batch in _batch_names(root):
+        path = workflows.batch_record_path(root, batch)
+        record = json.loads(path.read_text(encoding="utf-8"))
+        listed = record.get("tables", [])
+        if not any(table in listed for table in tables):
+            continue
+        at = min(listed.index(table) for table in tables if table in listed)
+        rest = [each for each in listed if each not in tables]
+        record["tables"] = [*rest[:at], *[table for table in tables if table in listed],
+                            *rest[at:]]
+        path.write_text(json.dumps(record, indent=1, sort_keys=True), encoding="utf-8")
+
+
 def table_reference(name: str) -> Table:
     """A table's Table reference in your Project, by the table's name.
 
@@ -6039,6 +6499,8 @@ def _compare_one(root: Path, table: Table, original: str | None,
         chosen, described = None, "every row: it has no Partitions"
         if columns and original is not None:
             chosen, described = _partition_to_compare(query, dev, original, partition, listed)
+        elif columns:
+            chosen, described = _partition_written_to_compare(query, dev, partition)
         if chosen is not None or not columns:
             verdict = compare_with_original(copy, hive, query=query, partition=chosen)
     # Whatever stops the compare, such as a table not there yet, is its result.
@@ -6176,6 +6638,25 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
                       f'{next(iter(latest))}": "..."}}], in the convert notebook\'s names '
                       "cell, run it, and run step 7 again")
     return latest, described
+
+
+def _partition_written_to_compare(query: Callable[[str], pd.DataFrame], dev: str,
+                                  given: dict[str, object] | None
+                                  ) -> tuple[dict[str, object] | None, str]:
+    """The Partition a dev table made from a query alone is compared on, where each write
+    inserts one Partition, as a Pivot filter's "batch" answer has it (Toolbox 8.9): the one
+    `given` names, else the latest it holds, against its query's rows of it; None, saying
+    why, where it holds none."""
+    ours = _partitions_listed(query, dev)
+    if given is not None:
+        if not _holds(ours, given):
+            return None, f"{_NOT_HELD} {_partition_in_words(given)} in {dev}: list one it holds"
+        return given, f"compared on {_partition_in_words(given)}, the Partition you gave"
+    if not ours:
+        return None, f"no Partition in {dev} yet: write one first"
+    latest = dict(pair.split("=", 1) for pair in sorted(ours)[-1].split("/"))
+    return latest, (f"compared on {_partition_in_words(latest)}, the latest Partition {dev} "
+                    "holds, with its query's rows of it")
 
 
 # What a compare's result says when the Partition you gave isn't held by both sides: it
