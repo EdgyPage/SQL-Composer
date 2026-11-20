@@ -651,7 +651,8 @@ def _range(ref: str) -> tuple[tuple[int, int], tuple[int, int]]:
     return _where(first), _where(last or first)
 
 
-def _is_formula(value: str | int | float | bool | datetime.datetime | None) -> bool:
+def is_formula(value: object) -> bool:
+    """Whether a cell holds a formula, as the reader gives one: "=" and its text."""
     return isinstance(value, str) and value.startswith("=")
 
 
@@ -665,7 +666,7 @@ def _column(cells: dict[tuple[int, int], str | int | float | bool | datetime.dat
     header = cells.get((rows.start - 1, column))
     below = [cells.get((row, column)) for row in rows]
     kind = TYPED
-    if any(_is_formula(value) for value in below):
+    if any(is_formula(value) for value in below):
         kind = FORMULA
     stored = [_stored_in(cells, results, (row, column)) for row in rows]
     total = None
@@ -682,7 +683,7 @@ def _stored_in(cells: dict[tuple[int, int], str | int | float | bool | datetime.
                              str | int | float | bool | datetime.datetime | None],
                where: tuple[int, int]) -> str | int | float | bool | datetime.datetime | None:
     """The value Excel last stored in one cell: a formula's result, or the value typed in."""
-    if _is_formula(cells.get(where)):
+    if is_formula(cells.get(where)):
         return results.get(where)
     return cells.get(where)
 
@@ -1642,7 +1643,7 @@ def _formulas_text(table: Table) -> str:
     """Every formula a Table holds, its Total Row's among them, joined by spaces."""
     formulas = []
     for column in table.columns:
-        formulas += [value for value in [*column.cells, column.total] if _is_formula(value)]
+        formulas += [value for value in [*column.cells, column.total] if is_formula(value)]
     return " ".join(formulas)
 
 

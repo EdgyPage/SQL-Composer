@@ -1,25 +1,27 @@
 """The Workbook check: a Formula workbook's Hive run over the workbook's own Tables and compared
-with the values Excel last stored (Toolbox 8.9, ticket 09; ADR 0016; CONTEXT.md's Workbook
-check).
+with the values the workbook shows, as last saved (Toolbox 8.9, ticket 09; ADR 0016;
+CONTEXT.md's Workbook check).
 
 A convert of a batch holding a workbook ends with it. Each final the batch converted, from the
 workbook's own Hive or from a script Copilot wrote for it, runs on sqlglot's executor
 (`hive_executor.run_on_executor`) on this computer, each `<database>.<table>` it reads standing
 for the rows of the workbook's Table of that name, or a plain range's rows for the table its
-pivot reads. Its rows are then compared with the values Excel last stored: a Table's cells,
-formulas' results among them, a Total Row's, or a PivotTable's, cell by cell, at each total
-level.
+pivot reads. Its rows are then compared with the values Excel last saved in the workbook: a
+Table's cells, formulas' results among them, a Total Row's, or a PivotTable's, cell by cell, at
+each total level.
 
-- **A match**: numbers within a relative 1e-9 (and 1e-12 of zero), on the values stored, not as
-  shown; a day as its date; an Excel error, such as #DIV/0! or #REF!, as NULL; a blank as NULL.
-  Excel's 0 or "" for a blank a formula reads, where Hive gives NULL, matches only where file
-  11's M1 marks that formula's column.
+- **A match**: numbers within a relative 1e-9, and within 1e-12 of zero, where a relative test
+  can't hold, on the values saved, not as shown; a day as its date; a blank as NULL. Excel's 0
+  or "" for a blank a formula reads, where Hive gives NULL, matches only where file 11's M1
+  marks that formula's column: the check's reading of M1.
+- **An Excel error**, such as #DIV/0! or #REF!, where Hive gives NULL, is neither a match nor a
+  difference: each such cell is listed apart, for the person to look at.
 - **Rows** are matched on the Table's Key, from the Keys sheet, else on the columns the final
   groups by, else the Table's typed columns, else every column; a pivot's on its fields' items;
   in any order.
-- **A difference** is one line a cell, "region East, dt Mar: Excel 1,204, Hive 1,198", and
-  stops nothing. A final the executor can't run, such as one using a function it has no Python
-  for, is named with why, never guessed at.
+- **A difference** is a cell whose value the Hive doesn't give: one line each, such as
+  "region East, dt Mar: Excel 1,204, Hive 1,198". It stops nothing. A final the executor can't
+  run, such as one using a function it has no Python for, is named with why, never guessed at.
 
 It never reads the warehouse, and never calls the user's `query`: the workbook's rows are an
 old sample, which the warehouse's rows have moved on from, so it compares the Hive with the
@@ -38,9 +40,14 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
-from .hive_executor import HIVE_DAYS, MissingPart, NtileWithNoParts, run_on_executor
-from .hive_executor import reason_without_place as sqlglot_reason
-from .shared import counted, in_words
+from .hive_executor import (
+    HIVE_DAYS,
+    MissingPart,
+    NtileWithNoParts,
+    reason_without_place,
+    run_on_executor,
+)
+from .shared import counted, in_words, singular_or_plural
 from .workbook_formulas import MARK, PLAIN_NAME, hive_name, snake_case, tables_of
 from .workbook_hive import workbook_hive
 from .workbook_pivot_hive import (
@@ -62,6 +69,7 @@ from .workbook_reader import (
     PivotTable,
     Table,
     Workbook,
+    is_formula,
 )
 from .workbook_totals import TOTAL_ROW
 from .writing import read_hive
@@ -70,18 +78,26 @@ from .writing import read_hive
 # test can't hold.
 RELATIVE = 1e-9
 NEAR_ZERO = 1e-12
-# The errors Excel stores in a cell in place of a value, each matching NULL.
+# The errors Excel saves in a cell in place of a value: where Hive gives NULL, each is listed
+# apart, neither a match nor a difference.
 EXCEL_ERRORS = frozenset({"#DIV/0!", "#N/A", "#NAME?", "#NULL!", "#NUM!", "#REF!", "#VALUE!",
                           "#SPILL!", "#CALC!", "#GETTING_DATA"})
-# What the report says first, of every workbook it checks: what the check is, and why a
-# difference from the warehouse is expected.
-ABOUT = ("each final's Hive run on this computer over the workbook's own Tables, and its rows "
-         "compared with the values Excel last stored. The workbook's rows are an old sample, "
-         "so the warehouse's rows will differ from them: this compares the Hive with the "
-         "workbook alone, never with the warehouse, and a difference stops nothing.")
-NEXT = ("For each difference, check the final's Hive, in its table's logic cell, against "
-        "the workbook's formula, query or PivotTable; a rule's mark in its checklist may "
+# What the report says of every workbook it checks, after "The Workbook check of runs.xlsx":
+# what the check did, what a difference means, and why one from the warehouse is expected.
+ABOUT = ("ran the Hive of each table the workbook gave, on this computer, over the workbook's "
+         "own Tables, and compared its rows with the values the workbook shows, as last "
+         "saved. A difference means the Hive doesn't give what the workbook's formula, query "
+         "or PivotTable gave on the same rows: look at each one, though none stops anything. "
+         "The workbook's rows are an old sample, so the warehouse's rows will differ from "
+         "them: this compares the Hive with the workbook alone, never with the warehouse.")
+NEXT = ("For each difference, compare the table's Hive, in the `# logic` cell of its notebook, "
+        "with the workbook's formula, query or PivotTable; the rule its checklist names may "
         "explain it. Convert again after a change to check again.")
+# What the report says of a table it couldn't check: how to compare it by hand.
+BY_HAND = ("To compare it by hand, run its table's preview() on your warehouse and look for "
+           "the same rows in the workbook, though the warehouse's rows may have moved on.")
+# What to do about a row the Hive gives that the workbook doesn't show.
+FIX_THE_HIVE = "fix the Hive, in the `# logic` cell of its table's notebook"
 
 
 def _to_date(day: object, *_: object) -> datetime.date | None:
@@ -137,8 +153,8 @@ WORKBOOK_FUNCTIONS: dict[str, Callable[..., object]] = {
 @dataclass(frozen=True)
 class FinalHive:
     """One final to check: its name in the workbook, such as `PivotTable1`; the Saved table it
-    became; its Hive; and the script it is, where Copilot wrote it, "" for the workbook's
-    own."""
+    became, by its full name, such as `mart_dev.pivot`; its Hive; and the script it is, where
+    Copilot wrote it, "" for the workbook's own."""
 
     final: str
     table: str
@@ -148,13 +164,18 @@ class FinalHive:
 
 @dataclass
 class CheckedFinal:
-    """What the check found of one final: the final, as FinalHive gives it; how many cells it
-    compared; each difference, a line a cell; each column it couldn't compare, as the workbook
-    holds no value Excel stored for it; and why it wasn't checked, "" where it was."""
+    """What the check found of one final: the final, as FinalHive gives it; what the workbook
+    calls it, such as `PivotTable "PivotTable1"`; how many cells it compared, and how many of
+    them differ; each difference, a line a cell or a row; each cell where the workbook shows
+    an Excel error and Hive gives NULL; each column it couldn't compare, as the workbook holds
+    no value saved for it; and why it wasn't checked, "" where it was."""
 
     final: FinalHive
+    place: str = ""
     compared: int = 0
+    differing: int = 0
     differences: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     unstored: list[str] = field(default_factory=list)
     not_checked: str = ""
 
@@ -192,7 +213,7 @@ def check_workbook(workbook: Workbook, file: str, finals: list[FinalHive],
     checked: dict[str, CheckedFinal] = {}
     results: dict[str, _HiveRows] = {}
     for final in finals:
-        checked[final.final] = CheckedFinal(final)
+        checked[final.final] = CheckedFinal(final, _workbook_name_of(final.final, workbook))
         try:
             tree = _query_of(final.hive)
             results[final.final] = _run_over_the_workbook(tree, workbook, database)
@@ -204,7 +225,8 @@ def check_workbook(workbook: Workbook, file: str, finals: list[FinalHive],
     for piece in pivot_pieces(workbook):
         _compare_pivot(pivot_of(piece, workbook), piece.name, results, checked)
     for found in checked.values():
-        if not (found.compared or found.not_checked or found.differences or found.unstored):
+        if not (found.compared or found.not_checked or found.differences or found.unstored
+                or found.errors):
             found.not_checked = ("the workbook holds no Table, Total Row or PivotTable "
                                  f"of this name, {found.final.final}, whose cells it could "
                                  "compare")
@@ -219,7 +241,8 @@ def _query_of(hive: str) -> exp.Query:
     try:
         trees = read_hive(hive)
     except sqlglot.errors.SqlglotError as error:
-        raise _NotRun(f"sqlglot couldn't read its Hive: {sqlglot_reason(error)}") from error
+        raise _NotRun(f"the check couldn't read its Hive: {reason_without_place(error)}"
+                      ) from error
     queries = [tree for tree in trees if isinstance(tree, exp.Query)]
     if len(queries) != 1 or len(trees) != 1:
         raise _NotRun(f"its Hive holds {counted(len(trees), 'statement')}, and the check runs "
@@ -249,14 +272,14 @@ def _run_over_the_workbook(tree: exp.Query, workbook: Workbook, database: str) -
     try:
         columns, found = run_on_executor(tree, schema, rows, WORKBOOK_FUNCTIONS)
     except MissingPart as missing:
-        raise _NotRun(f"its Hive uses {missing.missing}, which the small executor the check "
-                      "runs on hasn't got") from missing
+        raise _NotRun(f"the check can't run {missing.missing} on this computer"
+                      ) from missing
     except NtileWithNoParts as ntile:
         raise _NotRun(f"its Hive splits each group into NTILE({ntile.parts}) parts, which "
                       "Hive refuses too") from ntile
     except Exception as error:  # the check stops nothing: whatever stops the executor is named
-        raise _NotRun(f"the small executor the check runs on couldn't run it: "
-                      f"{sqlglot_reason(error)}") from error
+        raise _NotRun("the check couldn't run its Hive on this computer: "
+                      f"{reason_without_place(error)}") from error
     return _HiveRows([column.lower() for column in columns], found)
 
 
@@ -287,7 +310,7 @@ def _stand_in_rows(table: Table) -> list[dict[str, object]]:
     values as Excel last stored them, a day as its text, as Hive holds a date."""
     rows = []
     for stored in _rows_of_stored(table):
-        rows.append({name: _as_held(value) for name, value in stored.items()})
+        rows.append({name: _hive_value(value) for name, value in stored.items()})
     return rows
 
 
@@ -303,9 +326,9 @@ def _rows_of_stored(table: Table) -> list[dict[str, object]]:
     return rows
 
 
-def _as_held(value: object) -> object:
-    """A stored value as Hive holds it: a day as its text, such as '2026-09-24', a time of day
-    after it where it has one."""
+def _hive_value(value: object) -> object:
+    """A value the workbook saved, as Hive holds it: a day as its text, such as '2026-09-24', a
+    time of day after it where it has one."""
     if isinstance(value, datetime.datetime) and value.time() == datetime.time():
         return value.date().isoformat()
     if isinstance(value, datetime.datetime):
@@ -317,7 +340,7 @@ def _column_types(table: Table) -> dict[str, str]:
     """Each column's Hive type, by the values Excel stored in it."""
     types = {}
     for column in table.columns:
-        values = [_as_held(value) for value in column.stored if value is not None]
+        values = [_hive_value(value) for value in column.stored if value is not None]
         kind = "string"
         if values and all(isinstance(value, bool) for value in values):
             kind = "boolean"
@@ -355,7 +378,7 @@ def _compared_columns(checked: CheckedFinal, table: Table, given: _HiveRows) -> 
     for column in table.columns:
         name = _hive_column(column.header)
         results = [stored for stored, cell in zip(column.stored, column.cells)
-                   if _is_formula_text(cell)]
+                   if is_formula(cell)]
         if column.kind == FORMULA and all(result is None for result in results):
             checked.unstored.append(name)
         elif name not in given.columns:
@@ -377,34 +400,34 @@ def _compare_rows(checked: CheckedFinal, table: Table, key: list[str], given: _H
     for row in hive:
         waiting.setdefault(_key_of(row, key), []).append(row)
     for row in excel:
-        checked.compared += len(compared)  # its key's cells are compared in matching it
+        checked.compared += len(key)  # its key's cells are compared in matching it
         matching = waiting.get(_key_of(row, key), [])
         if not matching:
-            checked.differences.append(f"{_said_key(row, key)}: Excel has the row, Hive "
-                                       "gives none")
+            checked.differences.append(f"{_said_key(row, key)}: the workbook's Table holds "
+                                       "this row, and the Hive doesn't give it")
             continue
         found = matching.pop(0)
         for column in compared:
-            if column in key:
-                continue
-            if not is_same(row[column], found[column], column in marked):
-                said = _said_values(row[column], found[column])
-                checked.differences.append(f"{_said_key(row, key)}, {column}: {said}")
+            if column not in key:
+                _compare_cell(checked, f"{_said_key(row, key)}, {column}", row[column],
+                              found[column], column in marked)
     for rows in waiting.values():
-        checked.differences += [f"{_said_key(row, key)}: Hive gives the row, Excel has none"
+        checked.differences += [f"{_said_key(row, key)}: the Hive gives this row, and the "
+                                f"workbook's Table doesn't hold it: {FIX_THE_HIVE}"
                                 for row in rows]
 
 
 def _compare_total_row(checked: CheckedFinal, table: Table, given: _HiveRows) -> None:
     """Compare a Table's Total Row's stored cells with its final's one row."""
     if len(given.rows) != 1:
-        checked.differences.append(f"Total Row: Hive gives {counted(len(given.rows), 'row')}, "
-                                   "and a Total Row is one")
+        rows = counted(len(given.rows), "row")
+        checked.differences.append(f"Total Row: the Hive gives {rows} where the workbook "
+                                   f"shows one: {FIX_THE_HIVE}")
         return
     row = given.as_dicts()[0]
     for column in table.columns:
         name = _hive_column(column.header)
-        if not _is_formula_text(column.total):
+        if not is_formula(column.total):
             continue  # a label, such as "Total", or no total
         if column.total_stored is None:
             checked.unstored.append(f"{name}'s total")
@@ -412,10 +435,7 @@ def _compare_total_row(checked: CheckedFinal, table: Table, given: _HiveRows) ->
             checked.differences.append(f"Total Row, {name}: Excel {_shown(column.total_stored)}"
                                        ", Hive gives no column of that name")
         else:
-            checked.compared += 1
-            if not is_same(column.total_stored, row[name], False):
-                checked.differences.append(
-                    f"Total Row, {name}: {_said_values(column.total_stored, row[name])}")
+            _compare_cell(checked, f"Total Row, {name}", column.total_stored, row[name], False)
 
 
 def _key_of(row: dict[str, object], key: list[str]) -> tuple[object, ...]:
@@ -428,11 +448,6 @@ def _key_of(row: dict[str, object], key: list[str]) -> tuple[object, ...]:
             value = float(value)
         values.append(value)
     return tuple(values)
-
-
-def _is_formula_text(cell: object) -> bool:
-    """Whether a Table's cell holds a formula, as the reader gives one: "=" and its text."""
-    return isinstance(cell, str) and cell.startswith("=")
 
 
 def _key_columns(table: Table, workbook: Workbook, tree: exp.Query) -> list[str]:
@@ -496,18 +511,39 @@ def _compare_pivot(pivot: PivotTable, name: str, results: dict[str, _HiveRows],
             continue
         matched.setdefault(final, set())
         found, place = _cell_in_rows(column, items, results[final])
+        said = _said_cell(pivot, cell)
+        if place is None and cell.stored is not None:
+            checked[final].compared += 1
+            checked[final].differing += 1
+            checked[final].differences.append(f"{said}: Excel {_shown(cell.stored)}, and the "
+                                              "Hive gives no such row")
+            continue
         if place is not None:
             matched[final].add(place)
-        checked[final].compared += 1
-        if not is_same(cell.stored, found, False):
-            checked[final].differences.append(
-                f"{_said_cell(pivot, cell)}: {_said_values(cell.stored, found, place is None)}")
+        _compare_cell(checked[final], said, cell.stored, found, False)
     for final, places in matched.items():
-        level = _level_of_final(pivot, name, final)
-        rows = results[final].as_dicts()
-        checked[final].differences += [
-            f"{_said_row(rows[place], level)}: Hive gives the row, the PivotTable shows none"
-            for place in range(len(rows)) if place not in places]
+        checked[final].differences += _rows_not_shown(
+            results[final].as_dicts(), places, _level_of_final(pivot, name, final))
+
+
+def _rows_not_shown(rows: list[dict[str, object]], shown: set[int], level: list[str]
+                    ) -> list[str]:
+    """A line for each row of a level's final that no cell of its pivot stands for, by its
+    fields' items, the rows of one set of items said once: `shown` the places of the rows the
+    pivot's cells stand for."""
+    shown_said = {_said_row(rows[place], level) for place in shown}
+    extra = Counter(_said_row(rows[place], level) for place in range(len(rows))
+                    if place not in shown)
+    lines = []
+    for said, count in extra.items():
+        if said in shown_said:
+            lines.append(f"{said}: the Hive gives {count + 1} rows where the PivotTable shows "
+                         f"one: {FIX_THE_HIVE}")
+        else:
+            rows_said = singular_or_plural(count, "a row", f"{count} rows")
+            lines.append(f"{said}: the Hive gives {rows_said} the PivotTable doesn't show: "
+                         f"{FIX_THE_HIVE}")
+    return lines
 
 
 def _items_of(cell: PivotCell) -> list[tuple[str, object]]:
@@ -567,6 +603,38 @@ def _cell_in_rows(column: str, items: list[tuple[str, object]], given: _HiveRows
     return None, None
 
 
+def _compare_cell(checked: CheckedFinal, said: str, excel: object, hive: object,
+                  blank_marked: bool) -> None:
+    """Compare one cell, `said` where it is: an Excel error where Hive gives NULL is listed
+    apart, and a value Hive doesn't give is a difference."""
+    checked.compared += 1
+    if _is_excel_error(excel) and hive is None:
+        checked.errors.append(f"{said}: the workbook shows {excel}, and the Hive gives NULL")
+    elif not is_same(excel, hive, blank_marked):
+        checked.differing += 1
+        checked.differences.append(f"{said}: {_said_values(excel, hive)}")
+
+
+def _is_excel_error(value: object) -> bool:
+    """Whether a value the workbook saved is one of Excel's errors, such as #DIV/0!."""
+    return isinstance(value, str) and value in EXCEL_ERRORS
+
+
+def _workbook_name_of(final: str, workbook: Workbook) -> str:
+    """What the workbook calls a final: `Excel Table "job_runs"`, `the Total Row of Excel
+    Table "job_runs"`, `PivotTable "PivotTable1"`, or a total level of one, as `PivotTable
+    "PivotTable1" (grand total)`."""
+    tables = tables_of(workbook)
+    if final.endswith(TOTAL_ROW) and final.removesuffix(TOTAL_ROW).lower() in tables:
+        return f'the Total Row of Excel Table "{final.removesuffix(TOTAL_ROW)}"'
+    if final.lower() in tables:
+        return f'Excel Table "{final}"'
+    for piece in pivot_pieces(workbook):
+        if final == piece.name or final.startswith(f"{piece.name} ("):
+            return f'PivotTable "{piece.name}"{final.removeprefix(piece.name)}'
+    return f'"{final}"'
+
+
 # --- Matching and saying values --------------------------------------------------------------
 
 
@@ -587,10 +655,10 @@ def is_same(excel: object, hive: object, blank_marked: bool) -> bool:
 
 def _as_compared(value: object) -> object:
     """A value as the check compares it: a day as its text, an Excel error as NULL."""
-    if isinstance(value, str) and value in EXCEL_ERRORS:
+    if _is_excel_error(value):
         return None
     if isinstance(value, datetime.datetime):
-        return _as_held(value)
+        return _hive_value(value)
     if isinstance(value, datetime.date):
         return value.isoformat()
     return value
@@ -614,10 +682,8 @@ def _shown(value: object, blank: str = "blank") -> str:
     return str(value)
 
 
-def _said_values(excel: object, hive: object, no_row: bool = False) -> str:
-    """"Excel 1,204, Hive 1,198": the value Excel stored and the one Hive gives."""
-    if no_row:
-        return f"Excel {_shown(excel)}, Hive gives no such row"
+def _said_values(excel: object, hive: object) -> str:
+    """"Excel 1,204, Hive 1,198": the value the workbook shows and the one Hive gives."""
     return f"Excel {_shown(excel)}, Hive {_shown(hive, 'NULL')}"
 
 
@@ -648,40 +714,45 @@ def _said_cell(pivot: PivotTable, cell: PivotCell) -> str:
 
 
 def _named(checked: CheckedFinal) -> str:
-    """A final as the report names it: its table and the final, or Copilot's script."""
-    final = checked.final
-    if final.script:
-        return f"{final.script}, Copilot's Hive of {final.final}"
-    return f"{final.table}, from {final.final}"
+    """A final as the report names it: its table and what the workbook calls it, or Copilot's
+    script."""
+    if checked.final.script:
+        return f"{checked.final.script}, Copilot's Hive of {checked.place}"
+    return f"{checked.final.table}, from {checked.place}"
 
 
 def _final_lines(checked: CheckedFinal) -> list[str]:
-    """What the report says of one final: a line, then each difference indented below it."""
+    """What the report says of one final: a line, then each difference and each cell where the
+    workbook shows an Excel error indented below it, a line said more than once said once."""
     named = _named(checked)
     if checked.not_checked:
-        return [f"{named}: not checked: {checked.not_checked}. Compare it with the workbook "
-                "by hand."]
-    lines = []
-    if checked.differences:
-        lines.append(f"{named}: {counted(len(checked.differences), 'difference')} from the "
-                     f"workbook ({counted(checked.compared, 'cell')} compared):")
+        return [f"{named}: not checked: {checked.not_checked}. {BY_HAND}"]
+    if not (checked.differences or checked.errors):
+        compared = counted(checked.compared, "cell")
+        lines = [f"{named}: every cell matches the workbook, {compared} compared."]
+    else:
+        matching = checked.compared - checked.differing - len(checked.errors)
+        listed = [counted(len(checked.differences), "difference")]
+        if checked.errors:
+            listed.append(f"{counted(len(checked.errors), 'cell')} where the workbook shows an "
+                          "Excel error and the Hive gives NULL, neither a match nor a "
+                          "difference")
+        lines = [f"{named}: {matching} of {counted(checked.compared, 'cell')} match the "
+                 f"workbook; below, {in_words(listed)}:"]
         times = Counter(checked.differences)
         lines += [f"  {line}" if times[line] == 1 else f"  {line} ({times[line]} times)"
                   for line in dict.fromkeys(checked.differences)]
-    else:
-        lines.append(f"{named}: matches the workbook, {counted(checked.compared, 'cell')} "
-                     "compared.")
+        lines += [f"  {line}" for line in checked.errors]
     if checked.unstored:
-        lines.append(f"{named}: not compared: {in_words(checked.unstored)}, as the workbook "
-                     "holds no value Excel stored for them: a file saved by a tool, not by "
-                     "Excel, holds none. Open it in Excel, save it, and convert again to "
-                     "compare them.")
+        lines.append(f"{named}: not compared: {in_words(checked.unstored)}, as the file holds "
+                     "no value saved for them: a file saved by a tool, not by Excel, holds "
+                     "none. Open it in Excel, save it, and convert again to compare them.")
     return lines
 
 
 def report_lines(check: WorkbookCheck) -> list[str]:
     """What convert's report says of a workbook's check: what it is, then each final."""
-    lines = [f"The Workbook check of {check.file}: {ABOUT}"]
+    lines = [f"The Workbook check of {check.file} {ABOUT}"]
     for checked in check.finals:
         lines += _final_lines(checked)
     if any(checked.differences for checked in check.finals):
@@ -692,7 +763,7 @@ def report_lines(check: WorkbookCheck) -> list[str]:
 def batch_md_lines(check: WorkbookCheck) -> list[str]:
     """batch.md's section for a workbook's check: its heading, what it is, and each final, as
     a list, each difference an item under its final's."""
-    lines = ["", f"## The Workbook check of {check.file}", "", ABOUT[0].upper() + ABOUT[1:], ""]
+    lines = ["", f"## The Workbook check of {check.file}", "", f"It {ABOUT}", ""]
     for checked in check.finals:
         for line in _final_lines(checked):
             if line.startswith("  "):

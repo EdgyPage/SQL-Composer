@@ -187,8 +187,7 @@ from .unchecked import (
     script_line,
     write_entry,
 )
-from .workbook_check import (FinalHive, WorkbookCheck, batch_md_lines, check_workbook,
-                             report_lines)
+from .workbook_check import WorkbookCheck, batch_md_lines, check_workbook, report_lines
 from .workbook_reader import read_workbook
 
 if TYPE_CHECKING:
@@ -3111,11 +3110,12 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     proposed for its sheet: a Decision too. What the conversion found of each final, such as
     a formula marked or refused, is a note in its table's checklist; batch.md lists what
     belongs to no table, such as a chart. A workbook whose pieces read each other in a loop,
-    or that holds no final, is refused. Last comes the Workbook check: each final's Hive, or a
-    script Copilot wrote for it, is run on this computer over the workbook's own Tables, and
-    its rows compared with the values Excel last stored. The report and batch.md list each
-    difference, one line a cell, and it stops nothing. It never reads your warehouse: the
-    workbook's rows are an old sample, so the warehouse's will differ.
+    or that holds no final, is refused. Last comes the Workbook check: the Hive of each table
+    the workbook gave, or a script Copilot wrote for it, is run on this computer over the
+    workbook's own Tables, and its rows compared with the values the workbook shows, as last
+    saved. The report and batch.md list each cell where the two differ, each on a line of its
+    own; a difference stops nothing, but is yours to look at. It never reads your warehouse:
+    the workbook's rows are an old sample, so the warehouse's will differ.
     In a script, a comment above a condition, -- Pivot filter: slicer status, as Copilot
     writes it, marks a Pivot filter, as the workbook's own are kept: each is recorded for its
     table, for its Decision.
@@ -3466,7 +3466,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             files.originals[names[table]] = _original_of(ordered, table)
         else:
             created_only.append(names[table])
-    files.workbook_checks = _workbook_checks(files, scripts, database)
+    files.workbook_checks = _workbook_checks(files, scripts, dev, database)
     _write_batch_index(files, name, scripts, ordered, names, database, dev, made, read_from)
     files.tables = [names[table] for table in _tables_in_order(ordered)]
     files.save()
@@ -3480,38 +3480,27 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     # and each name proposed for a workbook's final, a Decision.
     report[1:1] = [*_staging_lines(staging_found, folded, unfoldable),
                    *_workbook_report_lines(files, names)]
-    return ProjectReport([*_with_workbook_checks(report, files.workbook_checks),
-                          *_unrecorded_lines(root, call)])
+    return ProjectReport([*report, *_unrecorded_lines(root, call)])
 
 
-def _with_workbook_checks(report: list[str], checks: list[WorkbookCheck]) -> list[str]:
-    """convert's report with what each workbook's Workbook check found before its last line,
-    which says what is next."""
+def _workbook_check_lines(checks: list[WorkbookCheck]) -> list[str]:
+    """What convert's report says of each workbook's Workbook check."""
     lines = []
     for check in checks:
         lines += report_lines(check)
-    return [*report[:-1], *lines, *report[-1:]]
+    return lines
 
 
-def _workbook_checks(files: _BatchFiles, scripts: list[tuple[str, str]],
+def _workbook_checks(files: _BatchFiles, scripts: list[tuple[str, str]], dev: str,
                      database: str) -> list[WorkbookCheck]:
     """The Workbook check of each workbook the batch read (Toolbox 8.9, ticket 09): each of
-    its finals the batch converted, from the workbook's own Hive or from the script Copilot
-    wrote for it, run on this computer over the workbook's own Tables, a table its Hive names
-    without a database in `database`, and compared with the values Excel last stored. It
-    never calls your query."""
-    texts = dict(scripts)
-    stood_for = {id(final): script for script, final in files.workbooks.copilot_finals.items()}
-    converted = [id(final) for final in files.workbooks.finals_converted()]
+    its finals the batch converted, its table in `dev`, from the workbook's own Hive or from
+    the script Copilot wrote for it, run on this computer over the workbook's own Tables, a
+    table its Hive names without a database in `database`, and compared with the values the
+    workbook shows, as last saved. It never calls your query."""
     checks = []
     for workbook in files.workbooks.workbooks:
-        finals = []
-        for final in workbook.finals:
-            script = stood_for.get(id(final), "")
-            if script:
-                finals.append(FinalHive(final.final, final.table, texts[script], script))
-            elif id(final) in converted:
-                finals.append(FinalHive(final.final, final.table, final.hive))
+        finals = files.workbooks.finals_to_check(workbook, dict(scripts), dev)
         if not finals:
             continue  # each is skipped, and the report says why
         book = read_workbook(files.root / files.workbooks.places[workbook.file])
@@ -4768,7 +4757,8 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                   created_only: list[str], added: list[str], skipped: list[str],
                   files: _BatchFiles, dev: str) -> list[str]:
     """What convert says of a batch: what it read, the Saved tables it made in dev, the Table
-    references it added, what it kept of yours, what it skipped and why, and what is next."""
+    references it added, what it kept of yours, what it skipped and why, what each
+    workbook's Workbook check found (ticket 09), and last, what is next."""
     tables_listed = "."
     if made:
         tables_listed = f": {in_words(made)}."
@@ -4790,6 +4780,7 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
+    lines += _workbook_check_lines(files.workbook_checks)
     still_open = workflows.open_decisions_of(files.root, made, workflows.DEV_DECISIONS)
     proposed = [table for table in made if decisions.proposed_key(
         workflows.file_text(workflows.reference_path(files.root, table))) is not None]

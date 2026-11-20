@@ -125,7 +125,6 @@ from .workbook_formulas import (
     hive_call,
     hive_of,
     identifier,
-    is_formula_text,
     operand_hive,
     rule_hive,
     snake_case,
@@ -152,6 +151,7 @@ from .workbook_reader import (
     Slicer,
     Timeline,
     Workbook,
+    is_formula,
     piece_name,
 )
 
@@ -399,7 +399,7 @@ def _getpivotdata_values(cells: list[object]) -> list[str]:
     """The value each GETPIVOTDATA in a column's formulas names, its first argument."""
     found = []
     for cell in dict.fromkeys(cells):
-        if not is_formula_text(cell) or "GETPIVOTDATA" not in str(cell).upper():
+        if not is_formula(cell) or "GETPIVOTDATA" not in str(cell).upper():
             continue
         try:
             parts = parts_of(read_formula(str(cell)))

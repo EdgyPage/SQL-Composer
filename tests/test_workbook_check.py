@@ -191,7 +191,7 @@ def test_a_formula_column_excel_never_stored_is_named_not_compared(
         books: dict[str, bytes]) -> None:
     found = checked(read(books, "formulas"))["job_runs"]
     assert (found.unstored, found.differences) == (["hours"], [])
-    assert any("not compared: hours, as the workbook holds no value Excel stored" in line
+    assert any("not compared: hours, as the file holds no value saved for them" in line
                for line in report_lines(check_workbook(read(books, "formulas"), "runs.xlsx",
                                                        finals_of(read(books, "formulas")),
                                                        "ops")))
@@ -273,13 +273,12 @@ def test_a_level_whose_hive_gives_rows_the_pivot_doesnt_show_is_named() -> None:
     # Fixture 10's ranked pivot shows its grand total blank, and its level's Hive gives one
     # NULL row per row of job_runs: the check names the rows the pivot doesn't show.
     book = fixture("10_pivot_calculated_item_rank")
+    # Ticket 13 makes the level one row: then this test names a row added by hand.
     found = checked(book)["PivotTable2 (grand total)"]
     runs = len(table_named(book, "job_runs").columns[0].stored)
-    assert found.differences == (
-        ["Grand Total: Hive gives the row, the PivotTable shows none"] * (runs - 1))
-    # The report says the line once, with how many times it came.
-    assert (f"  Grand Total: Hive gives the row, the PivotTable shows none ({runs - 1} times)"
-            in report_lines(check_workbook(book, "runs.xlsx", finals_of(book), "ops")))
+    assert found.differences == [
+        f"Grand Total: the Hive gives {runs} rows where the PivotTable shows one: fix the "
+        "Hive, in the `# logic` cell of its table's notebook"]
 
 
 # --- What it can't run, and the rules of a match ---------------------------------------------
@@ -290,12 +289,12 @@ def test_a_function_the_executor_cant_run_is_named_with_why() -> None:
     floored = FinalHive("PivotTable1", "pivot", "SELECT job_id, dt, FLOOR(SUM(duration_mins)) "
                         "AS sum_of_duration_mins FROM ops.job_runs GROUP BY job_id, dt")
     found = checked(book, [floored])["PivotTable1"]
-    assert found.not_checked == ("its Hive uses FLOOR, which the small executor the check runs "
-                                 "on hasn't got")
+    assert found.not_checked == "the check can't run FLOOR on this computer"
     assert found.differences == []
-    assert ("pivot, from PivotTable1: not checked: its Hive uses FLOOR, which the small "
-            "executor the check runs on hasn't got. Compare it with the workbook by hand."
-            ) in report_lines(check_workbook(book, "runs.xlsx", [floored], "ops"))
+    assert ("pivot, from PivotTable \"PivotTable1\": not checked: the check can't run FLOOR on "
+            "this computer. To compare it by hand, run its table's preview() on your warehouse "
+            "and look for the same rows in the workbook, though the warehouse's rows may have "
+            "moved on.") in report_lines(check_workbook(book, "runs.xlsx", [floored], "ops"))
 
 
 def test_a_value_column_the_hive_doesnt_give_is_said_once() -> None:
@@ -329,8 +328,27 @@ def test_a_blank_matches_null_and_excels_0_for_a_blank_only_where_m1_marks_it() 
     assert is_same(0, None, True)
     assert is_same("", None, True)
     assert not is_same(False, None, True)
-    # An error Excel stored in place of a value, such as GETPIVOTDATA's #REF!, is NULL.
+    # An error Excel saved in place of a value, such as GETPIVOTDATA's #REF!, compares as NULL.
     assert is_same("#REF!", None, False)
+
+
+def test_an_excel_error_where_hive_gives_null_is_listed_apart(books: dict[str, bytes]) -> None:
+    book = read(books, "formulas")
+    store_hours(book)
+    table_named(book, "job_runs").columns[-1].stored[0] = "#DIV/0!"
+    found = checked(book)["job_runs"]
+    assert found.differences == ["run_id 95, hours: Excel #DIV/0!, Hive 0.2"]
+    book = fixture("04_pivot_rows_columns")
+    cell = book.pivot_tables[0].cells[0]
+    nothing = FinalHive("PivotTable1", "pivot", "SELECT job_id, dt, NULL AS "
+                        "sum_of_duration_mins FROM ops.job_runs GROUP BY job_id, dt")
+    cell.stored = "#REF!"
+    found = checked(book, [nothing])["PivotTable1"]
+    assert found.errors == ["job_id 1, dt 2026-09-23: the workbook shows #REF!, and the Hive "
+                            "gives NULL"]
+    lines = report_lines(check_workbook(book, "runs.xlsx", [nothing], "ops"))
+    assert any("1 cell where the workbook shows an Excel error and the Hive gives NULL, "
+               "neither a match nor a difference" in line for line in lines)
 
 
 # --- At the end of a convert ---------------------------------------------------------------
@@ -364,15 +382,16 @@ def test_a_convert_of_a_workbook_ends_with_its_check_in_the_report_and_batch_md(
                                   database="ops"))
     lines = report.splitlines()
     first = lines.index(next(line for line in lines
-                             if line.startswith("The Workbook check of runs.xlsx: ")))
+                             if line.startswith("The Workbook check of runs.xlsx ran ")))
     assert "The workbook's rows are an old sample" in lines[first]
     assert "compares the Hive with the workbook alone, never with the warehouse" in lines[first]
-    assert lines[first + 1] == ("pivot, from PivotTable1: matches the workbook, 6 cells "
-                                "compared.")
+    assert lines[first + 1] == ('mart_dev.pivot, from PivotTable "PivotTable1": every cell '
+                                "matches the workbook, 6 cells compared.")
     assert lines[first + 5].startswith("Next: ")
     written = batch_md(started)
     assert "## The Workbook check of runs.xlsx" in written
-    assert "- pivot, from PivotTable1: matches the workbook, 6 cells compared." in written
+    assert ('- mart_dev.pivot, from PivotTable "PivotTable1": every cell matches the '
+            "workbook, 6 cells compared.") in written
 
 
 def test_a_copilot_hql_beside_its_workbook_is_checked_the_same_way(started: Path) -> None:
@@ -381,9 +400,9 @@ def test_a_copilot_hql_beside_its_workbook_is_checked_the_same_way(started: Path
     (started / "pivot.hql").write_text(COPILOT_PIVOT, encoding="utf-8")
     report = repr(project.convert("book", files=["pivot.hql", "runs.xlsx"],
                                   query=example_database.query, database="ops"))
-    assert ("pivot.hql, Copilot's Hive of PivotTable1: matches the workbook, 3 cells compared."
-            ) in report
-    assert "runs_by_day, from runs_by_day: matches the workbook" in report
+    assert ("pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": every cell matches the "
+            "workbook, 3 cells compared.") in report
+    assert 'mart_dev.runs_by_day, from PivotTable "runs_by_day": every cell matches' in report
 
 
 def test_a_copilot_hql_that_differs_lists_each_cell_and_blocks_nothing(started: Path) -> None:
@@ -393,13 +412,13 @@ def test_a_copilot_hql_that_differs_lists_each_cell_and_blocks_nothing(started: 
                                        encoding="utf-8")
     report = repr(project.convert("book", files=["pivot.hql", "runs.xlsx"],
                                   query=example_database.query, database="ops"))
-    assert "pivot.hql, Copilot's Hive of PivotTable1: " in report
+    assert "pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": 1 of 3 cells" in report
     assert re.search(r"\n  job_id \d+: Excel [\d,]+, Hive [\d,]+\n", report)
     # It blocks nothing: the batch's tables are made, and the report says what is next.
     assert project.batch_tables("book") == [f"{DEV}.pivot", f"{DEV}.runs_by_day",
                                             f"{DEV}.pivot_grand_total",
                                             f"{DEV}.runs_by_day_grand_total"]
-    assert "- pivot.hql, Copilot's Hive of PivotTable1: " in batch_md(started)
+    assert "- pivot.hql, Copilot's Hive of PivotTable \"PivotTable1\": " in batch_md(started)
 
 
 def test_the_check_never_calls_query(started: Path) -> None:
@@ -413,6 +432,6 @@ def test_the_check_never_calls_query(started: Path) -> None:
 
     (started / "runs.xlsx").write_bytes((FIXTURES / "04_pivot_rows_columns.xlsx").read_bytes())
     report = repr(project.convert("book", files=["runs.xlsx"], query=query, database="ops"))
-    assert "The Workbook check of runs.xlsx: " in report
+    assert "The Workbook check of runs.xlsx ran " in report
     assert sent
     assert all(hive.lstrip().upper().startswith("DESCRIBE") for hive in sent), sent
