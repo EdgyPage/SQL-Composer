@@ -323,6 +323,12 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   over the workbook's own Tables against what the workbook shows, within 1e-9 (a 1e-12 floor
   at zero); an Excel error listed apart; M1's blank read as the Answer says; what the executor
   can't run named, never guessed; never the warehouse. Merged 2026-11-19 (1206f89a).
+- [08 The Pivot filter Decision](issues/08-the-pivot-filter-decision.md): a `PIVOT_FILTERS`
+  Decision per filter, "keep" (proposed), "fold" (like dragging the field from Filters to Rows),
+  "batch" (a Partition per value, its Script tag proposed a Run value or a hivevar), "tables"
+  (like Show Report Filter Pages, `<table>_<value>`); each answer's count, layer by layer, "at
+  least" from the cache; a which-to-pick line; answered Keys kept unless the grain changed; the
+  base Hive in `conversion/pivot_filters.json`. Merged 2026-11-19 (dad8855d).
 
 ## Not yet specified
 
