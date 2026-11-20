@@ -37,7 +37,7 @@ from .workbook_formulas import (
     this_row,
     totals_read,
 )
-from .workbook_reader import Piece, Table, Workbook
+from .workbook_reader import TYPED, Piece, Table, Workbook
 
 # What a Table's Total Row's final is named after (file 15's P9, file 12's T2).
 TOTAL_ROW = " (Total Row)"
@@ -59,8 +59,23 @@ def column_total_hive(call: Call, place: Place) -> exp.Expression:
         raise Refused("T1", f"{call.name} of anything but one whole column isn't a form file "
                             "12 lists")
     (column,) = call.args
+    if call.name == "COUNT":
+        check_counts_numbers(table_named(column.table, place), column.column, "T1")
     return whole_table_total(column.table, [column.column], EXCEL_AGGREGATES[call.name],
                              place)
+
+
+def check_counts_numbers(table: Table, header: str, rule: str) -> None:
+    """Refuse an Excel count of numbers alone, COUNT or SUBTOTAL(102), of a typed column whose
+    cells hold text: Hive's COUNT(v) counts every value (T1, T2)."""
+    column = column_named(table, header)
+    if column is None or column.kind != TYPED:
+        return
+    if any(isinstance(cell, str) for cell in column.cells):
+        raise Refused(rule, f"Excel's COUNT counts numbers alone, and {table.name}[{header}] "
+                            "holds text, where Hive's COUNT counts every value that isn't "
+                            "blank; for a count of the filled cells, use COUNTA (or "
+                            "SUBTOTAL 103) in the workbook and convert it again")
 
 
 def sumproduct_total_hive(call: Call, place: Place) -> exp.Expression:
@@ -176,6 +191,8 @@ def subtotal_hive(part: object, table: Table) -> exp.Expression:
             "", table.name.lower()) or column_named(table, column.column) is None:
         raise Refused("T2", f"its SUBTOTAL reads no column of {table.name}")
     header = column_named(table, column.column).header
+    if SUBTOTALS[int(number)] == "COUNT":
+        check_counts_numbers(table, header, "T2")
     return hive_call(EXCEL_AGGREGATES[SUBTOTALS[int(number)]], [column_hive(header)])
 
 

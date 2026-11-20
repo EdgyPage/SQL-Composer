@@ -428,6 +428,10 @@ def level_select(pivot: PivotTable, level: PivotLevel, source_read: exp.Expressi
         columns.append(_value_column(pivot, value, level, keys, final_name, notes))
     if step_values is None:
         columns += _calculated_item_columns(pivot, keys, final_name, notes)
+    if not keys and not any(column.find(exp.AggFunc) for column in columns):
+        # A grand total of values all NULL (PV8) is the one blank cell Excel shows: one row,
+        # read from nothing, as a FROM with no aggregate would give a row per source row.
+        return exp.select(*columns), notes
     select = exp.select(*columns).from_(source_read.copy())
     conditions = filter_conditions(pivot, source_read)
     if conditions:
@@ -706,21 +710,25 @@ def _shown_as_hive(pivot: PivotTable, value: PivotValue, level: PivotLevel,
         return exp.Null()
     others = [key for name, key in keys.items() if name != base]
     if shown == RUNNING_TOTAL:
-        order = window_order(_base_order(pivot, base, keys[base]), descending=False)
-        return _windowed(hive_call("SUM", [aggregate]), others, order, running=True)
+        return _windowed(hive_call("SUM", [aggregate]), others,
+                         _base_order(pivot, base, keys[base]), running=True)
     if shown in RANKS:
         order = window_order(aggregate.copy(), descending=RANKS[shown])
         return _windowed(hive_call("RANK", []), others, order)
     return _from_base_item(value, keys[base], aggregate, others)
 
 
-def _base_order(pivot: PivotTable, base: str, key: exp.Expression) -> exp.Expression:
-    """What a running total runs in the order of: the base field's items, a grouped field's
-    by the smallest value of each group, as a date's or a bin's groups are in order."""
-    grouping = pivot.fields[base].grouping
-    if grouping is None or grouping.by == "Items":
-        return key.copy()
-    return hive_call("MIN", [column_hive(grouping.field)])
+def _base_order(pivot: PivotTable, base: str, key: exp.Expression) -> exp.Ordered:
+    """The order a running total runs in: the base field's items, text ones A to Z whatever
+    their case, a blank last, as Excel shows them, `LOWER(f) NULLS LAST`; a grouped field's by
+    the smallest value of each group, as a date's or a bin's groups are in order (PV5)."""
+    field = pivot.fields[base]
+    grouping = field.grouping
+    if grouping is not None and grouping.by != "Items":
+        return window_order(hive_call("MIN", [column_hive(grouping.field)]), descending=False)
+    if any(isinstance(item, str) for item in field.items):
+        return exp.Ordered(this=hive_call("LOWER", [key.copy()]), nulls_first=False)
+    return window_order(key.copy(), descending=False)
 
 
 def _from_base_item(value: PivotValue, base: exp.Expression, aggregate: exp.Expression,

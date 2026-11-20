@@ -1,7 +1,7 @@
 # Copilot file 20: PivotTables into Hive ({version})
 
-**Use this file as reference while you follow file 15's steps: find each part of a
-PivotTable in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each PivotTable part
+in Patterns, then write the Hive its rule gives.**
 
 Objective: write each PivotTable of an Excel workbook as the Hive giving the values it shows.
 Load this file when the workbook attached has a `PivotTable "name"`, with file 15 (the steps,
@@ -27,8 +27,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   As**: a Value shown against others, its **base field** (and item) what it is shown against.
 - **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
   **slicer** (a box of a field's items, on each pivot connected to it), a **Timeline** (the
-  same of dates), a value filter (Top or Bottom). **A Decision in convert**: a question the
-  convert Workflow's notebook asks you.
+  same of dates), a value filter (Top or Bottom). **A Decision in convert**: a question
+  convert's notebook asks you.
 
 ## Rules: source, name and rows
 
@@ -72,7 +72,7 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   SUM(x) DESC); Smallest to Largest ASC.
 - **PV8** PV5 to PV7 at a total level:
   - if it groups by the base field, as the pivot's own final does: as written;
-  - else: NULL, as Excel shows a blank, marked.
+  - else: NULL, as Excel shows a blank, marked; grouping by nothing: no FROM.
 - **PC1** An item adding items, as done = SUCCESS+FAILED on status: a column beside the real
   rows, SUM(SUM(CASE WHEN status IN ('SUCCESS', 'FAILED') THEN x END)) OVER (PARTITION BY
   the row's other fields) AS done.
@@ -126,8 +126,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
 ### W1: each total level a final, each marked
 
 PivotTable1, sheet "Job days", on job_runs: Rows job_id, Columns dt, Count of run_id, Slicer
-status: SUCCESS, both Grand Totals. Map: Sources job_runs. Finals PivotTable1 and its (by
-job_id), (by dt) and (grand total). Marks: Column field dt: written as rows; default name,
+status: SUCCESS, both Grand Totals. Map: Sources job_runs. Finals PivotTable1, (by
+job_id), (by dt), (grand total). Marks: Column field dt: written as rows; default name,
 job_days_pivot proposed; slicer status.
 
 ```sql

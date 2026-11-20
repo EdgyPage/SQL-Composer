@@ -153,12 +153,34 @@ def test_q2_m_not_equal_keeps_a_null_and_a_null_test_is_is_null() -> None:
                               "OR status IS NULL) AND dt IS NOT NULL AND job_id IS NULL")
 
 
-def test_q2_not_equal_between_two_columns_is_refused() -> None:
-    book = query_book({"q": (m_of(SOURCE, "Kept = Table.SelectRows(Source, each [status] <> "
-                                          "[dt])"), RUNS)})
-    assert "q" not in finals_of(book)
-    assert ("Q2", 'Power Query "q"') in [(note.rule, note.where)
-                                         for note in notes_of(book, REFUSED)]
+def test_q2_not_equal_between_two_columns_keeps_a_row_where_one_is_null() -> None:
+    # Ticket 13: M keeps a row where one side is null and drops it where both are, as no plain
+    # Hive comparison does; file 12's Q2 writes the same.
+    m = m_of(SOURCE, "Kept = Table.SelectRows(Source, each [status] <> [dt])")
+    assert_converted(m, RUNS, f"SELECT {RUN_COLUMNS} FROM db.job_runs WHERE (status <> dt OR "
+                              "(status IS NULL) <> (dt IS NULL))")
+    # Its rows, by SQL's three-valued logic, as Hive's: kept where one side alone is null.
+    with closing(sqlite3.connect(":memory:")) as connection:
+        kept = connection.execute(
+            "SELECT a FROM (SELECT 1 AS a, NULL AS b, NULL AS c UNION ALL SELECT 2, 'x', NULL "
+            "UNION ALL SELECT 3, 'x', 'x' UNION ALL SELECT 4, 'x', 'y') WHERE (b <> c OR "
+            "(b IS NULL) <> (c IS NULL)) ORDER BY a").fetchall()
+    assert kept == [(2,), (4,)]
+
+
+def test_q2_equal_between_two_columns_keeps_a_row_where_both_are_null() -> None:
+    # Ticket 13: M's null = null is true, so M keeps a row where both sides are null, which
+    # Hive's `a = b` drops. File 12's Q2 doesn't say so yet: ticket 14 adds its line.
+    m = m_of(SOURCE, "Kept = Table.SelectRows(Source, each [status] = [dt])")
+    assert_converted(m, RUNS, f"SELECT {RUN_COLUMNS} FROM db.job_runs WHERE (status = dt OR "
+                              "(status IS NULL AND dt IS NULL))")
+    # Its rows, by SQL's three-valued logic, as Hive's: kept where both sides are null.
+    with closing(sqlite3.connect(":memory:")) as connection:
+        kept = connection.execute(
+            "SELECT a FROM (SELECT 1 AS a, NULL AS b, NULL AS c UNION ALL SELECT 2, 'x', NULL "
+            "UNION ALL SELECT 3, 'x', 'x' UNION ALL SELECT 4, 'x', 'y') WHERE (b = c OR "
+            "(b IS NULL AND c IS NULL)) ORDER BY a").fetchall()
+    assert kept == [(1,), (3,)]
 
 
 def test_q3_text_contains_starts_and_ends_with_are_like_case_kept() -> None:
@@ -386,6 +408,22 @@ def test_t1_a_whole_columns_total_in_a_formula_column_is_a_window_over_every_row
     assert "VAR_SAMP(duration_mins)" in written  # never Hive's VARIANCE, the population's
 
 
+def test_t1_to_t2_count_of_a_column_of_text_is_refused_as_excels_counts_numbers_only() -> None:
+    # Ticket 13: Excel's COUNT, and a Total Row's SUBTOTAL(102), count numbers alone, where
+    # Hive's COUNT(v) counts every value; COUNTA and 103 count them all.
+    book = workbook(runs(n="=COUNT(job_runs[status])", named="=COUNTA(job_runs[status])"),
+                    totals={"job_runs": {"status": "=SUBTOTAL(102,job_runs[status])",
+                                         "run_id": "=SUBTOTAL(102,job_runs[run_id])"}})
+    check(book, f"SELECT {RUN_COLUMNS}, NULL AS n, COUNT(status) OVER () AS named FROM "
+                "db.job_runs")
+    check(book, "WITH job_runs AS (SELECT run_id FROM db.job_runs) SELECT COUNT(run_id) AS "
+                "run_id, NULL AS status FROM job_runs", final="job_runs (Total Row)")
+    assert [(note.rule, note.where) for note in notes_of(book, REFUSED)] == [
+        ("T1", "job_runs[n]"), ("T2", "job_runs (Total Row)[status]")]
+    # The refusal says what to use where a count of the filled cells was meant.
+    assert all("use COUNTA (or SUBTOTAL 103)" in note.text for note in notes_of(book, REFUSED))
+
+
 def test_t1_another_tables_whole_column_total_is_a_cross_join_of_its_total() -> None:
     book = workbook({**runs(jobs="=COUNT(jobs[job_id])"), "jobs": JOBS})
     check(book, "SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.dt, c.jobs FROM "
@@ -472,6 +510,23 @@ def test_s2_an_index_after_a_sort_is_row_number_and_in_a_group_partitioned_by_it
                                       "db.job_runs")
 
 
+def test_s2_an_index_from_s_by_k_and_one_with_no_start_from_0() -> None:
+    # File 12's S2 since ticket 13: from s by k, `(ROW_NUMBER() OVER (..) - 1) * k + s`; with
+    # no start given, M starts at 0.
+    sort = 'Sorted = Table.Sort(Source, {{"duration_mins", Order.Descending}})'
+    book = query_book({
+        "stepped": (m_of(SOURCE, sort, 'Numbered = Table.AddIndexColumn(Sorted, "n", 5, 10)'),
+                    [*RUNS, "n"]),
+        "from_0": (m_of(SOURCE, sort, 'Numbered = Table.AddIndexColumn(Sorted, "n")'),
+                   [*RUNS, "n"])})
+    finals = finals_of(book)
+    assert finals["stepped"] == normal(f"SELECT {RUN_COLUMNS}, (ROW_NUMBER() OVER (ORDER BY "
+                                       "duration_mins DESC) - 1) * 10 + 5 AS n FROM "
+                                       "db.job_runs")
+    assert finals["from_0"] == normal(f"SELECT {RUN_COLUMNS}, (ROW_NUMBER() OVER (ORDER BY "
+                                      "duration_mins DESC) - 1) * 1 + 0 AS n FROM db.job_runs")
+
+
 def test_s3_a_sort_with_no_firstn_or_index_has_no_order_by_and_is_marked() -> None:
     m = m_of(SOURCE, 'Sorted = Table.Sort(Source, {{"duration_mins", Order.Descending}})')
     book = query_book({"q": (m, RUNS)})
@@ -480,10 +535,62 @@ def test_s3_a_sort_with_no_firstn_or_index_has_no_order_by_and_is_marked() -> No
     assert (mark.rule, "order dropped" in mark.text) == ("S3", True)
 
 
+# --- File 15: Hive that stays small (ticket 17) ----------------------------------------------
+
+
+def test_h3_each_where_is_in_the_select_reading_its_source_before_any_join() -> None:
+    m = m_of(*JOINED, 'Ok = Table.SelectRows(Runs, each [status] = "SUCCESS")',
+             'Joined = Table.NestedJoin(Ok, {"job_id"}, Jobs, {"job_id"}, "j", '
+             "JoinKind.LeftOuter)",
+             'Expanded = Table.ExpandTableColumn(Joined, "j", {"job_name"}, {"name"})',
+             'Kept = Table.SelectColumns(Expanded, {"run_id", "name"})')
+    assert_converted(m, ["run_id", "name"],
+                     "SELECT r.run_id, j.job_name AS name FROM db.job_runs AS r LEFT JOIN "
+                     "db.jobs AS j ON r.job_id = j.job_id WHERE r.status = 'SUCCESS'")
+
+
+def test_h4_columns_renamed_or_added_in_the_select_reading_a_step_never_a_copying_cte(
+        ) -> None:
+    base = m_of(SOURCE, 'Ok = Table.SelectRows(Source, each [status] = "SUCCESS")')
+    named = m_of("Source = base",
+                 'Renamed = Table.RenameColumns(Source, {{"duration_mins", "mins"}})',
+                 'Added = Table.AddColumn(Renamed, "hours", each [mins] / 60)',
+                 'Kept = Table.SelectColumns(Added, {"run_id", "mins", "hours"})')
+    book = query_book({"q": (named, ["run_id", "mins", "hours"])},
+                      connection_only=(("base", base),))
+    assert finals_of(book)["q"] == normal(
+        "WITH base AS (SELECT run_id, duration_mins FROM db.job_runs WHERE status = "
+        "'SUCCESS') SELECT run_id, duration_mins AS mins, duration_mins / 60 AS hours "
+        "FROM base")
+
+
+def test_h5_no_order_by_without_a_limit_in_a_cte_and_no_distinct_after_a_join() -> None:
+    sorted_m = m_of(SOURCE, 'Sorted = Table.Sort(Source, {{"duration_mins", '
+                            'Order.Descending}})')
+    top_m = m_of(SOURCE, 'Sorted = Table.Sort(Source, {{"duration_mins", Order.Descending}})',
+                 "Top = Table.FirstN(Sorted, 2)")
+    grouped = ('Grouped = Table.Group(Source, {"job_id"}, {{"runs", each Table.RowCount(_), '
+               "Int64.Type}})")
+    book = query_book({"by_sorted": (m_of("Source = sorted", grouped), ["job_id", "runs"]),
+                       "by_top": (m_of("Source = top", grouped), ["job_id", "runs"])},
+                      connection_only=(("sorted", sorted_m), ("top", top_m)))
+    finals = finals_of(book)
+    assert finals["by_sorted"] == normal(
+        "WITH sorted AS (SELECT job_id FROM db.job_runs) SELECT job_id, COUNT(*) AS runs FROM "
+        "sorted GROUP BY job_id")
+    assert finals["by_top"] == normal(
+        "WITH top AS (SELECT job_id FROM db.job_runs ORDER BY duration_mins DESC LIMIT 2) "
+        "SELECT job_id, COUNT(*) AS runs FROM top GROUP BY job_id")
+    joined = m_of(*JOINED, 'Joined = Table.NestedJoin(Runs, {"job_id"}, Jobs, {"job_id"}, '
+                           '"j", JoinKind.Inner)',
+                  'Kept = Table.SelectColumns(Joined, {"run_id", "job_id"})')
+    assert "DISTINCT" not in converted(joined, ["run_id", "job_id"])
+
+
 # --- Rules: marks, refused -------------------------------------------------------------------
 
 
-def test_m1_a_source_outside_the_workbook_is_the_table_it_names_marked() -> None:
+def test_file_12_m1_a_source_outside_the_workbook_is_the_table_it_names_marked() -> None:
     m = m_of('Warehouse = Sql.Database("dwh01", "ops")',
              'Log = Warehouse{[Schema = "ops", Item = "run_log"]}[Data]',
              "Slow = Table.SelectRows(Log, each [duration_mins] >= 20)",
@@ -495,7 +602,15 @@ def test_m1_a_source_outside_the_workbook_is_the_table_it_names_marked() -> None
     assert (mark.rule, mark.text.split(":")[0]) == ("M1", "Sql.Database")
 
 
-def test_m2_a_pivot_is_a_conditional_sum_per_value_in_the_sample_marked() -> None:
+def test_file_12_x1_a_native_query_is_refused_its_query_left_out() -> None:
+    m = m_of('Warehouse = Sql.Database("dwh01", "ops", [Query="SELECT * FROM run_log"])')
+    book = query_book({"q": (m, ["run_id", "duration_mins"])})
+    assert "q" not in finals_of(book)
+    assert [note.rule for note in notes_of(book, REFUSED)
+            if note.where == 'Power Query "q"'] == ["X1"]
+
+
+def test_file_12_m2_a_pivot_is_a_conditional_sum_per_value_in_the_sample_marked() -> None:
     alerts = [["run_id", "severity"], [1, "high"], [1, "low"], [2, "high"]]
     m = m_of('Source = Excel.CurrentWorkbook(){[Name="alerts"]}[Content]',
              'Counted = Table.AddColumn(Source, "n", each 1)',
@@ -509,13 +624,27 @@ def test_m2_a_pivot_is_a_conditional_sum_per_value_in_the_sample_marked() -> Non
     assert (mark.rule, mark.text.split(":")[0]) == ("M2", "pivot")
 
 
+@pytest.mark.parametrize("aggregate", ["List.Max", "List.Min", "List.Average"])
+def test_file_12_m2_a_pivot_by_max_min_or_average_is_refused(aggregate: str) -> None:
+    # Ticket 13: file 12's M2 counts (THEN 1) and adds up (THEN v) alone, so the code does too.
+    alerts = [["run_id", "severity", "secs"], [1, "high", 4], [1, "low", 2], [2, "high", 9]]
+    m = m_of('Source = Excel.CurrentWorkbook(){[Name="alerts"]}[Content]',
+             'Pivoted = Table.Pivot(Source, List.Distinct(Source[severity]), "severity", '
+             f'"secs", {aggregate})')
+    book = query_book({"q": (m, ["run_id", "high", "low"])}, tables={"alerts": alerts})
+    assert "q" not in finals_of(book)
+    assert ("M2", 'Power Query "q"') in [(note.rule, note.where)
+                                         for note in notes_of(book, REFUSED)]
+
+
 @pytest.mark.parametrize(("step", "why"), [
     ('Table.AddIndexColumn(Source, "n", 1, 1)', "no Table.Sort before it"),
     ('Table.FillDown(Source, {"n"})', "FillDown"),
     ('Table.FillUp(Source, {"n"})', "FillUp"),
     ('Table.AddColumn(Source, "n", each Text.PadStart([status], 9))', "Text.PadStart"),
     ('Table.Group(Source, {"run_id"}, {{"n", each List.Median([job_id])}})', "List.Median")])
-def test_x1_a_column_a_refused_step_makes_is_null_and_named(step: str, why: str) -> None:
+def test_file_12_x1_a_column_a_refused_step_makes_is_null_and_named(step: str,
+                                                                    why: str) -> None:
     book = query_book({"q": (m_of(SOURCE, f"Added = {step}"), ["run_id", "n"])},
                       tables={"job_runs": [["run_id", "n", "status", "job_id"],
                                            [1, 2, "a", 3]]})
@@ -529,7 +658,7 @@ def test_x1_a_column_a_refused_step_makes_is_null_and_named(step: str, why: str)
     ('Csv.Document(Web.Contents("https://example.com/runs.csv"))', "Web.Contents"),
     ('Table.Distinct(Source, {"job_id"})', "column list"),
     ("Table.TransformRows(Source, each [run_id])", "Table.TransformRows")])
-def test_x1_a_refused_step_leaves_its_query_out_named(step: str, why: str) -> None:
+def test_file_12_x1_a_refused_step_leaves_its_query_out_named(step: str, why: str) -> None:
     book = query_book({"q": (m_of(SOURCE, f"Added = {step}"), RUNS)})
     assert "q" not in finals_of(book)
     refusals = [(note.rule, note.where, why in note.text) for note in notes_of(book, REFUSED)]
@@ -537,7 +666,7 @@ def test_x1_a_refused_step_leaves_its_query_out_named(step: str, why: str) -> No
     assert ("P7", "q", False) in refusals  # the Table it loads, named too
 
 
-def test_x1_a_web_query_left_out_is_named_refused_too() -> None:
+def test_file_12_x1_a_web_query_left_out_is_named_refused_too() -> None:
     book = query_book({}, connection_only=(("rates", m_of(
         'Source = Json.Document(Web.Contents("https://example.com/today.json"))')),))
     assert [(note.rule, "Web.Contents" in note.text) for note in notes_of(book, REFUSED)] == [

@@ -1891,8 +1891,8 @@ naming each hand-written piece.
 
 # Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
 
-**Use this file as reference while you follow file 15's steps: find each formula of an
-attached workbook in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each formula in
+Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
@@ -1914,7 +1914,7 @@ PivotTable, file 20.
 
 ## Terms
 
-- **Formula column**: a column whose cells hold a formula, `=[@duration_mins]/60`.
+- **Formula column**: a column of formulas, `=[@duration_mins]/60`.
 - `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
   row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map.
@@ -1970,7 +1970,8 @@ PivotTable, file 20.
 
 - **I1** "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS
   NULL)`, as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against
-  this row's d.
+  this row's typed d (and a typed t[d] over its own Table); refused where rows repeat or hold
+  a blank on their Keys (V1, V2).
 - **I2** Every condition of one -IFS form holds at once: join them with AND, two on one
   column too (">10" and "<=30": `v > 10 AND v <= 30`). Two -IFS forms added that differ in
   one value only: one form, `s IN ('x', 'y')`.
@@ -2020,7 +2021,7 @@ PivotTable, file 20.
 ### W1: a formula column typed over in one row
 
 Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
-as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
+as 9 where run_id is 103; Keys: job_runs, run_id. Map: Sources job_runs. Finals job_runs
 (run_id, job_id, duration_mins, hours). Typed over: hours where run_id is 103.
 
 ```sql
@@ -2047,8 +2048,8 @@ whole-column total and Total Row in Patterns, then write the Hive its rule gives
 Objective: write each Power Query, each whole-column total and each Total Row of an Excel
 workbook as the Hive that gives the same rows.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply), file 11 (each formula's Hive) and, for a
-PivotTable, file 20.
+file 15 (the steps, the map and the reply), file 11 (formulas) and, for a PivotTable, file
+20.
 
 ## Patterns: when the workbook has X, look up Y
 
@@ -2065,13 +2066,12 @@ PivotTable, file 20.
 
 ## Terms
 
-- **M**: Power Query's language. A query is a `let` of named steps, each reading the one
-  before; `in` names the step it gives. Read the steps in order.
-- **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
-  SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
-  Total Row, never a row of data.
-- A query step no rule here lists is refused: NULL for each column it makes, or the query
-  left out, named with why.
+- **M**: Power Query's language: a `let` of named steps, each reading the one before; `in`
+  names the one it gives.
+- **Total Row**: the row under a Table's last row, each total a SUBTOTAL(...) of a column,
+  shown as its `Total Row`: never a row of data.
+- A step no rule here lists is refused: NULL in each column it makes, or the query left out,
+  named with why.
 
 ## Rules: reading a table and its rows
 
@@ -2080,8 +2080,9 @@ PivotTable, file 20.
   (...)`, after each CTE q reads: a query, then the Table it loads, then a formula column
   reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
 - **Q2** Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's
-  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
-  `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
+  `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`; two columns:
+  `(a <> b OR (a IS NULL) <> (b IS NULL))`. `[c] = null`: `c IS NULL`; `[c] <> null`:
+  `c IS NOT NULL`.
 - **Q3** Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`,
   `'%x'`, case kept, as M keeps it. `not`: NOT.
 - **Q4** List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k
@@ -2117,17 +2118,18 @@ PivotTable, file 20.
 - **G3** A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
   `INTERSECT`, LeftAnti is `EXCEPT`. Table.AddColumn(t, "u", each u), expanded: `CROSS JOIN
   u`.
-- **G4** Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone:
-  SELECT DISTINCT.
+- **G4** Table.Combine: UNION ALL, columns matched by name, NULL where missing; inside
+  Table.Distinct, UNION. Table.Distinct alone: SELECT DISTINCT.
 - **G5** Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT
-  per column, stacked with UNION ALL, `'a' AS measure, a AS amount`, each `WHERE a IS NOT
-  NULL`, as M drops a null there.
+  per column, stacked with UNION ALL, `'a' AS measure, a AS amount` after the kept columns,
+  each `WHERE a IS NOT NULL`, as M drops a null there.
 
 ## Rules: a whole column, and the Total Row
 
 - **T1** SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()`
   and so on, COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a],
-  t[b]): `SUM(a * b) OVER ()`.
+  t[b]): `SUM(a * b) OVER ()`. Another Table's column: CROSS JOIN its total. COUNT, or T2's
+  102, of a text column: refused, as Excel's counts numbers.
 - **T2** A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each
   cell holding a total, in the Table's order, none for an empty cell or a label such as
   "Total", reading the Table's final query as a CTE that selects only the columns totalled.
@@ -2140,7 +2142,8 @@ PivotTable, file 20.
 - **S1** Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone:
   LIMIT.
 - **S2** Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY
-  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
+  ...) AS n`; inside a Table.Group's `each`, PARTITION BY its keys. From s by k:
+  `(ROW_NUMBER() OVER (..) - 1) * k + s`; none given, 0.
 - **S3** A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
   order; mark "order dropped".
 
@@ -2151,39 +2154,37 @@ PivotTable, file 20.
 - **M2** Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value
   in the sample, THEN 1 to count, THEN v to add up v, NULL where none; mark "pivot": its
   columns are now fixed.
-- **X1** Refused, and named: Web.Contents or any web source (that query left out);
-  Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp; Table.Distinct with
-  a column list; List.Median.
+- **X1** Refused, and named: Web.Contents or any web source (that query left out); a native
+  `[Query=..]`; Table.AddIndexColumn with no Sort before it; Table.FillDown and FillUp;
+  Table.Distinct with a column list; List.Median.
 
 ## Worked patterns
 
-### W1: a query filtering, grouping, keeping groups over one
+### W1: a query to filter, group, keep groups over one
 
-Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads busy_jobs:
 
     let
-        Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
-        Ok = Table.SelectRows(Source, each [status] <> null
-            and Text.StartsWith([status], "SUCC")),
-        Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_), Int64.Type}}),
-        Busy = Table.SelectRows(Grouped, each [runs] > 1)
+      Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
+      Ok = Table.SelectRows(Source, each [status] <> null
+        and Text.StartsWith([status], "SUCC")),
+      Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_)}}),
+      Busy = Table.SelectRows(Grouped, each [runs] > 1)
     in
-        Busy
+      Busy
 
 Map: Sources job_runs. Finals busy_jobs (job_id, runs).
 
 ```sql
-SELECT job_id, COUNT(*) AS runs
-FROM <database>.job_runs
+SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs
 WHERE status IS NOT NULL AND status LIKE 'SUCC%'
-GROUP BY job_id
-HAVING COUNT(*) > 1
+GROUP BY job_id HAVING COUNT(*) > 1
 ```
 
 ### W2: a summary's Total Row, reading its final as a CTE
 
-Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
-summing runs; its typed job_ids, 1 and 2, are written in (file 15):
+Table by_job (job_id typed, 1 and 2, written in by file 15; runs
+`=COUNTIFS(job_runs[job_id],[@job_id])`), its Total Row summing runs:
 
 ```sql
 WITH by_job AS (
@@ -2606,7 +2607,7 @@ file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a Pivot
 | P8 | a query that loads nothing and nothing reads | left out, and named |
 | P9 | a Table with a Total Row | also a final, `<Table> (Total Row)` (R2) |
 | P10 | Parameters, Keys | settings: never a source, step or final |
-| P11 | pieces reading each other in a loop | each final in it refused, named |
+| P11 | pieces reading each other in a loop | the workbook refused, each link named |
 | P12 | a PivotTable a Table's GETPIVOTDATA reads | step, a CTE (file 20) |
 | P13 | any other PivotTable | final, and each total level shown (file 20) |
 
@@ -2640,7 +2641,8 @@ file 11 (each formula's Hive), file 12 (Power Query and totals) and, for a Pivot
 ## Rules: Hive that stays small
 
 - **H1** Read each step once in a final: Hive works a CTE out at each read (4.1 keeps one
-  with totals read over 3 times). Forms grouped alike share one join (file 11's F9).
+  with totals read over 3 times). Forms grouped alike share one join (file 11's F9); a lookup
+  needs its own.
 - **H2** A CTE selects only the columns read after it, never `*`: Hive drops the rest, but a
   short CTE is quicker to check.
 - **H3** Each WHERE goes in the SELECT that reads its source, before any join.
@@ -2702,7 +2704,7 @@ LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
 
 Query ok_runs keeps job_runs' SUCCESS rows and loads Table ok_runs; query ok_by_job reads
 query ok_runs and loads Table ok_by_job. Map: Sources job_runs. Steps query ok_runs. Finals
-Table ok_runs and Table ok_by_job: no formula reads either Table.
+Tables ok_runs and ok_by_job, which no formula reads.
 
 ```sql
 SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
@@ -3412,8 +3414,8 @@ A finished request, from a user's definitions of `ops.orders`:
 
 # Copilot file 20: PivotTables into Hive (sqlglot Composer 8.8)
 
-**Use this file as reference while you follow file 15's steps: find each part of a
-PivotTable in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each PivotTable part
+in Patterns, then write the Hive its rule gives.**
 
 Objective: write each PivotTable of an Excel workbook as the Hive giving the values it shows.
 Load this file when the workbook attached has a `PivotTable "name"`, with file 15 (the steps,
@@ -3439,8 +3441,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   As**: a Value shown against others, its **base field** (and item) what it is shown against.
 - **Pivot filter**: what it leaves out: a Report filter (`Filter f:`), hidden items, a
   **slicer** (a box of a field's items, on each pivot connected to it), a **Timeline** (the
-  same of dates), a value filter (Top or Bottom). **A Decision in convert**: a question the
-  convert Workflow's notebook asks you.
+  same of dates), a value filter (Top or Bottom). **A Decision in convert**: a question
+  convert's notebook asks you.
 
 ## Rules: source, name and rows
 
@@ -3484,7 +3486,7 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
   SUM(x) DESC); Smallest to Largest ASC.
 - **PV8** PV5 to PV7 at a total level:
   - if it groups by the base field, as the pivot's own final does: as written;
-  - else: NULL, as Excel shows a blank, marked.
+  - else: NULL, as Excel shows a blank, marked; grouping by nothing: no FROM.
 - **PC1** An item adding items, as done = SUCCESS+FAILED on status: a column beside the real
   rows, SUM(SUM(CASE WHEN status IN ('SUCCESS', 'FAILED') THEN x END)) OVER (PARTITION BY
   the row's other fields) AS done.
@@ -3538,8 +3540,8 @@ the map and the reply), file 11 (formulas) and file 12 (Power Query).
 ### W1: each total level a final, each marked
 
 PivotTable1, sheet "Job days", on job_runs: Rows job_id, Columns dt, Count of run_id, Slicer
-status: SUCCESS, both Grand Totals. Map: Sources job_runs. Finals PivotTable1 and its (by
-job_id), (by dt) and (grand total). Marks: Column field dt: written as rows; default name,
+status: SUCCESS, both Grand Totals. Map: Sources job_runs. Finals PivotTable1, (by
+job_id), (by dt), (grand total). Marks: Column field dt: written as rows; default name,
 job_days_pivot proposed; slicer status.
 
 ```sql

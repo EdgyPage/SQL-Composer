@@ -98,9 +98,9 @@ LIKE_PATTERNS = {"Text.Contains": ("%", "%"), "Text.StartsWith": ("", "%"),
 # A Table.Group's aggregates of a column (file 12's G1), by their M names.
 LIST_AGGREGATES = {"List.Sum": "SUM", "List.Max": "MAX", "List.Min": "MIN",
                    "List.Average": "AVG", "List.StandardDeviation": "STDDEV_SAMP"}
-# A Table.Pivot's aggregate (file 12's M2), by its M name.
-PIVOT_AGGREGATES = {"List.Sum": "SUM", "List.Count": "SUM", "List.Max": "MAX",
-                    "List.Min": "MIN", "List.Average": "AVG"}
+# A Table.Pivot's aggregate (file 12's M2), by its M name: it counts or adds up, as the file
+# lists; List.Max, List.Min and List.Average are refused (ticket 13).
+PIVOT_AGGREGATES = {"List.Sum": "SUM", "List.Count": "SUM"}
 # M's JoinKinds (file 12's G2), each as the join it is.
 JOIN_KINDS = ("LeftOuter", "Inner", "RightOuter", "FullOuter", "LeftAnti", "RightAnti")
 
@@ -576,8 +576,8 @@ def m_name_hive(part: MName, rows: Rows, reading: Reading,
 def m_operation_hive(part: MOperation, rows: Rows, reading: Reading,
                      value: exp.Expression | None) -> exp.Expression:
     """An operator: `and`, `or` (F2's twins), `&` CONCAT, arithmetic and comparisons as they
-    are; `= null` IS NULL and `<> null` IS NOT NULL; and M's `<>`, which keeps a null, `(c <>
-    'x' OR c IS NULL)` (Q2)."""
+    are; `= null` IS NULL and `<> null` IS NOT NULL; and M's `=` and `<>`, which treat a
+    null as a value, `(c <> 'x' OR c IS NULL)` (Q2)."""
     operator = part.operator
     if operator in ("=", "<>") and MValue(None) in (part.left, part.right):
         other = part.right if part.left == MValue(None) else part.left
@@ -589,23 +589,35 @@ def m_operation_hive(part: MOperation, rows: Rows, reading: Reading,
         return binary(exp.And if operator == "and" else exp.Or, left, right)
     if operator == "&":
         return hive_call("CONCAT", [left, right])
-    if operator == "<>":
-        return not_equal_hive(part, left, right)
+    if operator in ("=", "<>"):
+        return equality_hive(part, left, right)
     if operator in COMPARISONS:
         return binary(COMPARISONS[operator], left, right)
     return binary(ARITHMETIC[operator], left, right)
 
 
+def equality_hive(part: MOperation, left: exp.Expression,
+                  right: exp.Expression) -> exp.Expression:
+    """M's `=` or `<>`, either side not null itself: `<>` as `not_equal_hive` writes it; `=`
+    with a constant on one side as it is; `=` between two columns kept where both are null,
+    `(a = b OR (a IS NULL AND b IS NULL))`, as M's null = null is true (Q2)."""
+    if part.operator == "<>":
+        return not_equal_hive(part, left, right)
+    if isinstance(part.left, MValue) or isinstance(part.right, MValue):
+        return binary(exp.EQ, left, right)
+    return rule_hive("(p0 = p1 OR (p0 IS NULL AND p1 IS NULL))", p0=left, p1=right)
+
+
 def not_equal_hive(part: MOperation, left: exp.Expression,
                    right: exp.Expression) -> exp.Expression:
     """M's `<>`, which keeps a null, as Hive's doesn't: `(c <> 'x' OR c IS NULL)`, with a
-    constant on one side (Q2)."""
+    constant on one side; between two columns, kept where one alone is null, `(a <> b OR (a
+    IS NULL) <> (b IS NULL))`, as M's null <> null is false (Q2)."""
     if isinstance(part.right, MValue):
         return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=left, p1=right)
     if isinstance(part.left, MValue):
         return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=right, p1=left)
-    raise Refused("Q2", "<> between two columns keeps a row where either is null, which file "
-                        "12 doesn't write")
+    return rule_hive("(p0 <> p1 OR (p0 IS NULL) <> (p1 IS NULL))", p0=left, p1=right)
 
 
 def m_call_hive(call: MCall, rows: Rows, reading: Reading,

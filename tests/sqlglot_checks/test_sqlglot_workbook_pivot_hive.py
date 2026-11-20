@@ -213,7 +213,9 @@ def cell_value(pivot: PivotTable, name: str, cell: PivotCell,
                results: dict[str, list[dict[str, object]]]) -> object:
     """The value the Hive gives for one of a pivot's cells: the row of the final of its total
     level whose fields hold the cell's items, the column of its value, or of the calculated
-    item it stands for; None where no final or row has it."""
+    item it stands for; None where no final or row has it, and the count where several rows
+    do but for a calculated item's, as a grand total written as a row per source row (PV8,
+    ticket 13), which no stored value matches."""
     items = [*cell.row.items, *cell.column.items]
     calculated = [(field, item) for field, item in items
                   if str(item) in pivot.fields[field].calculated_items]
@@ -224,10 +226,13 @@ def cell_value(pivot: PivotTable, name: str, cell: PivotCell,
     if calculated:
         column = snake_case(str(calculated[0][1]))
     matched = [(field, item) for field, item in items if (field, item) not in calculated]
-    for row in results.get(final, []):
-        if all(is_same(row[hive_name(field)], item) for field, item in matched):
-            return row[column]
-    return None
+    found = [row[column] for row in results.get(final, [])
+             if all(is_same(row[hive_name(field)], item) for field, item in matched)]
+    # A calculated item's column is the same on each of the real items' rows (PC1); any other
+    # cell is one row of its level.
+    if len(found) > 1 and not calculated:
+        return f"{len(found)} rows"
+    return found[0] if found else None
 
 
 def cells_differing(book: Workbook, connection: sqlite3.Connection) -> list[str]:
@@ -380,6 +385,19 @@ def test_pv5_a_running_total_is_a_window_down_its_base_field(
           "FROM db.job_runs GROUP BY job_id, dt")
 
 
+def test_pv5_a_running_total_down_text_items_runs_a_to_z_ignoring_case_blanks_last() -> None:
+    # Ticket 13's review: Excel shows a text field's items A to Z whatever their case, a blank
+    # last, and runs its total in that order; Hive's ORDER BY puts a blank first and capitals
+    # before small letters.
+    book = read_workbook(saved(FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("status",), (Value("duration_mins", shown_as="runTotal",
+                                              base_field="status"),)),))))
+    check(book, "PivotTable1",
+          "SELECT status, SUM(SUM(duration_mins)) OVER (ORDER BY LOWER(status) NULLS LAST ROWS "
+          "BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS sum_of_duration_mins FROM "
+          "db.job_runs GROUP BY status")
+
+
 def test_pv6_difference_from_a_base_item_is_null_on_its_own_row(
         built: dict[str, Workbook]) -> None:
     base = ("MAX(CASE WHEN job_id = 1 THEN SUM(duration_mins) END) OVER (PARTITION BY dt)")
@@ -415,6 +433,9 @@ def test_pv8_a_total_without_the_base_field_is_null_and_marked() -> None:
     book = fixture("10_pivot_calculated_item_rank")
     check(book, "PivotTable2 (by dt)",
           "SELECT dt, NULL AS sum_of_duration_mins FROM db.job_runs GROUP BY dt")
+    # The grand total, grouping by nothing, is Excel's one blank cell: one row, read from
+    # nothing, never a row per source row (ticket 09's Workbook check found it, ticket 13).
+    check(book, "PivotTable2 (grand total)", "SELECT NULL AS sum_of_duration_mins")
     assert ("PV8", "PivotTable2 (by dt)[Sum of duration_mins]",
             "Rank Largest to Smallest job_id: blank at this total, as Excel shows it"
             ) in notes_of(book, MARK)
@@ -704,6 +725,44 @@ def test_pl1_a_total_levels_final_carries_only_the_ctes_it_reads(
 
 def test_ps1_a_table_is_read_as_it_is_read() -> None:
     assert "FROM db.job_runs" in finals_of(fixture("04_pivot_rows_columns"))["PivotTable1"]
+
+
+def test_ps1_never_its_cells_typed_in_never_a_cte_named_for_the_table_it_reads(
+        built: dict[str, Workbook]) -> None:
+    # File 20's PS1 (ticket 11, from ticket 10's baseline misses): a pivot's rows are read from
+    # its source, never typed in (no VALUES, no SELECT without a FROM but PV8's grand total of
+    # NULLs alone), and no CTE reads a table of its own name as itself, the "circular
+    # reference" a step Table's CTE avoids by reading `<database>.<table>`.
+    books = [fixture(name) for name in ROW_FIXTURES] + list(built.values())
+    for book in books:
+        for name, tree in workbook_hive.workbook_hive(book, database="db").finals.items():
+            assert not list(tree.find_all(exp.Values)), name
+            for select in tree.find_all(exp.Select):
+                values = [column.unalias() for column in select.expressions]
+                assert select.args.get("from_") or all(
+                    isinstance(value, exp.Null) for value in values), name
+            for cte in tree.find_all(exp.CTE):
+                read = {table.name for table in cte.this.find_all(exp.Table) if not table.db}
+                assert cte.alias not in read, name
+
+
+def test_file_15_p12_a_pivot_a_tables_getpivotdata_reads_is_a_step(
+        built: dict[str, Workbook]) -> None:
+    book = built["getpivotdata"]
+    roles = workbook_hive.piece_roles(book)
+    (pivot,) = pivot_pieces(book)
+    assert roles[pivot] == workbook_hive.STEP
+    finals = finals_of(book)
+    assert [name for name in finals if name.startswith("PivotTable1")] == []
+    assert finals["job_mins"].startswith("WITH PivotTable1 AS (")
+
+
+def test_file_15_p13_any_other_pivot_is_a_final_and_each_total_level_shown() -> None:
+    book = fixture("04_pivot_rows_columns")
+    (pivot,) = pivot_pieces(book)
+    assert workbook_hive.piece_roles(book)[pivot] == workbook_hive.FINAL
+    assert list(finals_of(book)) == ["PivotTable1", "PivotTable1 (by job_id)",
+                                     "PivotTable1 (by dt)", "PivotTable1 (grand total)"]
 
 
 def test_ps2_a_querys_table_is_read_as_its_cte() -> None:
