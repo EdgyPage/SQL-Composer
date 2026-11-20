@@ -22,9 +22,9 @@ answers file in place of a round. `docs/copilot-eval.md` has the steps.
 
 Each reply is kept in the memo, `.eval-local/memo/` (`tools/eval_runs.py`), by its task's id
 and text, its arm, its model and the hash of exactly the text the task loads: the task's
-objective file in arm C, file 00 and the file the reply names in arm R. A held-out task is
-asked once per version of that text. Nothing of a round is tracked: git ignores
-`.eval-local/`.
+objective file in arm C, with the files it is loaded with (`files_of`), file 00 and the file
+the reply names in arm R. A held-out task is asked once per version of that text. Nothing of a
+round is tracked: git ignores `.eval-local/`.
 
 An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
 Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
@@ -274,9 +274,25 @@ ARMS = {
     "A0": "nothing: the request alone",
     "A1": "the README's opening, cut to the same limit: what a user could share before the "
           "files",
-    "C": "the Copilot file for the task's objective",
+    "C": "the Copilot file for the task's objective, and the files it is loaded with",
     "R": "copilot/00_start_here.txt, which says which file to load",
 }
+# The files an objective's Copilot file is loaded with, as file 00's Index loads them: file 21
+# grows a converted PivotTable with the Toolbox functions files 03, 05 and 06 teach (Toolbox
+# 8.9).
+LOADED_WITH = {"21": ("03", "05", "06")}
+
+
+def files_of(objective: str) -> tuple[str, ...]:
+    """The numbers of the Copilot files an objective's task loads in arm C: its own file
+    first, then those LOADED_WITH names for it."""
+    return (objective, *LOADED_WITH.get(objective, ()))
+
+
+def file_text(number: str) -> str:
+    """The text of the Copilot file of a number."""
+    [path] = sorted(COPILOT.glob(f"{number}_*.txt"))
+    return path.read_text(encoding="utf-8")
 
 
 def baseline_text() -> str:
@@ -296,19 +312,23 @@ def shared_text(arm: str, objective: str | None) -> str | None:
         return None
     if arm == "A1":
         return baseline_text()
-    name = "00" if arm == "R" else objective
-    [path] = sorted(COPILOT.glob(f"{name}_*.txt"))
-    return path.read_text(encoding="utf-8")
+    if arm == "R":
+        return file_text("00")
+    if objective is None:
+        raise ValueError("arm C loads the files of one objective: name it")
+    return "\n\n".join(file_text(number) for number in files_of(objective))
 
 
 def proxy_message(arm: str, tasks: list[Task]) -> str:
     """The message a proxy model is given for one arm: what the user shared, then each task's
     prompt, as if each came in a chat of its own. In arm C every task has the same objective,
-    as a user loads one file at a time; in arm R the proxy only names the file it would load."""
+    as a user loads one objective's files at a time; in arm R the proxy only names the file it
+    would load."""
     objectives = {task.objective for task in tasks}
     if arm == "C" and len(objectives) != 1:
         raise ValueError("arm C takes the tasks of one objective, as one file is loaded")
-    shared = shared_text(arm, next(iter(objectives)))
+    objective = next(iter(objectives))
+    shared = shared_text(arm, objective)
     head = ("You are standing in for Microsoft Copilot in a web chat. Use no tools: answer "
             "from what is written here and what you already know.\n\n")
     if shared is not None:
@@ -322,7 +342,11 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
         ask = ("Each task below is a separate request the user sends next. Answer each as you "
                "would in that chat: reply with its `## T..` heading, then your answer, with "
                "the code in a ```python block.")
-        if arm == "C":
+        if arm == "C" and len(files_of(objective)) > 1:
+            ask += (" End each answer with a line `Used: ` and the ids of the files' "
+                    "patterns, rules and worked patterns you followed, each with its file's "
+                    f"number, such as `Used: {objective}:R3, 05:W2`, or `Used: none`.")
+        elif arm == "C":
             ask += (" End each answer with a line `Used: ` and the ids of the file's "
                     "patterns, rules and worked patterns you followed, such as `Used: P3, "
                     "R7, W1`, or `Used: none`.")
@@ -371,13 +395,13 @@ def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
 
 
 def files_loaded(arm: str, task_id: str) -> dict[str, str]:
-    """The Copilot file whose ids a reply to the task may cite, by its number: the objective's
-    in arm C, and none in the other arms, whose messages ask for no `Used:` line (arm R's reply
-    names the files to load, not the ids it followed)."""
+    """The Copilot files whose ids a reply to the task may cite, by their numbers: the
+    objective's in arm C, with those it is loaded with, and none in the other arms, whose
+    messages ask for no `Used:` line (arm R's reply names the files to load, not the ids it
+    followed)."""
     if arm != "C":
         return {}
-    objective = BY_ID[task_id].objective
-    return {objective: shared_text("C", objective) or ""}
+    return {number: file_text(number) for number in files_of(BY_ID[task_id].objective)}
 
 
 # --- Arm R: routing, scored by script --------------------------------------------------------
@@ -388,12 +412,15 @@ INDEX_ROW = re.compile(r"^\| (P\d+) \|.*\| ([\d, ]+) \|\s*$", re.MULTILINE)
 
 def index_loads(start_here: str) -> dict[str, set[str]]:
     """What file 00's Index lets a task of each objective load: the files of every row whose
-    Load column names the objective's file."""
+    Load column names the objective's file first, a row's other files being those it is
+    loaded with, as 21's are 03, 05 and 06, which a task of 03 never needs 21 for; and each
+    file the Index names, itself."""
     allowed: dict[str, set[str]] = {}
     for _, load in INDEX_ROW.findall(start_here):
-        files = set(re.findall(r"\d\d", load))
-        for number in files:
-            allowed.setdefault(number, set()).update(files)
+        first, *loaded_with = re.findall(r"\d\d", load)
+        allowed.setdefault(first, set()).update([first, *loaded_with])
+        for number in loaded_with:
+            allowed.setdefault(number, set()).add(number)
     return allowed
 
 

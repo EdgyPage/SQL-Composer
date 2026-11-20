@@ -10,7 +10,10 @@ There are three tasks for each of the twelve objectives of the Copilot files (`0
 `tools/excel_eval.py`'s): two on the dev split, which the files may be tuned on, and one held
 out, scored once per version of the files. Six are traps, where the answer most people write
 first is refused by a Guard or a Load limit. Toolbox 8.3 adds two Script tag tasks each to 07
-and 13, one dev and one held out, a <PARM="NAME"/> its value given by the user.
+and 13, one dev and one held out, a <PARM="NAME"/> its value given by the user. Toolbox 8.9
+adds five to `21`, a converted PivotTable grown in its Table notebook, three dev and two held
+out: an add-on in the logic cell, two pivots differing only in their filter made one table,
+and a Pivot filter's Decision answered.
 
 A task's kind says what its answer gives and how it is checked:
 
@@ -52,6 +55,7 @@ OBJECTIVES = {
     "14": "a Workflow: new tables and upkeep",
     "16": "a Workflow: promote",
     "17": "Run values, answers for every table, and seed limits",
+    "21": "growing a converted pivot",
 }
 
 # What the answer must assign, by kind.
@@ -214,6 +218,61 @@ OK_RUNS ="""SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
 WHERE r.dt = '2026-09-24' AND r.status = 'SUCCESS'
 GROUP BY r.job_id
+"""
+
+# Toolbox 8.9: a converted PivotTable's Saved tables, as the user's Project describes them;
+# the clauses convert wrote in rows() for a PivotTable over ops.job_runs, Rows job_id, Sum of
+# duration_mins and a slicer on status keeping FAILED and SUCCESS; and Copilot's Hive of a
+# PivotTable, its Pivot filter marked as Copilot file 20 has it written, saved to convert.
+RUNS_BY_JOB = '''from sqlglot_composer import Table
+
+runs_by_job = Table(
+    "mart.runs_by_job",
+    columns={"job_id": "bigint", "sum_of_duration_mins": "bigint",
+             "share_of_total": "double"},
+    key=["job_id"],
+    does_not_add_up=["share_of_total"],
+    location="/data/your_team/mart.db/runs_by_job",
+)
+'''
+JOB_STATUS_MINS = '''from sqlglot_composer import Table
+
+job_status_mins = Table(
+    "mart.job_status_mins",
+    columns={"job_id": "bigint", "sum_of_duration_mins": "bigint", "status": "string"},
+    partitioned_by=["status"],
+    key=["job_id", "status"],
+    location="/data/your_team/mart.db/job_status_mins",
+)
+'''
+JOB_STATUS_WIDE = '''from sqlglot_composer import Table
+
+job_status_wide = Table(
+    "mart.job_status_wide",
+    columns={"job_id": "bigint", "failed_mins": "bigint", "success_mins": "bigint"},
+    key=["job_id"],
+    location="/data/your_team/mart.db/job_status_wide",
+)
+'''
+CONVERTED_PIVOT = '''SELECT(job_runs.job_id,
+       AS(sum_of(job_runs.duration_mins), "sum_of_duration_mins")),
+FROM(job_runs, reads_all_partitions=True),
+WHERE(is_in(job_runs.status, ["FAILED", "SUCCESS"])),
+GROUP_BY(job_runs.job_id),
+'''
+RUNS_BY_JOB_HIVE = """SELECT job_id, SUM(duration_mins) AS sum_of_duration_mins
+FROM ops.job_runs
+WHERE
+  -- Pivot filter: slicer status
+  status IN ('FAILED', 'SUCCESS')
+GROUP BY job_id;
+"""
+FAILS_BY_JOB_HIVE = """SELECT job_id, COUNT(run_id) AS count_of_run_id
+FROM ops.job_runs
+WHERE
+  -- Pivot filter: Report filter status
+  status = 'FAILED'
+GROUP BY job_id;
 """
 
 
@@ -1094,6 +1153,171 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
          files={"admin/workflows/convert/daily_fails.hql": TAGGED_FAILS,
                 "building_blocks/run_values.py": RUN_VALUES},
          originals=TAGGED_FAILS_RAN),
+    # --- 21 growing a converted pivot -------------------------------------------------------
+    Task("T50", "21", "dev",
+         "convert made mart.runs_by_job (from references.mart__runs_by_job import runs_by_job) "
+         "from my workbook's PivotTable runs_by_job. rows() in its Table notebook's logic cell "
+         "returns these clauses:\n\n" + CONVERTED_PIVOT + "\nAdd share_of_total, each job's "
+         "sum_of_duration_mins as a share of the grand total, as Show Values As % of Grand "
+         "Total gives it; I have added the column to its Table reference. Give the whole "
+         "logic cell: create(), rows(), preview() and write(), which replaces what it holds.",
+         "logic", "from sqlglot_composer import (AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''WHERE,
+                              Clause, Statement, create_table, derived, is_in, statement,
+                              sum_of, window)
+from references.mart__runs_by_job import runs_by_job
+from references.ops__job_runs import job_runs
+
+by_job = derived("by_job", statement(
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "sum_of_duration_mins")),
+    FROM(job_runs, reads_all_partitions=True),
+    WHERE(is_in(job_runs.status, ["FAILED", "SUCCESS"])),
+    GROUP_BY(job_runs.job_id),
+))
+
+
+def create() -> Statement:
+    return create_table(runs_by_job, may_exist=True)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(by_job.job_id, by_job.sum_of_duration_mins,
+               AS(by_job.sum_of_duration_mins
+                  / sum_of(by_job.sum_of_duration_mins, over=window()), "share_of_total")),
+        FROM(by_job),
+    ]
+
+
+def preview() -> Statement:
+    return statement(*rows())
+
+
+def write() -> Statement:
+    return statement(INSERT_OVERWRITE(runs_by_job), *rows())
+''', tables=("job_runs",), saved={"runs_by_job": RUNS_BY_JOB},
+         partition={"dt": "2026-09-24"}),
+    Task("T51", "21", "dev",
+         "My workbook had two PivotTables the same but for their slicer on status: "
+         "failed_mins kept FAILED and ok_mins kept SUCCESS, each the Sum of duration_mins by "
+         "job_id over every day of ops.job_runs. convert made a table of each. I want one "
+         "table holding both, mart.job_status_mins (from references.mart__job_status_mins "
+         "import job_status_mins), a Partition per status, both written by one write. Give "
+         "its logic cell: create(), rows(), preview() and write(), which replaces each "
+         "Partition it writes.",
+         "logic", "from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''WHERE, Clause, Statement, create_table, is_in, statement, sum_of
+from references.mart__job_status_mins import job_status_mins
+from references.ops__job_runs import job_runs
+
+PARTITIONED_BY = ["status"]
+
+
+def create() -> Statement:
+    return create_table(job_status_mins, may_exist=True)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "sum_of_duration_mins"),
+               job_runs.status),
+        FROM(job_runs, reads_all_partitions=True),
+        WHERE(is_in(job_runs.status, ["FAILED", "SUCCESS"])),
+        GROUP_BY(job_runs.job_id, job_runs.status),
+    ]
+
+
+def preview() -> Statement:
+    return statement(*rows())
+
+
+def write() -> Statement:
+    return statement(INSERT_OVERWRITE(job_status_mins), *rows())
+''', tables=("job_runs",), saved={"job_status_mins": JOB_STATUS_MINS},
+         partition={"dt": "2026-09-24"}),
+    Task("T52", "21", "dev",
+         "I saved Copilot's Hive of my PivotTable runs_by_job as runs_by_job.hql, beside the "
+         "convert notebook, and converted it as the batch named runs_by_job (NAME = "
+         "\"runs_by_job\"). project.check() says two Decisions of mart_dev.runs_by_job are "
+         "open: its location, and its Pivot filter, the slicer on status, which keeps FAILED "
+         "and SUCCESS. I want every status in that one table, a row for each job and status; "
+         "every table's folder goes under /data/team. Give the convert notebook's decisions "
+         "cell, answered, and the cell that writes the answers in.",
+         "workflow", '''NAME = "runs_by_job"
+DECISIONS = {"mart_dev.runs_by_job": {
+    "location": "/data/team/mart_dev.db/runs_by_job",
+    "pivot_filters": {"status": "fold"},
+}}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/runs_by_job.hql": RUNS_BY_JOB_HIVE},
+         before='''project.convert("runs_by_job", None, files=["runs_by_job.hql"],
+                query=query)
+'''),
+    Task("T53", "21", "held_out",
+         "convert made mart.job_status_wide's Table notebook from my workbook's PivotTable "
+         "with Rows job_id, Columns status and Sum of duration_mins over every day of "
+         "ops.job_runs, its Column field written as rows: rows() returns "
+         "SELECT(job_runs.job_id, job_runs.status, AS(sum_of(job_runs.duration_mins), "
+         "\"sum_of_duration_mins\")), FROM(job_runs, reads_all_partitions=True) and "
+         "GROUP_BY(job_runs.job_id, job_runs.status). I want it wide, as the PivotTable "
+         "showed it: a row per job, failed_mins the minutes of its FAILED runs and "
+         "success_mins of its SUCCESS ones. Its Table reference (from "
+         "references.mart__job_status_wide import job_status_wide) has those columns now. "
+         "Give the whole logic cell: create(), rows(), preview() and write(), which replaces "
+         "what it holds.",
+         "logic", "from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''Clause, Statement, create_table, equals, statement, sum_of
+from references.mart__job_status_wide import job_status_wide
+from references.ops__job_runs import job_runs
+
+
+def create() -> Statement:
+    return create_table(job_status_wide, may_exist=True)
+
+
+def rows() -> list[Clause]:
+    return [
+        SELECT(job_runs.job_id,
+               AS(sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED")),
+                  "failed_mins"),
+               AS(sum_of(job_runs.duration_mins, where=equals(job_runs.status, "SUCCESS")),
+                  "success_mins")),
+        FROM(job_runs, reads_all_partitions=True),
+        GROUP_BY(job_runs.job_id),
+    ]
+
+
+def preview() -> Statement:
+    return statement(*rows())
+
+
+def write() -> Statement:
+    return statement(INSERT_OVERWRITE(job_status_wide), *rows())
+''', tables=("job_runs",), saved={"job_status_wide": JOB_STATUS_WIDE},
+         partition={"dt": "2026-09-24"}),
+    Task("T54", "21", "held_out",
+         "I saved Copilot's Hive of my PivotTable fails_by_job as fails_by_job.hql, beside the "
+         "convert notebook, and converted it as the batch named fails_by_job (NAME = "
+         "\"fails_by_job\"). project.check() says mart_dev.fails_by_job's location and its "
+         "Pivot filter, the Report filter on status, which keeps FAILED, are open. I want "
+         "every status kept, each status's rows written by a run of its own, as my scheduler "
+         "runs one status at a time; every table's folder goes under /data/team. Give the "
+         "convert notebook's decisions cell, answered, and the cell that writes the answers "
+         "in.",
+         "workflow", '''NAME = "fails_by_job"
+DECISIONS = {"mart_dev.fails_by_job": {
+    "location": "/data/team/mart_dev.db/fails_by_job",
+    "pivot_filters": {"status": "batch"},
+}}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/fails_by_job.hql": FAILS_BY_JOB_HIVE},
+         before='''project.convert("fails_by_job", None, files=["fails_by_job.hql"],
+                query=query)
+'''),
 )
 
 BY_ID = {task.id: task for task in TASKS}

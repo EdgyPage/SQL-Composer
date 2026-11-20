@@ -26,7 +26,8 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
 
        .venv/Scripts/python tools/copilot_eval.py plan C --split dev --objective 03 --model haiku
 
-   The arm is `C` (the task's objective file), `R` (routing: which file to load from file 00),
+   The arm is `C` (the task's objective file, with the files it is loaded with: 03, 05 and 06
+   for 21), `R` (routing: which file to load from file 00),
    `A0` (nothing) or `A1` (the README's opening); `--split` is `dev`, `held_out` or `all`, and
    `--objective` is one of the files' numbers. The plan says of each task `ask:` and why (no
    reply kept, its text changed, the text it loads changed, or `--fresh`), or `from the
@@ -83,8 +84,9 @@ the script printed. Follow these in order. `<round>` is a new name you choose, s
 Arm R scores routing and nothing else: each proxy replies with a file name per task, and `score`
 gives, per task and in total, two rates, both with no model. **Strict**: the reply names one
 file, and it is the task's objective's file, as the rules the proxy was asked under say. **By
-the Index**: the first file it names is one file 00's Index loads for that objective, read
-from the Index as it is now, so an edit to the Index changes the score. A reply naming file 00,
+the Index**: the first file it names is one a row of file 00's Index loads that names that
+objective's file first (a row's other files are those it is loaded with), read from the Index
+as it is now, so an edit to the Index changes the score. A reply naming file 00,
 a file that doesn't exist, or none, fails both. Its results row is `| date | files | model | R |
 split | replies | strict | index | from the memo |`.
 
@@ -97,7 +99,8 @@ asks a model only the tasks whose text changed. A reply's key is:
 - the arm;
 - the model, `copilot-web` for Copilot's web chat;
 - the hash of exactly the text the task loads before the prompt: nothing in A0, the README's
-  opening in A1, the task's objective file in C, file 00 and the file the reply names in R, and
+  opening in A1, the task's objective file in C, with the files it is loaded with, file 00 and
+  the file the reply names in R, and
   the Excel files for an Excel task in C.
 
 Dev and held-out tasks are kept alike. A held-out task is asked once per version of the text
@@ -157,8 +160,9 @@ cap. A plan never asks a task again whose key is unchanged, and says `from the m
    - **A1, before the files.** Paste the README's opening, as `copilot_eval.py batch A1 ...`
      writes it in a message file, as the first message and send it. Then send the task's prompt.
    - **C, with the file.** Paste the task's objective file (the task's heading names its
-     id; `copilot_eval_tasks.py` gives its objective, `01` to `10`, `13`, `14`, `16` or `17`;
-     the file is `copilot/<objective>_*.txt`) as the first message, or attach it, and send it. Then
+     id; `copilot_eval_tasks.py` gives its objective, `01` to `10`, `13`, `14`, `16`, `17` or
+     `21`; the file is `copilot/<objective>_*.txt`, and for `21` files 03, 05 and 06 after it)
+     as the first message, or attach it, and send it. Then
      send the task's prompt.
    - **R, routing.** Send `copilot/00_start_here.txt`, then ask which file to load for the
      task's prompt. Write the file it names under the task's heading.

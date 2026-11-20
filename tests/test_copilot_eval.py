@@ -21,9 +21,9 @@ def fenced(code: str) -> str:
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
     # Toolbox 8.4 adds objective 17, Run values, answers for every table and seed limits: T47
-    # to T49.
-    assert len(BY_ID) == len(TASKS) == 49
-    assert Counter(task.split for task in TASKS) == {"dev": 32, "held_out": 17}
+    # to T49. Toolbox 8.9 adds objective 21, a converted pivot grown: T50 to T54.
+    assert len(BY_ID) == len(TASKS) == 54
+    assert Counter(task.split for task in TASKS) == {"dev": 35, "held_out": 19}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
         # 13's held-out T33 and T37 were tuned on, so they are dev tasks; T38 is held out for
@@ -31,7 +31,7 @@ def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> Non
         # tasks to 07 and 13, one dev and one held out each: T43 to T46.
         if objective == "13":
             assert splits == ["dev"] * 5 + ["held_out"] * 3
-        elif objective == "07":
+        elif objective in ("07", "21"):
             assert splits == ["dev"] * 3 + ["held_out"] * 2
         else:
             assert splits == ["dev", "dev", "held_out"], objective
