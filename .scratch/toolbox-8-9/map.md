@@ -329,6 +329,14 @@ One at a time, by number, the user's habit. 01 and 02 can run side by side; once
   (like Show Report Filter Pages, `<table>_<value>`); each answer's count, layer by layer, "at
   least" from the cache; a which-to-pick line; answered Keys kept unless the grain changed; the
   base Hive in `conversion/pivot_filters.json`. Merged 2026-11-19 (dad8855d).
+  Follow-ups merged: the Workbook check reads an answered filter's table as converted (d43fa9a5);
+  converting again keeps the tables per value, a renamed table gets its own folder, and an
+  answer given again over a hand-changed `in_dev.hql` is refused until `convert(overwrite=True)`
+  (90e291dc, 452867fe).
+- [12 Copilot files 21 and 22](issues/12-copilot-file-21.md): split to fit, no rule cut: 21 the
+  add-ons (loaded with 03, 05, 06), 22 Pivot filters at scale and batched inserts (with 06, 17),
+  in ticket 08's words, the user's 100-versus-3 sentence in bold; 00's P19 and P20; tasks T50 to
+  T55; `copilot_eval.objective_files`, `LOADED_WITH`. Merged 2026-11-19 (14f989b3).
 
 ## Not yet specified
 
