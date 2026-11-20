@@ -409,6 +409,45 @@ def test_converting_again_keeps_each_location_answered(started: Path,
     assert not [table for table in made if f"{table}: location" in checked]
 
 
+def edited_in_dev(root: Path, table: str) -> None:
+    """Change a table's conversion/in_dev.hql by hand, after its Pivot filters' answers wrote
+    it."""
+    path = root / "tables" / f"{table.replace('.', '__')}" / "conversion" / "in_dev.hql"
+    path.write_text(path.read_text(encoding="utf-8") + "-- checked by hand\n",
+                    encoding="utf-8")
+
+
+def test_the_tables_per_value_outlive_an_edit_to_the_hive_the_answers_wrote(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "slicer")
+    decide({PIVOT: {"pivot_filters": {"status": "tables"}}})
+    answered = project.batch_tables("book")
+    edited_in_dev(started, f"{PIVOT}_failed")
+    converted(started, books, "slicer")
+    assert project.batch_tables("book") == answered
+    assert f"{PIVOT}_success: pivot_filters" not in repr(project.check())
+
+
+def test_an_answer_given_again_on_hive_changed_since_says_to_convert_again_first(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "slicer")
+    decide({PIVOT: {"pivot_filters": {"status": "tables"}}})
+    edited_in_dev(started, f"{PIVOT}_failed")
+    with pytest.raises(ValueError) as refused:
+        decide({f"{PIVOT}_success": {"pivot_filters": {"status": "fold"}}})
+    said = " ".join(str(refused.value).split())
+    assert (f"{PIVOT}_success: pivot_filters: tables/{DEV}__pivot_failed/conversion/in_dev.hql "
+            "is no longer the Hive its Pivot filters' answers wrote, and answering them again "
+            "writes each table they made again from the Hive it was converted from, over that "
+            "change: convert the batch again first, with overwrite=True") in said
+    assert project.batch_tables("book")[0] == f"{PIVOT}_failed"
+    # Converted again afresh, the Hive is the conversion's again, and the answer is written.
+    project.convert("book", files=["runs.xlsx"], query=example_database.query,
+                    database="ops", overwrite=True)
+    decide({f"{PIVOT}_success": {"pivot_filters": {"status": "fold"}}})
+    same_rows(PIVOT, BY_STATUS)
+
+
 def test_a_name_and_pivot_filters_answered_at_once_rename_then_rewrite(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "slicer")

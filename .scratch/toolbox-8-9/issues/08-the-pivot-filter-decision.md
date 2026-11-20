@@ -266,9 +266,10 @@ already kept theirs; "tables" didn't, for two reasons.
   converted as. In a session that had loaded `mart_dev.pivot`, as convert does, loading
   `mart_dev.pivot_failed` was refused, "the same folder as mart_dev.pivot", so check() passed
   it over and its create refused. A NAME answer renamed the same way. Fix: the rename places a
-  placed location again under the new name (`_with_placed_location_moved`); a location
-  answered is kept. `_copy_converted_table` shares its location= line,
-  `_LOCATION_TO_FILL_IN`.
+  placed location again under the new name; a location answered is kept. Its review made
+  that one function, `_with_location_for_its_new_name(..., keep_answered=)`, which
+  `_copy_converted_table` calls too with `keep_answered=False`, as a copy never keeps
+  another table's folder.
 
 **Tests:** `tests/test_pivot_filter_decision.py`: each answer, with DEV's location_root, then
 converted again, keeps the batch's tables, each answer and each table's own placed folder, and
@@ -277,3 +278,34 @@ the locations answered kept. `tests/test_convert_workbooks.py`: a NAME answer pl
 renamed table in its own folder. 22 new hashes in `tests/snapshot/known.txt`, none stale (the
 touched test files' hashes compared before and after). The Workbook check's lines are as
 ticket 09's Follow-up says (`tests/test_workbook_check.py` unchanged, passing).
+
+**Its review** (merged as 90e291dc) found one gap, fixed in `fix(8.9): the tables per value
+outlive a stale Pivot filter record`. `_pivot_filter_record_of` gave None where a table's
+`conversion/pivot_filters.json` was there but its `written` was no longer its in_dev.hql (an
+edit by hand, or a convert writing it afresh), so `_tables_made_beside` gave nothing and the
+tables per value dropped out of the batch again, silently. The two are kept apart now:
+
+- Which tables were made beside which, and each one's value, are read from each one's
+  pivot_filters.json whatever its in_dev.hql holds (`_pivot_filter_record_of`).
+  `_tables_made_beside` lists each, in the order of its values, one the answers no longer
+  give (after `convert(..., overwrite=True)`, which writes the first table's answers afresh)
+  last, so it stays in the batch until they are answered again.
+- Only the Hive an answer is written from can be stale. `_in_dev_since_answered` says what
+  in_dev.hql is since the answers wrote it: as answered; converted again, written afresh by a
+  convert as its batch's record says, which makes the files in conversion/ the Hive it was
+  converted from again, as before; or changed, as by hand. `_PivotFilterTables.changed` lists
+  each table made whose in_dev.hql changed, and an answer given again that would change the
+  tables is refused while any is (`_changed_since_answered`): "tables/mart_dev__pivot_failed/
+  conversion/in_dev.hql is no longer the Hive its Pivot filters' answers wrote, and answering
+  them again writes each table they made again from the Hive it was converted from, over
+  that change: convert the batch again first, with overwrite=True, which writes each file
+  afresh from its scripts and keeps yours in admin/removed/, then answer again".
+- One way per job: `_with_location_for_its_new_name` is the one rewrite of a location= line
+  for a new name, the rename's and the copy's.
+
+Tests (`tests/test_pivot_filter_decision.py`): in_dev.hql edited after "tables", then a
+convert again, keeps the tables per value and their Decision; answering again then is refused
+as above, writing nothing, and after `convert(..., overwrite=True)` the answer is written.
+2 new hashes in `tests/snapshot/known.txt`, none stale. The refusal sits in
+`_pivot_filter_tables_problems`, with the others of answers that change the tables, which
+keeps `_unmatched_pivot_filter_answers` within ruff's complexity limit.

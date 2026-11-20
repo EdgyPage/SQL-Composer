@@ -3532,10 +3532,14 @@ def _as_converted(root: Path, final: FinalHive) -> FinalHive:
 
 def _tables_made_beside(table: str, tables: _PivotFilterTables) -> list[str]:
     """Each table per value a Pivot filter's answers made beside `table`, `tables` what they
-    made of the table it was converted as, in the order of their values: none where no answer
-    is "tables"."""
+    made of the table it was converted as, as each one's pivot_filters.json says, in the order
+    of their values: none where no answer made one. One the answers `table` holds now no
+    longer give, as after converting again with overwrite=True, comes last: it is taken away
+    only when they are answered again."""
     slices = pivot_filters.table_slices(tables.converted_as, tables.keyed, tables.answers)
-    return [made for made in slices if made in tables.made and made != table]
+    ordered = [made for made in slices if made in tables.made]
+    ordered += [made for made in tables.made if made not in ordered]
+    return [made for made in ordered if made != table]
 
 
 def _with_tables_per_value(root: Path, record: dict[str, object]) -> dict[str, object]:
@@ -4264,11 +4268,15 @@ _LOCATION_TO_FILL_IN = ('    location=None,  # TODO: its own folder, such as '
                         '"/data/your_team/mart_dev.db/this_table"')
 
 
-def _with_placed_location_moved(root: Path, text: str, table: str) -> str:
-    """A renamed table's Table reference text, `table` its new name, its location= placed in
-    its own folder again where it was placed under its Database's location_root for its old
-    name, which the table it was renamed from had: a location answered is kept."""
-    found = re.search(rf"^    location=.*{re.escape(PLACED)}$", text, flags=re.MULTILINE)
+def _with_location_for_its_new_name(root: Path, text: str, table: str,
+                                    keep_answered: bool) -> str:
+    """A Table reference's text written for `table`, a new name, its location= its own: one
+    placed under its Database's location_root for the old name placed again, in its own folder
+    under it, or left to fill in where there is no root; a location answered kept where
+    `keep_answered`, as a table renamed keeps it, else written again as one placed is, as for
+    a copy, which never shares another table's folder."""
+    found = re.search(rf"^    location=.*{re.escape(PLACED) if keep_answered else ''}$", text,
+                      flags=re.MULTILINE)
     if found is None:
         return text
     return _with_location_placed(
@@ -5836,8 +5844,8 @@ def _rename_converted_table(root: Path, old: str, new: str) -> None:
     then its batch's record and registry rows."""
     moved = _write_table_files_as(root, old, new)
     reference = REFERENCE.path(root, table_stem(new))
-    reference.write_text(_with_placed_location_moved(root, reference.read_text(
-        encoding="utf-8"), new), encoding="utf-8")
+    reference.write_text(_with_location_for_its_new_name(root, reference.read_text(
+        encoding="utf-8"), new, keep_answered=True), encoding="utf-8")
     _archive_converted_table(root, old)
     _rename_in_batch_records(root, old, new, moved)
     Registry(root).add([(REFERENCE, new), (TABLE_FOLDER, new)], unchecked.now())
@@ -5964,7 +5972,9 @@ class _PivotFilterTables:
     name as converted; the Hive it was converted from, its conversion/statement.hql and
     in_dev.hql then, each naming it so; each table made of it now, by its full name, with the
     value each "tables" answer holds it to, by the Pivot filter's name; and its Pivot filters
-    and their answers, each by its name in PIVOT_FILTERS."""
+    and their answers, each by its name in PIVOT_FILTERS; and each of the tables made whose
+    in_dev.hql was changed since the answers wrote it, which answering again would write
+    over."""
 
     converted_as: str
     statement: str
@@ -5972,6 +5982,7 @@ class _PivotFilterTables:
     made: dict[str, dict[str, object]]
     keyed: dict[str, ConvertedPivotFilter]
     answers: dict[str, decisions.PivotFilterAnswer]
+    changed: list[str]
 
 
 def _pivot_filter_report_lines(files: _BatchFiles) -> list[str]:
@@ -6021,41 +6032,72 @@ def _keyed_pivot_filters(root: Path, table: str) -> dict[str, ConvertedPivotFilt
 
 def _pivot_filter_record_of(root: Path, table: str) -> dict[str, object] | None:
     """What a table's conversion/pivot_filters.json keeps, as _write_pivot_filter_table
-    wrote it: None where it has none, or its in_dev.hql was written since, as converting it
-    again writes it."""
-    folder = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION
-    path = folder / PIVOT_FILTER_RECORD
+    wrote it, whatever its in_dev.hql holds now: None where it has none."""
+    path = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / PIVOT_FILTER_RECORD
     if not path.is_file():
         return None
-    record = json.loads(path.read_text(encoding="utf-8"))
-    if record.get("written") != workflows.file_text(folder / IN_DEV):
-        return None
-    return record
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+# What a table's conversion/in_dev.hql is, since its Pivot filters' answers wrote it.
+_AS_ANSWERED = "as answered"
+_CONVERTED_AGAIN = "converted again"
+_CHANGED = "changed"
+
+
+def _in_dev_since_answered(root: Path, table: str, record: dict[str, object]) -> str:
+    """What a table's conversion/in_dev.hql is, `record` its pivot_filters.json: as its Pivot
+    filters' answers wrote it; written afresh by a convert run again, as its batch's record
+    says, which makes it the Hive the table was converted from; or changed since otherwise,
+    as by hand, which an answer written from the Hive it was converted from would write
+    over."""
+    path = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / IN_DEV
+    if workflows.file_text(path) == record.get("written"):
+        return _AS_ANSWERED
+    relative = path.relative_to(root).as_posix()
+    for batch in _batch_names(root):
+        written = workflows.batch_record(root, batch).get("files", {})
+        if relative in written and path.is_file():
+            if written[relative] == _hash(path.read_bytes()):
+                return _CONVERTED_AGAIN
+            break
+    return _CHANGED
 
 
 def _pivot_filter_tables(root: Path, table: str) -> _PivotFilterTables:
     """The tables a Pivot filter's answers made of the table `table` is, or was made from, and
     its Pivot filters with the answers its Table reference holds: the table alone, and the
-    Hive in its conversion/, where no answer rewrote it."""
+    Hive in its conversion/, where no answer rewrote it. Which tables were made, and each one's
+    value, are read from each one's pivot_filters.json whatever its in_dev.hql holds now; the
+    Hive it was converted from is the one in its conversion/ only where a convert run again
+    wrote it afresh."""
     keyed = _keyed_pivot_filters(root, table)
     answers = {key: decisions.PivotFilterAnswer(answer) for key, answer in
                decisions.pivot_filter_answers(workflows.file_text(
                    REFERENCE.path(root, table_stem(table)))).items()}
     record = _pivot_filter_record_of(root, table)
+    folder = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION
     if record is None:
-        folder = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION
         return _PivotFilterTables(table, workflows.file_text(folder / STATEMENT),
                                   workflows.file_text(folder / IN_DEV), {table: {}}, keyed,
-                                  answers)
-    made = {}
+                                  answers, [])
+    converted_as = str(record["converted_as"])
+    statement, in_dev = str(record["statement"]), str(record["in_dev"])
+    if _in_dev_since_answered(root, table, record) == _CONVERTED_AGAIN:
+        statement = _qualified_name_renamed(workflows.file_text(folder / STATEMENT), table,
+                                            converted_as)
+        in_dev = _qualified_name_renamed(workflows.file_text(folder / IN_DEV), table,
+                                         converted_as)
+    made, changed = {}, []
     for stem in TABLE_FOLDER.found(root):
         name = TABLE_FOLDER.name_of(stem)
         other = _pivot_filter_record_of(root, name)
-        if other is not None and other["converted_as"] == record["converted_as"]:
+        if other is not None and other["converted_as"] == converted_as:
             made[name] = {key: pivot_filters.value_of_json(value)
                           for key, value in other["slice"].items()}
-    return _PivotFilterTables(str(record["converted_as"]), str(record["statement"]),
-                              str(record["in_dev"]), made, keyed, answers)
+            if _in_dev_since_answered(root, name, other) == _CHANGED:
+                changed.append(name)
+    return _PivotFilterTables(converted_as, statement, in_dev, made, keyed, answers, changed)
 
 
 def _unmatched_pivot_filter_answers(root: Path, table: str, answer: dict[str, object],
@@ -6096,11 +6138,26 @@ def _unmatched_pivot_filter_answers(root: Path, table: str, answer: dict[str, ob
                                                                          answers=answers))
 
 
+def _changed_since_answered(table: str, changed: list[str]) -> str:
+    """Why a table's Pivot filters can't be answered again while the in_dev.hql of a table
+    their answers made, each of `changed`, was changed since they wrote it."""
+    paths = [f"{TABLE_FOLDER.shown(table_stem(name))}{CONVERSION}/{IN_DEV}" for name in changed]
+    return (f"{table}: pivot_filters: {in_words(paths)} "
+            f"{singular_or_plural(len(paths), 'is', 'are')} no longer the Hive its Pivot "
+            "filters' answers wrote, and answering them again writes each table they made "
+            "again from the Hive it was converted from, over that change: convert the batch "
+            "again first, with overwrite=True, which writes each file afresh from its "
+            "scripts and keeps yours in admin/removed/, then answer again")
+
+
 def _pivot_filter_tables_problems(root: Path, table: str,
                                   tables: _PivotFilterTables) -> list[str]:
     """Why a table's Pivot filters can't take answers that change its tables, `tables`
-    holding them, a line each: a table made of it created in dev already, a table per
-    value's name another table has, or a table another reads that the answers take away."""
+    holding them, a line each: a table made of it whose in_dev.hql was changed since the
+    answers wrote it, a table made of it created in dev already, a table per value's name
+    another table has, or a table another reads that the answers take away."""
+    if tables.changed:
+        return [_changed_since_answered(table, tables.changed)]
     said = f"{table}: pivot_filters"
     created = [made for made in tables.made if workflows.was_sent(root, "create", made)]
     if created:
@@ -6368,9 +6425,8 @@ def _copy_converted_table(root: Path, old: str, new: str) -> None:
     the registry."""
     _write_table_files_as(root, old, new)
     reference = REFERENCE.path(root, table_stem(new))
-    text = re.sub(r"^    location=.*$", _LOCATION_TO_FILL_IN, reference.read_text(
-        encoding="utf-8"), count=1, flags=re.MULTILINE)
-    reference.write_text(_with_location_placed(root, text, new), encoding="utf-8")
+    reference.write_text(_with_location_for_its_new_name(root, reference.read_text(
+        encoding="utf-8"), new, keep_answered=False), encoding="utf-8")
     for batch, record in _batches_listing(root, [old]):
         workflows.write_batch_record(root, batch, _record_copied(record, old, new))
     Registry(root).add([(REFERENCE, new), (TABLE_FOLDER, new)], unchecked.now())
