@@ -37,14 +37,17 @@ EXAMPLE_DATABASE = "example_database"
 # workbook_hive.py, workbook_formulas.py, workbook_power_query.py and workbook_totals.py write a
 # Formula workbook's Hive as its trees, with workbook_pivot_hive.py writing its PivotTables',
 # lean_hive.py keeps any query's CTEs lean (Toolbox 8.9, tickets 04 to 06), and
-# pivot_filters.py reads the Pivot filters Hive marks (ticket 07).
+# pivot_filters.py reads the Pivot filters Hive marks (ticket 07); hive_executor.py runs Hive
+# on sqlglot's own executor, on this computer, and workbook_check.py runs a workbook's finals
+# on it, the Workbook check (ticket 09).
 LIBRARY_FILES = ("writing.py", "engine.py", "converting.py", "workbook_hive.py",
                  "workbook_formulas.py", "workbook_power_query.py", "workbook_totals.py",
-                 "workbook_pivot_hive.py", "lean_hive.py", "pivot_filters.py")
+                 "workbook_pivot_hive.py", "lean_hive.py", "pivot_filters.py",
+                 "hive_executor.py", "workbook_check.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
                 "decisions.py",
                 "comparisons.py", "conditions.py", "converting.py", "describe.py",
-                "effective_logic.py", "engine.py",
+                "effective_logic.py", "engine.py", "hive_executor.py",
                 "html_page.py", "joins.py",
                 "keys.py", "kinds.py", "lean_hive.py", "lineage.py", "lineage_difference.py",
                 "lineage_state.py", "notebooks.py", "pivot_filters.py", "project.py",
@@ -55,7 +58,8 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "stacking.py", "tables.py",
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py",
-                "workbook_conversion.py", "workbook_formula_reader.py", "workbook_formulas.py",
+                "workbook_check.py", "workbook_conversion.py", "workbook_formula_reader.py",
+                "workbook_formulas.py",
                 "workbook_hive.py",
                 "workbook_m_reader.py", "workbook_pivot_hive.py", "workbook_power_query.py",
                 "workbook_totals.py", "workbook_reader.py", "workflows.py", "writing.py")

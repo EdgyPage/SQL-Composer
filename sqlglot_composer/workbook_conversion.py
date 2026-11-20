@@ -28,6 +28,7 @@ from typing import NoReturn
 
 from .refusals import refuse
 from .shared import in_words, split_table_name
+from .workbook_check import FinalHive
 from .workbook_formulas import (
     LEFT_ALONE,
     MARK,
@@ -206,6 +207,29 @@ class BatchWorkbooks:
     def final_of_script(self) -> dict[str, WorkbookFinal]:
         """Each final the batch converts from its workbook, by its script's name."""
         return {final.script: final for final in self.finals_converted()}
+
+    def copilot_script_of(self, final: WorkbookFinal) -> str:
+        """The script Copilot wrote that stands for `final`, by its name, or ""."""
+        for script, stood_for in self.copilot_finals.items():
+            if stood_for is final:
+                return script
+        return ""
+
+    def finals_to_check(self, workbook: ConvertedWorkbook, texts: dict[str, str],
+                        dev: str) -> list[FinalHive]:
+        """Each final of `workbook` the batch converted, as the Workbook check (ticket 09)
+        takes it, its table in `dev`: from the script Copilot wrote for it, by the scripts'
+        texts `texts`, where one stands for it, else from the workbook's own Hive."""
+        finals = []
+        converted = self.finals_converted()
+        for final in workbook.finals:
+            table = f"{dev}.{final.table}"
+            script = self.copilot_script_of(final)
+            if script:
+                finals.append(FinalHive(final.final, table, texts[script], script))
+            elif final in converted:
+                finals.append(FinalHive(final.final, table, final.hive))
+        return finals
 
 
 def is_workbook(file: str) -> bool:

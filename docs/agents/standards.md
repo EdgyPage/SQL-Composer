@@ -120,8 +120,9 @@ or type checker holds them: the reviewer does.
   `sqlglot_composer/workbook_formulas.py`, `sqlglot_composer/workbook_power_query.py`,
   `sqlglot_composer/workbook_totals.py` and `sqlglot_composer/workbook_pivot_hive.py`, which
   write a Formula workbook's Hive, `sqlglot_composer/lean_hive.py`, which keeps any query's
-  CTEs lean, and `sqlglot_composer/pivot_filters.py`, which reads the Pivot filters Hive
-  marks.
+  CTEs lean, `sqlglot_composer/pivot_filters.py`, which reads the Pivot filters Hive
+  marks, and `sqlglot_composer/hive_executor.py` and `sqlglot_composer/workbook_check.py`,
+  which run Hive on sqlglot's executor on this computer, for the Workbook check.
 
 ## HTML pages
 

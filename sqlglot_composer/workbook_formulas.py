@@ -46,7 +46,7 @@ from .workbook_formula_reader import (
     parts_of,
     read_formula,
 )
-from .workbook_reader import TYPED, Column, Piece, Table, Workbook
+from .workbook_reader import TYPED, Column, Piece, Table, Workbook, is_formula
 from .writing import read_hive
 
 # What a Note is, in Copilot file 15's map's words.
@@ -510,20 +510,16 @@ def write_formula_column(column: Column, query: TableQuery) -> None:
 
 
 def _formula_column_hive(column: Column, place: Place) -> exp.Expression:
-    formulas = [cell for cell in column.cells if is_formula_text(cell)]
+    formulas = [cell for cell in column.cells if is_formula(cell)]
     if any(formula != formulas[0] for formula in formulas):
         raise Refused("X1", "its rows hold different formulas")
     part = read_formula(formulas[0])
     check_named_refusals(part, place)
     expression = hive_of(part, place)
-    typed = [(row, cell) for row, cell in enumerate(column.cells) if not is_formula_text(cell)]
+    typed = [(row, cell) for row, cell in enumerate(column.cells) if not is_formula(cell)]
     if typed:
         expression = typed_over_hive(column, typed, expression, place)
     return expression
-
-
-def is_formula_text(cell: object) -> bool:
-    return isinstance(cell, str) and cell.startswith("=")
 
 
 def check_named_refusals(part: FormulaPart, place: Place) -> None:
@@ -737,7 +733,7 @@ def _cell_value(refers_to: str, workbook: Workbook) -> object:
     for sheet in workbook.sheets:
         if sheet.title == sheet_name:
             value = sheet.cells.get((int(found.group(4)), column))
-            if value is not None and not is_formula_text(value):
+            if value is not None and not is_formula(value):
                 return value
     return None
 
@@ -834,7 +830,7 @@ def is_date(part: FormulaPart, place: Place) -> bool:
             return False
         if column.kind == TYPED:
             return _holds_dates(column)
-        formulas = [cell for cell in column.cells if is_formula_text(cell)]
+        formulas = [cell for cell in column.cells if is_formula(cell)]
         return bool(formulas) and _formula_is_date(formulas[0], place)
     if isinstance(part, Call):
         return part.name in ("DATE", "TODAY", "EOMONTH", "EDATE")
@@ -1862,7 +1858,7 @@ def summary_matches(table: Table) -> set[str]:
     Table matches on with this row's value (file 15's P4)."""
     found: set[str] = set()
     for column in table.columns:
-        formulas = [cell for cell in column.cells if is_formula_text(cell)]
+        formulas = [cell for cell in column.cells if is_formula(cell)]
         if column.kind == TYPED or not formulas:
             continue
         try:

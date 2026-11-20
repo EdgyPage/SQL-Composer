@@ -75,8 +75,8 @@ def test_the_first_fixtures_sheets_tables_and_their_columns() -> None:
     assert by_job.columns[1].cells == [
         "=SUMIFS(ok_runs[duration_mins],ok_runs[job_id],"
         "ok_by_job[[#This Row],[job_id]])"] * 3
-    assert tables["Parameters"].columns == [Column("name", "typed", [None]),
-                                            Column("value", "typed", [None])]
+    assert tables["Parameters"].columns == [Column("name", "typed", [None], stored=[None]),
+                                            Column("value", "typed", [None], stored=[None])]
 
 
 def test_the_first_fixtures_other_cells_query_names_and_order() -> None:
@@ -166,11 +166,12 @@ def test_a_total_row_gives_each_columns_last_cell_and_a_formula_column_is_one() 
     workbook = workbook_reader.read_workbook(held.getvalue())
     table = workbook.sheets[0].tables[0]
     assert table.has_total_row
-    # A value typed over a formula keeps the column a formula column.
+    # A value typed over a formula keeps the column a formula column. openpyxl saves no
+    # formula's result, so each is stored as None.
     assert table.columns == [
-        Column("region", "typed", ["East", "West"], "Total"),
-        Column("sales", "typed", [10, 5.5], "=SUBTOTAL(109,[sales])"),
-        Column("doubled", "formula", ["=[@sales]*2", 4], None)]
+        Column("region", "typed", ["East", "West"], "Total", ["East", "West"], "Total"),
+        Column("sales", "typed", [10, 5.5], "=SUBTOTAL(109,[sales])", [10, 5.5], None),
+        Column("doubled", "formula", ["=[@sales]*2", 4], None, [None, 4], None)]
     assert workbook.sheets[0].cells == {(6, 1): datetime.datetime(2026, 9, 24)}
     assert workbook.defined_names == {"tax_rate": "0.2"}
     assert workbook.order == {Piece("Excel Table", "sales"): []}
