@@ -232,3 +232,5 @@ ticket 14's split into files 23 and 24):
   new runs' hashes.
 - **The beginner reader's list above** gains how-to 33's steps 1, 6, 7, 8 and 11, the README
   lines naming the files, and the overview's new tripping point.
+
+- **The beginner reader** (2026-11-19, on Opus): [its report](../reports/beginner-reader-2026-11-19-ticket-15.md). Its stops are ticket 20's to fix, with the user's Decision on a source Table's warehouse table.

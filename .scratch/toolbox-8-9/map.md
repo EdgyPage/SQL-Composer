@@ -226,6 +226,7 @@ Example projects at 8.8 in `tests/upgrade_from/8.8/`. Only the last task ticket 
 - [17 Hive that stays small: the docs and Copilot files swept for bloated CTEs](issues/17-memory-efficient-hive.md)
 - [18 A pivot is one table, its totals left out](issues/18-a-pivot-is-one-table.md)
 - [19 The slicer and Timeline fixtures open in Excel](issues/19-slicer-and-timeline-fixtures.md)
+- [20 Every source Table's warehouse table, a Decision](issues/20-every-source-a-decision.md)
 
 One at a time, by number, the user's habit. 01 and 02 can run side by side; once 01 is done,
 04 can; once 03 and 04 are, 05, 06 and 10 can. The real dependencies are in each ticket's `Blocked by:`.
