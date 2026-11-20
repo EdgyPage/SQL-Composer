@@ -56,8 +56,9 @@ Copilot files stay:
 
 - One workbook reader, standard library only, in the Toolbox's folder, reads pivots too;
   `copilot/workbook_text.py` loads it by its path, so it still needs nothing but Python.
-- The Workbook check runs Hive with sqlglot's executor: one more Toolbox file imports sqlglot,
-  and the registry says so.
+- The Workbook check runs Hive with sqlglot's executor: two more Toolbox files import sqlglot,
+  the check's own and the executor's, moved whole from dev's Example database so that windows
+  and grouping sets run in one place (ticket 09), and the registry says so.
 - Copilot files 20 (PivotTables into Hive, and the `-- Pivot filter:` mark convert reads into
   the same Decision) and 21 (growing a converted pivot) join 11, 12 and 15.
 - About 40 pivot tasks join the Excel evaluation; its workbooks are written by a dev tool, a
