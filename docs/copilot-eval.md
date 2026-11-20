@@ -225,8 +225,9 @@ as the others are, and besides:
   subtotal it shows left out (ticket 18 of the 8.9 map): its final is correct when one query
   gives its rows, its columns in any order, a number written as text the number (a Years
   group's "2026"). A reply that also writes a total, as a query of its own, isn't wrong for
-  it. A Column field is written as rows, a calculated item as a column beside the real rows,
-  and a grouped field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"). A pivot a
+  it, nor one reading a final's own table by its name, as file 20's PL2 gives a total: no
+  table holds that name, so the scorer leaves such a query out. A Column field is written as
+  rows, a calculated item as a column beside the real rows, and a grouped field's key as the label the pivot shows ("Sep", "Qtr3", "10-19"). A pivot a
   Table's GETPIVOTDATA reads is a step, with no final of its own. Each reference reads each
   step once and carries only the columns its final reads (ticket 17 of the 8.9 map).
 - **Its Pivot filters.** Each Pivot filter is its condition, its values written in, with

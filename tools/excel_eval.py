@@ -832,15 +832,37 @@ class _ReadQueries:
     tables: set[str] = field(default_factory=set)
     invented: list[str] = field(default_factory=list)
     error: str = ""
+    finals_read: list[str] = field(default_factory=list)
+
+
+def finals_read_by_name(query: exp.Query, task: ExcelTask) -> list[str]:
+    """Each of the task's finals a query reads by its own name where no database table has
+    that name: a total of the final, as file 20's PL2 gives a pivot's of the pivot's table."""
+    finals = {squashed(table_or_pivot_of(final)): table_or_pivot_of(final)
+              for final in task.finals}
+    names = {squashed(given): hive for given, hive in task.names.items()}
+    database_tables = {squashed(name) for name in example_database._TABLES}
+    found = []
+    for name in sorted(tables_read(query)):
+        hive_name = squashed(names.get(squashed(name), name))
+        if squashed(name) in finals and hive_name not in database_tables:
+            found.append(finals[squashed(name)])
+    return found
 
 
 def _read_queries(task: ExcelTask, code: list[str]) -> _ReadQueries:
-    """Each query of the reply's SQL blocks `code`, its `<...>` filled in, read."""
+    """Each query of the reply's SQL blocks `code`, its `<...>` filled in, read; a query
+    reading a final by its own name (`finals_read_by_name`) is left out, as the stand-in Hive
+    has no table to run it on."""
     read = _ReadQueries()
     try:
         for sql in code:
             sql, placed = filled(sql, task)
             for query in queries(sql):
+                finals = finals_read_by_name(query, task)
+                if finals:
+                    read.finals_read = list(dict.fromkeys(read.finals_read + finals))
+                    continue
                 runnable, invented = resolved(query, task, placed)
                 read.invented += [name for name in invented if name not in read.invented]
                 read.runnable.append(runnable)
@@ -865,6 +887,9 @@ def _scored_queries(task: ExcelTask, code: list[str], hive: sqlite3.Connection,
     marks_of = dict.fromkeys(task.finals, every_mark)
     if not code:
         result.note = "no SQL block"
+    elif not read.runnable and read.finals_read and not result.note:
+        result.note = (f"reads only its own finals, {', '.join(read.finals_read)}, which no "
+                       "table holds")
     if result.note:
         return result, marks_of
     result.parses = bool(read.runnable)

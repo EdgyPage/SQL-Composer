@@ -428,6 +428,46 @@ def test_a_reply_that_also_writes_a_pivots_total_is_not_wrong_for_it(
     assert scored(task, reference_reply(task) + total, hive).passed
 
 
+def test_a_total_that_reads_the_pivots_own_final_is_not_run_and_not_wrong(
+        hive: sqlite3.Connection) -> None:
+    # File 20's PL2 gives a pivot's grand total of the pivot's table, as `FROM job_days_pivot`;
+    # Copilot wrote it as an sql block of its own (the manual round's X120 and X123). The
+    # stand-in Hive holds no table of a final's name, so the scorer leaves such a query out.
+    task = BY_ID["X85"]
+    pivot = next(final for final in task.finals if excel_eval.is_a_pivots(final, task))
+    for read in (pivot, f"<database>.{pivot}"):
+        total = f"```sql\nSELECT COUNT(*) AS n FROM {read}\n```\n"
+        assert scored(task, reference_reply(task) + total, hive).passed, read
+
+
+def test_a_reply_whose_only_query_reads_a_final_by_its_name_fails(
+        hive: sqlite3.Connection) -> None:
+    task = BY_ID["X85"]
+    pivot = next(final for final in task.finals if excel_eval.is_a_pivots(final, task))
+    result = scored(task, f"Sources: job_runs. Final: {pivot}.\n\n"
+                    f"```sql\nSELECT * FROM {pivot}\n```\n", hive)
+    assert not result.passed
+    assert result.note == f"reads only its own finals, {pivot}, which no table holds"
+
+
+def test_a_source_table_named_as_a_final_is_still_read(hive: sqlite3.Connection) -> None:
+    # X01's job_runs is both a final (its formula column) and the database table its typed
+    # columns are read from: a query reading it runs and is scored.
+    task = BY_ID["X01"]
+    assert "job_runs" in task.finals
+    reply = "```sql\nSELECT * FROM <database>.job_runs WHERE no_such_column = 1\n```\n"
+    assert scored(task, reply, hive).note.startswith("doesn't run")
+
+
+def test_a_final_whose_workbook_name_stands_for_a_table_is_still_read(
+        hive: sqlite3.Connection) -> None:
+    # X25's final Costs is the workbook's name for the table `names` gives it: the reference
+    # reply reads it by that name and passes.
+    task = BY_ID["X25"]
+    assert any(excel_eval.squashed(name) == "costs" for name in task.names)
+    assert scored(task, reference_reply(task), hive).passed
+
+
 def pivot_filters_of(pivot: Pivot, task: ExcelTask) -> set[tuple[str, str]]:
     """Each Pivot filter a pivot has, as the workbook describes it, by its kind and field."""
     found = {("Report filter", name) for name, selected in pivot.report_filters.items()

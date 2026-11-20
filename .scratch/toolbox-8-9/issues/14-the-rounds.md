@@ -211,3 +211,53 @@ and T54 pass on Haiku and Sonnet (not blind).
 
 **Still to do.** The manual round, in Copilot on workbooks the user saves in Excel, waits on
 the user, as does ticket 19's fixture repair.
+
+### The manual round (2026-11-20, on cd07280b, files ab03cdcd): Copilot's web chat
+
+The user: "Yes, run it", then "Can we use copilot directly for testing instead of simulating
+it in Haiku?". Seven held-out tasks, arm C, in the user's Copilot (copilot.com, model Auto),
+driven from the app's browser pane: X25 and X49 (formulas and M), X69 (a Total Row), X107,
+X111, X120 and X123 (pivots, X111 and X123 with Pivot filters). Records in
+`.eval-local/excel/manual-2026-11-20/`; one ledger row.
+
+- **How the files went in.** As the user loads them: Settings > Personalization > Customize
+  Copilot, each task's files from `excel_eval.workbook_files` saved there (24,891 to 36,402
+  characters, all taken), one fresh chat per task. Copilot's check refused files 15, 11 and
+  12 in that order ("may contain content that violates Microsoft's responsible AI policy")
+  and 15 then 11 alone, though each file alone and 11 then 15 passed; saved as 12, 11, 15
+  (then 20, 24 or 23 after) every set passed. The pane can't attach a file, so each workbook
+  went in as its text, the task's prompt as `excel_eval.py prompts` writes it, which is what
+  a proxy reads. Each file, prompt and reply was checked by SHA-256 against the page.
+- **Every reply followed file 15's Output**: Map, one block per final, Next; no Toolbox code,
+  no invented name.
+
+| Task | Result | Why |
+|---|---|---|
+| X25, X49, X69, X107 | pass | |
+| X111 | FAIL | day_change's base row is 0, not NULL: PV6's "a difference NULL on i's row" skipped; quiet_statuses right, its value filter marked |
+| X120 | FAIL | the calculated item `closed` as `SUM(CASE ..) OVER (PARTITION BY job_id)`, PC1's inner SUM dropped; its totals blocks also read `closed_runs` |
+| X123 | FAIL, by the scorer (pass once it changed, below) | its final is right; it fails only on the Left alone totals, written as sql blocks reading the pivot's own final `late_alert_share`, which the scorer has no table for (taken out, it passes) |
+
+**4 of 7 (57%), or 5 of 7 reading only the Hive section**, against Haiku's and Sonnet's 97%
+and 95% on the same split in round 3 (X120 failed there too, on its mark). Two things this
+round can't settle: Copilot's Saved memories and Chat history were on, so its earlier chats
+may have reached later ones; and its tokens aren't known (0 in the ledger).
+
+**The scorer changed (the user: "Change the scorer").** A query reading one of the task's
+finals by its own name, where no table of the Example database has that name (after
+`names`, so X25's `Costs` is still its table), is a total of the final, as file 20's PL2
+gives one: `excel_eval.finals_read_by_name` finds it and the scorer leaves it out, unrun; a
+reply whose every query is one fails, "reads only its own finals". docs/copilot-eval.md's
+pivot section says so. Tests in `tests/test_excel_eval.py`: such a total, bare or as
+`<database>.<pivot>`, beside a right reply; a reply of only that; a final that is also a
+table (X01's job_runs), and one through `names` (X25's Costs). Scored again on the same
+replies: **5 of 7 (71%)**, X123 passing; X111 and X120 fail on their own Hive. The ledger row
+keeps the first score. The reviews (Sonnet): Standards, two names a letter apart
+(`hive_name`, `database_tables` now) and the doc's wrap; Spec, nothing missing. Its notes,
+answered: the skip covers every final, a Total Row's too, which the doc now says; and a query
+joining a source to a final by name is left out whole, so a reply that reads a final from the
+database where it should work it out still fails, unless another of its queries gives that
+final's rows.
+
+**Open, for the user.** Whether X111's and X120's misses, PV6 and PC1 read past by Copilot
+and not by the proxies, want a line in file 20.
