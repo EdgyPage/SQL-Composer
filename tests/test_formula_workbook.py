@@ -9,6 +9,8 @@ The offline policy and the code audit read it as they read the repo (tests/repo/
 
 from __future__ import annotations
 
+import io
+import zipfile
 from contextlib import closing
 
 import openpyxl
@@ -141,6 +143,23 @@ def test_a_total_row_cell_that_is_not_a_subtotal_of_its_column_is_custom() -> No
     assert [(c.totalsRowFunction, c.totalsRowFormula.attr_text) for c in columns] == [
         ("custom", "SUBTOTAL(109,t[b])"), ("custom", "MAX(t[b])")]
     assert _what_excel_would_repair(built) == []
+
+
+def test_a_line_break_in_a_cell_is_saved_as_excel_saves_it_on_any_computer() -> None:
+    # openpyxl writes a cell's "\n" through a temporary text file, as "\r\n" on Windows and
+    # "\n" on Linux, so a workbook built on one never matched CI's build (ticket 19). Excel
+    # saves "\n".
+    described = formula_workbook.FormulaWorkbook(
+        (excel_eval_tasks.runs_table(),),
+        queries=(("ok_runs", 'let\n    Source = Excel.CurrentWorkbook(){[Name="job_runs"]}'
+                             "[Content]\nin\n    Source"),),
+        queries_on_sheet=True)
+    for workbook in (formula_workbook.built(described), formula_workbook.saved(described)):
+        with zipfile.ZipFile(io.BytesIO(workbook)) as parts:
+            sheets = {name: parts.read(name) for name in parts.namelist()
+                      if name.endswith(".xml")}
+        assert any(b"let\n    Source" in text for text in sheets.values())
+        assert [name for name, text in sheets.items() if b"\r" in text] == []
 
 
 def test_the_examples_start_from_the_empty_workbook(committed: openpyxl.Workbook) -> None:

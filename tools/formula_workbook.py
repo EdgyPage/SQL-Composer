@@ -36,6 +36,7 @@ import datetime
 import io
 import re
 import sys
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -513,12 +514,27 @@ def row_label(table: Table, number: int, count: int) -> str:
     return f"Row {number}"
 
 
+def _as_excel_saves(workbook: openpyxl.Workbook) -> bytes:
+    """The file openpyxl saves of `workbook`, each line break in its parts "\n", as Excel
+    saves it: openpyxl writes a sheet through a temporary text file, so a cell's "\n" comes
+    out "\r\n" on Windows, and a workbook built there never matched one built on Linux."""
+    openpyxl_saved = io.BytesIO()
+    workbook.save(openpyxl_saved)
+    rewritten = io.BytesIO()
+    with zipfile.ZipFile(openpyxl_saved) as parts, \
+            zipfile.ZipFile(rewritten, "w", zipfile.ZIP_DEFLATED) as rewritten_parts:
+        for item in parts.infolist():
+            data = parts.read(item.filename)
+            if item.filename.endswith(".xml"):
+                data = data.replace(b"\r\n", b"\n")
+            rewritten_parts.writestr(item, data)
+    return rewritten.getvalue()
+
+
 def built(described: FormulaWorkbook) -> bytes:
     """The file `build` saves of the filled-in Formula workbook `described`, which holds no
     Power Query: openpyxl writes none."""
-    held = io.BytesIO()
-    build(described).save(held)
-    return held.getvalue()
+    return _as_excel_saves(build(described))
 
 
 def saved(described: FormulaWorkbook) -> bytes:
@@ -526,9 +542,7 @@ def saved(described: FormulaWorkbook) -> bytes:
     saves, then its Power Queries saved in it, each loading the Table it loads, unless they
     are on a Power Query sheet, and its PivotTables, slicers and Timelines."""
     worked = worked_pivots(described)
-    held = io.BytesIO()
-    _built_with(described, worked).save(held)
-    workbook = pivot_tables.with_pivots(held.getvalue(), worked)
+    workbook = pivot_tables.with_pivots(_as_excel_saves(_built_with(described, worked)), worked)
     if not described.queries or described.queries_on_sheet:
         return workbook
     loads = {table.loaded_by: table.name for table in described.tables if table.loaded_by}

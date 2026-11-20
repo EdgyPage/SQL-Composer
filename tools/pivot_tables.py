@@ -1084,7 +1084,9 @@ def _shared_items_xml(cache: Cache, cache_field: CacheField) -> str:
     else:
         flags = [*([] if blank else ['containsSemiMixedTypes="0"']), 'containsString="0"',
                  *blank, 'containsNumber="1"']
-        if all(isinstance(value, int) for value in present):
+        # By value, as Excel says it: a whole number held as a float counts. Excel refuses a
+        # shared number field of whole values without it (ticket 19).
+        if all(float(value).is_integer() for value in present):
             flags.append('containsInteger="1"')
         flags += [f'minValue="{_number(min(present))}"', f'maxValue="{_number(max(present))}"']
     if not cache_field.is_shared:
@@ -1844,7 +1846,12 @@ def _finish_workbook(package: _Package, worked: Worked) -> None:
     text = package.text
     xml = _with_r(text["xl/workbook.xml"], "workbook")
     names = "".join(package.names)
-    if names and "</definedNames>" in xml:
+    # openpyxl writes an empty list as <definedNames />: the names go in the one list there
+    # is, as a second list is one Excel refuses the workbook for (ticket 19).
+    empty_list = re.search(r"<definedNames\s*/>", xml)
+    if names and empty_list:
+        xml = xml.replace(empty_list.group(), f"<definedNames>{names}</definedNames>", 1)
+    elif names and "</definedNames>" in xml:
         xml = xml.replace("</definedNames>", names + "</definedNames>")
     elif names:
         xml = xml.replace("<calcPr", f"<definedNames>{names}</definedNames><calcPr")

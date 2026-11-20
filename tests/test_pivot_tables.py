@@ -99,6 +99,8 @@ CASES = {
         Pivot("job_runs", ("job_id",), (MINS,), report_filters={"status": ("SUCCESS",)}),
         Pivot("job_runs", ("job_id",), (MINS,), name="PivotTable2", sheet="Several",
               report_filters={"status": ("SUCCESS", "FAILED"), "dt": ()}),)),
+    "number_report_filter": FormulaWorkbook((RUNS_TABLE,), pivots=(
+        Pivot("job_runs", ("job_id",), (MINS,), report_filters={"avg_retry_secs": ()}),)),
     "hidden_items": FormulaWorkbook((RUNS_TABLE,), pivots=(
         Pivot("job_runs", ("job_id",), (MINS,), hidden={"job_id": (3,)}),)),
     "slicer_on_two_pivots": FormulaWorkbook((RUNS_TABLE,), pivots=(
@@ -462,6 +464,28 @@ def test_a_timeline_filters_its_pivot_to_its_days(written: dict[str, bytes]) -> 
     assert '<x15:timelineRef r:id="rIdTimelines"/>' in part(workbook,
                                                             "xl/worksheets/sheet5.xml")
     assert '<tsle:timeslicer name="dt"/>' in part(workbook, "xl/drawings/drawingPivot1.xml")
+
+
+@pytest.mark.parametrize("name", ["slicer_on_two_pivots", "timeline"])
+def test_a_slicer_or_timeline_name_goes_in_the_workbooks_one_list_of_names(
+        written: dict[str, bytes], name: str) -> None:
+    # Ticket 19: openpyxl writes an empty <definedNames />, and a second list beside it is
+    # one Excel refuses the whole workbook for.
+    book = part(written[name], "xl/workbook.xml")
+    assert book.count("<definedNames") == 1
+    assert "<definedNames />" not in book and "<definedNames/>" not in book
+
+
+def test_a_number_field_of_whole_values_holds_integers_as_excel_says(
+        written: dict[str, bytes]) -> None:
+    # Ticket 19: avg_retry_secs holds whole numbers as floats, and a blank. Excel says
+    # containsInteger by the values, not their Python type, and refuses a shared number field
+    # of whole values without it, as fixture 08's Report filter on it was.
+    cache = part(written["number_report_filter"], "xl/pivotCache/pivotCacheDefinition1.xml")
+    field = re.search(r'<cacheField name="avg_retry_secs".*?</cacheField>', cache, re.S)
+    assert field is not None
+    assert ('<sharedItems containsString="0" containsBlank="1" containsNumber="1" '
+            'containsInteger="1" minValue="0" maxValue="8" count="7">') in field.group()
 
 
 def test_a_value_filter_keeps_its_top_or_bottom_items(written: dict[str, bytes]) -> None:
