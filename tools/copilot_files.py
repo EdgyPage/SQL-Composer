@@ -57,6 +57,12 @@ ALWAYS = SOURCES / "_always.txt"
 LEAN = SOURCES / "_lean.txt"
 NAMES = re.compile(r"^\{names: ([^}]*)\}$", re.MULTILINE)
 WORKFLOW = re.compile(r"^\{workflow: (\w+)\}$", re.MULTILINE)
+# What rule_ids reads: a rule's line, a Patterns table's row and the header of a table whose
+# rows point at rules; and a Worked pattern's heading.
+RULE_LINE = re.compile(r"^- \*\*([A-Z]+\d+)\*\* ", re.MULTILINE)
+PATTERN_ROW = re.compile(r"^\| ([A-Z]+\d+) \|", re.MULTILINE)
+POINTING_TABLE = re.compile(r"^\| ID \|.*\| Rules \|$", re.MULTILINE)
+WORKED_PATTERN = re.compile(r"^### ([A-Z]+\d+): ", re.MULTILINE)
 
 
 class CopilotFileRefused(Exception):
@@ -136,6 +142,24 @@ def _steps_of(placeholder: re.Match[str]) -> str:
 def _names_block_of(placeholder: re.Match[str]) -> str:
     """The lines a {names: ...} placeholder, as NAMES finds it, becomes."""
     return names_block(placeholder.group(1))
+
+
+def rule_ids(text: str) -> list[str]:
+    """The rule IDs a Copilot file holds, in its order: each `- **ID** ` line under a heading
+    starting `## Rules`, and each row of a Patterns table that gives a role, as file 15's do,
+    rather than pointing at rules (a table whose last column is headed `Rules`)."""
+    ids = []
+    for section in re.split(r"^(?=## )", text, flags=re.MULTILINE):
+        if section.startswith("## Rules"):
+            ids += RULE_LINE.findall(section)
+        elif section.startswith("## Patterns") and not POINTING_TABLE.search(section):
+            ids += PATTERN_ROW.findall(section)
+    return ids
+
+
+def worked_pattern_ids(text: str) -> list[str]:
+    """The IDs of a Copilot file's Worked patterns, each a `### W1: ...` heading."""
+    return WORKED_PATTERN.findall(text)
 
 
 def copilot_files() -> dict[str, str]:

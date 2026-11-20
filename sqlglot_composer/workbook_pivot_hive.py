@@ -428,6 +428,10 @@ def level_select(pivot: PivotTable, level: PivotLevel, source_read: exp.Expressi
         columns.append(_value_column(pivot, value, level, keys, final_name, notes))
     if step_values is None:
         columns += _calculated_item_columns(pivot, keys, final_name, notes)
+    if not keys and not any(column.find(exp.AggFunc) for column in columns):
+        # A grand total of values all NULL (PV8) is the one blank cell Excel shows: one row,
+        # read from nothing, as a FROM with no aggregate would give a row per source row.
+        return exp.select(*columns), notes
     select = exp.select(*columns).from_(source_read.copy())
     conditions = filter_conditions(pivot, source_read)
     if conditions:

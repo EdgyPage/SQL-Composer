@@ -1616,7 +1616,7 @@ def _compared_ifs(form: IfsForm, table: Table, place: Place) -> exp.Expression:
 def row_keys(place: Place) -> list[Column]:
     """The columns that tell a Table's rows apart, to match a total back to its row (I1): its
     Keys row's (V1), or else every typed column, said (V2). Refused where the workbook's rows
-    repeat on them, as a total can't be matched back to one row."""
+    repeat on them, or one is blank in a row, as a total can't be matched back to that row."""
     table = place.query.table
     keys = key_columns(table, place)
     if not keys:
@@ -1629,6 +1629,10 @@ def row_keys(place: Place) -> list[Column]:
         raise Refused("I1", f"its rows repeat on {in_words([key.header for key in keys])}, so "
                             "a total comparing rows with this one can't be matched back to one "
                             "row")
+    blank = [key.header for key in keys if None in key.cells]
+    if blank:
+        raise Refused("I1", f"a row has a blank in {in_words(blank)}, so a total comparing "
+                            "rows with this one can't be matched back to it")
     return keys
 
 

@@ -1,12 +1,12 @@
 # Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.8)
 
-**Use this file as reference while you follow file 15's steps: find each formula of an
-attached workbook in Patterns, then write the Hive its rule gives.**
+**Use this file as reference while you follow file 15's steps: find each formula in
+Patterns, then write the Hive its rule gives.**
 
 Objective: write each formula of an Excel workbook as the Hive that gives the same values.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply), file 12 (Power Query and totals) and, for a
-PivotTable, file 20.
+file 15 (the steps, the map and the reply), file 12 (Power Query) and, for a PivotTable,
+file 20.
 
 ## Patterns: when the formula has X, look up Y
 
@@ -23,7 +23,7 @@ PivotTable, file 20.
 
 ## Terms
 
-- **Formula column**: a column whose cells hold a formula, `=[@duration_mins]/60`.
+- **Formula column**: a column of formulas, `=[@duration_mins]/60`.
 - `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
   row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
 - **Mark**: a formula converted where Excel and Hive can differ, named in the map.
@@ -79,7 +79,8 @@ PivotTable, file 20.
 
 - **I1** "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS
   NULL)`, as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against
-  this row's d.
+  this row's typed d (and a typed t[d] over its own Table); refused where rows repeat or hold
+  a blank on their Keys (V1, V2).
 - **I2** Every condition of one -IFS form holds at once: join them with AND, two on one
   column too (">10" and "<=30": `v > 10 AND v <= 30`). Two -IFS forms added that differ in
   one value only: one form, `s IN ('x', 'y')`.

@@ -170,6 +170,16 @@ reader's.
 The Toolbox's public names are decided in the tracker. A change that adds, removes or renames
 one points at the ticket that decided it.
 
+## A Formula workbook's two paths say the same
+
+A Formula workbook converts two ways, by Copilot loaded with the Excel files (15, 11, 12 and,
+for a PivotTable, 20) and by the Toolbox's code, and neither is the other's reference (ADR
+0016). So a rule changes in the code and in its Copilot file in one commit: the code, the
+rule's line, and the test of the code named for its ID. `tests/repo/test_rules_tied_to_tests.py`
+holds that every rule ID has a test naming it and every ID a test names is a file's; the
+reviewer judges that the code and the line give the same Hive. A change to one path alone, or
+a line that says less than the code does, is a finding.
+
 ## Nothing reaches the network
 
 A new entry in `ALLOWED`, in `tools/offline_policy.py`, gives its reason and has the user's OK,

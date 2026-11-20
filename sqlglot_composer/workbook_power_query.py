@@ -98,9 +98,9 @@ LIKE_PATTERNS = {"Text.Contains": ("%", "%"), "Text.StartsWith": ("", "%"),
 # A Table.Group's aggregates of a column (file 12's G1), by their M names.
 LIST_AGGREGATES = {"List.Sum": "SUM", "List.Max": "MAX", "List.Min": "MIN",
                    "List.Average": "AVG", "List.StandardDeviation": "STDDEV_SAMP"}
-# A Table.Pivot's aggregate (file 12's M2), by its M name.
-PIVOT_AGGREGATES = {"List.Sum": "SUM", "List.Count": "SUM", "List.Max": "MAX",
-                    "List.Min": "MIN", "List.Average": "AVG"}
+# A Table.Pivot's aggregate (file 12's M2), by its M name: it counts or adds up, as the file
+# lists; List.Max, List.Min and List.Average are refused (ticket 13).
+PIVOT_AGGREGATES = {"List.Sum": "SUM", "List.Count": "SUM"}
 # M's JoinKinds (file 12's G2), each as the join it is.
 JOIN_KINDS = ("LeftOuter", "Inner", "RightOuter", "FullOuter", "LeftAnti", "RightAnti")
 
@@ -599,13 +599,13 @@ def m_operation_hive(part: MOperation, rows: Rows, reading: Reading,
 def not_equal_hive(part: MOperation, left: exp.Expression,
                    right: exp.Expression) -> exp.Expression:
     """M's `<>`, which keeps a null, as Hive's doesn't: `(c <> 'x' OR c IS NULL)`, with a
-    constant on one side (Q2)."""
+    constant on one side; between two columns, kept where one alone is null, `(a <> b OR (a
+    IS NULL) <> (b IS NULL))`, as M's null <> null is false (Q2)."""
     if isinstance(part.right, MValue):
         return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=left, p1=right)
     if isinstance(part.left, MValue):
         return rule_hive("(p0 <> p1 OR p0 IS NULL)", p0=right, p1=left)
-    raise Refused("Q2", "<> between two columns keeps a row where either is null, which file "
-                        "12 doesn't write")
+    return rule_hive("(p0 <> p1 OR (p0 IS NULL) <> (p1 IS NULL))", p0=left, p1=right)
 
 
 def m_call_hive(call: MCall, rows: Rows, reading: Reading,

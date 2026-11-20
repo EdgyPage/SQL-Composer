@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import re
 import sqlite3
 from collections.abc import Iterator
 from contextlib import closing
@@ -425,6 +426,16 @@ def test_i1_a_joined_comparison_refuses_rows_that_repeat_on_their_keys() -> None
     assert (note.rule, "its rows repeat on run_id" in note.text) == ("I1", True)
 
 
+def test_i1_a_joined_comparison_refuses_a_blank_key() -> None:
+    # Ticket 13: a row whose key is blank matches no total joined back on its key, so its total
+    # would be 0 where Excel gives one; file 11's I1 names it.
+    tables = runs(longer='=COUNTIFS(job_runs[duration_mins],">"&[@duration_mins])')
+    tables["job_runs"][2][0] = None
+    book = workbook(tables, keys=(("job_runs", "run_id"),))
+    (note,) = notes_of(book, REFUSED)
+    assert (note.rule, "blank in run_id" in note.text) == ("I1", True)
+
+
 def test_i2_conditions_join_with_and_and_two_forms_added_are_in() -> None:
     book = workbook(runs(
         a='=COUNTIFS(job_runs[duration_mins],">10",job_runs[duration_mins],"<=20")',
@@ -520,7 +531,7 @@ def test_v2_with_no_keys_row_every_typed_column_matches_and_is_said() -> None:
 # --- File 11: marks ---------------------------------------------------------------------
 
 
-def test_m1_a_blank_is_coalesced_wherever_read_but_in_an_ifs_form_or_isblank() -> None:
+def test_file_11_m1_a_blank_is_coalesced_wherever_read_but_in_an_ifs_form_or_isblank() -> None:
     tables = runs(secs="=[@duration_mins]*60", label='=[@status]&"!"',
                   failed='=COUNTIFS(job_runs[status],"FAILED")', none="=ISBLANK([@status])",
                   copy="=[@status]", upper="=UPPER([@status])",
@@ -537,7 +548,7 @@ def test_m1_a_blank_is_coalesced_wherever_read_but_in_an_ifs_form_or_isblank() -
     assert all("blank" in note.text for note in notes_of(book, MARK))
 
 
-def test_m2_an_approximate_lookup_is_the_exact_match_marked() -> None:
+def test_file_11_m2_an_approximate_lookup_is_the_exact_match_marked() -> None:
     book = workbook({**runs(name="=VLOOKUP([@job_id],jobs,2,TRUE)",
                             team="=INDEX(jobs[team],MATCH([@job_id],jobs[job_id]))"),
                      "jobs": JOBS})
@@ -597,7 +608,8 @@ def test_m5_a_defined_name_for_a_cell_is_its_value_and_said_to_move() -> None:
     ("=GESTEP([@job_id],1)", "GESTEP is a formula files 11 and 12 don't list"),
     ("=job_runs[duration_mins]", "spills an array"),
 ])
-def test_x1_a_refused_formula_is_null_as_its_header_and_named(formula: str, named: str) -> None:
+def test_file_11_x1_a_refused_formula_is_null_as_its_header_and_named(formula: str,
+                                                                       named: str) -> None:
     book = workbook(runs(a=formula), names=(("DOUBLE", "_xlfn.LAMBDA(x,x*2)"),),
                     cells=(("Summary", "C2", 3),))
     check(book, f"SELECT {RUN_COLUMNS}, NULL AS a FROM db.job_runs")
@@ -606,14 +618,14 @@ def test_x1_a_refused_formula_is_null_as_its_header_and_named(formula: str, name
     assert named in note.text
 
 
-def test_x1_a_formula_reading_a_refused_one_is_refused_too() -> None:
+def test_file_11_x1_a_formula_reading_a_refused_one_is_refused_too() -> None:
     book = workbook(runs(a="=RAND()", b="=[@a]*2"))
     check(book, f"SELECT {RUN_COLUMNS}, NULL AS a, NULL AS b FROM db.job_runs")
     assert [note.text for note in notes_of(book, REFUSED)][1].endswith(
         "it reads a, which is refused")
 
 
-def test_x1_charts_and_cells_outside_a_table_are_left_alone_and_named() -> None:
+def test_file_11_x1_charts_and_cells_outside_a_table_are_left_alone_and_named() -> None:
     # A PivotTable converts (ticket 06, in
     # tests/sqlglot_checks/test_sqlglot_workbook_pivot_hive.py): never left alone.
     book = workbook(runs(hours="=[@duration_mins]/60"), cells=(("Notes", "B2", 7),
@@ -707,10 +719,13 @@ def test_p10_parameters_and_keys_are_settings() -> None:
     assert finals_of(book) == {}
 
 
-def test_p11_pieces_reading_each_other_in_a_loop_are_refused_by_the_reader() -> None:
-    with pytest.raises(LoopError, match="loop"):
+def test_p11_pieces_reading_each_other_in_a_loop_refuse_the_workbook_each_link_named() -> None:
+    # Ticket 13: the workbook is refused whole, as file 15's P11 says, no final converted.
+    with pytest.raises(LoopError, match="loop") as refused:
         workbook({"one": [["a", "b"], [1, "=XLOOKUP([@a],two[a],two[b])"]],
                   "two": [["a", "b"], [1, "=XLOOKUP([@a],one[a],one[b])"]]})
+    assert "formulas read" in str(refused.value)
+    assert all(f'Excel Table "{name}"' in str(refused.value) for name in ("one", "two"))
 
 
 def test_r1_a_summary_groups_its_typed_rows_written_in_and_said() -> None:
@@ -727,6 +742,56 @@ def test_r3_a_tables_own_row_formulas_dont_make_it_a_step() -> None:
     assert roles_of(book)["Excel Table:job_runs"] == FINAL
     check(book, f"SELECT {RUN_COLUMNS}, duration_mins / 60 AS hours, duration_mins / 60 * "
                "60 AS mins FROM db.job_runs")
+
+
+def test_r2_a_total_rows_final_has_a_column_for_each_cell_holding_a_total_no_other() -> None:
+    book = workbook(runs(hours="=[@duration_mins]/60"),
+                    totals={"job_runs": {
+                        "run_id": "Total", "status": None,
+                        "duration_mins": "=SUBTOTAL(109,job_runs[duration_mins])",
+                        "hours": "=SUBTOTAL(104,job_runs[hours])"}})
+    check(book, "WITH job_runs AS (SELECT duration_mins, duration_mins / 60 AS hours FROM "
+                "db.job_runs) SELECT SUM(duration_mins) AS duration_mins, MAX(hours) AS hours "
+                "FROM job_runs", final="job_runs (Total Row)")
+
+
+# --- File 15: Hive that stays small (ticket 17) -------------------------------------------
+
+
+def step_reads(hive: str) -> dict[str, int]:
+    """How many times a final reads each of its CTEs, by the CTE's name: each FROM or JOIN of
+    it, as sqlglot writes the final."""
+    names = [cte.alias for cte in read_hive(hive)[0].ctes]
+    return {name: len(re.findall(rf"\b(?:FROM|JOIN) {name}\b", hive)) for name in names}
+
+
+def test_h1_each_step_is_read_once_in_a_final_forms_grouped_alike_one_join() -> None:
+    jobs = [["job_id", "total_hours", "long_hours"],
+            [1, "=SUMIFS(job_runs[hours],job_runs[job_id],[@job_id])",
+             '=SUMIFS(job_runs[hours],job_runs[job_id],[@job_id],job_runs[status],"FAILED")']]
+    book = workbook({**runs(hours="=[@duration_mins]/60"), "jobs": jobs})
+    assert step_reads(hive_of(book, "jobs")) == {"job_runs": 1}
+
+
+def test_h1_a_lookup_and_a_total_on_one_step_read_it_once_each() -> None:
+    # Ticket 17's one shape kept: a row's value and a group's total, which one join can't give;
+    # file 15's H1 names it.
+    jobs = [["job_id", "last_hours", "total_hours"],
+            [1, "=XLOOKUP([@job_id],job_runs[job_id],job_runs[hours])",
+             "=SUMIFS(job_runs[hours],job_runs[job_id],[@job_id])"]]
+    book = workbook({**runs(hours="=[@duration_mins]/60"), "jobs": jobs})
+    assert step_reads(hive_of(book, "jobs")) == {"job_runs": 2}
+
+
+def test_h2_a_cte_selects_only_the_columns_read_after_it_never_a_star() -> None:
+    jobs = [["job_id", "total_hours"],
+            [1, "=SUMIFS(job_runs[hours],job_runs[job_id],[@job_id])"]]
+    book = workbook({**runs(hours="=[@duration_mins]/60", mins="=[@duration_mins]*60",
+                            late='=IF([@dt]>"2026-09-23",1,0)'), "jobs": jobs})
+    hive = hive_of(book, "jobs")
+    (cte,) = read_hive(hive)[0].ctes
+    assert cte.this.named_selects == ["job_id", "hours"]
+    assert "*" not in hive
 
 
 # --- The Worked patterns -----------------------------------------------------------------
