@@ -1,10 +1,10 @@
 """Score answers to the Copilot evaluation's Excel tasks: a Formula workbook into Hive, offline.
 
-Copilot files 15, 11 and 12 should make Copilot turn a Formula workbook into Hive that gives the
-workbook's rows. This measures it, as `tools/copilot_eval.py` measures the other files: the
-same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files, by Copilot in
-its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
-replies against the tasks' reference Hive.
+The Excel files, the Copilot files `files_of` names, should make Copilot turn a Formula
+workbook into Hive that gives the workbook's rows. This measures it, as `tools/copilot_eval.py`
+measures the other files: the same tasks (`tools/excel_eval_tasks.py`) are answered with and
+without the files, by Copilot in its web chat or by a proxy model, each reply is kept in an
+answers file, and this scores the replies against the tasks' reference Hive.
 
     .venv/Scripts/python tools/excel_eval.py plan C --split dev --tasks X01,X02 --model haiku
     .venv/Scripts/python tools/excel_eval.py batch C --split dev --tasks X01,X02 \\
@@ -16,7 +16,7 @@ replies against the tasks' reference Hive.
 
 A round runs as `tools/copilot_eval.py`'s does, on `tools/eval_runs.py`: its rounds are under
 `.eval-local/excel/runs/`, its replies are kept in the same memo by the hash of the text they
-load (files 15, 11 and 12 in arm C), a held-out task asked once per version of it, and its
+load (the Excel files in arm C), a held-out task asked once per version of it, and its
 rows go to the same `results.md`. A proxy is given five workbooks at most. `prompts`,
 `template` and `score` of an answers file are for a round run by hand in Copilot.
 
@@ -99,10 +99,12 @@ COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# File 15, the steps, and files 11 and 12, the reference it reads, all loaded in one chat.
+# The Excel files, loaded in one chat: file 15, the steps, and files 11 and 12, the reference
+# it reads; and file 20, PivotTables, for a workbook with a pivot, as file 00's Index says.
 EXCEL_FILES = ("15", "11", "12")
+PIVOT_FILE = "20"
 ARMS = {"A0": "nothing: the request alone",
-        "C": "Copilot files 15, 11 and 12"}
+        "C": "the Excel files, as files_of names them"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -119,35 +121,40 @@ def tasks_of(split: str) -> list[ExcelTask]:
     return [task for task in TASKS if split in ("all", task.split)]
 
 
-def shared_text(arm: str) -> str | None:
-    """What the person shares before asking: nothing, or files 15, 11 and 12."""
-    if arm == "A0":
-        return None
-    texts = []
-    for number in EXCEL_FILES:
-        for path in sorted(COPILOT.glob(f"{number}_*.txt")):
-            texts.append(path.read_text(encoding="utf-8"))
-    return "\n\n".join(texts)
+def files_of(task: ExcelTask) -> tuple[str, ...]:
+    """The numbers of the Excel files a task loads in arm C: EXCEL_FILES, and PIVOT_FILE where
+    its workbook has a PivotTable."""
+    if task.workbook.pivots:
+        return (*EXCEL_FILES, PIVOT_FILE)
+    return EXCEL_FILES
 
 
 def files_loaded(arm: str, task_id: str) -> dict[str, str]:
-    """The Copilot files whose ids a reply may cite, by their numbers: 15, 11 and 12 in arm C,
-    and none in the arm that loads no file."""
+    """The Copilot files whose ids a reply may cite, by their numbers: the task's Excel files
+    in arm C, and none in the arm that loads no file."""
     if arm == "A0":
         return {}
     texts: dict[str, str] = {}
-    for number in EXCEL_FILES:
+    for number in files_of(BY_ID[task_id]):
         [path] = sorted(COPILOT.glob(f"{number}_*.txt"))
         texts[number] = path.read_text(encoding="utf-8")
     return texts
 
 
+def shared_text(arm: str, task: ExcelTask) -> str | None:
+    """What the person shares before asking a task: nothing, or its Excel files."""
+    if arm == "A0":
+        return None
+    return "\n\n".join(files_loaded(arm, task.id).values())
+
+
 def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     """The message a proxy model is given for one arm: what the person shared, then each task's
-    prompt, as if each came in a chat of its own."""
+    prompt, as if each came in a chat of its own. The tasks share their Excel files, as
+    `proxy_groups` gives them."""
     head = ("You are standing in for Microsoft Copilot in a web chat. Use no tools: answer "
             "from what is written here and what you already know.\n\n")
-    shared = shared_text(arm)
+    shared = shared_text(arm, tasks[0])
     if shared is not None:
         head += ("Before asking anything, the user loaded these files:\n\n"
                  "<<<\n" + shared + "\n>>>\n\n")
@@ -175,10 +182,10 @@ def template(tasks: list[ExcelTask]) -> str:
 
 def memo_key(task_id: str, reply: str, arm: str, model: str) -> eval_runs.Key:
     """The key a reply to a task is kept under in the memo: the task's prompt, the arm, the
-    model and the text the arm loads, files 15, 11 and 12 in arm C, which is all a held-out
+    model and the text the arm loads, the task's Excel files in arm C, which is all a held-out
     task is asked once per. The reply changes no Excel task's key."""
     return eval_runs.hashed_key(task_id, prompt(BY_ID[task_id]), arm, model,
-                                shared_text(arm) or "")
+                                shared_text(arm, BY_ID[task_id]) or "")
 
 
 # A proxy is given a few workbooks, as a person sends one workbook to a fresh chat: a proxy
@@ -187,9 +194,16 @@ PER_PROXY = 5
 
 
 def proxy_groups(arm: str, asked: list[str]) -> dict[str, list[str]]:
-    """The tasks asked, cut among proxies by name, PER_PROXY to a proxy."""
-    return {f"{arm.lower()}-{number}": chunk
-            for number, chunk in enumerate(eval_runs.chunks(asked, PER_PROXY), 1)}
+    """The tasks asked, cut among proxies by name, PER_PROXY to a proxy; in arm C, the tasks
+    loading the same Excel files apart from the rest, as each proxy is given one set."""
+    sets: dict[tuple[str, ...], list[str]] = {}
+    for task_id in asked:
+        loads = files_of(BY_ID[task_id]) if arm == "C" else ()
+        sets.setdefault(loads, []).append(task_id)
+    chunks: list[list[str]] = []
+    for ids in sets.values():
+        chunks += eval_runs.chunks(ids, PER_PROXY)
+    return {f"{arm.lower()}-{number}": chunk for number, chunk in enumerate(chunks, 1)}
 
 
 def _proxy_message_of(arm: str, ids: list[str]) -> str:

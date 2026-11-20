@@ -29,6 +29,7 @@ write that Python, so you can ask it in plain words.
 | P15 | "a notebook my scheduler runs", "papermill", "parameters" | 18 |
 | P16 | "a new metric", "what should this column count?" | 19 |
 | P17 | an Excel workbook attached, "its formulas", "Power Query" | 15, 11, 12 |
+| P18 | a workbook with a PivotTable, "slicer" | 15, 11, 12, 20 |
 
 ## Rules: when two lines seem to fit
 
@@ -43,8 +44,8 @@ write that Python, so you can ask it in plain words.
   Scheduled run's own value of it: 18.
 - **R5** Your chatbot's Hive (file 19's end): as Toolbox code, 07; as a Saved table, saved
   as a .hql file, 14.
-- **R6** For an Excel workbook, attach files 15, 11 and 12 (or paste each as a message of
-  its own), then the workbook: a chat holds one file at a time, but for this one task.
+- **R6** A workbook is the one task with several files in a chat: attach files 15, 11 and
+  12, and 20 if it has a PivotTable (or paste each as a message), then the workbook.
 - **R7** Two tasks: a new chat for each, with each task's file.
 - **R8** One file each: a request that ends "and run it with my query", or reads "using my
   Database module", is 01, whatever it reads; checking a Key holds on the warehouse, even
@@ -67,7 +68,7 @@ write that Python, so you can ask it in plain words.
 ## Steps
 
 1. **Choose.** Find your words in the Index, and the Rules where two lines fit. Done when
-   you have one file, or three for a workbook. Then step 2.
+   you have one file, or three or four for a workbook. Then step 2.
 2. **Load.** Open a new chat in Copilot; paste the file as your first message and send it,
    or attach it if a paste is cut short. Then step 3.
 3. **Ask.** Name each table to read: paste its Table reference, or say its import line and
@@ -102,25 +103,27 @@ write that Python, so you can ask it in plain words.
   Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
 - `11_excel_formula_workbooks.txt`: each formula of a Formula workbook, an Excel workbook
   laid out as `formula_workbook.xlsx` shows, as Hive; loaded with files 15 and 12.
-- `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
-  Rows as Hive; loaded with files 15 and 11.
+- `12_excel_power_query.txt`: the same workbook's Power Query and totals as Hive; loaded with
+  files 15 and 11.
 - `13_workflows.txt`: converting Hive into Saved tables in dev, a whole job step by step,
   from the convert Workflow's notebook in admin/workflows/.
 - `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
   Table references, an upgrade, a change to a Saved table, each a whole job step by step.
-- `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: which
-  Tables and queries become which queries, and the reply; loaded with files 11 and 12.
+- `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: each
+  piece's role, and the reply; loaded with files 11 and 12.
 - `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
   the promote Workflow's notebook.
 - `17_run_values_and_seed_limits.txt`: a Run value, the value a function of yours works out
   each time a table is written, such as a Script tag's day, or a Hivevar; answers for every
   table of a Workflow notebook; and seed limits, the Partitions a seed copies.
 - `18_scheduled_runs.txt`: a Scheduled run, a notebook an outside scheduler such as
-  papermill runs top to bottom: its parameters, the Statements it runs, from a
+  papermill runs: its parameters, the Statements it runs, from a
   `project.describe_logic([...])` paste, and its Build cell.
 - `19_metric_request.txt`: a new metric, defined a question at a time from your column
   definitions: one column or two, each quantity, the rows, the days, what is left out, and
   any data missing; it ends with a Metric request, text for your chatbot, not code or sums.
+- `20_excel_pivot_tables.txt`: the same workbook's PivotTables as Hive; loaded with files
+  15, 11 and 12.
 
 ## Fitting Copilot
 
@@ -130,7 +133,7 @@ write that Python, so you can ask it in plain words.
 ## Self-check
 
 - [ ] **C1** The chat is new, and its first message is the file the Index names (for a
-  workbook, files 15, 11 and 12).
+  workbook, 15, 11 and 12, and 20 for a PivotTable).
 - [ ] **C2** Your question names each table to read; for file 19, your column definitions
   and the metric.
 - [ ] **C3** For a refusal, the new chat holds file 09, your code and the whole message.

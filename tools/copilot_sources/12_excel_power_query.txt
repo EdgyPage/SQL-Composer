@@ -6,7 +6,8 @@ whole-column total and Total Row in Patterns, then write the Hive its rule gives
 Objective: write each Power Query, each whole-column total and each Total Row of an Excel
 workbook as the Hive that gives the same rows.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
-file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
+file 15 (the steps, the map and the reply), file 11 (each formula's Hive) and, for a
+PivotTable, file 20.
 
 ## Patterns: when the workbook has X, look up Y
 

@@ -232,7 +232,8 @@ def test_the_index_gives_each_objective_the_files_its_rows_load() -> None:
     text = (copilot_eval.COPILOT / "00_start_here.txt").read_text(encoding="utf-8")
     allowed = copilot_eval.index_loads(text)
     assert allowed["03"] == {"03"} and allowed["17"] == {"17"}
-    assert allowed["11"] == {"15", "11", "12"}
+    # A workbook loads 15, 11 and 12, and 20 too where it has a PivotTable (Toolbox 8.9).
+    assert allowed["11"] == allowed["20"] == {"15", "11", "12", "20"}
 
 
 @pytest.mark.parametrize(("reply", "strict", "index"), [
