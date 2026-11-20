@@ -1158,19 +1158,21 @@ HELD_OUT = (
                            "FROM ops.region_budgets"},
         refused=(("INDIRECT",),), marks=(("key",),)),
     ExcelTask(
-        "X30", "held_out", ("refused_offset", "refused_rand", "ignored_chart", "ignored_pivot"),
+        # No PivotTable: one reading scheduler_runs would make it a step (file 15's R3), its
+        # refused columns in no final, and the note-only pivot this task had is one 8.9's
+        # reader never writes, as it converts every PivotTable.
+        "X30", "held_out", ("refused_offset", "refused_rand", "ignored_chart"),
         FormulaWorkbook((ExcelTable(
             "scheduler_runs", (*SCHEDULED, "day", "prev_run", "jitter"),
             rows("scheduler_runs", SCHEDULED), {
                 "day": "=RIGHT([@dt],2)",
                 "prev_run": "=OFFSET([@run_id],-1,0)",
                 "jitter": "=RANDBETWEEN(1,5)"}),),
-            chart=True, notes=('a PivotTable on sheet "Pivot", from Table scheduler_runs: rows '
-                               "job_id, values Count of run_id",)),
+            chart=True),
         {"scheduler_runs": "SELECT run_id, job_id, dt, SUBSTR(dt, -2) AS day, NULL AS "
                            "prev_run, NULL AS jitter FROM ops.scheduler_runs"},
         refused=(("OFFSET",), ("RANDBETWEEN", "RAND")),
-        ignored=(("chart",), ("PivotTable", "pivot table"))),
+        ignored=(("chart",),)),
     ExcelTask(
         "X31", "held_out", ("refused_circular", "refused_lambda", "refused_outside",
                             "mark_defined_name"),

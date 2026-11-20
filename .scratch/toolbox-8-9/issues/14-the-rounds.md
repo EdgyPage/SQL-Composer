@@ -172,5 +172,42 @@ whole-suite `SNAPSHOT_WRITE=1` run took the 174 hashes of 8.8's texts out of
 - **These rewordings of files 15, 20 and 22 came after the rounds**: no round has asked them.
   Every Excel task loads file 15, so the next Excel round asks all of them again.
 
+### Round 3 (2026-11-20, on c6d97258): the reviews' rewordings of files 15, 20 and 22
+
+The user: "run 15, 20, and 22 through an eval round". Every Excel task (124, both splits) and
+the three tasks loading file 22 (T51, T52, T54), on Haiku and Sonnet: 55 proxies, about 2.9
+million tokens. One Haiku proxy (c-17) stopped reading its message at line 576 of 824 and
+answered one task of five; it was asked again, and both runs are in the ledger.
+
+| Round | Haiku | Sonnet |
+|---|---|---|
+| Excel, dev (62) | 95% (X67, X71, X92) | 98% (X92) |
+| Excel, held-out (62), not blind | 97% (X30, X120) | 95% (X30, X115, X120) |
+| Copilot file 22, T51, T52, T54 | 2 of 3 (T54) | 3 of 3 |
+
+- **X30, on both: R3's new words did it.** X30's PivotTable is only a line, "Also in the
+  workbook: a PivotTable on sheet "Pivot", from Table scheduler_runs", which
+  `tools/formula_workbook.py` writes for a pivot left alone; its reference keeps
+  scheduler_runs a final. R3's "any other piece reads it (a Table, query or PivotTable)" made
+  both models call scheduler_runs a step. Before round 3 both passed it. The reader 8.9 ships
+  never writes that line, so X30 tests a workbook 8.9 can't give: the task, or R3, wants a
+  decision.
+- **T54 on Haiku: F4's new words.** Haiku answered "batch" alone, as F4 says, then answered
+  the Hivevar too, in a second decisions cell, before check() had printed it, so its Table
+  reference differs from the reference's.
+- **X115 on Sonnet: file 20's PX6, unchanged since round 1.** "Grouped by seconds, minutes,
+  hours, days of several; other bins: no final" was read as refusing a number bin (By 20),
+  which PR4 converts. Sonnet passed it in round 1's held-out.
+- **The rest, one model each:** X67 and X71 (Haiku), and X92 and X120, a calculated item's
+  total not named "added into the total" (both, as in round 1).
+
+**Settled (the user: "Fix X30 and F4").** X30's task no longer has the note-only PivotTable,
+its `ignored_pivot` tag or the pivot it asked to be named left alone: a real 8.9 PivotTable
+reading scheduler_runs would make it a step and leave the OFFSET and RANDBETWEEN refusals the
+task tests in no final, and 8.9's reader never writes the note. X14 (dev) and X40 (held-out)
+keep `ignored_pivot`, each pivot's Table a step there anyway. F4 now says to reply with the
+"batch" cell alone, no tag in any cell, the proposal coming once it runs. Asked again, X30
+and T54 pass on Haiku and Sonnet (not blind).
+
 **Still to do.** The manual round, in Copilot on workbooks the user saves in Excel, waits on
 the user, as does ticket 19's fixture repair.
