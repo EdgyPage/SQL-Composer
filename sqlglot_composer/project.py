@@ -186,7 +186,13 @@ from .unchecked import (
     script_line,
     write_entry,
 )
-from .workbook_check import WorkbookCheck, batch_md_lines, check_workbook, report_lines
+from .workbook_check import (
+    FinalHive,
+    WorkbookCheck,
+    batch_md_lines,
+    check_workbook,
+    report_lines,
+)
 from .workbook_reader import read_workbook
 
 if TYPE_CHECKING:
@@ -3496,15 +3502,32 @@ def _workbook_checks(files: _BatchFiles, scripts: list[tuple[str, str]], dev: st
     its finals the batch converted, its table in `dev`, from the workbook's own Hive or from
     the script Copilot wrote for it, run on this computer over the workbook's own Tables, a
     table its Hive names without a database in `database`, and compared with the values the
-    workbook shows, as last saved. It never calls your query."""
+    workbook shows, as last saved. It never calls your query. A table whose Pivot filters
+    were answered other than "keep" is checked as converted (_as_converted)."""
     checks = []
     for workbook in files.workbooks.workbooks:
         finals = files.workbooks.finals_to_check(workbook, dict(scripts), dev)
         if not finals:
             continue  # each is skipped, and the report says why
         book = read_workbook(files.root / files.workbooks.places[workbook.file])
-        checks.append(check_workbook(book, workbook.file, finals, database))
+        checks.append(check_workbook(book, workbook.file,
+                                     [_as_converted(files.root, final) for final in finals],
+                                     database))
     return checks
+
+
+def _as_converted(root: Path, final: FinalHive) -> FinalHive:
+    """A final to check, as the Workbook check takes it once its table's Pivot filters were
+    answered (ticket 08): its Hive is the one it was converted from, the workbook's own or
+    Copilot's, never the one the answers wrote, so it says what the answers made of the table,
+    and names each table per value made beside it, in the order of its values."""
+    tables = _pivot_filter_tables(root, final.table)
+    held = tables.made.get(final.table, {})
+    slices = pivot_filters.table_slices(tables.converted_as, tables.keyed, tables.answers)
+    return dataclasses.replace(
+        final, as_converted=pivot_filters.answered_since_converted(tables.keyed,
+                                                                   tables.answers, held),
+        beside=tuple(made for made in slices if made in tables.made and made != final.table))
 
 
 def _batch_log_lines(name: str, scripts: list[tuple[str, str]], made: list[str],
