@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import datetime
+import json
 import math
 import os
 import re
@@ -28,7 +29,7 @@ from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
 from .run_values import last_hivevar_values
-from .shared import HIVE_VARIABLE, in_words, python_literal
+from .shared import HIVE_VARIABLE, in_words, python_literal, split_table_name
 from .tables import Column, Table, UncheckedSelect, literal, python_text, type_family
 from .trees import SIMPLE_NAME, Node
 from .writing import (
@@ -1269,6 +1270,65 @@ def record_sent(kind: str, hive: str, frame: FrameType) -> None:
     with open(project / SENT, "a", encoding="utf-8", newline="") as rows:
         csv.writer(rows, lineterminator="\n").writerow(
             [now().strftime(TIME_SHOWN), kind, ";".join(written), script])
+
+
+# Beside a converted table's compare, in its Table folder's conversion/: what each Run value
+# gave when the table was last written (Toolbox 8.10, ticket 03).
+RUN_VALUES_WRITTEN = "run_values.json"
+
+
+def record_run_values(hive: str, given: dict[str, object], frame: FrameType) -> None:
+    """Record what each Run value gave, `given`, by its function, as a write was built, in
+    conversion/run_values.json of each converted table of the Dev Database `hive` writes,
+    over what an earlier write recorded for the same function: so its compare fills a query
+    alone with the value the table was written with. Outside a Project, or for a table with
+    no conversion/, or a prod copy, which is never compared, it does nothing."""
+    from .lineage import caller_folder, calling_file  # it imports this file
+    from .project import project_folder  # it imports this file
+    from .project_files import table_stem  # it imports this file
+    from .workflows import database_name  # it imports this file
+
+    project = project_folder(caller_folder(calling_file(frame))) or project_folder(Path.cwd())
+    values = {function: _value_as_json(value) for function, value in given.items()
+              if isinstance(value, (datetime.date, int, float, str))}
+    if project is None or not values:
+        return
+    dev = database_name(project, "DEV")
+    for name, does in tables_read_and_written(hive):
+        folder = project / "tables" / table_stem(name) / "conversion"
+        if does == "writes" and split_table_name(name)[0] == dev and folder.is_dir():
+            kept = {**run_values_written(folder), **values}
+            (folder / RUN_VALUES_WRITTEN).write_text(json.dumps(kept, indent=1, sort_keys=True),
+                                                     encoding="utf-8")
+
+
+def run_values_written(folder: Path) -> dict[str, object]:
+    """What each Run value gave when the table whose conversion/ is `folder` was last written,
+    by its function, as record_run_values recorded it: none when nothing was recorded."""
+    path = folder / RUN_VALUES_WRITTEN
+    if not path.is_file():
+        return {}
+    kept = json.loads(path.read_text(encoding="utf-8"))
+    return {function: _value_from_json(value) for function, value in kept.items()}
+
+
+def _value_as_json(value: datetime.date | int | float | str) -> object:
+    """A Run value's value as run_values.json keeps it: a date or a time by its ISO text, in a
+    dict naming which; any other as it is."""
+    if isinstance(value, datetime.datetime):
+        return {"datetime": value.isoformat()}
+    if isinstance(value, datetime.date):
+        return {"date": value.isoformat()}
+    return value
+
+
+def _value_from_json(value: object) -> object:
+    """A Run value's value as run_values.json keeps it, read back."""
+    if isinstance(value, dict) and "datetime" in value:
+        return datetime.datetime.fromisoformat(value["datetime"])
+    if isinstance(value, dict):
+        return datetime.date.fromisoformat(value["date"])
+    return value
 
 
 def script_line(caller: Path | None) -> str:

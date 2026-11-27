@@ -432,12 +432,21 @@ Goal: proof that each dev table gives its original's rows. The notebook's step 7
 dev table's rows with the table it copies, on the latest Partition both hold, and on each
 Partition the names cell's PARTITIONS lists, and writes each result in its
 conversion/compare.md. The Example database holds no Dev Database, so here each says it
-couldn't read its dev table; at work, once every table passes, the batch is finished:
+couldn't read its dev table, a result that failed. No result stops you: once every table is
+compared, the batch is finished, and the report names each table that didn't pass, as the
+warning at the top of its compare.md does, in plain words:
 
 >>> print(project.compare_batch("ops_reports", query=query, partitions=[]))
 mart.alerted_runs_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerted_runs_ops_reports'.
 mart.alerts_by_severity_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerts_by_severity_ops_reports'.
 mart.fail_history: failed, couldn't compare: The Example database has no table 'mart.fail_history'.
+The batch is finished, though not every table passed: ... That stops nothing: promote promotes each all the same, naming it, as promoting is your call: read its conversion/compare.md first. ...
+
+A query alone, a script with no table of its own, is compared with its query, filled in first
+as its dev table read it: each tag with its answer, a Run value such as run_day with the day
+it gave when the table was written, and each Hivevar with its SET line. One whose value only
+your program fills, such as a tag no answer fills, isn't compared: its compare.md says "Not
+compared" and why.
 
 A Conversion gives the same rows as each script, so it keeps each script's shape: a CTE a script reads
 twice, or a column a CTE carries that nothing after it reads, is in its code too. Once a table
@@ -445,24 +454,27 @@ passes, make its logic lean by the rules in [Keep reads and joins
 fast](#keep_reads_and_joins_fast), and check its rows are unchanged as [Review and test a
 change](#review_and_test_a_change) shows.
 
-Done when each table's line says it passed, at work. Then step 14.
+Done when the batch is finished and you have read each table's line: at work, check each
+that failed or wasn't compared before you promote it. Then step 14.
 
 ### 14. Promote them
 
-Goal: each table's code in your Prod Database. Once each table has passed, `project.promote`
-copies their code to your Prod Database, PROD's "database" in admin/databases.py, each
-notebook reading the others' prod copies. Fill in PROD's "database" and "location_root", as
-this page stands in for your edit. Before each compare has passed, promote refuses, naming
-each table:
+Goal: each table's code in your Prod Database. `project.promote` copies their code to your
+Prod Database, PROD's "database" in admin/databases.py, each notebook reading the others' prod
+copies. Fill in PROD's "database" and "location_root", as this page stands in for your edit.
+A table whose compare failed, or that wasn't compared, is promoted all the same, since
+promoting is your call: promote names each first, as here, where no dev table could be read:
 
 >>> _ = databases.write_text(databases.read_text(encoding="utf-8").replace(
 ...     '"<PROD_DATABASE>"', '"mart_prod"').replace(
 ...     '"<PROD_LOCATION_ROOT>"', '"/data/prod"'), encoding="utf-8")
->>> try:
-...     project.promote(project.batch_tables("ops_reports"))
-... except ValueError as refused:
-...     print(str(refused).strip().splitlines()[0])
-What happened:  project.promote([...]) can't promote yet: mart.alerts_by_severity_ops_reports: its compare hasn't passed; ...
+>>> print(project.promote(project.batch_tables("ops_reports")))
+Warning: promoting mart.alerts_by_severity_ops_reports, which failed its compare: tables/mart__alerts_by_severity_ops_reports/conversion/compare.md says why.
+Warning: promoting mart.alerted_runs_ops_reports, which failed its compare: tables/mart__alerted_runs_ops_reports/conversion/compare.md says why.
+Warning: promoting mart.fail_history, which failed its compare: tables/mart__fail_history/conversion/compare.md says why.
+Promoted mart.alerts_by_severity_ops_reports to mart_prod.alerts_by_severity_ops_reports: tables/mart_prod__alerts_by_severity_ops_reports/ and references/mart_prod__alerts_by_severity_ops_reports.py.
+...
+Next: run the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, seed each that reads itself, and write each.
 
 At work, open admin/workflows/promote/promote.ipynb, leave its names cell's `TABLES = []`,
 and run its cells top to bottom, as the convert notebook's: left [], "Run up to your
@@ -645,7 +657,8 @@ Before you go on, check that:
 - RUN_DAY's line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names
   run_day, and the Hive `show_hive` shows holds the day it gave;
 - the seed's line ends with the WHERE its "seed" answer gave, here `WHERE dt >= '2026-09-01'`;
-- each result in each table's conversion/compare.md says "Passed:";
+- each table's conversion/compare.md says "Passed:", or you have read the warning at its top
+  and checked that table's rows yourself;
 - `project.check()` names no step of the batch;
 - the batch is in admin/workflows/convert/finished/;
 - the promote Workflow has written each table in prod.
@@ -707,10 +720,12 @@ limit its seed, convert its scripts again as a new batch, with a new name for ea
 RENAME, and remove the old one once the new one's compare passes, with `project.remove_table`
 in admin/remove.ipynb.
 
-### Promoting before comparing
+### Promoting a table whose compare didn't pass
 
-promote refuses a table whose compare hasn't passed, so prod never gets rows that differ from
-the original's. Compare each table, and fix it in dev until its compare passes, then promote.
+promote promotes a table whose compare failed, or that wasn't compared, naming it first, since
+promoting is your call: prod may then get rows that differ from the original's. Read the
+warning at the top of its conversion/compare.md, and fix the table in dev, or check its rows
+yourself, before you promote it.
 
 ## Next
 

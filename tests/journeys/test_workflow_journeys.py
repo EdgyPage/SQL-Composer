@@ -990,6 +990,120 @@ def test_convert_a_batch_whose_partition_is_a_tag_answered_by_a_run_value(
                                                                   "mart.daily_counts")
 
 
+# Scripts with params, each a batch of its own (Toolbox 8.10, ticket 03): a query alone whose
+# bare tag, quoted tag, Hivevar answer and SET hivevar line are all filled for its compare,
+# its RUN_DAY by the Run value's value its write used; a query alone holding a Hivevar only
+# the user's program sets, whose compare isn't sent; and a table whose RUN_DAY is answered
+# with another day than the original's last run read, whose compare fails. None stops the
+# user: each batch finishes, and promote promotes each, naming the two that didn't pass.
+PARAM_SCRIPTS = {
+    "filled": """SET hivevar:min_mins=15;
+SELECT r.run_id, r.status FROM ops.job_runs r
+WHERE r.dt = <PARM="RUN_DAY"/> AND r.status <> '<PARM="SKIP"/>'
+AND r.duration_mins >= ${hivevar:min_mins} AND r.job_id <> <PARM="NO_JOB"/>;
+""",
+    "unset": """SELECT r.run_id, r.status FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status <> '${hivevar:skip}';
+""",
+    "differs": """CREATE TABLE IF NOT EXISTS mart.team_runs (team STRING, runs BIGINT);
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT o.team AS team, COUNT(*) AS runs
+FROM ops.job_runs r JOIN ops.job_owners o ON r.job_id = o.job_id AND r.dt = o.dt
+WHERE r.dt = <PARM="RUN_DAY"/>
+GROUP BY o.team;
+""",
+}
+PARAM_TABLES = {"filled": "mart_dev.filled", "unset": "mart_dev.unset",
+                "differs": "mart_dev.team_runs_mart"}
+# The decisions cell, as the user types it: RUN_DAY answered for every table by the Run value
+# period_end, the day the original's last run read being the day before.
+PARAM_DECISIONS = """from building_blocks.run_values import period_end
+from sqlglot_composer import hivevar
+
+DECISIONS = {
+    "all_tables": {"tags": {"RUN_DAY": period_end}},
+    "mart_dev.filled": {"key": None, "tags": {"SKIP": "FAILED",
+                                              "NO_JOB": hivevar("NO_JOB", default="0")}},
+    "mart_dev.unset": {"key": None},
+}
+"""
+
+
+def _check_compared_with_params(started: Started) -> None:
+    """Each batch with params finished, its compare.md saying what each table's compare
+    did: passed, filled in; not compared, and why; failed, and the likely reason first."""
+    finished = started.root / "admin" / "workflows" / "convert" / "finished"
+    for name, table in PARAM_TABLES.items():
+        assert (finished / name).is_dir(), f"the batch {name} isn't finished"
+        assert len(started.warehouse.rows_of(table)) > 0, f"{table} holds no row"
+
+    def compared(name: str) -> str:
+        return (started.root / "tables" / _stem(PARAM_TABLES[name]) / "conversion"
+                / "compare.md").read_text(encoding="utf-8")
+
+    assert "## Every row\n\nPassed: every row" in compared("filled")
+    assert "Warning" not in compared("filled")
+    assert ("Warning: mart_dev.unset wasn't compared: it holds ${hivevar:skip}, which only "
+            "your program fills") in compared("unset")
+    assert "Not compared: it holds ${hivevar:skip}" in compared("unset")
+    differs = compared("differs")
+    assert differs.index("Warning: mart_dev.team_runs_mart failed its compare") < (
+        differs.index("## Every row\n\nFailed: "))
+    assert ("Its Script tags were answered in the decisions cell (RUN_DAY): the original's "
+            "last run may have used other values for them") in differs
+
+
+def _save_param_scripts(started: Started, journey: Journey) -> None:
+    """Run the original whose table the "differs" batch copies, its RUN_DAY the day before
+    the latest, as its own team's job ran it; then save each script beside the notebook."""
+    started.warehouse.execute(PARAM_SCRIPTS["differs"].replace('<PARM="RUN_DAY"/>',
+                                                               "'2026-09-23'"))
+    for name, script in PARAM_SCRIPTS.items():
+        journey.save_by_hand(journey.folder / f"{name}.hql", script)
+
+
+def test_convert_then_promote_scripts_with_params_none_stopping_you(started: Started) -> None:
+    journey = started.journey("convert")
+    _save_param_scripts(started, journey)
+    # Each script converted, then the one decisions cell typed for all their tables, then
+    # each batch's other steps.
+    for name in PARAM_SCRIPTS:
+        journey.type_names(NAME=name, FILES=[f"{name}.hql"], DATABASE="ops")
+        journey.run_to(1, again=(1,))
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
+    journey.type_decisions_cell(PARAM_DECISIONS)
+    for name in PARAM_SCRIPTS:
+        journey.type_names(NAME=name, FILES=[f"{name}.hql"])
+        journey.run_to(again=tuple(range(2, 8)))
+    _check_compared_with_params(started)
+    promote = started.journey("promote")
+    promote.type_names(TABLES=list(PARAM_TABLES.values()))
+    promote.run_to()
+    _check_promoted(started, list(PARAM_TABLES.values()))
+
+
+def test_convert_then_promote_scripts_with_params_through_the_runner(started: Started) -> None:
+    journey = started.journey("convert")
+    _save_param_scripts(started, journey)
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
+    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops")
+    assert "every step is done" not in journey.run_workflow()
+    journey.type_decisions_cell(PARAM_DECISIONS)
+    said = journey.run_workflow()
+    for name in PARAM_SCRIPTS:
+        assert f"convert, {name}: every step is done." in said
+    _check_compared_with_params(started)
+    promote = started.journey("promote")
+    said = promote.run_workflow()
+    assert "promote: every step is done." in said
+    assert ("Warning: promoting mart_dev.team_runs_mart, which failed its compare: "
+            "tables/mart_dev__team_runs_mart/conversion/compare.md says why.") in said
+    assert ("Warning: promoting mart_dev.unset, which wasn't compared: "
+            "tables/mart_dev__unset/conversion/compare.md says why.") in said
+    assert "Warning: promoting mart_dev.filled" not in said
+    _check_promoted(started, list(PARAM_TABLES.values()))
+
+
 def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None:
     # Toolbox 8.4, ticket 14: a prod copy's seed is promote's own answer, given in promote's
     # decisions cell. Toolbox 8.5, ticket 02: the user's batch, each notebook read top to
