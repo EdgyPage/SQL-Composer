@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 Size: S
+Spec: [specs/08-eight-point-ten.md](../specs/08-eight-point-ten.md)
 
 ## Question
 

@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: 04
 Size: L
+Spec: [specs/05-the-seed-widened.md](../specs/05-the-seed-widened.md)
 
 ## Question
 

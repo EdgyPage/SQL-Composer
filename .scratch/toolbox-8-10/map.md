@@ -318,6 +318,12 @@ One at a time, by number, the user's habit; 01 first, since anyone on sqlglot 30
 is broken today. 01 to 04 block nothing of each other; 05 waits on 04, 06 on 05, 07 on 01 to
 06, and 08 on all. The real dependencies are in each ticket's `Blocked by:`.
 
+Each ticket has a spec, `specs/<ticket>.md` (`Status: ready-for-agent`, the `to-spec` skill,
+2026-11-27), named on its `Spec:` line: the user stories, the decisions and the test seam. The
+seams, as the user agreed: the Workflow journey on its stand-in warehouse for 02 to 06,
+converting Hive text at both sqlglot versions for 01, the Upgrade tests on the 8.9 freeze for
+08, and the docs tests for 07; no new seam.
+
 ## Not yet specified
 
 Each is the user's decision. All five are settled above (rounds 1 to 4, 2026-11-27); the list

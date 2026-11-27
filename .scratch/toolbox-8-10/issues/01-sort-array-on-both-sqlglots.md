@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: -
 Size: M
+Spec: [specs/01-sort-array-on-both-sqlglots.md](../specs/01-sort-array-on-both-sqlglots.md)
 
 ## Question
 

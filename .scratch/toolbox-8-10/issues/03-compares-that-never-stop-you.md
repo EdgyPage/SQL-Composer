@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: -
 Size: M
+Spec: [specs/03-compares-that-never-stop-you.md](../specs/03-compares-that-never-stop-you.md)
 
 ## Question
 

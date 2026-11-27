@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: 05
 Size: S
+Spec: [specs/06-check-project-warns-of-missing-days.md](../specs/06-check-project-warns-of-missing-days.md)
 
 ## Question
 

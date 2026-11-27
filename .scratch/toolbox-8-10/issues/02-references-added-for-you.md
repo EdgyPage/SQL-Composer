@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: -
 Size: M
+Spec: [specs/02-references-added-for-you.md](../specs/02-references-added-for-you.md)
 
 ## Question
 

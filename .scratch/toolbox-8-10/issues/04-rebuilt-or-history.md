@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: -
 Size: M
+Spec: [specs/04-rebuilt-or-history.md](../specs/04-rebuilt-or-history.md)
 
 ## Question
 

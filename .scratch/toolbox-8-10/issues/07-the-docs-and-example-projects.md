@@ -4,6 +4,7 @@ Type: task
 Status: open
 Blocked by: 01, 02, 03, 04, 05, 06
 Size: M
+Spec: [specs/07-the-docs-and-example-projects.md](../specs/07-the-docs-and-example-projects.md)
 
 ## Question
 
