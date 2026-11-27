@@ -66,8 +66,9 @@ Database: a prod copy of each table's code and of each Building block it uses, e
 reading the prod copies of the others promoted with it and the Prod Database's settings. The
 dev table stays the source: a change is made in dev and promoted again, never in the prod
 copy, so dev's Building blocks may change freely while prod's change only when promoted. A
-table is promoted only once each of its Decisions is made and, for a Conversion's table, it is
-compared, and with each dev table it reads.
+table is promoted only once each of its Decisions is made, and with each dev table it reads.
+A Conversion's table whose compare failed, or that wasn't compared, is promoted all the same,
+named as such first, since the choice is the user's (Toolbox 8.10).
 _Avoid_: deploy, release, convert to prod, publish
 
 ### The user's own scripts

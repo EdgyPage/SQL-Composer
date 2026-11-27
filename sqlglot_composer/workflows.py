@@ -67,9 +67,9 @@ DATABASES = Path("admin") / "databases.py"
 BATCHES = WORKFLOWS_FOLDER / "convert"
 BATCH_LIST = "batch.md"
 BATCH_RECORD = "written.json"
-# A batch's folder once every table it made has passed the compare step, which check names
-# done; and each table's result, in its conversion/ folder, its third line saying whether it
-# passed.
+# A batch's folder once the compare step has compared every table it made, passed or not,
+# which check names done; and each table's result, in its conversion/ folder, saying whether
+# it passed.
 FINISHED = "finished"
 # Each table promote made in prod: its dev table, whether it reads itself, and each file of its
 # prod Table folder, with its hash, to tell one edited by hand.
@@ -78,6 +78,14 @@ COMPARED = "compare.md"
 PASSED = "Passed: "
 FAILED = "Failed: "
 COMPARED_AT = "Compared at "
+# A result of a compare that wasn't sent, as a query alone whose value only the user's program
+# fills (Toolbox 8.10, ticket 03): why, then when it was checked.
+NOT_COMPARED = "Not compared: "
+CHECKED_AT = "Checked at "
+# What compare_result says of a table, by its results.
+RESULT_PASSED = "passed"
+RESULT_FAILED = "failed"
+RESULT_NOT_COMPARED = "not compared"
 # Each result compare.md keeps, one for each Partition compared, starts on a line of its own:
 # "## dt = '2026-09-24'", or "## Every row" for a table compared whole.
 RESULT_HEADING = "## "
@@ -563,7 +571,7 @@ def write_batch_record(root: Path, name: str, record: dict[str, object]) -> None
 
 def finished_batch_names(root: Path) -> list[str]:
     """Each batch the convert Workflow finished, by its name: its folder moved to
-    admin/workflows/convert/finished/ once every table it wrote passed its compare. A table
+    admin/workflows/convert/finished/ once every table it wrote was compared. A table
     new_table made from its query is left out: its own Workflow takes it on."""
     names = []
     for record in sorted((root / BATCHES / FINISHED).glob(f"*/{BATCH_RECORD}")):
@@ -606,28 +614,43 @@ def was_written(root: Path, table: str, seeded: bool) -> bool:
 
 
 def every_table_compared(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table MADE names, each a batch wrote, passed its compare."""
+    """Whether each table MADE names, each a batch wrote, has a compare result since it was
+    last written: passed, failed or not compared, since none stops the user (Toolbox 8.10)."""
     made = names_in(inputs, "MADE")
-    return bool(made) and all(compare_passed(root, table) for table in made)
+    return bool(made) and all(compare_result(root, table) is not None for table in made)
 
 
 def compare_passed(root: Path, table: str) -> bool:
     """Whether each result a converted table's conversion/compare.md keeps says it passed,
     and admin/sent.csv records no write of it since."""
+    return compare_result(root, table) == RESULT_PASSED
+
+
+def compare_result(root: Path, table: str) -> str | None:
+    """What a converted table's conversion/compare.md says of it: RESULT_FAILED when a result
+    it keeps failed, else RESULT_NOT_COMPARED when one wasn't compared, else RESULT_PASSED;
+    None when it keeps no result, or admin/sent.csv records a write of the table since one."""
     path = root / "tables" / table_stem(table) / CONVERSION / COMPARED
     text = file_text(path)
-    said = [line for line in text.split("\n") if line.startswith((PASSED, FAILED))]
+    said = [line for line in text.split("\n")
+            if line.startswith((PASSED, FAILED, NOT_COMPARED))]
     times = compared_times(text)
-    if not said or len(said) != len(times) or not all(line.startswith(PASSED) for line in said):
-        return False
-    return all(written <= min(times) for written in write_times(root, table))
+    if not said or len(said) != len(times):
+        return None
+    if any(written > min(times) for written in write_times(root, table)):
+        return None
+    if any(line.startswith(FAILED) for line in said):
+        return RESULT_FAILED
+    if any(line.startswith(NOT_COMPARED) for line in said):
+        return RESULT_NOT_COMPARED
+    return RESULT_PASSED
 
 
 def compared_times(text: str) -> list[str]:
     """When each result of a compare.md's text was compared, as its Compared at line says,
-    such as 2026-10-31 09:30:00."""
-    return [line.removeprefix(COMPARED_AT).rstrip(".") for line in text.split("\n")
-            if line.startswith(COMPARED_AT)]
+    such as 2026-10-31 09:30:00, or checked, for one not compared."""
+    return [line.removeprefix(COMPARED_AT).removeprefix(CHECKED_AT).rstrip(".")
+            for line in text.split("\n") if line.startswith((COMPARED_AT, CHECKED_AT))]
 
 
 def write_times(root: Path, table: str) -> list[str]:
@@ -971,12 +994,14 @@ def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list
 
 def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     """project.compare_batch for the batch NAME names, on the latest Partition and each
-    PARTITIONS lists; a dry run names what it would read."""
+    PARTITIONS lists; a dry run names what it would read, and each query alone as it would
+    send it, filled in."""
     from . import project  # project.py imports this file
 
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
-                f"{in_words(batch_tables_of(inputs))}"]
+                f"{in_words(batch_tables_of(inputs))}",
+                *project.queries_alone_as_sent(str(inputs.get("NAME")))]
     # As given, so compare_batch refuses a PARTITIONS it can't use, as the cell's call does.
     return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
                                  partitions=inputs.get("PARTITIONS")).lines
@@ -1074,11 +1099,12 @@ def queries_of(inputs: dict[str, object]) -> list[str]:
 
 
 def every_query_table_compared(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table is written, and each made from a query has passed its compare with
-    it, or finished."""
+    """Whether each table is written, and each made from a query has a compare result
+    since, passed or not, or is finished."""
     dev = database_name(root, "DEV")
     return every_table_written(root, inputs) and all(
-        (root / BATCHES / FINISHED / name).is_dir() or compare_passed(root, f"{dev}.{name}")
+        (root / BATCHES / FINISHED / name).is_dir()
+        or compare_result(root, f"{dev}.{name}") is not None
         for name in queries_of(inputs))
 
 
@@ -1250,9 +1276,10 @@ CONVERT = Workflow(
              "already, then the same: list them in PARTITIONS and run this step's cell, or "
              '"Run the rest", which compares a finished batch again whenever PARTITIONS '
              "lists a Partition, and says the batch was finished.",
-             done_when="every result in each table's `conversion/compare.md` says Passed, "
-             "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
-             "with a result that failed is one promote refuses"),
+             done_when="each table's `conversion/compare.md` holds a result, and the "
+             "batch's folder has moved to admin/workflows/convert/finished/. A result that "
+             "failed, or a table not compared, stops nothing: its `compare.md` says so first, "
+             "and promote promotes it all the same, naming it, as promoting is your call"),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
                   "for the run cells alone, a list of batches converted already); unused when "
@@ -1292,8 +1319,8 @@ CONVERT = Workflow(
             "Each table's `conversion/checklist.md` says None under Open Decisions.",
             "admin/sent.csv records each table created and written, and each that reads itself "
             "seeded.",
-            "Each table's `conversion/compare.md` says it passed, and the batch's folder is in "
-            "admin/workflows/convert/finished/.",
+            "Each table's `conversion/compare.md` holds a result, and you have read each that "
+            "didn't pass, and the batch's folder is in admin/workflows/convert/finished/.",
             "`project.check()` names no next step of this batch, and names it under Done."),
 )
 
@@ -2159,9 +2186,10 @@ def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
 
 
 def is_finished(root: Path, workflow: Workflow, inputs: dict[str, object]) -> bool:
-    """Whether the batch NAME names is finished: each table compared and passed, its folder
-    moved to finished/, so no step of it is left. Only convert's batches finish: the schedule
-    Workflow's NAME, a Scheduled run's, is never one, whatever batch shares its name."""
+    """Whether the batch NAME names is finished: each table compared, passed or not, its
+    folder moved to finished/, so no step of it is left. Only convert's batches finish: the
+    schedule Workflow's NAME, a Scheduled run's, is never one, whatever batch shares its
+    name."""
     name = inputs.get("NAME")
     return (workflow is CONVERT and isinstance(name, str) and bool(name)
             and (root / BATCHES / FINISHED / name).is_dir())

@@ -4,8 +4,9 @@ Toolbox 8.0, ticket 17.
 project.promote(tables) writes a prod copy of each dev Table folder and Table reference, named
 for the Prod Database, admin/databases.py's PROD, `_<their db>` kept unless rename= says
 otherwise. Every promoted notebook that reads another promoted table names its prod copy. It
-refuses, before writing anything, a table whose checklist has a box unticked, whose compare
-hasn't passed, or that reads a dev table not promoted with it. Dev stays the source:
+refuses, before writing anything, a table whose checklist has a box unticked, or that reads a
+dev table not promoted with it; one whose compare failed, or that wasn't compared, it
+promotes, naming it first (Toolbox 8.10, ticket 03). Dev stays the source:
 promoting again replaces the prod copy, archiving the old, and check reports one edited by hand.
 """
 
@@ -142,8 +143,7 @@ def test_a_location_you_filled_in_is_kept_when_promoted_again(started: Path) -> 
     assert 'location="/data/prod/failed_runs"' in path.read_text(encoding="utf-8")
 
 
-def test_a_decision_open_or_a_compare_not_passed_is_refused_before_anything_is_written(
-        started: Path) -> None:
+def test_a_decision_open_is_refused_before_anything_is_written(started: Path) -> None:
     reference = started / "references" / "mart_dev__fails_per_job_ops_reports.py"
     reference.write_text(reference.read_text(encoding="utf-8").replace(
         "    key=None,", "    key=None,  # TODO: the columns that pick out one row"),
@@ -156,8 +156,35 @@ def test_a_decision_open_or_a_compare_not_passed_is_refused_before_anything_is_w
     said = str(refused.value)
     assert (f"{PER_JOB}: references/mart_dev__fails_per_job_ops_reports.py has a "
             "Decision open, key: the columns whose values name one row, or None") in said
-    assert f"{FAILED}: its compare hasn't passed" in said
+    # Toolbox 8.10, ticket 03: a compare is no reason to refuse; promoting is the user's call.
+    assert f"{FAILED}: " not in said and "compare" not in said
     assert not list((started / "tables").glob("mart__*"))
+
+
+def test_a_table_whose_compare_failed_or_never_ran_is_promoted_and_named_first(
+        started: Path) -> None:
+    left_out = example_database.query(f"{FAILED_ROWS} AND dt = '2026-09-24'")["run_id"][0]
+    fewer = {FAILED: f"{FAILED_ROWS} AND run_id <> {left_out}", PER_JOB: PER_JOB_ROWS,
+             "ops_reports.failed_runs": FAILED_ROWS, "ops_reports.fails_per_job": PER_JOB_ROWS}
+
+    def query(hive: str) -> pd.DataFrame:
+        if hive.startswith("SHOW PARTITIONS"):
+            return pd.DataFrame({"partition": ["dt=2026-09-24"]})
+        for table, stands_for in fewer.items():
+            hive = hive.replace(table, f"({stands_for})")
+        return example_database.query(hive)
+
+    project.compare_batch("weekly", query=query)
+    (started / "tables" / "mart_dev__fails_per_job_ops_reports" / "conversion"
+     / "compare.md").unlink()
+    lines = project.promote([FAILED, PER_JOB]).lines
+    assert lines[:2] == [
+        f"Warning: promoting {FAILED}, which failed its compare: "
+        "tables/mart_dev__failed_runs_ops_reports/conversion/compare.md says why.",
+        f"Warning: promoting {PER_JOB}, which wasn't compared: its Workflow's compare step, "
+        "project.compare_batch, compares it."]
+    assert (started / "tables" / "mart__failed_runs_ops_reports").is_dir()
+    assert (started / "tables" / "mart__fails_per_job_ops_reports").is_dir()
 
 
 def test_a_table_reading_a_dev_table_not_promoted_with_it_is_refused(started: Path) -> None:

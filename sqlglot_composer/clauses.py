@@ -48,7 +48,7 @@ from .refusals import (
     warning_unchecked_partition_filter,
     warning_unchecked_where_on_kept_rows,
 )
-from .run_values import last_hivevar_values
+from .run_values import last_hivevar_values, last_values_given
 from .tables import (
     Column,
     NamedPartitions,
@@ -240,6 +240,9 @@ class Statement:
         # Each Hivevar's value as last worked out when it was made, tag_text's in its strings
         # among them (Toolbox 8.7): the values its SET hivevar lines send.
         self._hivevar_values = last_hivevar_values()
+        # What each Run value's function called with nothing last gave as it was made
+        # (Toolbox 8.10, ticket 03): what a write of it records for its table's compare.
+        self._run_values_given = last_values_given()
 
     def __repr__(self) -> str:
         if not kinds.is_a_query(self):

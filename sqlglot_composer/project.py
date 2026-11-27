@@ -139,8 +139,9 @@ from .pivot_filters import (PIVOT_FILTERS, pivot_filter_record, pivot_filters_in
 from .workbook_conversion import (WORKBOOK_FINALS, BatchWorkbooks, ConvertedWorkbook,
                                   FinalOrigin, WorkbookFinal)
 from .workbook_pivot_hive import ConvertedPivotFilter, pivot_filter_text
-from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
-                        CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
+from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKED_AT, CHECKLIST, COMPARED,
+                        COMPARED_AT, CONVERSION, FAILED, FINISHED, NOT_COMPARED, PASSED,
+                        REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells,
@@ -170,9 +171,9 @@ from .python_steps import PythonStep
 from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
-from .run_values import Hivevar
+from .run_values import Hivevar, filled_query
 from .running import to_hive
-from .script_tags import FoundTag, tags_in
+from .script_tags import FoundTag, tag_name, tags_in
 from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
                      singular_or_plural, split_table_name)
 from .conditions import all_of, equals
@@ -183,6 +184,7 @@ from .unchecked import (
     UncheckedStatement,
     hive_settings,
     inline_code,
+    run_values_written,
     script_line,
     write_entry,
 )
@@ -2130,15 +2132,27 @@ def _conversion_note_lines(root: Path) -> list[str]:
 
 
 def _finished_batch_lines(root: Path) -> list[str]:
-    """What check() says of each batch the convert Workflow finished: that it is done, and
-    where its folder moved."""
+    """What check() says of each batch the convert Workflow finished: that it is done, where
+    its folder moved, and each table whose compare didn't pass, which stops nothing."""
     names = workflows.finished_batch_names(root)
     if not names:
         return []
     where = workflows.notebook_path(root, workflows.CONVERT).relative_to(root).as_posix()
-    return ["Done: each convert batch below.",
-            *[f"  {where}, {name}: every table the batch wrote passed its compare, and its "
-              f"folder is {(BATCHES / FINISHED / name).as_posix()}/." for name in names]]
+    lines = ["Done: each convert batch below."]
+    for name in names:
+        folder = f"{(BATCHES / FINISHED / name).as_posix()}/"
+        not_passed = _not_passed(root, list(workflows.batch_record(root, name).get(
+            "originals", {})))
+        if not not_passed:
+            lines.append(f"  {where}, {name}: every table the batch wrote passed its compare, "
+                         f"and its folder is {folder}.")
+            continue
+        lines.append(f"  {where}, {name}: every table the batch wrote was compared, and its "
+                     f"folder is {folder}; {in_words(not_passed)}: check "
+                     f"{singular_or_plural(len(not_passed), 'its', 'their')} conversion/"
+                     f"compare.md before you promote "
+                     f"{singular_or_plural(len(not_passed), 'it', 'them')}.")
+    return lines
 
 
 def _workflow_lines(root: Path) -> list[str]:
@@ -2455,7 +2469,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
       its Check first line names reads, which it sends through your query: read them, then
       run the next step's own cell, which only you start;
     - a refusal or the warehouse's error, written in full: mend what it says;
-    - a step that ran and isn't done, such as a compare that failed: mend what it says.
+    - a step that ran and isn't done, such as a compare of a batch whose record names no
+      table: mend what it says. A compare that failed, or wasn't sent, is no stop.
 
     Then save the notebook and run it again, from "Run the rest" or the last cell: each step
     done is skipped, so it goes on where it stopped. `workflow` is one Workflow's name, such as
@@ -3187,7 +3202,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     each file still as it wrote it; it keeps one you changed, and
     writes a fresh copy of it into the batch's folder, under fresh/, for you to compare; and
     with overwrite=True it writes over each, kept as it was in admin/removed/. A batch whose
-    tables have all passed project.compare_batch is finished, in
+    tables project.compare_batch has all compared, passed or not, is finished, in
     admin/workflows/convert/finished/<name>/, and its name is refused.
     project.batch_tables(name) gives the Saved tables a batch made, for run_tables.
     """
@@ -4941,8 +4956,8 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
 
 
 def _batch_index(root: Path, name: str, call: str) -> Path:
-    """A batch's folder: admin/workflows/convert/<name>/, or finished/<name>/ in it once every
-    table passed the compare step; refused when neither holds its record."""
+    """A batch's folder: admin/workflows/convert/<name>/, or finished/<name>/ in it once the
+    compare step compared every table; refused when neither holds its record."""
     record = workflows.batch_record_path(root, name)
     if record is not None:
         return record.parent
@@ -4978,6 +4993,10 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     >>> print(project.compare_batch("spare", query=query))
     mart_dev.spare: failed, couldn't compare: The Example database couldn't run this Hive: it
     has no table mart_dev.spare.
+    The batch is finished, though not every table passed: mart_dev.spare failed its compare.
+    That stops nothing: promote promotes each all the same, naming it, as promoting is your
+    call: read its conversion/compare.md first. Finished: moved admin/workflows/convert/spare/
+    to admin/workflows/convert/finished/spare/, and project.check() names it done.
 
     The Example database holds no Dev Database, so mart_dev.spare isn't there to read: at
     work, once the convert Workflow has written it, its rows are compared with the query's,
@@ -5008,7 +5027,12 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     table with no Partitions is compared on every row, and a Partition listed that it isn't
     partitioned by is named as left out. A query alone, which convert made a Saved table named
     for the batch, or for its file in a batch of several scripts, has no original table: its
-    rows are compared with the query's, kept in its conversion/statement.hql. A partitions= is
+    rows are compared with the query's, kept in its conversion/statement.hql, filled in first
+    as the dev table read it (Toolbox 8.10): each Script tag with its answer in the table's
+    TAGS, a Run value's function with the value it gave when the table was last written, never
+    called again, and each Hivevar with the value its notebook's session_settings() sets.
+    Where one isn't known, such as a tag no answer fills or a Hivevar only your program sets,
+    the query isn't sent: its result is "not compared", saying why. A partitions= is
     refused when it isn't a list, when a Partition in it isn't a dict, when a value is in quotes
     of its own, as '2026-09-23' (SHOW PARTITIONS lists dt=2026-09-23), or when a Partition names
     no column any of the tables is partitioned by. Toolbox 8.5 replaced 8.4's partition=, one
@@ -5020,10 +5044,15 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     and one after the table was written again drops each from before. The table has passed
     when every result it keeps passed. Each holds the rows that differ, at
     most 5 from each, as compare_with_original gives them, where the Statement is the dev
-    table's rows. `tables` names which, by their names in dev, such as
+    table's rows. A result that failed comes first, then one not compared, then each that
+    passed, under a warning in plain words at the top: a fail of a table whose Script tags you
+    answered adds that the original's last run may have used other values for them.
+    `tables` names which, by their names in dev, such as
     mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
-    every one has passed, the batch's folder moves to admin/workflows/convert/finished/<name>/,
-    and check names it done; batch_tables still reads it, and compare_batch run on it again,
+    every one has a result, whether it passed, failed or wasn't compared, the batch's folder
+    moves to admin/workflows/convert/finished/<name>/: no result stops you, since promoting is
+    your call, and the report, check and promote name each table that didn't pass. Check
+    names the batch done; batch_tables still reads it, and compare_batch run on it again,
     as the convert notebook's step 7 does with another Partition in PARTITIONS, compares
     again, says the batch was finished, and moves nothing. project.remove_conversion(name)
     archives a finished batch, which frees its name. It never needs your execute: it only reads.
@@ -5041,26 +5070,70 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
     listed = _partitions_to_compare(call, partitions, read)
+    said = {dev: _compare_lines(root, read[dev], originals[dev], query, listed)
+            for dev in chosen}
     lines = []
-    for dev in chosen:
-        lines += _compare_lines(root, read[dev], originals[dev], query, listed)
+    # Each table that failed first, then each not compared, then each that passed.
+    results = {dev: workflows.compare_result(root, dev) for dev in chosen}
+    for dev in sorted(chosen, key=lambda dev: _RESULT_RANKS[results[dev]]):
+        lines += said[dev]
     written = [f"wrote tables/{table_stem(dev)}/{CONVERSION}/{COMPARED}" for dev in chosen]
+    not_passed = _not_passed(root, list(originals))
     if index.parent.name == FINISHED:
-        lines.append(f"The batch was finished already, in admin/workflows/convert/{FINISHED}/"
-                     f"{name}/: it stays there. A table with a result that failed is one "
-                     "promote refuses, until it passes.")
+        finished_line = (f"The batch was finished already, in admin/workflows/convert/"
+                         f"{FINISHED}/{name}/: it stays there.")
+        if not_passed:
+            finished_line += (f" Not every table passed: {in_words(not_passed)}. "
+                              f"{_STOPS_NOTHING}")
+        lines.append(finished_line)
+    # A result stops nothing, a fail or a compare not sent among them (Toolbox 8.10).
     elif originals and all(
-            workflows.compare_passed(root, dev) for dev in originals):
+            workflows.compare_result(root, dev) is not None for dev in originals):
         finished = root / BATCHES / FINISHED / name
         finished.parent.mkdir(parents=True, exist_ok=True)
         index.rename(finished)
         moved = (f"moved {CONVERSION_FOLDER.shown(name)} to admin/workflows/convert/"
                  f"{FINISHED}/{name}/")
         written.append(moved)
-        lines.append(f"Every table the batch wrote passed, so it is finished: {moved}, and "
-                     "project.check() names it done.")
+        finished_line = (f"Every table the batch wrote passed, so it is finished: {moved}, "
+                         "and project.check() names it done.")
+        if not_passed:
+            finished_line = (f"The batch is finished, though not every table passed: "
+                             f"{in_words(not_passed)}. {_STOPS_NOTHING} Finished: {moved}, and "
+                             "project.check() names it done.")
+        lines.append(finished_line)
     _log(root, call, chosen, written, frame)
     return ProjectReport(lines)
+
+
+# What compare_batch says of a table that didn't pass.
+_STOPS_NOTHING = ("That stops nothing: promote promotes each all the same, naming it, as "
+                  "promoting is your call: read its conversion/compare.md first.")
+# Where compare_batch's report puts a table, by what workflows.compare_result says of it.
+_RESULT_RANKS = {workflows.RESULT_FAILED: 0, workflows.RESULT_NOT_COMPARED: 1,
+                 workflows.RESULT_PASSED: 2, None: 2}
+
+
+def _not_passed(root: Path, tables: list[str]) -> list[str]:
+    """Each of a batch's dev tables, `tables`, whose compare didn't pass, with what it didn't
+    do, such as "mart_dev.weekly failed its compare"."""
+    said = {dev: _compare_shortfall(root, dev) for dev in tables}
+    return [f"{dev} {shortfall}" for dev, shortfall in said.items() if shortfall]
+
+
+def _compare_shortfall(root: Path, dev: str) -> str:
+    """What a converted dev table's compare didn't do, said after its name: "failed its
+    compare", "wasn't compared", or "wasn't compared since it was last written"; "" when it
+    passed, or when no Conversion made the table."""
+    folder = TABLE_FOLDER.path(root, table_stem(dev)) / CONVERSION
+    result = workflows.compare_result(root, dev)
+    if not folder.is_dir() or result == workflows.RESULT_PASSED:
+        return ""
+    if result == workflows.RESULT_FAILED:
+        return "failed its compare"
+    if result is None and (folder / COMPARED).is_file():
+        return "wasn't compared since it was last written"
+    return "wasn't compared"
 
 
 def _tables_compared(call: str, tables: str | list[str] | None,
@@ -6705,15 +6778,12 @@ def _compare_one(root: Path, table: Table, original: str | None,
     copy = statement(SELECT(all_columns(table)),
                      FROM(table, reads_all_partitions=bool(columns)))
     folder = TABLE_FOLDER.path(root, stem) / CONVERSION
-    if original is None:
-        heading = (f"# {dev} against its query, in {CONVERSION}/{STATEMENT}\n\nBelow, the "
-                   f"Statement is {dev}'s rows, and the original its query's.")
-        hive = (folder / STATEMENT).read_text(encoding="utf-8")
-    else:
-        heading = (f"# {dev} against {original}\n\nBelow, the Statement is {dev}'s rows, "
-                   f"and the original {original}'s.")
-        names = ", ".join(column._name for column in all_columns(table))
-        hive = f"SELECT {names} FROM {original}"
+    heading, hive, unfilled, answered = _what_is_compared(root, table, original)
+    if unfilled:
+        _write_compare_md(root, dev, folder / COMPARED, heading,
+                          _compared_on(None, not columns), _not_compared_text(unfilled),
+                          answered)
+        return None, f"not compared: {unfilled}"
     verdict, stopped = None, ""
     try:
         chosen, described = None, "every row: it has no Partitions"
@@ -6740,8 +6810,90 @@ def _compare_one(root: Path, table: Table, original: str | None,
             described += f"; but its Key ({', '.join(table._key)}) repeats"
     _write_compare_md(root, dev, folder / COMPARED, heading,
                       _compared_on(chosen, not columns or original is None),
-                      _compare_text(passed, described, verdicts, stopped))
+                      _compare_text(passed, described, verdicts, stopped), answered)
     return chosen, f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+
+
+def _what_is_compared(root: Path, table: Table, original: str | None
+                      ) -> tuple[str, str, str, list[str]]:
+    """What a dev table's compare.md is headed by, the Hive its original's rows are read
+    with, why that Hive can't be sent ("" when it can), and the Script tags the table's TAGS
+    answers, which a fail's warning names: for a table original, a SELECT of it; for a query
+    alone, `original` None, its query, filled in as its dev table read it (Toolbox 8.10)."""
+    dev = table._name
+    if original is None:
+        heading = (f"# {dev} against its query, in {CONVERSION}/{STATEMENT}\n\nBelow, the "
+                   f"Statement is {dev}'s rows, and the original its query's.")
+        hive, unfilled = _query_alone_filled(root, dev)
+        return heading, hive, unfilled, []
+    heading = (f"# {dev} against {original}\n\nBelow, the Statement is {dev}'s rows, "
+               f"and the original {original}'s.")
+    names = ", ".join(column._name for column in all_columns(table))
+    return heading, f"SELECT {names} FROM {original}", "", _answered_tags(root, dev)
+
+
+def _query_alone_filled(root: Path, dev: str) -> tuple[str, str]:
+    """A query alone's Hive, its dev table's conversion/statement.hql, filled in to read what
+    the table read when last written, as run_values.filled_query fills it: the filled Hive and
+    "", or "" and why it can't be."""
+    folder = TABLE_FOLDER.path(root, table_stem(dev)) / CONVERSION
+    text = (folder / STATEMENT).read_text(encoding="utf-8")
+    return filled_query(text, _tags_of(root, dev), run_values_written(folder),
+                        _hivevars_set(dev), dev)
+
+
+def _tags_of(root: Path, dev: str) -> dict[str, object]:
+    """The TAGS of a table's Table reference, as its file holds them now: what each Script
+    tag stands for; none when it has none."""
+    stem = table_stem(dev)
+    if "\nTAGS = {" not in workflows.file_text(REFERENCE.path(root, stem)):
+        return {}
+    return run_logic(root, f"from references.{stem} import TAGS", "table_reference")["TAGS"]
+
+
+def _answered_tags(root: Path, dev: str) -> list[str]:
+    """The NAME of each Script tag a table's TAGS answers: each but those still holding the
+    tag itself."""
+    return [name for name, answer in _tags_of(root, dev).items()
+            if not (isinstance(answer, str) and tag_name(answer) is not None)]
+
+
+def _hivevars_set(dev: str) -> dict[str, str]:
+    """The value each SET hivevar line of a table's notebook's session_settings() gives, by the
+    Hivevar's NAME: what its write was sent with."""
+    logic = load(dev)
+    if not hasattr(logic, "session_settings"):
+        return {}
+    found = {}
+    for line in logic.session_settings()._lines:
+        setting, _, value = line.removeprefix("SET ").partition("=")
+        if setting.startswith("hivevar:"):
+            found[setting.removeprefix("hivevar:")] = value
+    return found
+
+
+def _not_compared_text(why: str) -> str:
+    """The result in a table's conversion/compare.md of a compare not sent, and why."""
+    return (f"{NOT_COMPARED}{why}.\n"
+            f"{CHECKED_AT}{unchecked.now().strftime(unchecked.TIME_SHOWN)}.\n")
+
+
+def queries_alone_as_sent(name: str) -> list[str]:
+    """What the convert Workflow's compare step, in a dry run, says of each query alone of the
+    batch `name`: the Hive it would send, filled in, or why it wouldn't compare it."""
+    call = _action_call("compare_batch", name)
+    root = _project_root(call)
+    originals = json.loads((_batch_index(root, name, call) / BATCH_RECORD).read_text(
+        encoding="utf-8")).get("originals", {})
+    lines = []
+    for dev in [dev for dev, original in originals.items() if original is None]:
+        hive, unfilled = _query_alone_filled(root, dev)
+        if unfilled:
+            lines.append(f"would not compare {dev}: {unfilled}")
+        else:
+            lines.append(f"would compare {dev} with its query, filled in as: "
+                         + " ".join(hive.split()))
+    return lines
 
 
 # What a result in compare.md is headed by when it compared every row, and when it compared
@@ -6761,13 +6913,51 @@ def _compared_on(chosen: dict[str, object] | None, whole: bool) -> str:
 
 
 def _write_compare_md(root: Path, dev: str, path: Path, heading: str, compared_on: str,
-                      result: str) -> None:
-    """Write a dev table's compare.md, `path`: its heading, then each result it keeps, under
-    the Partition each compared on, `result` under `compared_on` among them."""
+                      result: str, answered: list[str]) -> None:
+    """Write a dev table's compare.md, `path`: its heading, a warning in plain words for
+    each result that failed or wasn't compared, then each result it keeps, under the Partition
+    each compared on, `result` under `compared_on` among them: those that failed first, then
+    those not compared, then those that passed. `answered` names the Script tags its TAGS
+    answers, which the warning of a failed result names."""
     kept = _results_kept(root, dev, path)
     kept[compared_on] = result
-    blocks = [f"{workflows.RESULT_HEADING}{each}\n\n{kept[each]}" for each in sorted(kept)]
-    path.write_text("\n\n".join([heading, *blocks]).rstrip("\n") + "\n", encoding="utf-8")
+    order = sorted(kept, key=lambda each: (_result_rank(kept[each]), each))
+    blocks = [f"{workflows.RESULT_HEADING}{each}\n\n{kept[each]}" for each in order]
+    warnings = _compare_warnings(dev, [kept[each] for each in order], answered)
+    path.write_text("\n\n".join([heading, *warnings, *blocks]).rstrip("\n") + "\n",
+                    encoding="utf-8")
+
+
+def _result_rank(result: str) -> int:
+    """Where a result of compare.md comes, by what it says: a fail first, then one not
+    compared, then a pass."""
+    for rank, status in enumerate((FAILED, NOT_COMPARED)):
+        if result.startswith(status):
+            return rank
+    return 2
+
+
+def _compare_warnings(dev: str, results: list[str], answered: list[str]) -> list[str]:
+    """The warnings at the top of a dev table's compare.md, in plain words: one when a result
+    it keeps failed, naming the Script tags it answered, `answered`, as a likely reason, and
+    one for each reason a result wasn't compared. None when every result passed."""
+    warnings = []
+    if any(result.startswith(FAILED) for result in results):
+        warning = (f"Warning: {dev} failed its compare: the first result below says why. That "
+                   "stops nothing: its batch is finished all the same, and promote promotes "
+                   f"{dev}, naming it, as promoting is your call. Read the rows below before "
+                   "you do.")
+        if answered:
+            warning += (" Its Script tags were answered in the decisions cell "
+                        f"({in_words(answered)}): the original's last run may have used other "
+                        "values for them, which give other rows.")
+        warnings.append(warning)
+    reasons = [result.split("\n")[0].removeprefix(NOT_COMPARED).rstrip(".")
+               for result in results if result.startswith(NOT_COMPARED)]
+    warnings += [f"Warning: {dev} wasn't compared: {reason}. Nothing checked its rows: check "
+                 "them yourself before you promote it. That stops nothing: promote promotes "
+                 "it all the same, naming it." for reason in dict.fromkeys(reasons)]
+    return warnings
 
 
 def _results_kept(root: Path, dev: str, path: Path) -> dict[str, str]:
@@ -6964,9 +7154,12 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
     with no Table reference; one whose Table reference has a <...> left to fill in, or whose
     notebook's logic doesn't build its write() yet; one whose
-    Table reference leaves a Decision open; one a Conversion made whose compare hasn't
-    passed (project.compare_batch); one that reads a dev table not promoted with it; and one
-    whose Building block, or one it imports, reads the Dev Database. Dev stays the source:
+    Table reference leaves a Decision open; one that reads a dev table not promoted with it;
+    and one whose Building block, or one it imports, reads the Dev Database. A table a
+    Conversion made whose compare (project.compare_batch) failed, or that wasn't compared, is
+    promoted all the same, since promoting is your call: its report names each first, as
+    "Warning: promoting mart_dev.x, which failed its compare", with where to read why. Dev stays
+    the source:
     change the dev copy and promote it again, which archives the prod copy, and each Building
     block's, into admin/removed/ first, and the one under its old name when rename= gives it a
     new one. project.check() reports a prod copy edited by hand, its notebook, a Building
@@ -6989,15 +7182,14 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     if problems:
         refuse(
             what=f"{call} can't promote yet: " + "; ".join(problems) + ".",
-            why="A table reaches prod only once each Decision is made, it is compared "
-            "with its original if a Conversion made it, and promoted with each dev table it "
-            "reads, so prod never reads dev.",
-            fix="Answer each open Decision and write it in, run "
-            "project.compare_batch(...) for a "
-            "Conversion's tables, and promote each table a promoted one reads with it, then "
-            "promote again.",
+            why="A table reaches prod only once each Decision is made, and promoted with "
+            "each dev table it reads, so prod never reads dev.",
+            fix="Answer each open Decision and write it in, and promote each table a "
+            "promoted one reads with it, then promote again.",
             error=ValueError,
         )
+    # Each table whose compare didn't pass, named first: promoting it is the user's call.
+    warnings = [_promote_warning(root, dev) for dev in names if _compare_shortfall(root, dev)]
     now = unchecked.now()
     before = _references_promoted_before(root, names)
     # A table promoted before under another name is promoted under this one alone now: its old
@@ -7005,7 +7197,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     written = _archive_renamed_copies(root, names, now)
     record = {prod: entry for prod, entry in workflows.promoted_record(root).items()
               if entry["dev"] not in names}
-    lines = []
+    lines = list(warnings)
     for dev, prod in names.items():
         record[prod], done, line = _promote_one(root, (dev, prod), names, (dev_db, prod_db),
                                                 before[dev], now)
@@ -7020,6 +7212,16 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     _log(root, call, list(names.values()), written, frame)
     lines.append(_promote_next_line(root, list(names.values())))
     return ProjectReport([*lines, *_unrecorded_lines(root, call)])
+
+
+def _promote_warning(root: Path, dev: str) -> str:
+    """What promote's report says first of a dev table it promotes whose compare didn't pass,
+    and where to read why."""
+    stem = table_stem(dev)
+    where = f"{TABLE_FOLDER.shown(stem)}{CONVERSION}/{COMPARED} says why."
+    if not (TABLE_FOLDER.path(root, stem) / CONVERSION / COMPARED).is_file():
+        where = "its Workflow's compare step, project.compare_batch, compares it."
+    return f"Warning: promoting {dev}, which {_compare_shortfall(root, dev)}: {where}"
 
 
 def _promote_next_line(root: Path, prods: list[str]) -> str:
@@ -7396,19 +7598,17 @@ def _refuse_a_full_name(call: str, rename: dict[str, str]) -> None:
 
 
 def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[str]:
-    """Why each table can't be promoted yet: a Decision open, a compare not passed, a dev
-    table it reads not promoted with it, a Building block it uses that reads the Dev
-    Database."""
+    """Why each table can't be promoted yet: a Decision open, a dev table it reads not
+    promoted with it, a Building block it uses that reads the Dev Database. A compare that
+    didn't pass is no reason (Toolbox 8.10): promote names it, as promoting is the user's
+    call."""
     problems = []
     for dev in names:
         table_folder = TABLE_FOLDER.path(root, table_stem(dev))
-        conversion_folder = table_folder / CONVERSION
         reference = workflows.file_text(REFERENCE.path(root, table_stem(dev)))
         for decision in decisions.open_decisions(reference, dev):
             problems.append(f"{dev}: {REFERENCE.shown(table_stem(dev))} has a Decision "
                             f"open, {decision.question()}")
-        if conversion_folder.is_dir() and not workflows.compare_passed(root, dev):
-            problems.append(f"{dev}: its compare hasn't passed")
         if table_folder.is_dir() and not logic_loads(root, dev):
             problems.append(f"{dev}: its notebook's logic doesn't build its write() yet: "
                             f'project.load("{dev}").write() says why')

@@ -7809,13 +7809,16 @@ INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_report
 WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs AS r WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status = &#x27;FAILED&#x27;) INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM failed_runs AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id
 ```</pre>
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<p class="note">It writes <code>tables/mart__alerted_runs_ops_reports/conversion/run_values.json</code> too.</p>
+<p class="note">It writes <code>tables/mart__alerts_by_severity_ops_reports/conversion/run_values.json</code> too.</p>
 <p>Done when it prints <code>Wrote 3 tables, in order.</code> Then step 13.</p>
 <h5>13. Compare each with its original</h5>
-<p>Goal: proof that each dev table gives its original&#x27;s rows. The notebook&#x27;s step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and on each Partition the names cell&#x27;s PARTITIONS lists, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
+<p>Goal: proof that each dev table gives its original&#x27;s rows. The notebook&#x27;s step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and on each Partition the names cell&#x27;s PARTITIONS lists, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table, a result that failed. No result stops you: once every table is compared, the batch is finished, and the report names each table that didn&#x27;t pass, as the warning at the top of its compare.md does, in plain words:</p>
 <pre class="python">print(project.compare_batch(&quot;ops_reports&quot;, query=query, partitions=[]))</pre>
 <p class="label">Python prints</p><pre class="output">mart.alerted_runs_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
 mart.alerts_by_severity_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
-mart.fail_history: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.</pre>
+mart.fail_history: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.
+The batch is finished, though not every table passed: mart.alerted_runs_ops_reports failed its compare, mart.alerts_by_severity_ops_reports failed its compare and mart.fail_history failed its compare. That stops nothing: promote promotes each all the same, naming it, as promoting is your call: read its conversion/compare.md first. Finished: moved admin/workflows/convert/ops_reports/ to admin/workflows/convert/finished/ops_reports/, and project.check() names it done.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -7911,13 +7914,35 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.compare_batch(&quot;ops_reports&quot;)`
 - Tables named: mart.alerted_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.fail_history
-- Files: wrote tables/mart__alerted_runs_ops_reports/conversion/compare.md; wrote tables/mart__alerts_by_severity_ops_reports/conversion/compare.md; wrote tables/mart__fail_history/conversion/compare.md
+- Files: wrote tables/mart__alerted_runs_ops_reports/conversion/compare.md; wrote tables/mart__alerts_by_severity_ops_reports/conversion/compare.md; wrote tables/mart__fail_history/conversion/compare.md; moved admin/workflows/convert/ops_reports/ to admin/workflows/convert/finished/ops_reports/
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes admin/workflows/convert/finished/ops_reports/batch.md</p>
+<pre class="file"># Batch ops_reports
+
+2 scripts, each read where it is: admin/workflows/convert/daily.hql and admin/workflows/convert/weekly.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
+
+## Tables
+
+- ops_reports.alerts_by_severity: mart.alerts_by_severity_ops_reports, tables/mart__alerts_by_severity_ops_reports/, its checklist tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md
+- ops_reports.alerted_runs: mart.alerted_runs_ops_reports, tables/mart__alerted_runs_ops_reports/, its checklist tables/mart__alerted_runs_ops_reports/conversion/checklist.md
+- ops_reports.fail_history: mart.fail_history, tables/mart__fail_history/, its checklist tables/mart__fail_history/conversion/checklist.md
+
+## Each statement, in the order they run
+
+1. daily.hql line 1, `SET hive.exec.parallel=true`: the Session settings of the writes after it in its script
+2. daily.hql line 2, `DROP TABLE IF EXISTS ops_reports.failed_runs`: folded into ops_reports.fail_history: a Derived table there, never created, written, compared or promoted
+3. daily.hql line 3, `CREATE TEMPORARY TABLE ops_reports.failed_runs AS SELECT r.run_id, r.job_id, ...`: folded into ops_reports.fail_history: a Derived table there, never created, written, compared or promoted
+4. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerts_by_severity_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
+5. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerted_runs_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
+6. weekly.hql line 1, `CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIG...`: the columns, types and Partitions of mart.fail_history&#x27;s Table reference
+7. weekly.hql line 3, `INSERT INTO TABLE ops_reports.fail_history PARTITION (dt=&#x27;2026-09-24&#x27;) SELECT...`: mart.fail_history, written by its notebook</pre>
 <p class="label">It writes tables/mart__alerted_runs_ops_reports/conversion/compare.md</p>
 <pre class="file"># mart.alerted_runs_ops_reports against ops_reports.alerted_runs
 
 Below, the Statement is mart.alerted_runs_ops_reports&#x27;s rows, and the original ops_reports.alerted_runs&#x27;s.
+
+Warning: mart.alerted_runs_ops_reports failed its compare: the first result below says why. That stops nothing: its batch is finished all the same, and promote promotes mart.alerted_runs_ops_reports, naming it, as promoting is your call. Read the rows below before you do.
 
 ## No Partition compared
 
@@ -7933,6 +7958,8 @@ What happened:  The Example database has no table &#x27;mart.alerted_runs_ops_re
 
 Below, the Statement is mart.alerts_by_severity_ops_reports&#x27;s rows, and the original ops_reports.alerts_by_severity&#x27;s.
 
+Warning: mart.alerts_by_severity_ops_reports failed its compare: the first result below says why. That stops nothing: its batch is finished all the same, and promote promotes mart.alerts_by_severity_ops_reports, naming it, as promoting is your call. Read the rows below before you do. Its Script tags were answered in the decisions cell (RUN_DAY): the original&#x27;s last run may have used other values for them, which give other rows.
+
 ## No Partition compared
 
 Failed: couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
@@ -7947,6 +7974,8 @@ What happened:  The Example database has no table &#x27;mart.alerts_by_severity_
 
 Below, the Statement is mart.fail_history&#x27;s rows, and the original ops_reports.fail_history&#x27;s.
 
+Warning: mart.fail_history failed its compare: the first result below says why. That stops nothing: its batch is finished all the same, and promote promotes mart.fail_history, naming it, as promoting is your call. Read the rows below before you do.
+
 ## No Partition compared
 
 Failed: couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.
@@ -7956,10 +7985,12 @@ What happened:  The Example database has no table &#x27;mart.fail_history&#x27;.
   Why it matters: It holds nine made-up tables, all in the database ops.
   Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p class="note">It writes <code>admin/workflows/convert/finished/ops_reports/written.json</code> too.</p>
+<p>A query alone, a script with no table of its own, is compared with its query, filled in first as its dev table read it: each tag with its answer, a Run value such as run_day with the day it gave when the table was written, and each Hivevar with its SET line. One whose value only your program fills, such as a tag no answer fills, isn&#x27;t compared: its compare.md says &quot;Not compared&quot; and why.</p>
 <p>A Conversion gives the same rows as each script, so it keeps each script&#x27;s shape: a CTE a script reads twice, or a column a CTE carries that nothing after it reads, is in its code too. Once a table passes, make its logic lean by the rules in <a href="#keep_reads_and_joins_fast">Keep reads and joins fast</a>, and check its rows are unchanged as <a href="#review_and_test_a_change">Review and test a change</a> shows.</p>
-<p>Done when each table&#x27;s line says it passed, at work. Then step 14.</p>
+<p>Done when the batch is finished and you have read each table&#x27;s line: at work, check each that failed or wasn&#x27;t compared before you promote it. Then step 14.</p>
 <h5>14. Promote them</h5>
-<p>Goal: each table&#x27;s code in your Prod Database. Once each table has passed, <code>project.promote</code> copies their code to your Prod Database, PROD&#x27;s &quot;database&quot; in admin/databases.py, each notebook reading the others&#x27; prod copies. Fill in PROD&#x27;s &quot;database&quot; and &quot;location_root&quot;, as this page stands in for your edit. Before each compare has passed, promote refuses, naming each table:</p>
+<p>Goal: each table&#x27;s code in your Prod Database. <code>project.promote</code> copies their code to your Prod Database, PROD&#x27;s &quot;database&quot; in admin/databases.py, each notebook reading the others&#x27; prod copies. Fill in PROD&#x27;s &quot;database&quot; and &quot;location_root&quot;, as this page stands in for your edit. A table whose compare failed, or that wasn&#x27;t compared, is promoted all the same, since promoting is your call: promote names each first, as here, where no dev table could be read:</p>
 <pre class="python">_ = databases.write_text(databases.read_text(encoding=&quot;utf-8&quot;).replace(
     &#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_prod&quot;&#x27;).replace(
     &#x27;&quot;&lt;PROD_LOCATION_ROOT&gt;&quot;&#x27;, &#x27;&quot;/data/prod&quot;&#x27;), encoding=&quot;utf-8&quot;)</pre>
@@ -7977,11 +8008,34 @@ in both, each its own value, and database_settings(&quot;mart_dev&quot;) gives D
 
 DEV = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot;/data/dev&quot;}
 PROD = {&quot;database&quot;: &quot;mart_prod&quot;, &quot;location_root&quot;: &quot;/data/prod&quot;}</pre>
-<pre class="python">try:
-    project.promote(project.batch_tables(&quot;ops_reports&quot;))
-except ValueError as refused:
-    print(str(refused).strip().splitlines()[0])</pre>
-<p class="label">Python prints</p><pre class="output">What happened:  project.promote([&#x27;mart.alerts_by_severity_ops_reports&#x27;, &#x27;mart.alerted_runs_ops_reports&#x27;, &#x27;mart.fail_history&#x27;]) can&#x27;t promote yet: mart.alerts_by_severity_ops_reports: its compare hasn&#x27;t passed; mart.alerted_runs_ops_reports: its compare hasn&#x27;t passed; mart.fail_history: its compare hasn&#x27;t passed.</pre>
+<pre class="python">print(project.promote(project.batch_tables(&quot;ops_reports&quot;)))</pre>
+<p class="label">Python prints</p><pre class="output">Warning: promoting mart.alerts_by_severity_ops_reports, which failed its compare: tables/mart__alerts_by_severity_ops_reports/conversion/compare.md says why.
+Warning: promoting mart.alerted_runs_ops_reports, which failed its compare: tables/mart__alerted_runs_ops_reports/conversion/compare.md says why.
+Warning: promoting mart.fail_history, which failed its compare: tables/mart__fail_history/conversion/compare.md says why.
+Promoted mart.alerts_by_severity_ops_reports to mart_prod.alerts_by_severity_ops_reports: tables/mart_prod__alerts_by_severity_ops_reports/ and references/mart_prod__alerts_by_severity_ops_reports.py.
+Promoted mart.alerted_runs_ops_reports to mart_prod.alerted_runs_ops_reports: tables/mart_prod__alerted_runs_ops_reports/ and references/mart_prod__alerted_runs_ops_reports.py.
+Promoted mart.fail_history to mart_prod.fail_history: tables/mart_prod__fail_history/ and references/mart_prod__fail_history.py.
+Copied 1 Building block to prod, which the prod tables import: building_blocks/prod/run_values.py.
+Next: run the promote Workflow&#x27;s next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, seed each that reads itself, and write each.</pre>
+<p class="label">It writes 18 files</p>
+<pre class="file">admin/admin_log.md
+admin/lineage/lineage_state.csv
+admin/registry.csv
+admin/workflows/promote/promoted.json
+building_blocks/prod/run_values.py
+references/mart_prod.py
+references/mart_prod__alerted_runs_ops_reports.py
+references/mart_prod__alerts_by_severity_ops_reports.py
+references/mart_prod__fail_history.py
+tables/mart_prod__alerted_runs_ops_reports/conversion/in_dev.hql
+tables/mart_prod__alerted_runs_ops_reports/conversion/statement.hql
+tables/mart_prod__alerted_runs_ops_reports/mart_prod__alerted_runs_ops_reports.ipynb
+tables/mart_prod__alerts_by_severity_ops_reports/conversion/in_dev.hql
+tables/mart_prod__alerts_by_severity_ops_reports/conversion/statement.hql
+tables/mart_prod__alerts_by_severity_ops_reports/mart_prod__alerts_by_severity_ops_reports.ipynb
+tables/mart_prod__fail_history/conversion/in_dev.hql
+tables/mart_prod__fail_history/conversion/statement.hql
+tables/mart_prod__fail_history/mart_prod__fail_history.ipynb</pre>
 <p>At work, open admin/workflows/promote/promote.ipynb, leave its names cell&#x27;s <code>TABLES = []</code>, and run its cells top to bottom, as the convert notebook&#x27;s: left [], &quot;Run up to your Decisions&quot; promotes every finished table not promoted yet, or changed in dev since, naming each and why, here the three. To promote only some, name them: <code>TABLES = [&quot;mart.fail_history&quot;]</code>. What promote carries:</p>
 <ul><li>Each prod copy&#x27;s location is the one an earlier promote gave it, else placed under PROD&#x27;s &quot;location_root&quot;, as /data/prod/mart_prod.db/fail_history, else a Decision to answer.</li><li>Each Building block a table imports, run_values among them, is copied into building_blocks/prod/, and the prod copy imports that copy: change run_day in dev, and prod gets it only when you promote again. <code>project.check()</code> names a prod copy edited by hand.</li><li>A prod copy keeps its dev table&#x27;s TAGS. Its seed is its own: it copies every Partition of the original until you answer &quot;seed&quot; for it in the promote notebook&#x27;s decisions cell, as step 6 did here, since prod often needs more of the original&#x27;s history than a dev compare did.</li></ul>
 <p>Done when the promote Workflow names its next step for the three tables, at work. Then check it worked, below.</p>
@@ -8049,7 +8103,7 @@ except ValueError as refused:
 <p><code>EACH_SCRIPT_ITS_OWN_BATCH = True</code>, in the names cell, makes each file of FILES, or each .hql file beside the notebook with FILES left [], a batch of its own, named for its file without .hql, daily for daily.hql; NAME is unused. &quot;Run up to your Decisions&quot; converts each, then runs each batch&#x27;s steps in turn, and prints one DECISIONS for every batch&#x27;s open Decisions, for the one decisions cell, where &quot;all_tables&quot; spans them all. Two scripts where one reads a table the other writes are refused before anything is written, naming the pair: convert them as one batch, as this page does. Two files of one name are refused too.</p>
 <h4>Check it worked</h4>
 <p>Before you go on, check that:</p>
-<ul><li>RUN_DAY&#x27;s line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names run_day, and the Hive <code>show_hive</code> shows holds the day it gave;</li><li>the seed&#x27;s line ends with the WHERE its &quot;seed&quot; answer gave, here <code>WHERE dt &gt;= &#x27;2026-09-01&#x27;</code>;</li><li>each result in each table&#x27;s conversion/compare.md says &quot;Passed:&quot;;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
+<ul><li>RUN_DAY&#x27;s line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names run_day, and the Hive <code>show_hive</code> shows holds the day it gave;</li><li>the seed&#x27;s line ends with the WHERE its &quot;seed&quot; answer gave, here <code>WHERE dt &gt;= &#x27;2026-09-01&#x27;</code>;</li><li>each table&#x27;s conversion/compare.md says &quot;Passed:&quot;, or you have read the warning at its top and checked that table&#x27;s rows yourself;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
 <h4>Common mistakes</h4>
 <h5>Converting related scripts one at a time</h5>
 <p>A table one script writes and another reads is made once, and read in dev, only when both are in one batch. Give the scripts together, with <code>files=</code>, or FILES left [], and keep EACH_SCRIPT_ITS_OWN_BATCH False.</p>
@@ -8065,8 +8119,8 @@ except ValueError as refused:
 <p>Answer a tag with the function itself, <code>run_day</code>, never <code>run_day()</code>: with brackets, Python calls it once, as the decisions cell runs, and the answer is that one day. The Workflow&#x27;s step 3 leaves a date given so unwritten, naming it in its report, and the tag stays open: answer with the name alone.</p>
 <h5>Working on a table converted before 8.4</h5>
 <p>A table converted before 8.4 keeps its seed() as it was, copying every Partition, with no SEED for a &quot;seed&quot; answer to fill: the 8.4 Upgrade marks it so. Its tags in strings the Upgrade writes through tag_text, as 8.4 writes them, so a Run value&#x27;s function may answer them. To limit its seed, convert its scripts again as a new batch, with a new name for each table in RENAME, and remove the old one once the new one&#x27;s compare passes, with <code>project.remove_table</code> in admin/remove.ipynb.</p>
-<h5>Promoting before comparing</h5>
-<p>promote refuses a table whose compare hasn&#x27;t passed, so prod never gets rows that differ from the original&#x27;s. Compare each table, and fix it in dev until its compare passes, then promote.</p>
+<h5>Promoting a table whose compare didn&#x27;t pass</h5>
+<p>promote promotes a table whose compare failed, or that wasn&#x27;t compared, naming it first, since promoting is your call: prod may then get rows that differ from the original&#x27;s. Read the warning at the top of its conversion/compare.md, and fix the table in dev, or check its rows yourself, before you promote it.</p>
 <h4>Next</h4>
 <ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>latest_partition</code>, <code>run_value</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code></p>
@@ -22891,8 +22945,10 @@ rows[rows[&quot;team&quot;] == &quot;data&quot;]</pre>
 1 of 1: mart.job_hours  worked
 Wrote 1 table, in order.</pre>
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<p class="note">It writes <code>tables/mart__job_hours/conversion/run_values.json</code> too.</p>
 <pre class="python">print(project.compare_batch(&quot;job_hours&quot;, query=query))</pre>
-<p class="label">Python prints</p><pre class="output">mart.job_hours: failed, couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.job_hours.</pre>
+<p class="label">Python prints</p><pre class="output">mart.job_hours: failed, couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.job_hours.
+The batch is finished, though not every table passed: mart.job_hours failed its compare. That stops nothing: promote promotes each all the same, naming it, as promoting is your call: read its conversion/compare.md first. Finished: moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/, and project.check() names it done.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -22988,13 +23044,36 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.compare_batch(&quot;job_hours&quot;)`
 - Tables named: mart.job_hours
-- Files: wrote tables/mart__job_hours/conversion/compare.md
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes admin/workflows/convert/finished/job_hours/batch.md</p>
+<pre class="file"># Batch job_hours
+
+admin/workflows/convert/job_hours.xlsx, a workbook read where it is, its final kept as its Hive in scripts/: job_hours.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
+
+## Tables
+
+- mart.job_hours, from its query: tables/mart__job_hours/, its checklist tables/mart__job_hours/conversion/checklist.md
+  - # CONVERSION: FROM(job_events, reads_all_partitions=True), a note on its checklist
+  - # CONVERSION: LEFT_JOIN(o, reads_all_partitions=True), a note on its checklist
+  - # CONVERSION: sum_of(run_hours.hours, adds_up=True), a note on its checklist
+
+## The Workbook check of job_hours.xlsx
+
+It ran the Hive of each table the workbook gave, on this computer, over the workbook&#x27;s own Tables, and compared its rows with the values the workbook shows, as last saved. A difference means the Hive doesn&#x27;t give what the workbook&#x27;s formula, query or PivotTable gave on the same rows: look at each one, though none stops anything. The workbook&#x27;s rows are an old sample, so the warehouse&#x27;s rows will differ from them: this compares the Hive with the workbook alone, never with the warehouse.
+
+- mart.job_hours, from PivotTable &quot;PivotTable1&quot;: every cell matches the workbook, 2 cells compared.
+
+## Each statement, in the order they run
+
+1. job_hours.hql line 1, `WITH job_events AS ( SELECT job_id, event_type, dt, minutes / 60 AS hours FRO...`: mart.job_hours, written by its notebook</pre>
 <p class="label">It writes tables/mart__job_hours/conversion/compare.md</p>
 <pre class="file"># mart.job_hours against its query, in conversion/statement.hql
 
 Below, the Statement is mart.job_hours&#x27;s rows, and the original its query&#x27;s.
+
+Warning: mart.job_hours failed its compare: the first result below says why. That stops nothing: its batch is finished all the same, and promote promotes mart.job_hours, naming it, as promoting is your call. Read the rows below before you do.
 
 ## Every row
 
@@ -23005,8 +23084,10 @@ What happened:  The Example database couldn&#x27;t run this Hive: it has no tabl
   Why it matters: Most often a table, column or hive_function(...) name is spelt wrong, which your warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but the Example database&#x27;s small executor doesn&#x27;t.
   Usual fix:      Check the names: the tables are ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets and ops.team_notes, and all_columns(...) of one, such as all_columns(ops.jobs), lists its columns, as the table alone on a cell&#x27;s last line does. If they&#x27;re right, see the Hive with to_hive(...), and run it at work with your own query.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>mart.job_hours has no Partitions, so its compare reads every row: the names cell&#x27;s PARTITIONS, which lists Partitions to compare beside the latest, is left as it is. The Example database holds no Dev Database, so here the compare couldn&#x27;t read the dev table, and says it failed. At work, where the dev table is there, it compares the table&#x27;s rows with its query&#x27;s and writes tables/mart__job_hours/conversion/compare.md, whose &quot;Every row&quot; part says, once they match, <code>Passed: every row: it has no Partitions.</code> Once it passes, the batch is finished, and the promote Workflow carries the table to your Prod Database, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</p>
-<p>Done when compare.md says &quot;Passed:&quot;, at work; here, when the compare has run. Then step 11.</p>
+<p class="note">It writes <code>admin/workflows/convert/finished/job_hours/scripts/job_hours.hql</code> too.</p>
+<p class="note">It writes <code>admin/workflows/convert/finished/job_hours/written.json</code> too.</p>
+<p>mart.job_hours has no Partitions, so its compare reads every row: the names cell&#x27;s PARTITIONS, which lists Partitions to compare beside the latest, is left as it is. The Example database holds no Dev Database, so here the compare couldn&#x27;t read the dev table, and says it failed: a result that stops nothing, so the batch is finished all the same. At work, where the dev table is there, it compares the table&#x27;s rows with its query&#x27;s and writes tables/mart__job_hours/conversion/compare.md, whose &quot;Every row&quot; part says, once they match, <code>Passed: every row: it has no Partitions.</code>; one that fails has a warning at its top saying so, in plain words. The promote Workflow carries the table to your Prod Database, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows, naming it first if its compare didn&#x27;t pass.</p>
+<p>Done when compare.md says &quot;Passed:&quot;, or you have read its warning, at work; here, when the compare has run. Then step 11.</p>
 <h5>11. Or have Copilot write the Hive</h5>
 <p>Goal: the same table from the Hive Copilot writes, for whoever converts a workbook with Copilot. At work, and nothing on this page runs it:</p>
 <ol start="1"><li>Write the workbook as text: in a terminal in the download&#x27;s top folder, run <code>python copilot/workbook_text.py &quot;admin/workflows/convert/job_hours.xlsx&quot;</code>, with your workbook&#x27;s path, which writes job_hours.txt beside it: each Table and formula, the Power Query&#x27;s M, the PivotTable, its fields, its slicer and its cells, and the order each piece reads the others in.</li><li>In a new chat, attach the Copilot files from <code>copilot/</code>, in this order, as <code>copilot/00_start_here.txt</code>&#x27;s Index gives them, then job_hours.txt, and send &quot;Convert this workbook&quot;:</li></ol>
