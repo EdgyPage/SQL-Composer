@@ -1,4 +1,4 @@
-# Toolbox 8.10: SORT_ARRAY on newer sqlglot, compares that don't run the user's params, and Table references added for you
+# Toolbox 8.10: SORT_ARRAY on newer sqlglot, compares that never stop you, Table references added for you, and History tables seeded
 
 Label: wayfinder:map
 
@@ -165,13 +165,163 @@ aggregate.
 every raise it needs a `to_8_10` Upgrade step in `STEPS`, even one with nothing to change, and
 the Example projects frozen as 8.9 left them in `tests/upgrade_from/8.9/`.
 
+## Settled (grilling, 2026-11-27)
+
+Round 1, the user's answers:
+
+1. **SORT_ARRAY**: read both sqlglot shapes, with a CI job at a newer sqlglot, "if it's just
+   one function call affected". Only `Converter.leave_out_sort_arrays_true` reads
+   `exp.SortArray` (plus `Finding`'s docstring and `trees.py`'s arity table, which names
+   `sort_array` by text); the suite run on 30.34.0 measures the rest.
+2. **No finding of the Toolbox's own** for `ARRAY_SORT` becoming `SORT_ARRAY` (NULLs moving
+   first, a comparator dropped): "only plan for sqlglot", its change alone.
+3. **A compare of a query alone with params**: fill where every value is known (answered
+   Script tags, Hivevar defaults, and each Run value as recorded when the dev table was
+   written, never called again); skip with a plain reason where one isn't.
+4. **A skipped compare doesn't block**: `compare.md` lists it as not compared, with why, and
+   promote names each table it promotes uncompared.
+5. **A table original that differs by its answered tags stays a fail**, with a hint in
+   `compare.md`, and blocks no next step. The user: "I can't/won't be trying to version slect
+   statement snapshots on timestamps."
+6. **Every Workflow that needs a Table reference adds it**, as convert does, saying what it
+   added. The user: "I want every step to be automatic if it's supported and expected
+   behavior."
+7. **Rebuilt table and History table** (CONTEXT.md), by what a write does to the rows already
+   there, not by what its query computes.
+8. **Seed widened** (CONTEXT.md): a History table's one-time load of past rows, copied from its
+   Original or written by its own write for each past Partition, with a limit. The user: "if we
+   could infer what the date partition is, load the last month, two months, or four months,
+   or some other single param a user could fill in. My data environment is intensly
+   fractured with drop, create pairs, no pairs, assumptions about different tables
+   existing... I want to be able to have a historical table that is usable from day one by
+   loading in relevant data from a subset of all available partitions." So the "Ideas for
+   later" item is in scope now.
+9. **The kind is a Decision for every table** convert and `new_table` write, proposed from
+   the Hive, accepted as 8.5's proposals are.
+
+Round 2, the user's answers:
+
+1. **No compare result blocks anything**, a plain fail included; each failed or skipped table
+   is named in obvious language, in `compare.md` and when promote runs. The user: "I check the
+   data day to day while in dev, so a promote to prod is not a Toolbox call, it's mine. I
+   can't encode every things that could be explaining failure differences, especially in
+   records loaded in different times, so note the warnings in obvious language, but don't stop
+   the user." This widens round 1's answers 4 and 5.
+2. **The Seed limit's single value**: `"seed": {"months": N}` in the decisions cell, for one
+   table or under `all_tables`, counted back from the newest Partition the source holds, not
+   today; proposed as 1. The value, range and list forms stay.
+3. **The date partition**: the user asked whether DESCRIBE gives the partition information
+   programmatically. It does: the Toolbox already reads DESCRIBE's "# Partition Information"
+   rows for each partition column and its type (`describe.py`), and SHOW PARTITIONS for the
+   values (`run_values.latest_partition`), both through the user's `query`. Round 3 confirms
+   the rule.
+4. **A Seed with nothing to copy from** runs its write once for each past date, oldest first,
+   with that date as the Run value. The user: "whatever gets the partititons to come out
+   nicely in the expected file structure": each run writes the one Partition folder
+   (`dt=2026-11-27/`) a scheduled write writes, so the Seed's folders are the ones every later
+   write adds to.
+5. **A Seed's failed Partition doesn't stop it**: it carries on and lists each Partition not
+   loaded with the warehouse's error, and `check_project` warns while a History table lacks
+   Partitions its Seed limit named.
+6. **The kind is proposed by the write**: DROP then CREATE and INSERT, or `INSERT OVERWRITE
+   TABLE` with no PARTITION, is Rebuilt; `INSERT OVERWRITE ... PARTITION (dt = <value>)` or
+   `INSERT INTO` is History; a dynamic `PARTITION (dt)` overwrite gets no proposal.
+7. **One version, 8.10, for all of it.**
+
+And on sqlglot: "can we just infer what version of sqlglot is imported and run smallish if
+statements where it matters?" Yes, by asking sqlglot for what it has (`exp.SortArray` there or
+not), not by its version number; round 3 has where.
+
+What supporting both costs, measured 2026-11-27 on a copy of 2224948b (not a git checkout, so
+the tests that need git are left out by comparing against the same copy on 30.23.0):
+
+- **Unpatched on 30.34.0**: 420 more tests fail than on 30.23.0, nearly all with "module
+  'sqlglot.expressions' has no attribute 'SortArray'".
+- **With one line changed** (`leave_out_sort_arrays_true` finding `ArraySort` when `SortArray`
+  is gone, and a `FALSE` kept as text): 35 left, every one about SORT_ARRAY, plus the
+  Toolbox's own "Note: sqlglot 30.34.0 is newer than any version sqlglot Composer was tested
+  on" (`engine.py`), which two tests see in their output. Nothing else in the Toolbox breaks on
+  30.34.0.
+- **What the 35 need**, each a small branch on whether sqlglot has `exp.SortArray`:
+  1. `leave_out_sort_arrays_true` finds `ArraySort` on 30.24+, where Hive's `SORT_ARRAY(x)`
+     reads as `asc` None and `nulls_first` TRUE, and `SORT_ARRAY(x, TRUE)` as `asc` TRUE.
+  2. A `FALSE` kept as written: 30.24+ refuses to write it ("Hive's SORT_ARRAY only sorts
+     ascending with NULLs first", raised since the Toolbox writes Hive with
+     `ErrorLevel.RAISE`), so it is written as text, as 30.23 writes it.
+  3. The Python a Conversion writes for the node leaves out `nulls_first`, so no `True`
+     appears in `hive_function("sort_array", ...)`.
+  4. `hive_function("sort_array", x, False)` (`trees.py`) writes on both.
+- **Spark's `ARRAY_SORT(x)`**: 30.23 writes `SORT_ARRAY(x)`; 30.24+ refuses it, as NULLs last
+  can't be written in Hive. Read as Hive, both write `SORT_ARRAY(x)`.
+- `engine.py` already checks sqlglot's behaviour when the Toolbox is imported and holds
+  `_NEWEST_TESTED`, so it is where "which shape" is answered once.
+
+Round 3, the user: "all your recommendations".
+
+1. **`SORT_ARRAY(x, FALSE)` on 30.24+** is written as text, so both sqlglot versions give
+   `SORT_ARRAY(x, FALSE)` and 8.7's finding.
+2. **Spark's `ARRAY_SORT(x)` on 30.24+** gives `SORT_ARRAY(x)` as on 30.23, with sqlglot's own
+   sentence ("Hive's SORT_ARRAY only sorts ascending with NULLs first") kept as its finding.
+3. **"Which shape"** is answered once, in `engine.py`, and the four places ask it. The pin stays
+   30.23.0; a second CI job runs at 30.34.0, and `_NEWEST_TESTED` rises to 30.34.0.
+4. **A date partition** is one whose every SHOW PARTITIONS value reads as a date (`2026-11-27`
+   or `20261127`). "N months" counts calendar months back from the newest Partition, both ends
+   included; values keep their written form in the Seed's WHERE.
+5. **A per-date Seed runs the write as of each past day**: that day goes wherever the write
+   reads today (`current_date`, or a Run value for today), so a write that targets yesterday
+   is run as of the day after. Only the run's today changes, never the logic.
+6. **A Seed day with no rows** keeps its empty Partition, is listed as "no rows" in the Seed's
+   report, and counts as missing in `check_project`'s Warning.
+7. **A Seed runs on its own**, first, in whichever step writes the table (convert's write step,
+   `new_table`'s, promote's), whenever a History table holds no Partitions yet; no cell sends
+   it by hand, and a rerun never loads twice.
+8. **Prod's Seed** copies from the Original when there is one; a History table with none copies
+   from its dev table, the days the user has checked.
+9. **`to_8_10`** proposes each existing table's kind from its Hive and writes it in as answered,
+   keeps every `seed()` and SEED as they are, and runs no Seed: those tables already hold
+   Partitions.
+
+Round 4, the user: "all your recommendations".
+
+1. **A History table with no Partitions** (an `INSERT INTO` append) is copied whole from its
+   Original; with none, `"seed": {"months": N}` counts back from today, the one case that
+   does, and runs the write as of each day. Its Seed runs only while it holds no rows.
+2. **Docs**: a new how-to 34, "Load a History table's past days" (the kind Decision,
+   `"seed": {"months": N}`, the Seed's report), a pointer from how-tos 06 and 09, a line on the
+   kind Decision in Copilot files 06 and 07 (each kept under 9,000 characters), and `## 8.10`
+   in `CHANGES.md`.
+3. **Example projects**: every table gets its kind (as `to_8_10` writes it), and one daily table
+   of the intermediate project shows `"seed": {"months": 1}` for how-to 34. No new tables.
+4. **Tickets in this order**: SORT_ARRAY on both shapes and its CI job; Table references added;
+   compares; Rebuilt and History tables; the Seed widened; `check_project`'s Warning; docs and
+   Example projects; the version.
+5. **Usability**: one dev scenario after the docs ticket (a converter whose batch holds a
+   History table whose date Hive computes), then the held-out scenario once before the export,
+   each only on the user's yes.
+
+Every branch is settled; the tickets wait on the user's confirming the plan below.
+
 ## Tickets
 
-None yet: written once the questions below are settled.
+Written 2026-11-27, once the user confirmed the plan ("Yes, write the tickets").
+
+- [01 SORT_ARRAY on both sqlglot shapes, and a CI job at 30.34.0](issues/01-sort-array-on-both-sqlglots.md)
+- [02 Table references added for you](issues/02-references-added-for-you.md)
+- [03 Compares that fill the user's params, and never stop the user](issues/03-compares-that-never-stop-you.md)
+- [04 Rebuilt or History: each table's kind, a Decision proposed from its write](issues/04-rebuilt-or-history.md)
+- [05 The Seed widened: a History table usable from its first day](issues/05-the-seed-widened.md)
+- [06 check_project warns while a History table lacks its Seed's days](issues/06-check-project-warns-of-missing-days.md)
+- [07 The docs and the Example projects](issues/07-the-docs-and-example-projects.md)
+- [08 8.10: the Upgrade step and the raise](issues/08-eight-point-ten.md)
+
+One at a time, by number, the user's habit; 01 first, since anyone on sqlglot 30.24.0 or newer
+is broken today. 01 to 04 block nothing of each other; 05 waits on 04, 06 on 05, 07 on 01 to
+06, and 08 on all. The real dependencies are in each ticket's `Blocked by:`.
 
 ## Not yet specified
 
-Each is the user's decision.
+Each is the user's decision. All five are settled above (rounds 1 to 4, 2026-11-27); the list
+is kept as it was asked.
 
 1. **SORT_ARRAY on newer sqlglot.** Make the Toolbox read both shapes (`SortArray` up to
    30.23, `ArraySort` with `asc` from 30.24) and add a CI job at a sqlglot from 30.24 on; or
@@ -202,7 +352,7 @@ Each is the user's decision.
   months, etc"). The Toolbox reads the historical table's partition column and how its write
   fills it, then offers ranges to pick from, counted back from the latest Partition: last
   month, last two months, and so on. The pick becomes the first load's limit (SEED's range
-  today). This is a later idea, not part of decision 4.
+  today). In scope since round 1's answer 8.
 
 ## Out of scope
 

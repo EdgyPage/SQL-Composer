@@ -390,15 +390,27 @@ create_table made those before 5.0, and admin.move_to_own_folder moves one to a 
 own.
 _Avoid_: materialized view, cache, temp table, output table
 
+**Rebuilt table**:
+A Saved table each write replaces whole, so its first write leaves it complete and it needs
+no Seed. Which kind a table is, Rebuilt or History, is one of its Decisions. What its query
+computes doesn't decide it: a summary rebuilt every run is a Rebuilt table.
+_Avoid_: aggregate table, full refresh
+
+**History table**:
+A Saved table each write adds rows to, or replaces some of, such as one Partition for the
+run's date, keeping the rest: what reads it expects its past rows to be there. A new copy
+holds only what its writes have added since, so it needs a Seed to be usable from its first
+day. A daily summary that keeps every day's Partition is a History table.
+_Avoid_: historical table, incremental table, aggregate table
+
 **Seed**:
-The one-time copy of an original table's rows into its copy, in dev or in prod, for a Saved
-table a Conversion made whose write reads its own table, as an incremental INSERT does: the
-copy starts empty, so its first write would start from nothing. It runs once, before that
-first write; a write runs every time. It copies every Partition unless the table's Decision
-limits it, by a value, a range or a list for each partition column, so years of rows the
-table doesn't need are left behind. In Python, `seed()` in its Table notebook, an Unchecked
-statement.
-_Avoid_: backfill, preload, bootstrap
+The one-time load of a History table's past rows, in dev or in prod, before its first write,
+so the table is usable from that first day: copied from its Original when a Conversion made
+it, and otherwise written by its own write for each past Partition. It runs once; a write
+runs every time. Its limit, one of the table's Decisions, picks which of the past Partitions
+it loads, so years of rows the table doesn't need are left behind. In Python, `seed()` in its
+Table notebook.
+_Avoid_: backfill, preload, bootstrap, initial load
 
 **Unchecked statement**:
 Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no

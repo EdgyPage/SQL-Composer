@@ -81,11 +81,12 @@ tickets. Toolbox 8.9 (a Formula workbook converted in code by the convert Workfl
 Copilot files, as two equal paths (ADR 0016); PivotTables and Pivot filters converted, Copilot
 files 20 and 21; and the Workbook check, offline on the workbook's own Tables) is charted
 through `.scratch/toolbox-8-9/map.md`; read its Notes before working one of its tickets.
-Toolbox 8.10 (SORT_ARRAY on sqlglot 30.24.0 and later, which dropped `exp.SortArray`; the
-convert compare of a query alone whose params can't run; Table references added for you
-in the Workflows that refuse without one; and each table asked whether it is aggregate or
-historical, so a historical one gets its first load) is charted through `.scratch/toolbox-8-10/map.md`;
-its "For you, in short" section is the summary, and nothing is built yet. The
+Toolbox 8.10 (SORT_ARRAY on sqlglot 30.24.0 and later, which dropped `exp.SortArray`;
+compares that fill the user's params and never stop the user; Table references added for you
+in the Workflows that refuse without one; and each table a Rebuilt or a History table, a
+History table's Seed loading its last months) is charted through
+`.scratch/toolbox-8-10/map.md`; read its Notes and its Settled rounds before working one of
+its tickets. The
 evaluation system (dev-only, no version: the testing pipelines on
 one module, `tools/eval_runs.py`, rounds run by script, a local token ledger and cost report,
 sources tied to doc ids, records kept out of git in `.eval-local/`, and the history scrubbed of
