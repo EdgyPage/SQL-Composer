@@ -68,7 +68,7 @@ table.
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.promote(tables, *, rename=None)
 - project.promoted_tables(tables, seeded=False)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 
 ## The steps of promote
 

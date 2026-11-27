@@ -459,12 +459,26 @@ def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
     reference, all_tables' into each table TABLES names: a convert batch's own tables, or,
     when each script is its own batch, every batch's, as one decisions cell answers them all."""
+    return write_the_decisions_through(inputs, None)
+
+
+def write_the_batch_decisions(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """Convert's step that writes each answer, as write_the_decisions does, given your query,
+    which writes the Table reference of a table a "sources" answer gives that has none
+    (Toolbox 8.10). It reads DESCRIBE only, and writes files, so a dry run runs it too."""
+    return write_the_decisions_through(inputs, calls.query).lines
+
+
+def write_the_decisions_through(inputs: dict[str, object],
+                                query: Callable[[str], pd.DataFrame] | None) -> ProjectReport:
+    """project.write_decisions of the decisions cell, for the tables TABLES names or every
+    batch's, given `query`, or None."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
     tables = names_in(inputs, "TABLES_OF_EVERY_BATCH") or names_in(inputs, "TABLES")
     return project.write_decisions(answers if isinstance(answers, dict) else {},
-                                   tables=tables)
+                                   tables=tables, query=query)
 
 
 def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
@@ -1051,10 +1065,21 @@ def first_check_hive(change: Statement) -> str | None:
 
 
 def make_table_folders(inputs: dict[str, object]) -> ProjectReport:
-    """project.new_table for each table TABLES names, from its query where QUERIES gives one."""
+    """project.new_table for each table TABLES names, from its query where QUERIES gives one,
+    as project.do_next runs it, with no query of yours."""
     from . import project  # project.py imports this file
 
     return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs))
+
+
+def make_table_folders_reading(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.new_table, as make_table_folders runs it, given your query, which writes the
+    Table reference of a table a query of QUERIES reads that has none (Toolbox 8.10). It
+    reads DESCRIBE only, and writes files, so a dry run runs it too."""
+    from . import project  # project.py imports this file
+
+    return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs),
+                             query=calls.query).lines
 
 
 def queries_given(inputs: dict[str, object]) -> dict[str, str]:
@@ -1192,10 +1217,13 @@ CONVERT = Workflow(
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each answer written in",),
-             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
-             every_dev_decision_made, write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),\n"
+             "                        query=query)",
+             every_dev_decision_made, write_the_decisions, send=write_the_batch_decisions,
              goal="each answer written into its table's Table reference",
-             action="run the cell below.",
+             action="run the cell below. A table a `\"sources\"` answer gives that has no "
+             "Table reference gets one, from its DESCRIBE through your query, its Key "
+             "proposed: it names each file it added.",
              done_when="each table's `conversion/checklist.md` says None under Open Decisions"),
         Step("Create each table in dev", PERMISSION, ("each answer written in",),
              ("each made in dev",),
@@ -1406,16 +1434,17 @@ NEW_TABLE = Workflow(
     steps=(
         Step("Make each Table folder, converting each table's query QUERIES gives",
              FILE_STEP, ("the tables' names",), ("a Table folder",),
-             "project.new_table(TABLES, queries=QUERIES)", every_table_folder_made,
-             make_table_folders,
+             "project.new_table(TABLES, queries=QUERIES, query=query)",
+             every_table_folder_made, make_table_folders, send=make_table_folders_reading,
              goal="a Table folder for each table in `TABLES`: from its query, when `QUERIES` "
              "gives one, its logic written for you; else from a Template, its logic for you to "
              "write",
-             action="if `QUERIES` gives a query, first give each table it reads a Table "
-             "reference, with the references Workflow. Then run the cell below. Each query is "
-             "converted as the convert Workflow converts one: in a batch of its own, named for "
-             "its table, in `admin/workflows/convert/`; the batch moves to `finished/` once "
-             "compared.",
+             action="run the cell below. If `QUERIES` gives a query, each table it reads that "
+             "has no Table reference gets one first, from its DESCRIBE through your query, its "
+             "Key proposed, as the references Workflow writes one: it names each file it "
+             "added. Each query is converted as the convert Workflow converts one: in a batch "
+             "of its own, named for its table, in `admin/workflows/convert/`; the batch moves "
+             "to `finished/` once compared.",
              done_when="each table in `TABLES` has its Table folder in tables/"),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"), ("its logic",),

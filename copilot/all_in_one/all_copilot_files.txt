@@ -245,7 +245,7 @@ something and see its rows.
 
 - project.start()
 - project.add_references(names, *, query=None)
-- project.new_table(name, template='saved_table', queries=None)
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.check()
 - project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
@@ -1052,7 +1052,7 @@ columns and values, then tick the Self-check. Add nothing the user didn't ask fo
 
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
-it, add to it, or write the logic cell of a Table notebook.
+it, add to it, or write a Table notebook's logic cell.
 
 ## Patterns: when the user says X, do Y
 
@@ -1105,7 +1105,7 @@ it, add to it, or write the logic cell of a Table notebook.
 - **R9** Otherwise the next cell runs `show_hive([create(), write()])` and
   `run_query(preview(), query)`; `project.run_tables(execute=execute)` sends the writes.
 - **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
-  `export_hive()` cell writes <db>__<table>.hql beside it, to read.
+  `export_hive()` cell writes <db>__<table>.hql beside it.
 
 ## Always: rules A1 to A11
 
@@ -1143,7 +1143,7 @@ it, add to it, or write the logic cell of a Table notebook.
 
 ## Names for this objective, with their arguments
 
-- project.new_table(name, template='saved_table', queries=None)
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
@@ -2259,7 +2259,7 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
 
 ## The steps of convert
@@ -2274,7 +2274,8 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -2413,7 +2414,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
 - project.check()
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
-- project.new_table(name, template='saved_table', queries=None)
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.reference_from_logic(name)
 - project.add_references(names, *, query=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
@@ -2423,7 +2424,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-       project.new_table(TABLES, queries=QUERIES)
+       project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
@@ -2788,7 +2789,7 @@ table.
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.promote(tables, *, rename=None)
 - project.promoted_tables(tables, seeded=False)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 
 ## The steps of promote
 
@@ -2926,8 +2927,9 @@ Workflow's other cells when asked.
   period_end}}`. It lives in a Project file, imported at the top of the cell; one made in a
   cell, a lambda or a nested one is left unwritten.
 - **R4** The newest Partition of a table: `project.new_run_value("period_end",
-  latest_partition="ops.job_runs.dt")` writes `latest_partition(job_runs.dt, query)` in
-  building_blocks/run_values.py and registers it. Today: `today()` in UTC,
+  latest_partition="ops.job_runs.dt", query=query)` writes `latest_partition(job_runs.dt,
+  query)` in building_blocks/run_values.py and registers it, adding the table's Table
+  reference if it has none. Today: `today()` in UTC,
   `today(utc_offset_hours=-6)` six hours behind.
 - **R5** No Partition names it: the function runs a Statement of its own with run_query,
   each partitioned read bounded, and takes no argument (W1).
@@ -2951,13 +2953,13 @@ Workflow's other cells when asked.
 
 ## Names for this objective, with their arguments
 
-- project.new_run_value(name, *, latest_partition)
+- project.new_run_value(name, *, latest_partition, query=None)
 - latest_partition(column, query=None)
 - today(utc_offset_hours=0)
 - hive_date(day)
 - run_value(function, *arguments, **keywords)
 - hivevar(name, *, default)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
 - project.register(name)
 
@@ -2986,7 +2988,7 @@ def last_good_day() -> datetime.date:
 ### W2: the decisions cell and step 3: PERIOD_END by period_end, Keys accepted, a seed
 
 ```python
-project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
+project.new_run_value("period_end", latest_partition="ops.job_runs.dt", query=query)
 from building_blocks.run_values import period_end
 
 DECISIONS = {
@@ -3774,9 +3776,9 @@ the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
 
 ## Names for this objective, with their arguments
 
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
-- project.new_run_value(name, *, latest_partition)
+- project.new_run_value(name, *, latest_partition, query=None)
 - hivevar(name, *, default)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
 - is_in(column, values)

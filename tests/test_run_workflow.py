@@ -378,9 +378,50 @@ def test_new_table_refuses_a_query_for_a_table_it_isnt_given(started: Path) -> N
         project.new_table(f"{DEV}.failed_jobs", queries={"other": QUERY})
 
 
-def test_new_table_from_a_query_refuses_a_source_with_no_table_reference(started: Path) -> None:
-    with pytest.raises(ValueError, match="which has no Table reference"):
+def test_new_table_from_a_query_adds_the_table_reference_of_a_source_with_none(
+        started: Path) -> None:
+    # Toolbox 8.10, ticket 02: written for you, as convert writes one, and said, its Key
+    # proposed for you to accept, the Reference sheet rebuilt.
+    said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY},
+                                  query=example_database.query))
+    assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
+            "was written from its DESCRIBE.") in said
+    assert "ops.job_runs: its Key proposed, (run_id)" in said
+    reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
+    assert '    key=None,  # TODO: proposed ["run_id"], checked' in reference
+    sheet = (started / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.job_runs,run_id," in sheet
+    assert (started / "tables" / f"{DEV}__failed_jobs").is_dir()
+    log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
+    assert "created references/ops__job_runs.py" in log
+
+
+def test_new_table_from_a_query_keeps_a_table_reference_there_already(started: Path) -> None:
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    reference = started / "references" / "ops__job_runs.py"
+    reference.write_text(reference.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}))
+    assert "Added references/" not in said
+    assert reference.read_text(encoding="utf-8").endswith("# mine\n")
+
+
+def test_new_table_from_a_query_needs_your_query_for_a_source_with_no_table_reference(
+        started: Path) -> None:
+    with pytest.raises(TypeError, match=r"needs query=(.|\n)*ops.job_runs"):
         project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY})
+    assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
+
+
+def test_new_table_from_a_query_refuses_a_source_whose_describe_fails(started: Path) -> None:
+    def query(hive: str) -> object:
+        if "ops.job_runs" in hive:
+            raise RuntimeError("Table not found: ops.job_runs")
+        return example_database.query(hive)
+
+    with pytest.raises(ValueError, match=(
+            r"ops.job_runs \(DESCRIBE failed: RuntimeError: Table not found: ops.job_runs\)")):
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}, query=query)
+    assert not (started / "references" / "ops__job_runs.py").exists()
     assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
 
 

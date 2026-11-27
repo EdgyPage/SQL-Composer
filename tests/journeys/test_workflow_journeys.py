@@ -98,6 +98,10 @@ KNOWN_ACTIONS: dict[str, int] = {
     # Toolbox 8.8, ticket 08: a Building block changed, its table's cell 5 and one write run,
     # then admin/lineage.ipynb's three cells.
     "test_a_building_block_changed_then_found_in_the_lineage_difference": 10,
+    # Toolbox 8.10, ticket 02: new_table adds the Table reference its query reads, so the
+    # references Workflow's 8 actions before it are gone: 21 in 8.9, through the runner.
+    "test_new_table_from_a_query_then_promote_it": 13,
+    "test_new_table_from_a_query_cell_by_cell": 14,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -1112,24 +1116,51 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     assert "2026-09-24" not in set(started.warehouse.rows_of(table)["dt"])
 
 
+JOB_COUNTS = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
+              "WHERE r.status = 'FAILED' GROUP BY r.job_id")
+
+
 def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
     """A query typed into new_table's names cell becomes a dev table, compared with its query
-    and promoted, with no hand edit but its Decisions."""
-    _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
+    and promoted, with no hand edit but its Decisions; the table it reads, which has no Table
+    reference, gets one on the way (Toolbox 8.10, ticket 02)."""
     table = "mart_dev.job_counts"
-    query = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
-             "WHERE r.status = 'FAILED' GROUP BY r.job_id")
     journey = started.journey("new_table", by_hand=False)
-    journey.type_names(TABLES=[table], QUERIES={"job_counts": query})
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS})
     sent = list(started.warehouse.executed)
-    assert "would send: CREATE" in journey.run_workflow(dry_run=True)
+    dry_run = journey.run_workflow(dry_run=True)
+    assert "would send: CREATE" in dry_run
     assert started.warehouse.executed == sent, "a dry run sent something"
+    assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
+            "was written from its DESCRIBE.") in dry_run
     assert "new_table: every step is done." in journey.run_workflow()
+    _check_made_from_its_query(started, table)
+    _promote_through_the_runner(started, [table])
+
+
+def test_new_table_from_a_query_cell_by_cell(started: Started) -> None:
+    """The same, each step's cell run in turn, as the notebook reads top to bottom."""
+    table = "mart_dev.job_counts"
+    journey = started.journey("new_table", by_hand=False)
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS})
+    journey.run_to()
+    _check_made_from_its_query(started, table)
+    compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
+    assert "Passed: " in compared.read_text(encoding="utf-8")
+
+
+def _check_made_from_its_query(started: Started, table: str) -> None:
+    """new_table's end goal from a query: the table written with its query's rows, its Key
+    proposed, and the Table reference of ops.job_runs, which it reads, added, its own Key
+    proposed, and in the Reference sheet."""
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id"],  # proposed' in written
+    read = _reference(started.root, "ops.job_runs").read_text(encoding="utf-8")
+    assert '    key=None,  # TODO: proposed ["run_id"], checked' in read
+    sheet = (started.root / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.job_runs,run_id," in sheet
     assert _sorted_rows(started.warehouse, table) == sorted(
-        started.warehouse.query(query).astype(str).values.tolist())
-    _promote_through_the_runner(started, [table])
+        started.warehouse.query(JOB_COUNTS).astype(str).values.tolist())
 
 
 def _fill_daily_runs_logic(text: str) -> str:

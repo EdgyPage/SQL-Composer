@@ -149,11 +149,40 @@ def test_a_name_already_in_the_file_is_refused(started: Path) -> None:
     assert (started / RUN_VALUES).read_text(encoding="utf-8") == before
 
 
-def test_a_table_with_no_table_reference_is_refused(started: Path) -> None:
-    with pytest.raises(FileNotFoundError, match=(
-            r"ops.run_alerts has no Table reference, references/ops__run_alerts.py(.|\n)*"
-            r"admin/workflows/references/references.ipynb")):
+def test_a_table_with_no_table_reference_gets_one_and_goes_on(started: Path) -> None:
+    # Toolbox 8.10, ticket 02: written for you from its DESCRIBE, its Key proposed for you to
+    # accept, and said, where 8.9 sent you to the references Workflow first.
+    said = repr(project.new_run_value("period_end", latest_partition="ops.run_alerts.dt",
+                                      query=example_database.query))
+    assert said.startswith(
+        "Added references/ops__run_alerts.py: ops.run_alerts had no Table reference, so it "
+        "was written from its DESCRIBE.\n"
+        "ops.run_alerts: its Key proposed, (alert_id), checked with check_key:\n")
+    assert ("Wrote period_end into building_blocks/run_values.py: the latest Partition of "
+            "ops.run_alerts, by dt.") in said
+    reference = (started / "references" / "ops__run_alerts.py").read_text(encoding="utf-8")
+    assert '    key=None,  # TODO: proposed ["alert_id"], checked' in reference
+    sheet = (started / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.run_alerts,alert_id," in sheet
+    assert "from references.ops__run_alerts import run_alerts\n" in (
+        started / RUN_VALUES).read_text(encoding="utf-8")
+
+
+def test_a_table_with_no_table_reference_needs_your_query(started: Path) -> None:
+    with pytest.raises(TypeError, match=r"needs query=(.|\n)*ops.run_alerts"):
         project.new_run_value("period_end", latest_partition="ops.run_alerts.dt")
+    assert not (started / RUN_VALUES).exists()
+
+
+def test_a_table_whose_describe_fails_is_refused_naming_it(started: Path) -> None:
+    def query(hive: str) -> object:
+        raise RuntimeError("Table not found: ops.run_alertz")
+
+    with pytest.raises(ValueError, match=(
+            r"ops.run_alertz \(DESCRIBE failed: RuntimeError: Table not found: "
+            r"ops.run_alertz\)")):
+        project.new_run_value("period_end", latest_partition="ops.run_alertz.dt", query=query)
+    assert not (started / "references" / "ops__run_alertz.py").exists()
     assert not (started / RUN_VALUES).exists()
 
 
