@@ -96,7 +96,7 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     project.convert("weekly", files=["weekly.hql"], query=example_database.query,
                     database="ops")
     for table in (FAILED, PER_JOB):
-        project.write_decisions({table: {"key": None}})
+        project.write_decisions({table: {"key": None, "kind": "proposed"}})
     import_the_block(tmp_path, PER_JOB)
     forget_the_projects_modules()
     project.compare_batch("weekly", query=warehouse())

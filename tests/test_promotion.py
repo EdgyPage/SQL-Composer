@@ -57,9 +57,9 @@ def warehouse() -> Callable[[str], pd.DataFrame]:
 
 
 def fill_in(root: Path, table: str) -> None:
-    """Answer a dev table's Decisions: its Key, which none names. Its location= is placed
-    under DEV's location_root."""
-    project.write_decisions({table: {"key": None}})
+    """Answer a dev table's Decisions: its Key, which none names, and its kind, proposed from
+    its write (Toolbox 8.10). Its location= is placed under DEV's location_root."""
+    project.write_decisions({table: {"key": None, "kind": "proposed"}})
 
 
 # admin/databases.py's DEV and PROD, each with a root of its own (Toolbox 8.5, ticket 09).
@@ -269,7 +269,8 @@ def test_a_table_only_created_is_promoted_by_its_table_reference(
                     database="ops")
     uses = "mart_dev.uses_ops_reports"
     fill_in(tmp_path, uses)
-    fill_in(tmp_path, "mart_dev.lookup_ops_reports")
+    # Only created, it has no write, so no kind to decide (Toolbox 8.10).
+    project.write_decisions({"mart_dev.lookup_ops_reports": {"key": None}})
     forget_the_projects_modules()
     rows = "SELECT job_id FROM ops.jobs"
     copies = {uses: rows, "ops_reports.uses": rows}

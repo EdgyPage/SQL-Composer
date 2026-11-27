@@ -1279,6 +1279,10 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -1403,6 +1407,10 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -1527,6 +1535,10 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -1648,6 +1660,10 @@ project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -3598,7 +3614,7 @@ SCHEDULED_RUNS = []  # Scheduled runs to archive, such as [&quot;weekly&quot;]</
     print(project.remove_scheduled_run(SCHEDULED_RUNS))</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="intermediate/admin/removed/20260925-060000-mart__teams_pivot.py"><code>admin/removed/20260925-060000-mart__teams_pivot.py</code></h3>
-<details><summary>Show its 46 lines</summary><pre>&quot;&quot;&quot;mart.teams_pivot - TODO: say in one line what one row is.&quot;&quot;&quot;
+<details><summary>Show its 52 lines</summary><pre>&quot;&quot;&quot;mart.teams_pivot - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
 teams_pivot = Table(
@@ -3634,6 +3650,12 @@ PIVOT_FILTERS = {
     &quot;team&quot;: &quot;fold&quot;,  # the slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance)
 }
 
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;rebuilt&quot;  # TODO: proposed rebuilt: it is a query alone, which each write writes whole
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__teams_pivot import teams_pivot, &lt;alias&gt;
@@ -3652,7 +3674,7 @@ Written again each time its Decisions are written: don&#x27;t tick or edit it. A
 
 ## Open Decisions
 
-None: each Decision in references/mart__teams_pivot.py is made.
+- kind: proposed a Rebuilt table, as it is a query alone, which each write writes whole: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there, in references/mart__teams_pivot.py
 
 ## Notes, which block nothing
 
@@ -4834,6 +4856,10 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -4960,8 +4986,8 @@ GROUP BY
  &quot;files&quot;: {
   &quot;admin/workflows/convert/job_hours/batch.md&quot;: &quot;23c4245a494b2a1ffe50ba4231f0276ca3692d4955efd1b549c87b9c6f0dfb97&quot;,
   &quot;admin/workflows/convert/job_hours/scripts/teams_pivot.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
-  &quot;references/mart__job_hours.py&quot;: &quot;5d525a29ba2500c83a0b8c94fa09f3d0146da0c3c0331455d5e601699572127b&quot;,
-  &quot;tables/mart__job_hours/conversion/checklist.md&quot;: &quot;f96c30b87aa374760ddb7093f38f10573eadebc8cdcade01ecc270ec8a1bc6bb&quot;,
+  &quot;references/mart__job_hours.py&quot;: &quot;e5bde637b632a271d38fc02a980ed351cbb265d99cb0fb6a3d5d3598045bd2f9&quot;,
+  &quot;tables/mart__job_hours/conversion/checklist.md&quot;: &quot;52d22bdcb7d534f4db03987158fd41902457cbe0766489deac097dccdd3fd414&quot;,
   &quot;tables/mart__job_hours/conversion/in_dev.hql&quot;: &quot;131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4&quot;,
   &quot;tables/mart__job_hours/conversion/scan.md&quot;: &quot;d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e&quot;,
   &quot;tables/mart__job_hours/conversion/statement.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
@@ -5017,8 +5043,8 @@ GROUP BY
 <details><summary>Show its 18 lines</summary><pre>{
  &quot;files&quot;: {
   &quot;admin/workflows/convert/team_failures/batch.md&quot;: &quot;4816147a4abf8d90f57337f639bcbe1be91c6b4d93470bdb2bfd63cdac300d10&quot;,
-  &quot;references/mart__team_failures.py&quot;: &quot;02fcdd5841304acde8a3acbbc8e363b2dff341c2c8f316620d5491bb6e6f09bf&quot;,
-  &quot;tables/mart__team_failures/conversion/checklist.md&quot;: &quot;65fbd747bdcfac2462ca3fadafd2b7b348b9adfaa6d6c2a9815ed6cc8e331920&quot;,
+  &quot;references/mart__team_failures.py&quot;: &quot;4897ba08e1bd7cc092e83ede82887e94ad5fa4fa07052b836a2f7bd35bedd6f3&quot;,
+  &quot;tables/mart__team_failures/conversion/checklist.md&quot;: &quot;3550fcaaa1d98f15298525b3314634968f947b570d4cc5d88d59944298858832&quot;,
   &quot;tables/mart__team_failures/conversion/in_dev.hql&quot;: &quot;11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766&quot;,
   &quot;tables/mart__team_failures/conversion/scan.md&quot;: &quot;aabcee7c9b773f3edc43004da6b44640413bf249e97cd23bdcf0a901aaaf6a7a&quot;,
   &quot;tables/mart__team_failures/conversion/statement.hql&quot;: &quot;cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678&quot;,
@@ -5302,6 +5328,10 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -5436,6 +5466,10 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -5567,6 +5601,10 @@ project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 # accepts each table&#x27;s proposed Key and gives each table holding PERIOD_END that
 # value. A table&#x27;s location is placed under &quot;location_root&quot; in
 # admin/databases.py; answer &quot;location&quot; only for one it can&#x27;t place.
+# &quot;kind&quot; says whether each write replaces the whole table, &quot;rebuilt&quot;, or keeps the
+# rows already there, &quot;history&quot;, as a daily table keeps each day: &quot;proposed&quot; accepts
+# the kind proposed from its write, which project.check() names, and under
+# &quot;all_tables&quot; accepts each table&#x27;s.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
 # DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
 # project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
@@ -6081,7 +6119,7 @@ job_events_checks = Table(
 #     &lt;alias&gt; = equals(job_events_checks.&lt;column&gt;, &lt;value&gt;)
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/mart__job_hours.py"><code>references/mart__job_hours.py</code></h3>
-<details><summary>Show its 57 lines</summary><pre>&quot;&quot;&quot;mart.job_hours - one row per job and team: the hours its runs took.
+<details><summary>Show its 63 lines</summary><pre>&quot;&quot;&quot;mart.job_hours - one row per job and team: the hours its runs took.
 
 Why: the project&#x27;s notebooks read the table through this file, so each column they name, and the
 key each join and count relies on, where it has one, is checked as the Statement is built.
@@ -6127,6 +6165,12 @@ SOURCES = {
 PIVOT_FILTERS = {
     &quot;team&quot;: &quot;fold&quot;,  # the slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance)
 }
+
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;rebuilt&quot;  # TODO: proposed rebuilt: it is a query alone, which each write writes whole
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
@@ -7629,7 +7673,7 @@ Written again each time its Decisions are written: don&#x27;t tick or edit it. A
 
 ## Open Decisions
 
-None: each Decision in references/mart__job_hours.py is made.
+- kind: proposed a Rebuilt table, as it is a query alone, which each write writes whole: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there, in references/mart__job_hours.py
 
 ## Notes, which block nothing
 

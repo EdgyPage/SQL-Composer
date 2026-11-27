@@ -423,6 +423,11 @@ DROP TABLE IF EXISTS failed_runs;
 """
 
 
+# The decisions cell answering History for each table of a batch (Toolbox 8.10, ticket 04),
+# as a user whose daily loads fill dt from their rows' own values, PARTITION (dt), answers it.
+HISTORY_FOR_ALL = {"all_tables": {"kind": "history"}}
+
+
 def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[str]:
     """The convert Workflow, from a script whose originals ran in the warehouse, to the Batch
     finished: the dev tables it made, each with the Key `keys` says convert proposes."""
@@ -438,10 +443,18 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
         written = path.read_text(encoding="utf-8")
         assert f"    key={keys[table]!r},  # proposed".replace("'", '"') in written
     _check_each_placed(started.root, tables)
-    assert "DECISIONS = {" not in repr(project.check()), "a Decision is left to answer"
+    # Toolbox 8.10, ticket 04: each write fills dt from its rows' own values, PARTITION (dt),
+    # so nothing is proposed for its kind, the one Decision left: the user answers History.
+    journey.paste_decisions(_kinds_answered(tables, "history"))
     journey.run_to()
     _check_converted(started, tables, keys)
     return tables
+
+
+def _kinds_answered(tables: list[str], kind: str) -> dict[str, dict[str, object]]:
+    """The answers a pasted DECISIONS fills in for each table's kind, nothing proposed for it:
+    under all_tables, where several share it, or under its own name."""
+    return {"all_tables": {"kind": kind}, **{table: {"kind": kind} for table in tables}}
 
 
 def _check_converted(started: Started, tables: list[str], keys: dict[str, list[str]]) -> None:
@@ -460,11 +473,13 @@ def _convert_through_the_runner(started: Started, script: str,
                                 keys: dict[str, list[str]]) -> list[str]:
     """The convert Workflow as one project.run_workflow call: its names typed first, then a
     dry run, which sends nothing, then the run, to the Batch finished. Each location is
-    placed under DEV's root, and each Key proposed, so no Decision is typed."""
+    placed under DEV's root, and each Key proposed, so the one Decision typed is each table's
+    kind, which nothing is proposed for (Toolbox 8.10, ticket 04)."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", script)
-    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS=HISTORY_FOR_ALL)
     sent = list(started.warehouse.executed)
     dry_run = journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -551,7 +566,7 @@ def test_the_runner_compares_the_partitions_listed(started: Started) -> None:
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITIONS=[{"dt": "2026-09-23"}])
+                       PARTITIONS=[{"dt": "2026-09-23"}], DECISIONS=HISTORY_FOR_ALL)
     assert "convert, weekly: every step is done." in journey.run_workflow()
     compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
     text = compared.read_text(encoding="utf-8")
@@ -586,7 +601,7 @@ def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITIONS=[{"dt": "'2026-09-23'"}])
+                       PARTITIONS=[{"dt": "'2026-09-23'"}], DECISIONS=HISTORY_FOR_ALL)
     said = journey.run_workflow()
     # The runner stops at step 7 on its refusal, as the cell's call does.
     assert "7. Compare each table with its original\n    Stopped by what this says" in said
@@ -605,6 +620,64 @@ def test_convert_then_promote_the_long_script(started: Started) -> None:
         "mart_dev.job_runs_counted_mart": ["job_id", "dt"],
         "mart_dev.job_fails_counted_mart": ["job_id", "dt"]})
     _promote(started, tables)
+
+
+# Toolbox 8.10, ticket 04: each table's kind, Rebuilt or History, a Decision proposed from what
+# its write does to the rows already there. A daily load names its one Partition by value; a
+# total its script drops, creates and fills again is written whole.
+DAILY_LOAD = """CREATE TABLE IF NOT EXISTS mart.daily_runs (job_id BIGINT, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r WHERE r.dt = '2026-09-24'
+GROUP BY r.job_id;
+"""
+DROPPED_AND_FILLED = """DROP TABLE IF EXISTS mart.job_totals;
+CREATE TABLE mart.job_totals (job_id BIGINT, runs BIGINT);
+INSERT INTO TABLE mart.job_totals
+SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.job_id;
+"""
+
+
+def _kind_of(root: Path, table: str) -> object:
+    return toolbox_module("decisions").table_kind(
+        _reference(root, table).read_text(encoding="utf-8"))
+
+
+def test_convert_proposes_each_tables_kind_and_the_user_accepts_both(started: Started) -> None:
+    started.warehouse.execute(DAILY_LOAD + DROPPED_AND_FILLED)
+    journey = started.journey("convert")
+    journey.save_by_hand(journey.folder / "daily.hql", DAILY_LOAD)
+    journey.save_by_hand(journey.folder / "totals.hql", DROPPED_AND_FILLED)
+    journey.type_names(NAME="kinds", FILES=["daily.hql", "totals.hql"], DATABASE="ops")
+    said = journey.run_workflow()
+    assert "2. Answer each table's open Decisions" in said
+    daily, totals = "mart_dev.daily_runs_mart", "mart_dev.job_totals_mart"
+    assert ("kind: proposed a History table, as its INSERT OVERWRITE replaces one Partition, "
+            "keeping the others") in said
+    assert "kind: proposed a Rebuilt table, as its script drops it first" in said
+    # The DECISIONS it prints holds each proposal: pasted as it is, it accepts both.
+    journey.paste_decisions({}, printed=said)
+    assert "convert, kinds: every step is done." in journey.run_workflow()
+    assert _kind_of(started.root, daily) == "history"
+    assert _kind_of(started.root, totals) == "rebuilt"
+
+
+def test_the_runner_waits_on_a_kind_nothing_was_proposed_for(started: Started) -> None:
+    # ONE_SCRIPT fills dt from its rows' own values, PARTITION (dt): it may replace every
+    # Partition or only some, which only the user knows.
+    started.warehouse.execute(ONE_SCRIPT)
+    journey = started.journey("convert")
+    journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    sent = list(started.warehouse.executed)
+    said = journey.run_workflow()
+    table = "mart_dev.team_fails_mart"
+    assert "2. Answer each table's open Decisions" in said
+    assert f"{table}: kind: Rebuilt or History table, nothing proposed, as its INSERT " in said
+    assert started.warehouse.executed == sent, "a table was created while its kind is open"
+    journey.paste_decisions({table: {"kind": "history"}}, printed=said)
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    assert _kind_of(started.root, table) == "history"
 
 
 # The user's snag (Toolbox 8.3): a script whose program fills in each Script tag,
@@ -665,8 +738,9 @@ TAGGED_KEYS = {"mart_dev.daily_close_mart": ["job_id", "dt"],
 
 
 def _tag_answers(values: dict[str, dict[str, str]]) -> dict[str, dict[str, object]]:
-    """The decisions cell for the tagged script: each table's tags."""
-    return {table: {"tags": tags} for table, tags in values.items()}
+    """The decisions cell for the tagged script: each table's tags, and History for each, which
+    nothing is proposed for, as each fills dt from its rows' own values."""
+    return {**HISTORY_FOR_ALL, **{table: {"tags": tags} for table, tags in values.items()}}
 
 
 def _check_tagged_rows(started: Started, tables: list[str]) -> None:
@@ -766,7 +840,8 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     table = "mart_dev.daily_close_mart"
     journey.run_to(1)
-    journey.paste_decisions({table: {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
+    journey.paste_decisions({table: {"tags": {"PERIOD_END": "'${hivevar:period_end}'"},
+                                     "kind": "history"}})
     journey.run_to()
     _check_converted(started, [table], {table: ["job_id", "dt"]})
     assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
@@ -816,12 +891,15 @@ def period_end() -> datetime.date:
     return latest_partition(job_runs.dt, query)
 '''
 # The decisions cell, as the user types it: the function imported, and answers for every
-# table given once.
+# table given once. Each table's kind (Toolbox 8.10, ticket 04): job_teams' proposed Rebuilt,
+# team_log's History, as it reads itself, each accepted, and recent_runs', which fills dt from
+# its rows' own values, so nothing is proposed, answered History.
 PERIOD_DECISIONS = """from building_blocks.run_values import period_end
 
 DECISIONS = {
-    "all_tables": {"tags": {"PERIOD_END": period_end}},
+    "all_tables": {"tags": {"PERIOD_END": period_end}, "kind": "proposed"},
     "mart_dev.team_log_mart": {"key": None, "seed": {"dt": {"from": "2026-09-24"}}},
+    "mart_dev.recent_runs_mart": {"kind": "history"},
 }
 """
 # The line above the import that writes the user's function for them (Toolbox 8.5, ticket 06).
@@ -994,14 +1072,16 @@ def test_convert_three_unrelated_scripts_each_its_own_batch(started: Started) ->
     for name, script in UNRELATED_SCRIPTS.items():
         started.warehouse.execute(script)
         journey.save_by_hand(journey.folder / f"{name}.hql", script)
-    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops")
+    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops",
+                       DECISIONS=HISTORY_FOR_ALL)
     said = journey.run_workflow()
     # Each converted, in name order, then each run to the end: with each location placed under
-    # DEV's root (ticket 09) and each Key proposed from its query, no Decision is left open,
-    # so no DECISIONS is printed to paste.
+    # DEV's root (ticket 09) and each Key proposed from its query, the one Decision left is
+    # each table's kind (Toolbox 8.10, ticket 04), which nothing is proposed for: convert's
+    # report prints it to paste, and the decisions cell, typed once, answers it for every batch.
     for name in sorted(UNRELATED_SCRIPTS):
         assert f"convert, {name}: 1. Convert the scripts" in said
-    assert "Paste this over" not in said
+    assert "Still open" not in said and "Stopped" not in said
     finished = started.root / "admin" / "workflows" / "convert" / "finished"
     for name in UNRELATED_SCRIPTS:
         assert f"    {name}: finished, every step done" in said
@@ -1065,7 +1145,14 @@ def test_new_table_then_change_it(started: Started) -> None:
     journey.run_to(1)
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
+    journey.run_to(4)
+    # Toolbox 8.10, ticket 04: the Template's write fills dt from its rows' own values, so
+    # nothing is proposed for its kind, which the decisions cell answers, as convert's does.
+    assert (f"{table}: kind: Rebuilt or History table, nothing proposed, as its INSERT "
+            "OVERWRITE fills dt") in repr(project.check())
+    journey.paste_decisions({table: {"kind": "history"}})
     journey.run_to()
+    assert _kind_of(started.root, table) == "history"
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id", "dt"],  # proposed' in written
     _check_each_placed(started.root, [table])
@@ -1093,6 +1180,10 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     assert "2. Write each table's logic" in journey.run_workflow()
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
+    # Toolbox 8.10, ticket 04: the runner waits on its kind, which nothing is proposed for.
+    said = journey.run_workflow()
+    assert "4. Answer each table's open Decisions" in said
+    journey.paste_decisions({table: {"kind": "history"}}, printed=said)
     sent = list(started.warehouse.executed)
     assert "would read: SELECT" in journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -1126,7 +1217,10 @@ def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
     reference, gets one on the way (Toolbox 8.10, ticket 02)."""
     table = "mart_dev.job_counts"
     journey = started.journey("new_table", by_hand=False)
-    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS})
+    # Toolbox 8.10, ticket 04: a query alone is written whole by each write, so a Rebuilt
+    # table is proposed for it, accepted in the decisions cell.
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS},
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
     sent = list(started.warehouse.executed)
     dry_run = journey.run_workflow(dry_run=True)
     assert "would send: CREATE" in dry_run
@@ -1142,7 +1236,8 @@ def test_new_table_from_a_query_cell_by_cell(started: Started) -> None:
     """The same, each step's cell run in turn, as the notebook reads top to bottom."""
     table = "mart_dev.job_counts"
     journey = started.journey("new_table", by_hand=False)
-    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS})
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS},
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
     journey.run_to()
     _check_made_from_its_query(started, table)
     compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
@@ -1155,6 +1250,7 @@ def _check_made_from_its_query(started: Started, table: str) -> None:
     proposed, and in the Reference sheet."""
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id"],  # proposed' in written
+    assert _kind_of(started.root, table) == "rebuilt"
     read = _reference(started.root, "ops.job_runs").read_text(encoding="utf-8")
     assert '    key=None,  # TODO: proposed ["run_id"], checked' in read
     sheet = (started.root / "references" / "reference_sheet.csv").read_text(encoding="utf-8")

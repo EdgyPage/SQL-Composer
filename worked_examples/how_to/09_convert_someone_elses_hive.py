@@ -161,7 +161,8 @@ Then step 5.
 ### 5. Read each table's open Decisions
 
 Goal: know what only you can decide. What only you can decide of a table is a Decision: here
-mart.fail_history's Key, the columns whose values name one row. Each table's
+mart.fail_history's Key, the columns whose values name one row, and its kind, a History table,
+proposed since its write reads its own table, to accept. Each table's
 conversion/checklist.md lists its open Decisions, and project.check() names each one:
 
 >>> checklist = Path("tables/mart__fail_history/conversion/checklist.md")
@@ -169,6 +170,9 @@ conversion/checklist.md lists its open Decisions, and project.check() names each
 >>> print(text.split("Open Decisions")[1].split("## Notes")[0].strip())
 - key: the columns whose values name one row, or None when none do, in
   references/mart__fail_history.py
+- kind: proposed a History table, as its write reads its own table, adding to the rows it
+  holds: accept it with "proposed", or answer "rebuilt" if each write replaces the whole
+  table, "history" if it keeps the rows already there, in references/mart__fail_history.py
 
 Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is.
 project.check() says where it stands and how to answer it. A tag that stands alone, as
@@ -195,7 +199,7 @@ You open no Table reference, and tick nothing. This page stands in for the decis
 where you paste the DECISIONS project.check() printed and fill it in:
 
 >>> DECISIONS = {
-...     "all_tables": {"key": "proposed"},
+...     "all_tables": {"key": "proposed", "kind": "proposed"},
 ...     "mart.alerts_by_severity_ops_reports": {"types": {"dt": "string"},
 ...                                             "tags": {"RUN_DAY": "'2026-09-24'"}},
 ...     "mart.alerted_runs_ops_reports": {"types": {"dt": "string"}},
@@ -213,6 +217,10 @@ Each answer, by its kind:
   kinds of Key apart. The other kind is the references Workflow's: a Key add_references
   proposes from a table's rows stays open, `key=None,  # TODO: proposed [...]`, until you
   accept it. A table with none, fail_history here, keeps its own answer.
+- "kind" under "all_tables", "proposed", accepts each table's kind proposed from its write: a
+  Rebuilt table, which each write replaces whole, or a History table, which each write adds to,
+  keeping its past rows. All three here are History tables: two replace one day's Partition,
+  PARTITION (dt = ...), and fail_history reads its own table.
 - "key": None says no columns name one row. fail_history's write reads its own table, so no
   Key could be worked out of it: its Key is open.
 - "types": two tables write the Partition dt from a query that doesn't say its type, so each
@@ -229,8 +237,9 @@ Each answer, by its kind:
 
 A TODO line left, such as does_not_add_up=, waits on nothing.
 
-Done when DECISIONS holds "key": "proposed", a key for mart.fail_history, a dt type for the
-other two, RUN_DAY's day and fail_history's seed. Then step 7.
+Done when DECISIONS holds "key": "proposed", "kind": "proposed", a key for
+mart.fail_history, a dt type for the other two, RUN_DAY's day and fail_history's seed. Then
+step 7.
 
 ### 7. Write each answer into its Table reference
 
@@ -240,25 +249,26 @@ steps after. This page runs each step on its own, as the notebook's "Step by ste
 The step's cell gives the batch's tables, which "all_tables" answers for:
 
 >>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("ops_reports")))
-Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+Wrote 4 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
-Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
+Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerted_runs_ops_reports is made.
-Wrote 2 answers into references/mart__fail_history.py.
+Wrote 3 answers into references/mart__fail_history.py.
 mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.fail_history - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
 all_tables: key "proposed": accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.
+all_tables: kind "proposed": written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
 
 Each table's first line and `does_not_add_up=` are TODO lines here, not `# proposed` ones as
 in [Add your tables' references](#add_your_tables_references): add_references proposes them

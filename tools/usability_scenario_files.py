@@ -884,9 +884,16 @@ def add_references(root: Path, keys: dict[str, list[str]], warehouse: SavedWareh
     finish("references", warehouse)
 
 
-def where_each_goes(tables: list[str]) -> dict[str, dict[str, object]]:
-    """Each table's decisions answered with its location, as the user answers them."""
-    return {table: {"location": location(table)} for table in tables}
+def where_each_goes(tables: list[str], kind: str | None = None) -> dict[str, dict[str, object]]:
+    """Each table's decisions answered with its location, and its kind when `kind` gives one
+    (Toolbox 8.10): "history" for a table that keeps its past rows, "proposed" to accept the
+    kind proposed from its write, as the user answers them."""
+    answers: dict[str, dict[str, object]] = {table: {"location": location(table)}
+                                             for table in tables}
+    if kind is not None:
+        for answer in answers.values():
+            answer["kind"] = kind
+    return answers
 
 
 def finish(workflow: str, warehouse: SavedWarehouse) -> None:
@@ -902,7 +909,8 @@ def reference_w1(root: Path, warehouse: SavedWarehouse) -> None:
                     folder / "weekly_fails.hql")
     table = f"{DEV}.team_fails"
     type_into(root, "convert", NAME="weekly", FILES=["weekly_fails.hql"],
-              RENAME={"mart.team_fails": "team_fails"}, DECISIONS=where_each_goes([table]))
+              RENAME={"mart.team_fails": "team_fails"},
+              DECISIONS=where_each_goes([table], "history"))
     finish("convert", warehouse)
 
 
@@ -913,7 +921,7 @@ def reference_w6(root: Path, warehouse: SavedWarehouse) -> None:
     shutil.copyfile(root.parent / "from_your_team" / "daily_fails.hql",
                     folder / "daily_fails.hql")
     table = f"{DEV}.daily_fails"
-    answers = where_each_goes([table])
+    answers = where_each_goes([table], "history")
     answers[table]["tags"] = {"RUN_DAY": "'2026-09-24'", "SKIP_TEAM": "data"}
     type_into(root, "convert", NAME="daily", FILES=["daily_fails.hql"], DATABASE="ops",
               RENAME={"mart.daily_fails": "daily_fails"}, DECISIONS=answers)
@@ -958,7 +966,7 @@ def reference_w7(root: Path, warehouse: SavedWarehouse) -> None:
 W7_DECISIONS = """from building_blocks.run_values import period_end
 
 DECISIONS = {{
-    "{table}": {{"location": "{location}", "key": None,
+    "{table}": {{"location": "{location}", "key": None, "kind": "proposed",
                  "tags": {{"PERIOD_END": period_end}}, "seed": {{"dt": "2026-09-24"}}}},
 }}
 """
@@ -988,7 +996,7 @@ def reference_w9(root: Path, warehouse: SavedWarehouse) -> None:
 W9_DECISIONS = """from sqlglot_composer import hivevar
 
 DECISIONS = {{
-    "{table}": {{"location": "{location}",
+    "{table}": {{"location": "{location}", "kind": "history",
                  "tags": {{"PERIOD_END": hivevar("PERIOD_END", default="'{day}'")}}}},
 }}
 """
@@ -1009,7 +1017,7 @@ def reference_w2(root: Path, warehouse: SavedWarehouse) -> None:
     add_references(root, {"ops.job_runs": ["run_id"]}, warehouse)
     table = f"{DEV}.runs_per_day"
     type_into(root, "new_table", TABLES=[table],
-              DECISIONS=where_each_goes([table]))
+              DECISIONS=where_each_goes([table], "history"))
     run_the_workflow("new_table", warehouse)
     notebook = root / "tables" / "mart_dev__runs_per_day" / "mart_dev__runs_per_day.ipynb"
     for number, (_, text) in enumerate(notebooks.read_cells(notebook), 1):
@@ -1024,7 +1032,7 @@ def reference_w3(root: Path, warehouse: SavedWarehouse) -> None:
                     root / "admin" / "workflows" / "new_table" / "failed_runs.hql")
     table = f"{DEV}.failed_runs"
     type_into(root, "new_table", TABLES=[table], QUERIES={"failed_runs": "failed_runs.hql"},
-              DECISIONS=where_each_goes([table]))
+              DECISIONS=where_each_goes([table], "proposed"))
     finish("new_table", warehouse)
 
 
@@ -1046,7 +1054,7 @@ def reference_h1(root: Path, warehouse: SavedWarehouse) -> None:
     tables = [f"{DEV}.{name}" for name in names]
     type_into(root, "convert", NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
               RENAME={f"mart.{name}": name for name in names},
-              DECISIONS=where_each_goes(tables))
+              DECISIONS=where_each_goes(tables, "history"))
     finish("convert", warehouse)
     prods = [table.replace(f"{DEV}.", f"{PROD}.") for table in tables]
     type_into(root, "promote", TABLES=tables,
@@ -1174,7 +1182,7 @@ def reference_excel(tables: list[str], references: dict[str, list[str]],
             name = table.split(".")[1]
             (folder / f"{name}.hql").write_text(REFERENCE_HIVE[name], encoding="utf-8")
             queries[name] = f"{name}.hql"
-        answers = where_each_goes(tables)
+        answers = where_each_goes(tables, "proposed")
         for table, key in keys.items():
             answers[table]["key"] = key
         type_into(root, "new_table", TABLES=tables, QUERIES=queries, DECISIONS=answers)

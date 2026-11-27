@@ -232,6 +232,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -373,6 +377,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -523,6 +531,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -651,6 +663,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
