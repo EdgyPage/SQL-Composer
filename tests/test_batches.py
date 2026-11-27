@@ -446,7 +446,9 @@ def test_check_names_the_batchs_next_step_and_answering_the_decisions_moves_it_o
     assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Answer each table's open "
             "Decisions in the decisions cell") in said
     assert "mart_dev.failed_runs_ops_reports: location: the folder its files go in" in said
-    project.write_decisions({table: {"location": f"/data/{table}", "key": None}
+    # Toolbox 8.10: each table's kind too, proposed from its write and accepted.
+    project.write_decisions({table: {"location": f"/data/{table}", "key": None,
+                                     "kind": "proposed"}
                              for table in project.batch_tables("ops_reports")})
     assert "ops_reports: 4. Create each table in dev" in repr(project.check())
 
@@ -706,7 +708,8 @@ def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path
     write = to_hive(project.load(dev).write())
     assert write.startswith("INSERT INTO mart_dev.inc_ops_reports PARTITION(dt = '2026-09-24')")
     assert "FROM mart_dev.inc_ops_reports AS i" in write
-    project.write_decisions({dev: {"key": None}})
+    # Toolbox 8.10: a write reading itself is proposed History, accepted.
+    project.write_decisions({dev: {"key": None, "kind": "proposed"}})
     run_execute(project.load(dev).create(), example_database.execute)
     said = repr(project.check())
     assert "script: 5. Seed each table" in said

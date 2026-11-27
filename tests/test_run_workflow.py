@@ -25,8 +25,9 @@ QUERY = "SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'
 
 
 def answers(table: str) -> dict[str, object]:
-    """A table's answers: its own folder, and no Key, as job_runs names none here."""
-    return {"location": f"/data/{table}", "key": None}
+    """A table's answers: its own folder, no Key, as job_runs names none here, and its kind,
+    a Rebuilt table, as proposed for a query alone (Toolbox 8.10)."""
+    return {"location": f"/data/{table}", "key": None, "kind": "proposed"}
 
 
 @pytest.fixture

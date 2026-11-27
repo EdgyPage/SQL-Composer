@@ -7143,14 +7143,17 @@ DECISIONS = {
         &quot;tags&quot;: {
             &quot;RUN_DAY&quot;: &quot;&lt;FILL IN&gt;&quot;,  # bare at daily.hql, line 9: the value with its own quotes, such as &quot;&#x27;2026-10-31&#x27;&quot;, or a number, such as &quot;5&quot;
         },
+        &quot;kind&quot;: &quot;history&quot;,  # proposed, as its INSERT OVERWRITE replaces one Partition, keeping the others: keep it to accept it, or answer &quot;rebuilt&quot;
     },
     &quot;mart.alerted_runs_ops_reports&quot;: {
         &quot;types&quot;: {
             &quot;dt&quot;: &quot;string&quot;,  # guessed: its type, if not string, such as &quot;bigint&quot;
         },
+        &quot;kind&quot;: &quot;history&quot;,  # proposed, as its INSERT OVERWRITE replaces one Partition, keeping the others: keep it to accept it, or answer &quot;rebuilt&quot;
     },
     &quot;mart.fail_history&quot;: {
         &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # a list, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when no columns name one row
+        &quot;kind&quot;: &quot;history&quot;,  # proposed, as its write reads its own table, adding to the rows it holds: keep it to accept it, or answer &quot;rebuilt&quot;
     },
 }</pre>
 <p class="label">It writes 24 files</p>
@@ -7205,11 +7208,12 @@ tables/mart__fail_history/mart__fail_history.ipynb</pre>
 <p>Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). mart.fail_history&#x27;s stays Hive, whole, an Unchecked statement, Hive text run through the Toolbox that no Guard looks inside: its WHERE holds a query, NOT IN (SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too, which copies the original&#x27;s rows into it once, before its first write. Which of the original&#x27;s Partitions it copies is SEED, in its Table reference: every one, <code>SEED = {}</code>, until you answer its &quot;seed&quot; Decision in step 6.</p>
 <p>Done when batch.md starts <code># Batch ops_reports</code> and you have read what each statement became. Then step 5.</p>
 <h5>5. Read each table&#x27;s open Decisions</h5>
-<p>Goal: know what only you can decide. What only you can decide of a table is a Decision: here mart.fail_history&#x27;s Key, the columns whose values name one row. Each table&#x27;s conversion/checklist.md lists its open Decisions, and project.check() names each one:</p>
+<p>Goal: know what only you can decide. What only you can decide of a table is a Decision: here mart.fail_history&#x27;s Key, the columns whose values name one row, and its kind, a History table, proposed since its write reads its own table, to accept. Each table&#x27;s conversion/checklist.md lists its open Decisions, and project.check() names each one:</p>
 <pre class="python">checklist = Path(&quot;tables/mart__fail_history/conversion/checklist.md&quot;)
 text = checklist.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].strip())</pre>
-<p class="label">Python prints</p><pre class="output">- key: the columns whose values name one row, or None when none do, in references/mart__fail_history.py</pre>
+<p class="label">Python prints</p><pre class="output">- key: the columns whose values name one row, or None when none do, in references/mart__fail_history.py
+- kind: proposed a History table, as its write reads its own table, adding to the rows it holds: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there, in references/mart__fail_history.py</pre>
 <p>Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is. project.check() says where it stands and how to answer it. A tag that stands alone, as <code>= &lt;PARM=&quot;RUN_DAY&quot;/&gt;</code> does here, is a bare tag, answered with the value&#x27;s own quotes:</p>
 <pre class="python">said = repr(project.check())  # -&gt; str
 print(next(line.strip() for line in said.splitlines() if &quot;tags:&quot; in line))</pre>
@@ -7221,35 +7225,36 @@ print(next(line.strip() for line in said.splitlines() if &quot;tags:&quot; in li
 <p class="label">Python prints</p><pre class="output">&quot;RUN_DAY&quot;: &quot;&lt;FILL IN&gt;&quot;,  # bare at daily.hql, line 9: the value with its own quotes, such as &quot;&#x27;2026-10-31&#x27;&quot;, or a number, such as &quot;5&quot;</pre>
 <p>You open no Table reference, and tick nothing. This page stands in for the decisions cell, where you paste the DECISIONS project.check() printed and fill it in:</p>
 <pre class="python">DECISIONS = {
-    &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;},
+    &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot;},
     &quot;mart.alerts_by_severity_ops_reports&quot;: {&quot;types&quot;: {&quot;dt&quot;: &quot;string&quot;},
                                             &quot;tags&quot;: {&quot;RUN_DAY&quot;: &quot;&#x27;2026-09-24&#x27;&quot;}},
     &quot;mart.alerted_runs_ops_reports&quot;: {&quot;types&quot;: {&quot;dt&quot;: &quot;string&quot;}},
     &quot;mart.fail_history&quot;: {&quot;key&quot;: None, &quot;seed&quot;: {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}},
 }</pre>
 <p>Each answer, by its kind:</p>
-<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered, since the query proves it. So &quot;key&quot;: &quot;proposed&quot; isn&#x27;t needed here, but it does no harm: for a Key kept already it only takes off the # proposed mark, and you needn&#x27;t tell the two kinds of Key apart. The other kind is the references Workflow&#x27;s: a Key add_references proposes from a table&#x27;s rows stays open, <code>key=None, # TODO: proposed [...]</code>, until you accept it. A table with none, fail_history here, keeps its own answer.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;: fail_history reads itself, so step 11 seeds it, copying the original&#x27;s rows into it once. With no &quot;seed&quot;, it copies every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>.</li></ul>
+<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered, since the query proves it. So &quot;key&quot;: &quot;proposed&quot; isn&#x27;t needed here, but it does no harm: for a Key kept already it only takes off the # proposed mark, and you needn&#x27;t tell the two kinds of Key apart. The other kind is the references Workflow&#x27;s: a Key add_references proposes from a table&#x27;s rows stays open, <code>key=None, # TODO: proposed [...]</code>, until you accept it. A table with none, fail_history here, keeps its own answer.</li><li>&quot;kind&quot; under &quot;all_tables&quot;, &quot;proposed&quot;, accepts each table&#x27;s kind proposed from its write: a Rebuilt table, which each write replaces whole, or a History table, which each write adds to, keeping its past rows. All three here are History tables: two replace one day&#x27;s Partition, PARTITION (dt = ...), and fail_history reads its own table.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;: fail_history reads itself, so step 11 seeds it, copying the original&#x27;s rows into it once. With no &quot;seed&quot;, it copies every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>.</li></ul>
 <p>A TODO line left, such as does_not_add_up=, waits on nothing.</p>
-<p>Done when DECISIONS holds &quot;key&quot;: &quot;proposed&quot;, a key for mart.fail_history, a dt type for the other two, RUN_DAY&#x27;s day and fail_history&#x27;s seed. Then step 7.</p>
+<p>Done when DECISIONS holds &quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot;, a key for mart.fail_history, a dt type for the other two, RUN_DAY&#x27;s day and fail_history&#x27;s seed. Then step 7.</p>
 <h5>7. Write each answer into its Table reference</h5>
 <p>Goal: each Decision made in the table&#x27;s files. Run &quot;Run the rest&quot;, under the decisions cell: its first step writes each answer into the table&#x27;s Table reference, then it goes on to the steps after. This page runs each step on its own, as the notebook&#x27;s &quot;Step by step&quot; cells do. The step&#x27;s cell gives the batch&#x27;s tables, which &quot;all_tables&quot; answers for:</p>
 <pre class="python">print(project.write_decisions(DECISIONS, tables=project.batch_tables(&quot;ops_reports&quot;)))</pre>
-<p class="label">Python prints</p><pre class="output">Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+<p class="label">Python prints</p><pre class="output">Wrote 4 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait on nothing: fill each in when you like.
   line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
-Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
+Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait on nothing: fill each in when you like.
   line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerted_runs_ops_reports is made.
-Wrote 2 answers into references/mart__fail_history.py.
+Wrote 3 answers into references/mart__fail_history.py.
 mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait on nothing: fill each in when you like.
   line 1: mart.fail_history - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
-all_tables: key &quot;proposed&quot;: accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.</pre>
+all_tables: key &quot;proposed&quot;: accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.
+all_tables: kind &quot;proposed&quot;: written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -7341,6 +7346,12 @@ alerted_runs_ops_reports = Table(
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 )
 
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__alerted_runs_ops_reports import alerted_runs_ops_reports, &lt;alias&gt;
@@ -7373,6 +7384,12 @@ TAGS = {
     &quot;RUN_DAY&quot;: &quot;&#x27;2026-09-24&#x27;&quot;,  # bare, at daily.hql, line 9. Answer it with its quotes, such as &quot;&#x27;2026-09-24&#x27;&quot;, or a number, such as &quot;5&quot;.
 }
 
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__alerts_by_severity_ops_reports import alerts_by_severity_ops_reports, &lt;alias&gt;
@@ -7404,6 +7421,12 @@ fail_history = Table(
 # The Partitions seed() copies from the original, by partition column: {} copies them
 # all. Answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}.
 SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
+
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;history&quot;  # answered, proposed history: its write reads its own table, adding to the rows it holds
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
@@ -7675,7 +7698,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.write_decisions(...)`
 - Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
-- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__fail_history.py
+- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
 <p class="label">It writes references/mart__alerts_by_severity_ops_reports.py</p>
@@ -7700,6 +7723,12 @@ from building_blocks.run_values import run_day  # a Run value, for TAGS or SEED
 TAGS = {
     &quot;RUN_DAY&quot;: run_day,  # bare, at daily.hql, line 9. Answer it with its quotes, such as &quot;&#x27;2026-09-24&#x27;&quot;, or a number, such as &quot;5&quot;.
 }
+
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
@@ -7903,7 +7932,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.write_decisions(...)`
 - Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
-- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__fail_history.py
+- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -22771,7 +22800,7 @@ It ran the Hive of each table the workbook gave, on this computer, over the work
 <p>The 2 cells are the PivotTable&#x27;s two jobs. A difference would be a line of its own under the table, such as <code>job_id 3: Excel 1.18, Hive 1.15</code>, to look at, though none stops anything. A cell where the workbook shows an Excel error, such as #REF!, and the Hive gives NULL, is listed apart, neither a match nor a difference; a piece the check can&#x27;t run on this computer is named, with how to compare it by hand.</p>
 <p>Done when the Workbook check says every cell matches. Then step 6.</p>
 <h5>6. Read the table&#x27;s open Decisions</h5>
-<p>Goal: know what only you can decide. mart.teams_pivot has four Decisions: its name, proposed from its sheet, as PivotTable1 is Excel&#x27;s default; the warehouse table each Table it reads stands for, ops.job_events and ops.job_owners, proposed from the Tables&#x27; names; and its Pivot filter, the slicer on team. Its folder is placed under DEV&#x27;s &quot;location_root&quot;, so it is no Decision. project.check() names each, with each answer of the Pivot filter and how many tables each makes. In your notebook, print(project.check()) shows every table&#x27;s; this page&#x27;s loop prints mart.teams_pivot&#x27;s lines alone:</p>
+<p>Goal: know what only you can decide. mart.teams_pivot has five Decisions: its name, proposed from its sheet, as PivotTable1 is Excel&#x27;s default; the warehouse table each Table it reads stands for, ops.job_events and ops.job_owners, proposed from the Tables&#x27; names; its Pivot filter, the slicer on team; and its kind, a Rebuilt table, which each write replaces whole, proposed since each write writes its query&#x27;s rows whole. Its folder is placed under DEV&#x27;s &quot;location_root&quot;, so it is no Decision. project.check() names each, with each answer of the Pivot filter and how many tables each makes. In your notebook, print(project.check()) shows every table&#x27;s; this page&#x27;s loop prints mart.teams_pivot&#x27;s lines alone:</p>
 <pre class="python">said = repr(project.check())  # -&gt; str
 for line in said.splitlines():  # the page&#x27;s own: mart.teams_pivot&#x27;s lines alone
     if line.strip().startswith(&quot;mart.teams_pivot:&quot;):
@@ -22779,13 +22808,14 @@ for line in said.splitlines():  # the page&#x27;s own: mart.teams_pivot&#x27;s l
 <p class="label">Python prints</p><pre class="output">mart.teams_pivot: name: teams_pivot, proposed for PivotTable1 of job_hours.xlsx: keep it with &quot;proposed&quot;, or answer a name of your own, which renames the table
 mart.teams_pivot: sources: ops.job_events, proposed as the database table job_events of job_hours.xlsx samples: keep it with &quot;proposed&quot;, or answer the table it samples
 mart.teams_pivot: sources: ops.job_owners, proposed as the database table job_owners of job_hours.xlsx samples: keep it with &quot;proposed&quot;, or answer the table it samples
-mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance). Answer &quot;keep&quot; to keep its selection as converted, or &quot;fold&quot;, &quot;batch&quot; or &quot;tables&quot; to keep every value instead, as its checklist says</pre>
+mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. &quot;keep&quot;: 1 table, that selection; &quot;fold&quot;: 1 table, every team; &quot;batch&quot;: 1 table, a Partition per team; &quot;tables&quot;: at least 2 tables, one per team the PivotTable&#x27;s cache held (data and finance). Answer &quot;keep&quot; to keep its selection as converted, or &quot;fold&quot;, &quot;batch&quot; or &quot;tables&quot; to keep every value instead, as its checklist says
+mart.teams_pivot: kind: proposed a Rebuilt table, as it is a query alone, which each write writes whole: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there</pre>
 <p>Its checklist, tables/mart__teams_pivot/conversion/checklist.md, gives the Pivot filter one long line. It says, in order: what the table shows now; each of the four answers, what it makes of the table, in Excel&#x27;s words where Excel has them, and how many tables or Partitions; what &quot;a layer&quot; and &quot;at least&quot; mean; and, last, &quot;Which to pick&quot;. This page prints that line alone, the one holding &quot;Which to pick&quot;:</p>
 <pre class="python">checklist = Path(&quot;tables/mart__teams_pivot/conversion/checklist.md&quot;).read_text(
     encoding=&quot;utf-8&quot;)
 print(next(line for line in checklist.splitlines() if &quot;Which to pick&quot; in line))</pre>
 <p class="label">Python prints</p><pre class="output">- Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as &quot;pivot_filters&quot;: {&quot;team&quot;: ...}: &quot;keep&quot;, proposed: 1 table, that selection alone. &quot;fold&quot;: like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. &quot;batch&quot;: 1 table written one team at a time, each run writing its own team&#x27;s rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under &quot;tags&quot; with the Run value proposed there. &quot;tables&quot;: like Excel&#x27;s Show Report Filter Pages: a table per team, named mart.teams_pivot_&lt;value&gt;, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and &quot;at least&quot; as these are the values the PivotTable&#x27;s cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, &quot;fold&quot; keeps every team in one table to slice later; &quot;batch&quot; when each team is written on its own schedule; &quot;tables&quot; only for a handful; &quot;keep&quot; when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.</pre>
-<p>Done when you know the four Decisions. Then step 7.</p>
+<p>Done when you know the five Decisions. Then step 7.</p>
 <h5>7. Answer each Decision in the decisions cell</h5>
 <p>Goal: an answer for each open Decision. &quot;Run up to your Decisions&quot; printed a whole DECISIONS to paste into the decisions cell, directly under it. This page stands in for the cell, filled in:</p>
 <pre class="python">DECISIONS = {
@@ -22793,15 +22823,16 @@ print(next(line for line in checklist.splitlines() if &quot;Which to pick&quot; 
         &quot;name&quot;: &quot;job_hours&quot;,
         &quot;sources&quot;: {&quot;ops.job_events&quot;: &quot;proposed&quot;, &quot;ops.job_owners&quot;: &quot;proposed&quot;},
         &quot;pivot_filters&quot;: {&quot;team&quot;: &quot;fold&quot;},
+        &quot;kind&quot;: &quot;proposed&quot;,
     },
 }</pre>
 <p>Each answer, by its kind:</p>
-<ul><li>&quot;name&quot;: a name of your own, &quot;job_hours&quot;, renames the table, mart.job_hours, its Table folder, its Table reference and its placed folder, /data/dev/mart.db/job_hours, with it; &quot;proposed&quot; keeps teams_pivot.</li><li>&quot;sources&quot;: the warehouse table each Table&#x27;s rows came from, by the table proposed for it. This workbook&#x27;s Tables are named as the warehouse names its tables, so &quot;proposed&quot; keeps each. A Table named Table1, whose rows came from ops.job_events, is answered <code>{&quot;ops.table1&quot;: &quot;ops.job_events&quot;}</code>, and one from another database, such as crm, with that database&#x27;s table, <code>&quot;crm.jobs&quot;</code>, once its Table reference is added as step 2 adds them: the table&#x27;s logic reads the table you give.</li><li>&quot;pivot_filters&quot;: the slicer keeps the data team. &quot;keep&quot;, proposed, keeps that selection alone. &quot;fold&quot; is like dragging team from Filters to Rows in the PivotTable: one table, a row for each job and team, every team in it. &quot;batch&quot; writes one team at a time, each into a Partition of its own. &quot;tables&quot; makes a table per team, as Excel&#x27;s Show Report Filter Pages makes a sheet per item. Here, to tab through each team in a presentation, as with the slicer, &quot;fold&quot; keeps every team in one table, to slice later, as the checklist&#x27;s &quot;Which to pick&quot; says. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.</li></ul>
-<p>Done when DECISIONS holds the name, the sources and the Pivot filter&#x27;s answer. Then step 8.</p>
+<ul><li>&quot;name&quot;: a name of your own, &quot;job_hours&quot;, renames the table, mart.job_hours, its Table folder, its Table reference and its placed folder, /data/dev/mart.db/job_hours, with it; &quot;proposed&quot; keeps teams_pivot.</li><li>&quot;sources&quot;: the warehouse table each Table&#x27;s rows came from, by the table proposed for it. This workbook&#x27;s Tables are named as the warehouse names its tables, so &quot;proposed&quot; keeps each. A Table named Table1, whose rows came from ops.job_events, is answered <code>{&quot;ops.table1&quot;: &quot;ops.job_events&quot;}</code>, and one from another database, such as crm, with that database&#x27;s table, <code>&quot;crm.jobs&quot;</code>, once its Table reference is added as step 2 adds them: the table&#x27;s logic reads the table you give.</li><li>&quot;pivot_filters&quot;: the slicer keeps the data team. &quot;keep&quot;, proposed, keeps that selection alone. &quot;fold&quot; is like dragging team from Filters to Rows in the PivotTable: one table, a row for each job and team, every team in it. &quot;batch&quot; writes one team at a time, each into a Partition of its own. &quot;tables&quot; makes a table per team, as Excel&#x27;s Show Report Filter Pages makes a sheet per item. Here, to tab through each team in a presentation, as with the slicer, &quot;fold&quot; keeps every team in one table, to slice later, as the checklist&#x27;s &quot;Which to pick&quot; says. A handful of tables, such as 3, is manageable; a hundred is a reason to &quot;fold&quot; or &quot;batch&quot; instead.</li><li>&quot;kind&quot;: &quot;proposed&quot; accepts the Rebuilt table proposed: each write replaces the whole table, as a PivotTable refreshed shows only what its source holds now. A table that keeps its past rows, each write adding a day, is a History table, answered &quot;history&quot;.</li></ul>
+<p>Done when DECISIONS holds the name, the sources, the Pivot filter&#x27;s answer and the kind. Then step 8.</p>
 <h5>8. Write each answer in</h5>
 <p>Goal: each Decision made in the table&#x27;s files. Run &quot;Run the rest&quot;, under the decisions cell: its first step writes each answer into the Table reference, renames the table, and writes its logic again for the Pivot filter&#x27;s answer, from the Hive it was converted from. Renaming keeps a copy of the old name&#x27;s files: mart.teams_pivot&#x27;s Table folder and Table reference, as they were before the rename, move to admin/removed/, each named by the time. Nothing is lost, and nothing reads them: delete them when you like. Its report lists two TODO lines &quot;which wait on nothing&quot;: they are no Decision and need no answer, so nothing waits on them; fill them in when you like, one saying what one row is. This page runs the step&#x27;s own cell:</p>
 <pre class="python">print(project.write_decisions(DECISIONS, tables=project.batch_tables(&quot;job_hours&quot;)))</pre>
-<p class="label">Python prints</p><pre class="output">Wrote 4 answers into references/mart__teams_pivot.py.
+<p class="label">Python prints</p><pre class="output">Wrote 5 answers into references/mart__teams_pivot.py.
 mart.teams_pivot: 2 TODO lines left in references/mart__teams_pivot.py, which wait on nothing: fill each in when you like.
   line 1: mart.teams_pivot - TODO: say in one line what one row is.
   line 12: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts

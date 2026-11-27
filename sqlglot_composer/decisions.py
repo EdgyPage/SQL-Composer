@@ -17,6 +17,9 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
 - Pivot filter: a line of its `PIVOT_FILTERS = {...}`, what the PivotTable it was made from
   leaves out, by the filter's field, kept as converted until answered (Toolbox 8.9), its other
   answers keeping every slice: "fold", "batch" or "tables";
+- kind: its `KIND = ...` line, whether it is a Rebuilt table, which each write replaces whole,
+  or a History table, which each write adds to and so needs a Seed (Toolbox 8.10), proposed
+  from its write where the write says, open until an answer accepts or changes it;
 - placeholder: any other `<...>` left in its code, as a Template leaves them, filled in by
   hand.
 
@@ -32,7 +35,8 @@ answers. It never writes over any other line that is made already, as yours is o
 change it: the answer is kept unwritten, to name.
 
 `DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
-"seed", the limits of the seed's copy, and "tags", each for the tables that hold it.
+"seed", the limits of the seed's copy, "tags", each for the tables that hold it, and "kind"
+(8.10), for each table with a KIND line.
 `table_answer` gives one table's answer: all_tables' first, then the table's own over it, kind
 by kind and, for tags, tag by tag. A Key, a type and a location are each table's own: the
 folder every table's own goes under is a Database setting since 8.5, "location_root" in
@@ -58,9 +62,10 @@ TAG = "tag"
 NAME = "name"
 SOURCE = "source"
 PIVOT_FILTER = "Pivot filter"
+TABLE_KIND = "table kind"
 PLACEHOLDER = "placeholder"
 # Every kind that waits for you, in the order check() names them.
-KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, NAME, SOURCE, PIVOT_FILTER, PLACEHOLDER)
+KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, NAME, SOURCE, PIVOT_FILTER, TABLE_KIND, PLACEHOLDER)
 # What check() and step 1's report write for each answer still to give, in the DECISIONS
 # they print to paste: an answer left so is no answer.
 FILL_IN = "<FILL IN>"
@@ -69,7 +74,7 @@ DECISIONS_NAME = "DECISIONS"
 # The kinds the decisions cell answers, each by its name there; a placeholder is filled in by
 # hand.
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags", NAME: "name",
-           SOURCE: "sources", PIVOT_FILTER: "pivot_filters"}
+           SOURCE: "sources", PIVOT_FILTER: "pivot_filters", TABLE_KIND: "kind"}
 ANSWERED_KINDS = tuple(ANSWERS)
 # A table's name proposed for a workbook's final, as a Conversion writes it in the table's
 # Table reference above its Aliases, open while it holds TODO: (Toolbox 8.9), such as
@@ -124,13 +129,47 @@ PIVOT_FILTERS_COMMENT = (
     '# selection as converted; "fold", "batch" or "tables" keeps every value instead, as its',
     "# checklist says.",
 )
+
+
+class TableKind(StrEnum):
+    """Each kind a Saved table is (Toolbox 8.10), by what each write does to the rows already
+    there: a Rebuilt table is replaced whole by each write; a History table keeps them, each
+    write adding rows or replacing some, such as one day's Partition, so it needs a Seed."""
+
+    REBUILT = "rebuilt"
+    HISTORY = "history"
+
+
+# A Saved table's kind, Rebuilt or History, a line of its Table reference above its Aliases,
+# as convert and new_table write it, open while it holds TODO: (Toolbox 8.10), its proposal and
+# why in the comment, or why nothing is proposed, such as
+#     KIND = "history"  # TODO: proposed history: its INSERT OVERWRITE replaces one Partition
+#     KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills Partitions from ...
+# Answered, its TODO is ANSWERED_KIND and the rest kept, so check() never lists it as a line
+# marked # proposed, as in
+#     KIND = "rebuilt"  # answered, proposed history: its INSERT OVERWRITE replaces one ...
+# This line is the one place a table's kind is stored; table_kind reads it.
+ANSWERED_KIND = "answered, "
+NOTHING_PROPOSED = "nothing proposed"
+_EACH_KIND = "|".join(TableKind)
+KIND_LINE = re.compile(rf'^KIND = (?P<value>"(?:{_EACH_KIND})"|None)  '
+                       rf"# (?:(?P<todo>TODO: )|{ANSWERED_KIND})"
+                       rf"(?P<what>(?:proposed (?P<proposal>{_EACH_KIND})|{NOTHING_PROPOSED}): "
+                       r"(?P<why>.+))$")
+KIND_COMMENT = (
+    '# Rebuilt or History: "rebuilt" if each write replaces the whole table; "history" if',
+    "# each write keeps the rows already there, adding rows or replacing some, such as one",
+    "# day's Partition, so the table needs its past rows loaded first, its Seed. Answer",
+    '# "kind" in the decisions cell: "proposed" accepts the kind proposed below.',
+)
 # The decisions cell's answer for every table its Workflow's notebook names, beside each
 # table's own (Toolbox 8.4), and the kinds it answers, each by its name there: "proposed" for
-# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, and Script
-# tags. A location is placed under its Database's location_root, a Database setting (8.5).
+# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, Script
+# tags, and the kind, Rebuilt or History, or "proposed", accepting each table's proposed one
+# (8.10). A location is placed under its Database's location_root, a Database setting (8.5).
 ALL_TABLES = "all_tables"
 SEED = "seed"
-ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG])
+ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG], ANSWERS[TABLE_KIND])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -258,6 +297,8 @@ class Decision:
                     f'or "{PivotFilterAnswer.FOLD}", "{PivotFilterAnswer.BATCH}" or '
                     f'"{PivotFilterAnswer.TABLES}" to keep every value instead, as its '
                     "checklist says")
+        if self.kind == TABLE_KIND:
+            return kind_question(self.subject, self.where)
         return (f"sources: {self.subject}, proposed as the database table {self.where} "
                 'samples: keep it with "proposed", or answer the table it samples')
 
@@ -265,6 +306,24 @@ class Decision:
 def _sentence(text: str) -> str:
     """Text as a sentence starts: its first letter in capitals."""
     return text[:1].upper() + text[1:]
+
+
+def kind_question(proposal: str, why: str) -> str:
+    """What a table's kind asks, as check() names it: to accept `proposal`, "rebuilt" or
+    "history", proposed from its write, saying why; or, with none, to answer it, saying why
+    nothing was proposed. `why` is its KIND line's comment after "proposed <kind>: " or
+    "nothing proposed: "."""
+    answer = (f'"{TableKind.REBUILT}" if each write replaces the whole table, '
+              f'"{TableKind.HISTORY}" if it keeps the rows already there')
+    if proposal:
+        return (f"kind: proposed a {_kind_words(proposal)}, as {why}: accept it with "
+                f'"{ACCEPT_PROPOSED}", or answer {answer}')
+    return f"kind: Rebuilt or History table, nothing proposed, as {why}: answer {answer}"
+
+
+def _kind_words(kind: str) -> str:
+    """A kind as the glossary names it: "Rebuilt table" or "History table"."""
+    return f"{_sentence(kind)} table"
 
 
 def key_question(proposal: str, made_from: str = "") -> str:
@@ -690,12 +749,14 @@ def _subject_of(kind: str, line: str) -> str:
     """What a Decision's line is about: a guessed type's column, the <...> a placeholder's
     line holds first, the Key proposed on an open key= line, as Python, such as '["run_id"]',
     or, for a kind of LINE_KINDS, what its line names: a tag's NAME, the name or table
-    proposed, or a Pivot filter's field."""
+    proposed, a Pivot filter's field, or the table's kind proposed, "" where none is."""
     if kind == GUESSED_TYPE:
         return COLUMN_LINE.match(line)["column"]
     if kind in LINE_KINDS:
         read = LINE_KINDS[kind]
         subject = read.line.match(line)[read.subject]
+        if subject is None:  # a KIND line with nothing proposed
+            return ""
         return ast.literal_eval(subject) if read.subject_in_quotes else subject
     if kind == PLACEHOLDER:
         return PLACEHOLDER_WORD.search(line).group()
@@ -768,7 +829,38 @@ def table_answer(answers: dict[str, object], table: str, text: str) -> dict[str,
         proposed = proposed_key(text)
         if proposed is not None:
             answer[ANSWERS[KEY]] = proposed
+    if answer.get(ANSWERS[TABLE_KIND]) == ACCEPT_PROPOSED:
+        del answer[ANSWERS[TABLE_KIND]]
+        kind = proposed_kind(text)
+        if kind is not None:
+            answer[ANSWERS[TABLE_KIND]] = kind
     return answer
+
+
+def proposed_kind(text: str) -> TableKind | None:
+    """The kind a Table reference's KIND line proposes, which an answer of "proposed" accepts,
+    or None when it proposes none, or has no KIND line."""
+    for line in code_of(text).split("\n"):
+        found = KIND_LINE.match(line)
+        if found and found["proposal"]:
+            return TableKind(found["proposal"])
+    return None
+
+
+def table_kind(text: str) -> TableKind | None:
+    """A Saved table's kind as its Table reference's KIND line answers it, Rebuilt or History;
+    None while it is open, or where the Table reference has no KIND line, as a table made before
+    8.10 has none until it is upgraded. Each place that asks a table's kind asks it here."""
+    for line in code_of(text).split("\n"):
+        found = KIND_LINE.match(line)
+        if found and not found["todo"]:
+            return TableKind(ast.literal_eval(found["value"]))
+    return None
+
+
+def has_kind_line(text: str) -> bool:
+    """Whether a Table reference holds a KIND line, open or answered."""
+    return any(KIND_LINE.match(line) for line in code_of(text).split("\n"))
 
 
 def proposed_key(text: str) -> list[str] | None:
@@ -790,12 +882,15 @@ def proposed_key(text: str) -> list[str] | None:
 def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
     """What "all_tables", `every`, answers for one table, its Table reference's text being
     `text`: its seed limits as they are, for the seed to read; each tag of "tags" the table
-    holds; and, for a "key" of "proposed", "proposed", which table_answer turns into its
-    proposed Key.
+    holds; its kind, for a table with a KIND line; and, for a "key" or "kind" of "proposed",
+    "proposed", which table_answer turns into its proposal.
     An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
     answer: dict[str, object] = {}
     if every.get(ANSWERS[KEY]) == ACCEPT_PROPOSED:
         answer[ANSWERS[KEY]] = ACCEPT_PROPOSED
+    kind = every.get(ANSWERS[TABLE_KIND])
+    if kind is not None and not is_left_to_fill_in(kind) and has_kind_line(text):
+        answer[ANSWERS[TABLE_KIND]] = kind
     if SEED in every:
         answer[SEED] = every[SEED]
     tags = every.get(ANSWERS[TAG])
@@ -1029,6 +1124,26 @@ def _answered_pivot_filter(line: str, filters: object) -> tuple[str | None, str]
             f"{ANSWERS[PIVOT_FILTER]}: {field}")
 
 
+def _answered_kind(line: str, kind: object) -> tuple[str | None, str]:
+    """A KIND line written with its answer, "rebuilt" or "history", marked answered in place of
+    its TODO and what was proposed kept, and the answer's name; None for no answer, or one
+    that is neither, which project.write_decisions refuses first. table_answer has turned
+    "proposed" into the kind proposed already."""
+    if kind not in tuple(TableKind):
+        return None, ""
+    found = KIND_LINE.match(line)
+    return f'KIND = "{kind}"  # {ANSWERED_KIND}{found["what"]}', ANSWERS[TABLE_KIND]
+
+
+def kind_block(proposal: TableKind | None, why: str) -> list[str]:
+    """The lines of a table's kind, as convert and new_table write it into its Table reference:
+    the kind proposed from its write and why, or, with none, why nothing is, an open Decision
+    either way."""
+    if proposal is None:
+        return [*KIND_COMMENT, f"KIND = None  # TODO: {NOTHING_PROPOSED}: {why}"]
+    return [*KIND_COMMENT, f'KIND = "{proposal}"  # TODO: proposed {proposal}: {why}']
+
+
 def pivot_filter_answers(text: str) -> dict[str, str]:
     """Each Pivot filter's answer a Table reference's PIVOT_FILTERS gives, by its field: one
     still open is kept, "keep", as converted."""
@@ -1223,16 +1338,19 @@ def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -
         lines += _name_lines([each for each in decided if each.kind == NAME])
         lines += _sources_lines([each for each in decided if each.kind == SOURCE])
         lines += _pivot_filters_lines([each for each in decided if each.kind == PIVOT_FILTER])
+        lines += _kind_lines([each for each in decided if each.kind == TABLE_KIND])
         lines.append("    },")
     return [*lines, "}"]
 
 
 def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
     """What a Decision answered for several tables at once has in common: a tag's NAME and
-    whether it stands inside quotes; None for a location, a Key or a type, which each table
-    answers itself."""
+    whether it stands inside quotes, or a kind with nothing proposed; None for a location, a
+    Key, a type or a kind proposed, which each table answers itself."""
     if decision.kind == TAG:
         return (TAG, decision.subject, decision.quoted)
+    if decision.kind == TABLE_KIND and not decision.subject:
+        return (TABLE_KIND, "", False)
     return None
 
 
@@ -1254,7 +1372,8 @@ def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
 
 def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[str]:
     """The lines of "all_tables" in DECISIONS to paste: "key": "proposed" when it
-    `accepts_every_key`, and each shared tag's <FILL IN>, with how its answer is written."""
+    `accepts_every_key`, each shared tag's <FILL IN>, with how its answer is written, and the
+    kind's, where nothing is proposed for several tables."""
     if not shared and not accepts_every_key:
         return []
     lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
@@ -1265,6 +1384,10 @@ def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[s
     # Where a shared tag stands differs from table to table, so its hint names no place.
     lines += _tags_lines([replace(decision, where="") for decision in shared
                           if decision.kind == TAG])
+    if any(decision.kind == TABLE_KIND for decision in shared):
+        lines.append(f'        "{ANSWERS[TABLE_KIND]}": "{FILL_IN}",  # "{TableKind.REBUILT}" '
+                     f'or "{TableKind.HISTORY}", for each table nothing was proposed for, as '
+                     "check() says why")
     return [*lines, "    },"]
 
 
@@ -1319,6 +1442,27 @@ def _pivot_filters_lines(pivot_filters: list[Decision]) -> list[str]:
     return [*lines, "        },"]
 
 
+def _kind_lines(kinds: list[Decision]) -> list[str]:
+    """The line of one table's "kind" in DECISIONS to paste: the kind proposed, which keeps it
+    to accept it, saying why; or, with none proposed, <FILL IN>, saying why."""
+    if not kinds:
+        return []
+    decision = kinds[0]
+    if decision.subject:
+        return [f'        "{ANSWERS[TABLE_KIND]}": "{decision.subject}",  # proposed, as '
+                f"{decision.where}: keep it to accept it, or answer "
+                f'"{_other_kind(decision.subject)}"']
+    return [f'        "{ANSWERS[TABLE_KIND]}": "{FILL_IN}",  # "{TableKind.REBUILT}" or '
+            f'"{TableKind.HISTORY}": nothing proposed, as {decision.where}']
+
+
+def _other_kind(kind: str) -> str:
+    """The kind that isn't `kind`: "history" for "rebuilt", and "rebuilt" for "history"."""
+    if kind == TableKind.REBUILT:
+        return TableKind.HISTORY
+    return TableKind.REBUILT
+
+
 def _types_lines(guessed: list[Decision]) -> list[str]:
     """The lines of one table's "types" in DECISIONS to paste: each guessed type's proposal,
     "string"."""
@@ -1367,13 +1511,14 @@ class LineKind:
 
 
 # Each kind of Decision whose line names what it is about: a Script tag, a name proposed for
-# a workbook's final, the database table a range samples, and a Pivot filter. Each place that
-# reads one reads it here.
+# a workbook's final, the database table a range samples, a Pivot filter, and a table's kind.
+# Each place that reads one reads it here.
 LINE_KINDS = {
     TAG: LineKind(TAG_LINE, "name", True, "where", _answered_tag),
     NAME: LineKind(NAME_LINE, "name", False, "what", _answered_name),
     SOURCE: LineKind(SOURCE_LINE, "proposed", False, "what", _answered_source),
     PIVOT_FILTER: LineKind(PIVOT_FILTER_LINE, "field", True, "what", _answered_pivot_filter),
+    TABLE_KIND: LineKind(KIND_LINE, "proposal", False, "why", _answered_kind),
 }
 # The kinds whose answer in the decisions cell is a dict, one answer by what each is about.
 ANSWERED_BY_SUBJECT = (GUESSED_TYPE, TAG, SOURCE, PIVOT_FILTER)

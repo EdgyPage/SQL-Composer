@@ -239,10 +239,11 @@ Done when the Workbook check says every cell matches. Then step 6.
 
 ### 6. Read the table's open Decisions
 
-Goal: know what only you can decide. mart.teams_pivot has four Decisions: its name, proposed
+Goal: know what only you can decide. mart.teams_pivot has five Decisions: its name, proposed
 from its sheet, as PivotTable1 is Excel's default; the warehouse table each Table it reads
-stands for, ops.job_events and ops.job_owners, proposed from the Tables' names; and its Pivot
-filter, the slicer on team. Its folder is placed under DEV's "location_root", so it is no
+stands for, ops.job_events and ops.job_owners, proposed from the Tables' names; its Pivot
+filter, the slicer on team; and its kind, a Rebuilt table, which each write replaces whole,
+proposed since each write writes its query's rows whole. Its folder is placed under DEV's "location_root", so it is no
 Decision. project.check() names each, with each answer of the Pivot filter and how many
 tables each makes. In your notebook, print(project.check()) shows every table's; this page's
 loop prints mart.teams_pivot's lines alone:
@@ -255,6 +256,7 @@ mart.teams_pivot: name: teams_pivot, proposed for PivotTable1 of job_hours.xlsx:
 mart.teams_pivot: sources: ops.job_events, proposed as the database table job_events of job_hours.xlsx samples: keep it with "proposed", or answer the table it samples
 mart.teams_pivot: sources: ops.job_owners, proposed as the database table job_owners of job_hours.xlsx samples: keep it with "proposed", or answer the table it samples
 mart.teams_pivot: pivot_filters: team, a Pivot filter. The slicer on team keeps data. "keep": 1 table, that selection; "fold": 1 table, every team; "batch": 1 table, a Partition per team; "tables": at least 2 tables, one per team the PivotTable's cache held (data and finance). Answer "keep" to keep its selection as converted, or "fold", "batch" or "tables" to keep every value instead, as its checklist says
+mart.teams_pivot: kind: proposed a Rebuilt table, as it is a query alone, which each write writes whole: accept it with "proposed", or answer "rebuilt" if each write replaces the whole table, "history" if it keeps the rows already there
 
 Its checklist, tables/mart__teams_pivot/conversion/checklist.md, gives the Pivot filter one
 long line. It says, in order: what the table shows now; each of the four answers, what it
@@ -267,7 +269,7 @@ alone, the one holding "Which to pick":
 >>> print(next(line for line in checklist.splitlines() if "Which to pick" in line))
 - Pivot filter team, a Decision. What mart.teams_pivot shows: sum_of_hours by job_id, only where the slicer on team keeps data, as the workbook was last saved. Its answers, each given as "pivot_filters": {"team": ...}: "keep", proposed: 1 table, that selection alone. "fold": like dragging team from Filters to Rows in the PivotTable: 1 table, every team, team a column of mart.teams_pivot and part of what one row is, a row for each job_id and team. "batch": 1 table written one team at a time, each run writing its own team's rows: mart.teams_pivot is partitioned on team, a Partition per team (at least 2 Partitions), and the team each run writes is the Script tag TEAM, answered under "tags" with the Run value proposed there. "tables": like Excel's Show Report Filter Pages: a table per team, named mart.teams_pivot_<value>, such as mart.teams_pivot_data: team: at least 2 tables (data and finance). A layer is each field the table is filtered on, and "at least" as these are the values the PivotTable's cache held when the workbook was saved: the warehouse may hold more. Which to pick: to tab through each team in a presentation, as with a slicer, "fold" keeps every team in one table to slice later; "batch" when each team is written on its own schedule; "tables" only for a handful; "keep" when one selection is all anyone needs. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or "batch" instead.
 
-Done when you know the four Decisions. Then step 7.
+Done when you know the five Decisions. Then step 7.
 
 ### 7. Answer each Decision in the decisions cell
 
@@ -280,6 +282,7 @@ in:
 ...         "name": "job_hours",
 ...         "sources": {"ops.job_events": "proposed", "ops.job_owners": "proposed"},
 ...         "pivot_filters": {"team": "fold"},
+...         "kind": "proposed",
 ...     },
 ... }
 
@@ -302,8 +305,12 @@ Each answer, by its kind:
   slicer, "fold" keeps every team in one table, to slice later, as the checklist's "Which to
   pick" says. A handful of tables, such as 3, is manageable; a hundred is a reason to "fold" or
   "batch" instead.
+- "kind": "proposed" accepts the Rebuilt table proposed: each write replaces the whole table,
+  as a PivotTable refreshed shows only what its source holds now. A table that keeps its past
+  rows, each write adding a day, is a History table, answered "history".
 
-Done when DECISIONS holds the name, the sources and the Pivot filter's answer. Then step 8.
+Done when DECISIONS holds the name, the sources, the Pivot filter's answer and the kind. Then
+step 8.
 
 ### 8. Write each answer in
 
@@ -317,7 +324,7 @@ wait on nothing": they are no Decision and need no answer, so nothing waits on t
 them in when you like, one saying what one row is. This page runs the step's own cell:
 
 >>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("job_hours")))
-Wrote 4 answers into references/mart__teams_pivot.py.
+Wrote 5 answers into references/mart__teams_pivot.py.
 mart.teams_pivot: 2 TODO lines left in references/mart__teams_pivot.py, which wait on nothing: fill each in when you like.
   line 1: mart.teams_pivot - TODO: say in one line what one row is.
   line 12: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts

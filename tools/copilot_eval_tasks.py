@@ -148,9 +148,14 @@ for table in project.batch_tables(NAME, seeded=True):
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 project.compare_batch(NAME, query=query)
 '''
-# The same cells as a promote task runs them, from the promote Workflow's folder.
-PROMOTED_FROM = FAILS_COMPARED.replace('FILES = ["daily_fails.hql"]',
-                                       'FILES = ["../convert/daily_fails.hql"]')
+# The same cells as a promote task runs them, from the promote Workflow's folder, the table's
+# kind accepted as proposed too (Toolbox 8.10), since promote refuses a table with a Decision
+# open.
+PROMOTED_FROM = FAILS_COMPARED.replace(
+    'FILES = ["daily_fails.hql"]', 'FILES = ["../convert/daily_fails.hql"]').replace(
+    '{"location": "/data/team/mart_dev.db/daily_fails"}}',
+    '{"location": "/data/team/mart_dev.db/daily_fails",\n'
+    '                              "kind": "proposed"}}')
 
 # Toolbox 8.3: a script holding a Script tag, <PARM="RUN_DAY"/>, which the user's scheduler
 # fills in with the day before Hive reads it; and one holding a bare tag and a quoted one,

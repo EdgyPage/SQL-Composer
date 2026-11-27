@@ -3999,7 +3999,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
                            _guessed(columns), proposed=proposed, seeded=seeded,
                            tag_is_quoted=hive_read.tag_is_quoted,
                            tag_places=_first_place_of_each_tag(pieces),
-                           decided=_workbook_decision_blocks(files, first.script, dev))
+                           decided=_decision_blocks(files, ordered, pieces, dev, database))
     if seeded:
         files.seeded.append(dev)
     whole_hive = None
@@ -4043,6 +4043,17 @@ def _record_workbook_parts(files: _BatchFiles, dev: str,
     files.pivot_filters[dev] = list(dict.fromkeys(marked))
     return [f"{pivot_filter_text(each)}, as its Hive marks it: a Decision of its table."
             for each in files.pivot_filters[dev]]
+
+
+def _decision_blocks(files: _BatchFiles, ordered: list[converting.BatchStatement],
+                     pieces: list[converting.BatchStatement], dev: str,
+                     database: str) -> list[list[str]]:
+    """The Decisions a batch table's Table reference, `dev`'s, holds besides its columns: its
+    kind, Rebuilt or History, proposed from what its writes, `pieces`, do to the rows already
+    there (Toolbox 8.10), after a workbook's Decisions (`_workbook_decision_blocks`)."""
+    first = pieces[0]
+    kind = converting.proposed_table_kind(ordered, first.table, database)
+    return [*_workbook_decision_blocks(files, first.script, dev), decisions.kind_block(*kind)]
 
 
 def _workbook_decision_blocks(files: _BatchFiles, script: str, dev: str) -> list[list[str]]:
@@ -4232,9 +4243,9 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            decided: list[list[str]] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
     as a Decision, TAGS, what each of its Script tags stands for, when it has any, SEED, its
-    seed's limits, when it reads itself, and each block of lines `decided` gives, a workbook's
-    Decisions (`_workbook_decision_blocks`), before its Aliases; then the Database modules,
-    which the next table's logic imports it through."""
+    seed's limits, when it reads itself, and each block of lines `decided` gives, its kind and
+    a workbook's Decisions (`_workbook_decision_blocks`), before its Aliases; then the Database
+    modules, which the next table's logic imports it through."""
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
@@ -4245,11 +4256,17 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     if seeded:
         blocks.append([*decisions.SEED_COMMENT, decisions.SEED_START + "}"])
     blocks += decided or []
+    files.write_text(REFERENCE.shown(stem), _with_blocks_before_aliases(text, blocks))
+    _write_databases(files.root)
+
+
+def _with_blocks_before_aliases(text: str, blocks: list[list[str]]) -> str:
+    """A Table reference's text with each block of lines `blocks` gives before its Aliases, in
+    order, a blank line after each."""
     for block in blocks:
         at = text.index(ALIASES_HEADING)
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
-    files.write_text(REFERENCE.shown(stem), text)
-    _write_databases(files.root)
+    return text
 
 
 # What a location= line placed under its Database's location_root says beside it.
@@ -5145,22 +5162,32 @@ def write_decisions(answers: dict[str, dict[str, object]],
     Table reference and its conversion/ Hive from the Hive it was converted from, so answering
     again changes it back, before it is created in dev.
 
+    Each table convert or new_table writes has a kind (Toolbox 8.10), its KIND line: a Rebuilt
+    table, which each write replaces whole, or a History table, which each write adds rows to
+    or replaces some of, such as one day's Partition, keeping the rest. "kind" answers it:
+    "rebuilt", "history", or "proposed", which accepts the kind proposed from its write; a
+    write that fills its Partitions from its rows' own values, PARTITION (dt), has none
+    proposed. Answering again changes it.
+
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
-    kind other than location, key, types, tags, name, sources, pivot_filters and seed, a
+    kind other than location, key, types, tags, name, sources, pivot_filters, kind and seed, a
     "types", "tags", "sources", "pivot_filters" or "seed" that isn't a dict, a seed limit on
     a column that isn't a partition column, a column the table doesn't have, a tag its TAGS
     doesn't hold, a name it can't take, as one another table has, or once it is created in
-    dev, or a Pivot filter it doesn't have or an answer its Hive can't take, as "tables" for
-    a value filter. The refusal names each
+    dev, a Pivot filter it doesn't have or an answer its Hive can't take, as "tables" for
+    a value filter, or a "kind" for a table with no KIND line, one that is no kind, or
+    "proposed" where none was. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
 
     DECISIONS["all_tables"] answers for every table the Workflow's notebook names, which
     `tables` gives, as each Workflow's step cell does: project.batch_tables(NAME) in convert's
     notebook, project.promoted_tables(TABLES) in promote's, and TABLES in the others. It takes
-    "tags", each written into each table that holds it, and "seed", the limits of the seed's
-    copy. It loads first, and a table's own answer overwrites it, kind by kind and, for tags,
-    tag by tag: {"all_tables": {"tags": {"PERIOD_END": "'2026-10-31'"}},
+    "tags", each written into each table that holds it, "seed", the limits of the seed's
+    copy, and "kind", written into each table with a KIND line, "proposed" accepting each
+    one's proposal and leaving open each with none. It loads first, and a table's own answer
+    overwrites it, kind by kind and, for tags, tag by tag:
+    {"all_tables": {"tags": {"PERIOD_END": "'2026-10-31'"}},
     "mart_dev.weekly_ops": {"tags": {"PERIOD_END": "'2026-10-25'"}}}. Its "key" takes only
     "proposed", which accepts each table's proposed Key; a table's own "key" wins, and a table
     with no proposal keeps its Key open, named in the report. The report says which tables each
@@ -5258,7 +5285,32 @@ def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict
         lines.append(_all_tables_tag_line(name, answers, before, written))
     if decisions.SEED in every:
         lines.append(_all_tables_seed_line(answers, written))
+    if decisions.ANSWERS[decisions.TABLE_KIND] in every:
+        lines.append(_all_tables_kind_line(answers, before, written))
     return lines
+
+
+def _all_tables_kind_line(answers: dict[str, dict[str, object]], before: dict[str, str],
+                          written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s "kind": each table it was
+    written into, each that keeps its own answer, and, for "proposed", each with nothing
+    proposed, whose kind stays open."""
+    name = decisions.ANSWERS[decisions.TABLE_KIND]
+    given = answers[decisions.ALL_TABLES][name]
+    if decisions.is_left_to_fill_in(given):
+        return f"all_tables: kind {decisions.still_to_fill_in('its answer')}."
+    own = [table for table in written if name in answers.get(table, {})]
+    into = [table for table in written if name in written[table] and table not in own]
+    said = (f"all_tables: kind {escaped_literal(given)}: written into "
+            f"{in_words(into) or 'no table'}.{_kept_their_own_text(own, 'kind')}")
+    still_open = [table for table in written if table not in own and table not in into
+                  and decisions.open_decisions(before[table], table, (decisions.TABLE_KIND,))]
+    if still_open:
+        has = singular_or_plural(len(still_open), "has", "have")
+        stays = singular_or_plural(len(still_open), "its kind stays", "their kinds stay")
+        said += (f" {in_words(still_open)} {has} nothing proposed, so {stays} open: answer "
+                 f'"{name}" under {singular_or_plural(len(still_open), "its", "each")} name.')
+    return said
 
 
 def _all_tables_key_line(answers: dict[str, dict[str, object]], before: dict[str, str],
@@ -5513,7 +5565,29 @@ def _unmatched_answers(table: str, answer: dict[str, object], reference_text: st
     if isinstance(seed, dict):
         partitions = decisions.seed_partitions(reference_text)
         problems += _unmatched_seed(table, list(seed), partitions)
-    return problems
+    return problems + _unmatched_kind(table, answer, reference_text)
+
+
+def _unmatched_kind(table: str, answer: dict[str, object], reference_text: str) -> list[str]:
+    """A line naming a table's own "kind" that can't be written (Toolbox 8.10): one for a table
+    whose Table reference has no KIND line, one that is neither "rebuilt", "history" nor
+    "proposed", and "proposed" where nothing was proposed."""
+    name = decisions.ANSWERS[decisions.TABLE_KIND]
+    given = answer.get(name)
+    if name not in answer or decisions.is_left_to_fill_in(given):
+        return []
+    if not decisions.has_kind_line(reference_text):
+        return [f"{table}: kind: {table} has no kind to decide: only a Saved table the "
+                "convert or new_table Workflow writes has one"]
+    if given not in (*decisions.TableKind, decisions.ACCEPT_PROPOSED):
+        return [f"{table}: kind: {given!r} is no kind of table: answer "
+                f'"{decisions.TableKind.REBUILT}", "{decisions.TableKind.HISTORY}" or '
+                f'"{decisions.ACCEPT_PROPOSED}"']
+    if given == decisions.ACCEPT_PROPOSED and decisions.proposed_kind(reference_text) is None:
+        return [f"{table}: kind: nothing was proposed for {table}, so there is nothing to "
+                f'accept: answer "{decisions.TableKind.REBUILT}" or '
+                f'"{decisions.TableKind.HISTORY}"']
+    return []
 
 
 def _unmatched_seed(table: str, named: list[str], partitions: list[str] | None) -> list[str]:
@@ -5586,7 +5660,19 @@ def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> li
         problems += _tags_no_table_holds(list(every[tags]), texts)
     if isinstance(every.get(decisions.SEED), dict):
         problems += _seed_columns_no_table_has(list(every[decisions.SEED]), texts)
-    return problems
+    return problems + _unmatched_all_tables_kind(every)
+
+
+def _unmatched_all_tables_kind(every: dict[str, object]) -> list[str]:
+    """A line naming DECISIONS["all_tables"]'s "kind" when it is neither "rebuilt", "history"
+    nor "proposed" (Toolbox 8.10)."""
+    kind = every.get(decisions.ANSWERS[decisions.TABLE_KIND])
+    if kind is None or decisions.is_left_to_fill_in(kind) or kind in (
+            *decisions.TableKind, decisions.ACCEPT_PROPOSED):
+        return []
+    return [f"all_tables: kind: {kind!r} is no kind of table: answer "
+            f'"{decisions.TableKind.REBUILT}", "{decisions.TableKind.HISTORY}" or '
+            f'"{decisions.ACCEPT_PROPOSED}", which accepts each table\'s proposed kind']
 
 
 def _seed_columns_no_table_has(named: list[str], texts: dict[str, str]) -> list[str]:
@@ -8372,7 +8458,10 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
       line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
       counts
     Answer each open Decision in the new_table Workflow's decisions cell: mart_dev.daily_runs:
-    location: the folder its files go in.
+    location: the folder its files go in; mart_dev.daily_runs: kind: Rebuilt or History table,
+    nothing proposed, as its write() doesn't build yet, so nothing says what it does to the
+    rows already there: answer "rebuilt" if each write replaces the whole table, "history" if
+    it keeps the rows already there.
 
     It runs the table's logic cell, as project.load does, and builds its preview(): the
     Table reference lists each column preview() gives, in its order, typed as the tables it
@@ -8380,7 +8469,10 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic
     makes, proposed, as project.convert proposes one from a query. location= is placed in its
     own folder under its Database's location_root, in admin/databases.py; with no root it is a
-    Decision left to you, which the new_table Workflow's decisions cell answers. It writes
+    Decision left to you, which the new_table Workflow's decisions cell answers. So is its
+    kind, KIND, a Rebuilt table or a History table, proposed from what its write() does to the
+    rows already there, as project.convert proposes one; a write() filling its Partitions from
+    its rows' own values, as the Template's does, has none proposed. It writes
     over only the file new_table wrote, whose columns are still <COLUMNS>: a Table reference
     whose columns you wrote is kept, and the report says so. Either way, it names each TODO
     line the Table reference leaves, such as its docstring's first line, which waits on
@@ -8416,6 +8508,8 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
                                 proposed=proposed, proposed_mark=decisions.PROPOSED_FROM_LOGIC)
     text = _with_location_placed(root, text, name)
     path.write_text(text, encoding="utf-8")
+    text = _with_blocks_before_aliases(text, [_kind_block_of_logic(root, name, call)])
+    path.write_text(text, encoding="utf-8")
     _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
     said = f"Wrote {shown} from its logic: {in_words(list(columns))}"
     if partitions:
@@ -8429,6 +8523,25 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
         lines.append("Answer each open Decision in the new_table Workflow's decisions cell: "
                      + "; ".join(f"{name}: {each.question()}" for each in still_open) + ".")
     return ProjectReport(lines)
+
+
+def _kind_block_of_logic(root: Path, name: str, call: str) -> list[str]:
+    """The kind block of a table's Table reference, its kind proposed from what its logic's
+    write() does to the rows already there, as project.convert proposes one from its write
+    (Toolbox 8.10): its logic is run again, its Table reference just written from it, so its
+    write() builds on the columns that reference lists. Nothing is proposed where write()
+    doesn't build yet, as before its location is answered."""
+    try:
+        # Its preview() said each warning already: building write() says none again.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            namespace = _logic_namespace(root, name, table_notebook(table_stem(name)), call)
+            hive = to_hive(namespace["write"]())
+    # What stops write() is the logic's to mend, as its notebook's cells say.
+    except (GuardRefused, LoadRefused, ValueError, TypeError):
+        return decisions.kind_block(None, "its write() doesn't build yet, so nothing says what "
+                                    "it does to the rows already there")
+    return decisions.kind_block(*converting.proposed_kind_of_hive(hive, name))
 
 
 def _preview_of(namespace: dict[str, object], name: str, call: str) -> Statement:

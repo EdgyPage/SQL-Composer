@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
+from .decisions import TableKind
 from .script_tags import (
     TAG,
     misshapen_tag_line,
@@ -2382,6 +2383,66 @@ def reads_itself(statement: BatchStatement, database: str) -> bool:
     named = [table for table in statement.tree.find_all(exp.Table)
              if _full_name(table, database) == statement.table]
     return len(named) > 1
+
+
+def proposed_table_kind(ordered: list[BatchStatement], table: str,
+                        database: str) -> tuple[TableKind | None, str]:
+    """The kind proposed for a table a batch writes, Rebuilt or History, from what its writes
+    do to the rows already there, never from what its query computes, and why, in words; or
+    None, and why nothing is proposed, where the write doesn't say (Toolbox 8.10). `ordered`
+    is the batch's statements in the order they run, and `table` is named as they name it.
+
+    A write reading its own table, as an incremental INSERT does, is History. A DROP or a
+    TRUNCATE of it before its first write, or a CREATE ... AS, or a query alone, is Rebuilt;
+    then by its first write: an INSERT INTO is History; an INSERT OVERWRITE with no PARTITION
+    is Rebuilt; one giving each partition column its value, PARTITION (dt = ...), is History;
+    one filling a Partition from its rows' own values, PARTITION (dt), has no proposal, as it
+    may replace every Partition or only some."""
+    writes = [each for each in ordered if each.kind in WRITES and each.table == table]
+    if any(reads_itself(each, database) for each in writes):
+        return TableKind.HISTORY, "its write reads its own table, adding to the rows it holds"
+    first = writes[0]
+    for each in ordered[:ordered.index(first)]:
+        if each.table == table and each.note in _EMPTIED_FIRST:
+            return TableKind.REBUILT, _EMPTIED_FIRST[each.note]
+    if first.kind in _WRITTEN_WHOLE:
+        return TableKind.REBUILT, _WRITTEN_WHOLE[first.kind]
+    return _kind_of_insert(first)
+
+
+# Why a table is proposed Rebuilt when its script drops or empties it before its first write,
+# by the DROP's or the TRUNCATE's note; and when its first write is a CREATE ... AS or a query
+# alone.
+_EMPTIED_FIRST = {DROPPED: "its script drops it first, then writes it whole",
+                  TRUNCATED: "its script empties it first, then writes it whole"}
+_WRITTEN_WHOLE = {CREATE_AS: "its CREATE ... AS writes it whole",
+                  QUERY: "it is a query alone, which each write writes whole"}
+
+
+def _kind_of_insert(insert: BatchStatement) -> tuple[TableKind | None, str]:
+    """The kind proposed for a table from its first write, an INSERT, and why, as
+    proposed_table_kind says."""
+    if not is_overwrite(insert):
+        return TableKind.HISTORY, "its INSERT INTO adds rows to the ones it holds"
+    named = insert_partitions(insert)
+    if not named:
+        return (TableKind.REBUILT,
+                "its INSERT OVERWRITE names no Partition, so it replaces the whole table")
+    filled = [column for column in named if column not in static_partition(insert)]
+    if not filled:
+        return (TableKind.HISTORY,
+                "its INSERT OVERWRITE replaces one Partition, keeping the others")
+    return None, (f"its INSERT OVERWRITE fills {in_words(filled)} from its rows' own values, "
+                  f"PARTITION ({', '.join(named)}), so it may replace every Partition or only "
+                  "some")
+
+
+def proposed_kind_of_hive(hive: str, table: str) -> tuple[TableKind | None, str]:
+    """The kind proposed_table_kind proposes for `table`, db.table, from its write as Hive,
+    such as to_hive gives a table's write(), and why."""
+    database = split_table_name(table)[0]
+    statements = batch_statements([("write.hql", hive)], database, table)
+    return proposed_table_kind(statements, table.lower(), database)
 
 
 def names_by_then(ordered: list[BatchStatement], statement: BatchStatement,
