@@ -1021,7 +1021,7 @@ PARAM_DECISIONS = """from building_blocks.run_values import period_end
 from sqlglot_composer import hivevar
 
 DECISIONS = {
-    "all_tables": {"tags": {"RUN_DAY": period_end}},
+    "all_tables": {"tags": {"RUN_DAY": period_end}, "kind": "proposed"},
     "mart_dev.filled": {"key": None, "tags": {"SKIP": "FAILED",
                                               "NO_JOB": hivevar("NO_JOB", default="0")}},
     "mart_dev.unset": {"key": None},
