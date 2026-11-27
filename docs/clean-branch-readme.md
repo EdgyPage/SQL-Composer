@@ -562,10 +562,13 @@ whose cells create, preview and write it. The new_table Workflow,
 `admin/workflows/new_table/new_table.ipynb`, takes you from its name to the table written in
 dev.
 
-1. **Add what it reads.** Goal: a Table reference for each table the new table reads, from its
-   query or from logic you write. Action: add them with the references Workflow,
-   `admin/workflows/references/references.ipynb`, before you run the new_table Workflow. Done
-   when each has its file in `references/`; then step 2.
+1. **Add what it reads.** Goal: a Table reference for each table the new table reads. Action:
+   if you give its query in step 2, do nothing here: the new_table Workflow's first step adds
+   each table the query reads that has none, from its DESCRIBE, its Key proposed, and names
+   each file it added. If you write its logic yourself, add them with the references
+   Workflow, `admin/workflows/references/references.ipynb`, before you run the new_table
+   Workflow. Done when each has its file in `references/`, or you have its query; then
+   step 2.
 2. **Name the table.** Goal: the Workflow knows what to make. Action: name the table in the
    new_table Workflow's names cell, by the rules below, and save the notebook. Done when the
    names cell holds it; then step 3.
@@ -805,7 +808,8 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    - If a tag stands for a day that changes each run, answer it with a **Run value**, the
      value a function of yours gives each time the table is written. For the latest day a
      table holds, write at the top of the decisions cell
-     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")`, then, under
+     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt", query=query)`,
+     which writes ops.job_runs's Table reference first if it has none, then, under
      it, this import line, which the call also prints:
      `from building_blocks.run_values import period_end`; and run the cell once: it writes the function into building_blocks/run_values.py and registers the
      file. Run again as it is, it changes nothing. Then give the function's name, with no
@@ -1065,7 +1069,8 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -1226,7 +1231,7 @@ flowchart TD
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-       project.new_table(TABLES, queries=QUERIES)
+       project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).

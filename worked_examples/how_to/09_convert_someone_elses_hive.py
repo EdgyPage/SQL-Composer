@@ -308,8 +308,9 @@ The file `building_blocks/run_values.py`, as project.new_run_value wrote it:
         return latest_partition(run_alerts.dt, query)
 
 It imports the Table reference of ops.run_alerts, which step 3 added, as it adds one for each
-table the scripts read. A Run value that reads a table no script reads needs that table's
-Table reference first, from the references Workflow. Run again as it is, as the decisions
+table the scripts read. A Run value that reads a table no script reads gets that table's Table
+reference too, given query=query: new_run_value writes it from its DESCRIBE, its Key proposed,
+and names the file it added. Run again as it is, as the decisions
 cell is each time you mend an answer, the call changes nothing and prints the import line
 again.
 
@@ -492,8 +493,8 @@ What the steps used, and the cases they didn't meet:
   the file, register it once: `project.check()` names it as made by hand, with the call,
   `project.register("run_values")`, to run in admin/check_project.ipynb.
 - **Its name:** new_run_value refuses a name the file holds for something else, a table with
-  no Table reference, naming the references Workflow, and a column that isn't one of the
-  table's partition columns, naming them.
+  no Table reference when it isn't given your query, or whose DESCRIBE fails, naming it, and a
+  column that isn't one of the table's partition columns, naming them.
 - **Its own day:** today() is today's date in UTC, and today(utc_offset_hours=-6) six hours
   behind it; today() - datetime.timedelta(days=1) is yesterday. `latest_partition` gives a
   date when every Partition's value is one, a number when every one is digits, and otherwise

@@ -105,7 +105,11 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
 # 8.6's ticket 12, 8.7's ticket 14, 8.8's ticket 10 and 8.9's ticket 16 emptied it.
-AWAITING_ITS_STEP: tuple[str, ...] = ()
+AWAITING_ITS_STEP: tuple[str, ...] = (
+    # 8.10's ticket 02: new_table's step 1 and convert's step 3 give your query, which adds a
+    # Table reference a table read has none of.
+    "admin/workflows/new_table/new_table.ipynb", "admin/workflows/convert/convert.ipynb",
+)
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")

@@ -1545,7 +1545,7 @@ def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Pat
         "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder, converting "
         "each table's query QUERIES gives. It changes only files, so project.do_next() runs "
         "it for you: "
-        'project.new_table(["mart.daily_job_runs"], queries=QUERIES)')
+        'project.new_table(["mart.daily_job_runs"], queries=QUERIES, query=query)')
 
 
 def test_check_names_an_open_key_after_a_later_step_ran(started: Path) -> None:
@@ -1613,7 +1613,7 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
     assert (started / "tables" / "mart__team_day").is_dir()
     assert report.splitlines()[0] == (
         '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"], '
-        'queries=QUERIES)')
+        'queries=QUERIES, query=query)')
     assert report.splitlines()[-2] == (
         "  admin/workflows/new_table/new_table.ipynb: 2. Write each table's logic in its Table "
         "notebook, and save it. It is a decision, yours to make: for table in "

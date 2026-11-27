@@ -739,7 +739,8 @@ def _completed_report(added: list[str], before_7: bool) -> ProjectReport:
 
 
 def new_table(name: str | list[str], template: str = "saved_table",
-              queries: dict[str, str] | None = None) -> ProjectReport:
+              queries: dict[str, str] | None = None, *,
+              query: Callable[[str], pd.DataFrame] | None = None) -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
 
     >>> from sqlglot_composer import project
@@ -769,9 +770,12 @@ def new_table(name: str | list[str], template: str = "saved_table",
     passed over. Its logic is written for you, and its Table reference from the logic, its Key
     proposed; its location is placed under DEV's location_root in admin/databases.py, or you
     answer it when DEV has none, and the new_table Workflow writes it, then compares it
-    with its query, so the promote Workflow takes it to prod. Each table the query reads needs
-    its Table reference first. A query for a table it isn't given, or outside DEV, or Hive that
-    is more than one query, is refused before anything is made.
+    with its query, so the promote Workflow takes it to prod. A table the query reads that has
+    no Table reference gets one first, written from its DESCRIBE through your `query`, as the
+    references Workflow writes one, its Key proposed for you to accept: the report names each
+    file it added. A query for a table it isn't given, or outside DEV, or Hive that is more
+    than one query, is refused before anything is made, and so is a table whose DESCRIBE
+    fails, naming it.
 
     `name` may also be a list of names, each done in turn, in one report. A name refused
     stops the rest, and its refusal says which were done before it, which stay done, and
@@ -779,19 +783,24 @@ def new_table(name: str | list[str], template: str = "saved_table",
     """
     frame = callers_frame()
     queries = queries or {}
-    _refuse_queries_it_cant_make(name, queries)
+    unreferenced = _refuse_queries_it_cant_make(name, queries)
+    added = []
+    if unreferenced:
+        added = _add_references_for("project.new_table(..., queries=...)",
+                                    _project_root("project.new_table"), unreferenced, query,
+                                    frame)
     more = _template_shown(template) + (", queries=..." if queries else "")
     report = _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
                                 queries, more=more)
-    return _report_once_recorded(report, "new_table", name)
+    return _report_once_recorded(ProjectReport([*added, *report.lines]), "new_table", name)
 
 
-def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> None:
+def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> list[str]:
     """Refuse queries= before any table is made: one naming a table the names don't, names
-    sharing one table's name, a table outside the Dev Database, Hive that isn't one query, or
-    a query reading a table with no Table reference."""
+    sharing one table's name, a table outside the Dev Database, or Hive that isn't one query.
+    Gives each table the queries read that has no Table reference, which new_table adds."""
     if not queries:
-        return
+        return []
     call = "project.new_table(..., queries=...)"
     listed = [names] if isinstance(names, str) else _names_in_list(names, call)
     by_short_name: dict[str, list[str]] = {}
@@ -812,17 +821,19 @@ def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]
                fix="Make the table from its query in its own call.", error=ValueError)
     root = _project_root(call)
     dev = _dev_database(root, call)
+    unreferenced = []
     for short, tables in by_short_name.items():
         if short in queries:
-            _refuse_a_query_it_cant_make(root, dev, tables[0], queries[short], call)
+            unreferenced += _refuse_a_query_it_cant_make(root, dev, tables[0], queries[short],
+                                                         call)
+    return list(dict.fromkeys(unreferenced))
 
 
 def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file: str,
-                                 call: str) -> None:
+                                 call: str) -> list[str]:
     """Refuse one table's query: a table with a Table folder already, as new_table refuses
-    one, the table outside the Dev Database, Hive that isn't one query, or a query reading a
-    table with no Table reference, which convert would DESCRIBE through a query new_table
-    hasn't."""
+    one, the table outside the Dev Database, or Hive that isn't one query. Gives each table
+    the query reads that has no Table reference."""
     database, table = split_table_name(name)
     if TABLE_FOLDER.path(root, table_stem(name)).exists():
         refuse(what=f"{call}: {name} has a Table folder already, so nothing was made.",
@@ -845,16 +856,11 @@ def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file:
                "creates tables is a batch for the convert Workflow.",
                fix="Give the SELECT alone, or convert the scripts with the convert Workflow.",
                error=ValueError)
-    missing = []
+    unreferenced = []
     for each in statements:
-        missing += [read for read in each.reads
-                    if not REFERENCE.path(root, table_stem(read)).is_file()]
-    if missing:
-        refuse(what=f"{call}: {table}'s query reads {in_words(missing)}, which has no Table "
-               "reference.",
-               why="Its logic reads each table it reads through its Table reference.",
-               fix="Add it first with the references Workflow, "
-               "admin/workflows/references/references.ipynb.", error=ValueError)
+        unreferenced += [read for read in each.reads
+                         if not REFERENCE.path(root, table_stem(read)).is_file()]
+    return unreferenced
 
 
 # What a batch calls Hive given as text, not in a file, as a script of its own.
@@ -1440,7 +1446,8 @@ RUN_VALUES_DOCSTRING = (
 WHOLE_NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint")
 
 
-def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
+def new_run_value(name: str, *, latest_partition: str,
+                  query: Callable[[str], pd.DataFrame] | None = None) -> ProjectReport:
     '''Write a Run value: a function giving a table's latest Partition.
 
     >>> from pathlib import Path
@@ -1488,9 +1495,12 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
 
     In the convert notebook, write the call at the top of the decisions cell, the import under
     it, and run the cell once before "Run the rest". Run again as it was, it changes nothing,
-    so the cell can run again. A name the file has already for anything else is refused, as
-    is a table with no Table reference, which the references Workflow writes, and a column
-    that isn't one of the table's partition columns. It never touches the warehouse.
+    so the cell can run again. A table with no Table reference gets one first, written from
+    its DESCRIBE through your `query`, as the references Workflow writes one, its Key
+    proposed for you to accept, and the report names the file it added; that DESCRIBE is the
+    only call it sends, and only then. A name the file has already for anything else is
+    refused, as is a table whose DESCRIBE fails, and a column that isn't one of the table's
+    partition columns.
 
     Any other kind of Run value, such as the last day of last month, is a function you write
     in building_blocks/run_values.py yourself: it takes nothing, and gives a date, a number
@@ -1501,7 +1511,9 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
             f"latest_partition={python_literal(latest_partition)})")
     root = _project_root(call)
     _check_run_value_name(name, call)
-    table, column = _partition_column_named(root, latest_partition, call)
+    table_name, column = _partition_column_given(latest_partition, call)
+    added = _add_references_for(call, root, [table_name], query, frame)
+    table = _partition_column_of(root, table_name, column, call)
     shown = BUILDING_BLOCK.shown(RUN_VALUES_BLOCK)
     path = BUILDING_BLOCK.path(root, RUN_VALUES_BLOCK)
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
@@ -1510,8 +1522,8 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     import_lines = ["Import it at the top of the decisions cell:",
                     f"from building_blocks.{RUN_VALUES_BLOCK} import {name}"]
     if function in text:
-        return ProjectReport([f"{shown} holds {name} already, as this call writes it: "
-                              "nothing changed.", *import_lines])
+        return ProjectReport([*added, f"{shown} holds {name} already, as this call writes "
+                              "it: nothing changed.", *import_lines])
     _check_names_are_free(bound, needs, name, shown, call)
     lacking = [line for local, (from_where, line) in needs.items()
                if bound.get(local) != from_where]
@@ -1525,7 +1537,7 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
         files.append(f"registered {shown}")
         lines.append(f"Registered {shown}.")
     _log(root, call, [table._name], files, frame)
-    return ProjectReport([*lines, *import_lines])
+    return ProjectReport([*added, *lines, *import_lines])
 
 
 def _check_run_value_name(name: object, call: str) -> None:
@@ -1549,10 +1561,9 @@ def _check_run_value_name(name: object, call: str) -> None:
         )
 
 
-def _partition_column_named(root: Path, given: object, call: str) -> tuple[Table, str]:
-    """The Table reference and the partition column new_run_value's latest_partition= names,
-    such as "ops.job_runs.dt"; refused when it names no partition column of a table with a
-    Table reference."""
+def _partition_column_given(given: object, call: str) -> tuple[str, str]:
+    """The table and the partition column new_run_value's latest_partition= names, such as
+    "ops.job_runs.dt"; refused when it isn't written so."""
     parts = given.split(".") if isinstance(given, str) else []
     if len(parts) != 3 or not all(re.fullmatch(r"[A-Za-z0-9_]+", part) for part in parts):
         refuse(
@@ -1563,21 +1574,16 @@ def _partition_column_named(root: Path, given: object, call: str) -> tuple[Table
             fix='Write it like "ops.job_runs.dt".',
             error=ValueError,
         )
-    name, column = f"{parts[0]}.{parts[1]}", parts[2]
-    if not REFERENCE.path(root, table_stem(name)).is_file():
-        refuse(
-            what=f"{call}: {name} has no Table reference, "
-            f"{REFERENCE.shown(table_stem(name))}, so nothing was written.",
-            why="The function reads the table's partition column through its Table "
-            "reference, as latest_partition(job_runs.dt, query) does.",
-            fix="Write it first with the references Workflow, "
-            "admin/workflows/references/references.ipynb, then run this again.",
-            error=FileNotFoundError,
-        )
+    return f"{parts[0]}.{parts[1]}", parts[2]
+
+
+def _partition_column_of(root: Path, name: str, column: str, call: str) -> Table:
+    """The Table reference of `name`, refused when `column` isn't one of its partition
+    columns."""
     table = _table_in(root, name)
     partitioned_by = table._partitioned_by
     if column in partitioned_by:
-        return table, column
+        return table
     if partitioned_by:
         what = (f"{call}: {column} isn't a partition column of {name}: its partition "
                 f"{singular_or_plural(len(partitioned_by), 'column is', 'columns are')} "
@@ -1867,6 +1873,68 @@ def _write_each_reference(root: Path, names: list[object],
             to_register.append((REFERENCE, name))
     registry.add(to_register, unchecked.now())
     return files, skipped
+
+
+def _write_references_from_describe(call: str, root: Path, missing: list[str],
+                                    query: Callable[[str], pd.DataFrame] | None
+                                    ) -> tuple[list[str], list[str]]:
+    """Write a Table reference from DESCRIBE, through your query, for each of `missing`, the
+    tables `call` reads that have none, then each Database module again: the files written,
+    and each table skipped, with why. Refused, writing nothing, when no query was given."""
+    need_warehouse_call(call, "query", query, "It writes a Table reference for each table "
+                        f"it reads that has none ({in_words(missing)}), through your query, "
+                        "which gives back DESCRIBE's rows.")
+    added, skipped = _write_each_reference(root, missing, query)
+    _write_databases(root)
+    return added, skipped
+
+
+def _add_references_for(call: str, root: Path, tables: list[str],
+                        query: Callable[[str], pd.DataFrame] | None,
+                        frame: FrameType) -> list[str]:
+    """Add the Table reference of each of `tables` that has none (Toolbox 8.10), as the
+    references Workflow's first step writes one: from DESCRIBE through your query, its Key
+    proposed for you to accept, then its rows in the Reference sheet; then log it and record
+    the Lineage state. What it says: a line naming each file added, then what it proposed. A
+    reference there already is left as it is. A DESCRIBE that fails is refused, naming the
+    table and the warehouse's error, once the rest are written: nothing is written for that
+    table."""
+    missing = [table for table in dict.fromkeys(tables)
+               if not REFERENCE.path(root, table_stem(table)).is_file()]
+    if not missing:
+        return []
+    files, skipped = _write_references_from_describe(call, root, missing, query)
+    written = [table for table in missing if REFERENCE.path(root, table_stem(table)).is_file()]
+    lines = [f"Added {REFERENCE.shown(table_stem(table))}: {table} had no Table reference, so "
+             "it was written from its DESCRIBE." for table in written]
+    lines += _write_proposals(root, written, query)
+    for table in written:
+        _refresh_reference_sheet_one(table)
+    result = "worked"
+    if skipped:
+        result = f"{len(files)} of {len(missing)} written; the rest refused, above"
+    _log(root, call, missing, [f"created {file}" for file in files], frame, skipped, result)
+    if skipped:
+        _refuse_a_reference_not_added(call, skipped, files)
+    return [*lines, *_unrecorded_lines(root, call)]
+
+
+def _refuse_a_reference_not_added(call: str, skipped: list[str], files: list[str]) -> NoReturn:
+    """Refuse `call`, once each Table reference that could be is added, naming each table
+    whose reference couldn't be, with the warehouse's error."""
+    written = ""
+    if files:
+        written = f" {in_words(files)} {singular_or_plural(len(files), 'was', 'were')} added."
+    refuse(
+        what=f"{call} couldn't write a Table reference for a table it reads, so it stopped: "
+        + "; ".join(skipped) + ".",
+        why="It reads each table through its Table reference, written from the table's "
+        f"DESCRIBE, sent through your query; with none, it can't go on.{written}",
+        fix="Check the table's name, and that your query can read it, such as by sending "
+        "DESCRIBE with that name yourself, then run this again: a Table reference added "
+        "already is kept.",
+        error=ValueError,
+    )
 
 
 def _refuse_skipped_tables(skipped: list[str], files: list[str], count: int) -> NoReturn:
@@ -2350,7 +2418,7 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
     ...     "TABLES = []", "TABLES = ['mart.daily_job_runs']"), encoding="utf-8")
     >>> project.do_next()
-      new_table: ran project.new_table(["mart.daily_job_runs"], queries={})
+      new_table: ran project.new_table(["mart.daily_job_runs"], queries={}, query=query)
         Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
         admin/templates/saved_table.py.
         Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
@@ -2748,13 +2816,14 @@ def _refuse_batches_reading_each_others_tables(call: str, root: Path, files: lis
 
 def _step_lines(step: workflows.Step, inputs: dict[str, object],
                 calls: workflows.Calls) -> list[str]:
-    """What one step does, run or sent. In a dry run, a file step after one that would have
-    sent is only named, with its call: run, its files would say the steps before it are done,
-    though nothing was sent."""
-    if step.run is None:
-        return step.send(inputs, calls)
-    if calls.dry_run and calls.would_have_sent:
+    """What one step does, run or sent: a file step with a send of its own, which takes your
+    query, is sent. In a dry run, a file step after one that would have sent is only named,
+    with its call: run, its files would say the steps before it are done, though nothing was
+    sent."""
+    if step.run is not None and calls.dry_run and calls.would_have_sent:
         return [f"would run: {workflows.ready_call(step.call, inputs)}"]
+    if step.send is not None:
+        return step.send(inputs, calls)
     return step.run(inputs).lines
 
 
@@ -3810,12 +3879,7 @@ def _write_missing_references(call: str, root: Path,
                if not REFERENCE.path(root, REFERENCE.stem(table)).exists()]
     if not missing:
         return [], []
-    need_warehouse_call(call, "query", query, "It writes a Table reference for each table "
-                        f"the scripts read that has none ({in_words(missing)}), through "
-                        "your query, which gives back DESCRIBE's rows.")
-    added, skipped = _write_each_reference(root, missing, query)
-    _write_databases(root)
-    return added, skipped
+    return _write_references_from_describe(call, root, missing, query)
 
 
 def database_settings(name: str) -> dict[str, str]:
@@ -5083,7 +5147,8 @@ def _tables_compared(call: str, tables: str | list[str] | None,
 
 
 def write_decisions(answers: dict[str, dict[str, object]],
-                    tables: str | list[str] | None = None) -> ProjectReport:
+                    tables: str | list[str] | None = None, *,
+                    query: Callable[[str], pd.DataFrame] | None = None) -> ProjectReport:
     """Write each answer of a decisions cell into its table's Table reference.
 
     >>> from sqlglot_composer import project
@@ -5133,9 +5198,12 @@ def write_decisions(answers: dict[str, dict[str, object]],
     renames the table, its Table folder and its Table reference, and its Total Row's table,
     if it has one, with it, before it is created in dev. "sources" answers its SOURCES, the
     database table proposed for each Table or cells of the workbook it reads, from its name,
-    such as {"ops.table1": "ops.job_runs"}, each a table with a Table reference, in any
-    database: "proposed" keeps it; its logic reads the table given then, with any opt-out it
-    now needs.
+    such as {"ops.table1": "ops.job_runs"}, each a table by its name, in any database:
+    "proposed" keeps it; its logic reads the table given then, with any opt-out it now needs.
+    A table given that has no Table reference gets one first, written from its DESCRIBE
+    through your `query`, as the references Workflow writes one, its Key proposed for you to
+    accept: the report names each file it added. One whose DESCRIBE fails is refused, naming
+    it, and no answer is written.
     "pivot_filters" answers its PIVOT_FILTERS, what the PivotTable it was made from leaves
     out, each Pivot filter by its field, such as {"status": "fold"}: "keep" keeps the filter
     as converted; "fold" makes its column part of what one row is; "batch" partitions the
@@ -5179,10 +5247,11 @@ def write_decisions(answers: dict[str, dict[str, object]],
     _refuse_all_tables_with_no_tables(call, answers, tables)
     tables = tables or []
     _refuse_answers_matching_nothing(call, root, answers, tables)
+    lines = _add_references_for(call, root, _sources_given(answers), query, frame)
     named = [table for table in answers if table != decisions.ALL_TABLES]
     if decisions.ALL_TABLES in answers:
         named = list(dict.fromkeys([*tables, *named]))
-    lines, files = [], []
+    files = []
     before, written = {}, {}
     renamed: dict[str, str] = {}
     filters_answered: list[str] = []
@@ -5488,10 +5557,28 @@ def _unmatched_workbook_answers(root: Path, table: str, answer: dict[str, object
                 problems.append(f"{table}: sources: {source} is no table of its SOURCES"
                                 f"{_nearest_or_all(source, list(proposed), 'tables')}")
             elif (given != decisions.ACCEPT_PROPOSED and not decisions.is_left_to_fill_in(given)
-                  and not REFERENCE.path(root, table_stem(str(given))).exists()):
-                problems.append(f"{table}: sources: {given} has no Table reference: add it "
-                                f'first, with project.add_references("{given}", query=query)')
+                  and not _is_a_table_name(given)):
+                problems.append(f"{table}: sources: {given} isn't a table's name, written as "
+                                "database.table, such as ops.job_runs")
     return problems + _unmatched_pivot_filter_answers(root, table, answer, reference_text)
+
+
+def _is_a_table_name(given: object) -> bool:
+    """Whether `given` is a table's name written as database.table, such as ops.job_runs."""
+    return isinstance(given, str) and bool(TABLE_NAME.fullmatch(given)) and "." in given
+
+
+def _sources_given(answers: dict[str, dict[str, object]]) -> list[str]:
+    """Each table the decisions cell's "sources" answers give, by its name, but "proposed" and
+    an answer left <FILL IN>."""
+    given = []
+    for answer in answers.values():
+        sources = answer.get(decisions.ANSWERS[decisions.SOURCE])
+        if isinstance(sources, dict):
+            given += [str(each) for each in sources.values()
+                      if each != decisions.ACCEPT_PROPOSED
+                      and not decisions.is_left_to_fill_in(each)]
+    return list(dict.fromkeys(given))
 
 
 def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,

@@ -45,7 +45,8 @@ flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)"]]:::warehouse_call
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
-    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))"]:::files_only
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                        query=query)"]:::files_only
     s3[["4. Create each table in dev: for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
     s4[["5. Seed each table that reads itself, once, from its original: to_seed = project.batch_tables(NAME, seeded=True)
@@ -157,7 +158,7 @@ Ends with: a dev Table folder whose logic loads, written in dev, its Table refer
 
 ```mermaid
 flowchart TD
-    s0["1. Make each Table folder, converting each table's query QUERIES gives: project.new_table(TABLES, queries=QUERIES)"]:::files_only
+    s0["1. Make each Table folder, converting each table's query QUERIES gives: project.new_table(TABLES, queries=QUERIES, query=query)"]:::files_only
     s1{"2. Write each table's logic in its Table notebook, and save it: for table in TABLES:
     project.load(table).preview()  #35; says what stops it, if anything does"}:::your_decision
     s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES)"]:::files_only

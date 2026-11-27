@@ -241,7 +241,9 @@ def test_each_write_step_gives_write_decisions_the_notebooks_tables() -> None:
     calls = {workflow.name: step.call for workflow in workflows.WORKFLOWS
              for step in workflow.steps if step.call.startswith("project.write_decisions(")}
     assert calls == {
-        "convert": "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
+        # Toolbox 8.10, ticket 02: convert's takes your query too, for a "sources" answer.
+        "convert": "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),\n"
+                   "                        query=query)",
         "promote": "project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))",
         "new_table": "project.write_decisions(DECISIONS, tables=TABLES)",
         "references": "project.write_decisions(DECISIONS, tables=TABLES)",

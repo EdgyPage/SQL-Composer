@@ -51,8 +51,9 @@ Workflow's other cells when asked.
   period_end}}`. It lives in a Project file, imported at the top of the cell; one made in a
   cell, a lambda or a nested one is left unwritten.
 - **R4** The newest Partition of a table: `project.new_run_value("period_end",
-  latest_partition="ops.job_runs.dt")` writes `latest_partition(job_runs.dt, query)` in
-  building_blocks/run_values.py and registers it. Today: `today()` in UTC,
+  latest_partition="ops.job_runs.dt", query=query)` writes `latest_partition(job_runs.dt,
+  query)` in building_blocks/run_values.py and registers it, adding the table's Table
+  reference if it has none. Today: `today()` in UTC,
   `today(utc_offset_hours=-6)` six hours behind.
 - **R5** No Partition names it: the function runs a Statement of its own with run_query,
   each partitioned read bounded, and takes no argument (W1).
@@ -103,7 +104,7 @@ def last_good_day() -> datetime.date:
 ### W2: the decisions cell and step 3: PERIOD_END by period_end, Keys accepted, a seed
 
 ```python
-project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
+project.new_run_value("period_end", latest_partition="ops.job_runs.dt", query=query)
 from building_blocks.run_values import period_end
 
 DECISIONS = {

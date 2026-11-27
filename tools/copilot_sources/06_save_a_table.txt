@@ -5,7 +5,7 @@ columns and values, then tick the Self-check. Add nothing the user didn't ask fo
 
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
-it, add to it, or write the logic cell of a Table notebook.
+it, add to it, or write a Table notebook's logic cell.
 
 ## Patterns: when the user says X, do Y
 
@@ -58,7 +58,7 @@ it, add to it, or write the logic cell of a Table notebook.
 - **R9** Otherwise the next cell runs `show_hive([create(), write()])` and
   `run_query(preview(), query)`; `project.run_tables(execute=execute)` sends the writes.
 - **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
-  `export_hive()` cell writes <db>__<table>.hql beside it, to read.
+  `export_hive()` cell writes <db>__<table>.hql beside it.
 
 {always}
 {lean}

@@ -264,7 +264,8 @@ Its steps' own cells, in order:
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+    project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                            query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -547,7 +548,7 @@ Its steps' own cells, in order:
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-    project.new_table(TABLES, queries=QUERIES)
+    project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).

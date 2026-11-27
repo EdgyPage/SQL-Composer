@@ -92,9 +92,9 @@ the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
 
 ## Names for this objective, with their arguments
 
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
-- project.new_run_value(name, *, latest_partition)
+- project.new_run_value(name, *, latest_partition, query=None)
 - hivevar(name, *, default)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
 - is_in(column, values)

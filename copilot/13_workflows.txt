@@ -79,7 +79,7 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
 
 ## The steps of convert
@@ -94,7 +94,8 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
