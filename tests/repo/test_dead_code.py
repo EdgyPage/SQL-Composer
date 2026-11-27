@@ -47,8 +47,9 @@ PRIVATE_SEAMS = {
     ("engine", "_LOWEST"): "sqlglot's range, which the version test holds the pin inside",
     ("engine", "_BELOW"): "sqlglot's range, which the version test holds the pin inside, and "
                           "dev's Example database's executor names in its fix",
-    ("engine", "_NEWEST_TESTED"): "the pin the version test compares, and dev's Example "
-                                  "database's executor names in its fix",
+    ("engine", "_PIN"): "the pin the version test compares, and dev's Example database's "
+                        "executor names in its fix",
+    ("engine", "_NEWEST_TESTED"): "the newest sqlglot CI runs, which the CI test compares",
     ("running", "_self_check"): "swapped out by a test to show nothing unchecked is sent",
     ("tables", "_SET_IT"): "a fix text a test checks against the admin module",
     ("tables", "_FOLDERS"): "the folders taken in one Python, which every test gives back",

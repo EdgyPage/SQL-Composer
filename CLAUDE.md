@@ -113,9 +113,11 @@ this computer the code audit and each "committed is generated" test keep a memo 
 everything. With `CI` set, as `.github/workflows/dev.yml` sets it, every generated output
 regenerates whole.
 
-CI runs one job on Python 3.13, at sqlglot's pin, which `.github/workflows/dev.yml` names: the
-Toolbox's range starts at 30.19.0, and since 7.2 CI doesn't run its bottom. Export only a commit
-whose CI job passed: the export doesn't check the gallery.
+CI runs two jobs on Python 3.13, which `.github/workflows/dev.yml` names: one at sqlglot's pin,
+and since 8.10 one at 30.34.0, `sqlglot_composer/engine.py`'s `_NEWEST_TESTED`, as sqlglot
+30.24.0 changed how it reads SORT_ARRAY. The Toolbox's range starts at 30.19.0, and since 7.2 CI
+doesn't run its bottom.
+Export only a commit whose CI jobs passed: the export doesn't check the gallery.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
@@ -218,7 +220,7 @@ reaches only this computer, as ADR 0004 records (ADR 0012 split `send` in two);
 
 A `task` ticket that changes code is done when:
 
-1. `.venv/Scripts/python -m pytest` passes, and CI's job passes before the commit is
+1. `.venv/Scripts/python -m pytest` passes, and CI's jobs pass before the commit is
    exported;
 2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
    answered in the ticket;

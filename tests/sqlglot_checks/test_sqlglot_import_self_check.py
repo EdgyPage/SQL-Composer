@@ -71,8 +71,18 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(
 
 def test_a_newer_sqlglot_in_range_prints_a_note(
         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setattr(sqlglot, "__version__", "30.24.1")
+    monkeypatch.setattr(sqlglot, "__version__", "30.34.1")
     sqlglot_composer.engine.check_installed()
     assert capsys.readouterr().out == (
-        "Note: sqlglot 30.24.1 is newer than any version sqlglot Composer was tested on "
-        "(30.23.0). Its behaviour checks passed.\n")
+        "Note: sqlglot 30.34.1 is newer than any version sqlglot Composer was tested on "
+        "(30.34.0). Its behaviour checks passed.\n")
+
+
+@pytest.mark.parametrize("version", ["30.23.0", "30.24.0", "30.34.0"])
+def test_a_sqlglot_ci_tests_on_or_below_prints_no_note(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        version: str) -> None:
+    # Toolbox 8.10, ticket 01: CI runs the pin, 30.23.0, and 30.34.0.
+    monkeypatch.setattr(sqlglot, "__version__", version)
+    sqlglot_composer.engine.check_installed()
+    assert capsys.readouterr().out == ""

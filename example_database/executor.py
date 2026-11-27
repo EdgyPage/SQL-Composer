@@ -37,7 +37,7 @@ def _dotted(numbers: tuple[int, ...]) -> str:
 # What to install where the executor counts wrongly: the sqlglot the Toolbox is tested on, or a
 # newer one in its range.
 INSTALL_NEWER = ("Install a newer sqlglot from a notebook cell with %pip install "
-                 f'"sqlglot>={_dotted(engine._NEWEST_TESTED)},<{_dotted(engine._BELOW)}", '
+                 f'"sqlglot>={_dotted(engine._PIN)},<{_dotted(engine._BELOW)}", '
                  "then restart the kernel. If you can't install packages, ask whoever looks "
                  "after your environment.")
 

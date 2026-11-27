@@ -194,6 +194,20 @@ def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str
     to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
 
 
+@pytest.mark.parametrize(("extra", "written"), [
+    ((), "SORT_ARRAY(COLLECT_SET(job_runs.status)) AS x"),
+    ((True,), "SORT_ARRAY(COLLECT_SET(job_runs.status), TRUE) AS x"),
+    ((False,), "SORT_ARRAY(COLLECT_SET(job_runs.status), FALSE) AS x"),
+])
+def test_hive_function_writes_sort_array_as_given_on_either_sqlglot(extra: tuple[bool, ...],
+                                                                    written: str) -> None:
+    """Toolbox 8.10, ticket 01: sqlglot 30.24.0 reads SORT_ARRAY as ArraySort, which it won't
+    write descending as Hive; the Toolbox writes it as given, on either side of that change."""
+    listed = hive_function("collect_set", job_runs.status)
+    call = hive_function("sort_array", listed, *extra)
+    assert written in to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
+
+
 def test_hive_function_counts_min_and_max_as_one_argument() -> None:
     """With two, sqlglot Composer's sqlglot writes GREATEST, which doesn't turn rows into
     one."""

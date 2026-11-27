@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
+from .engine import sort_array_class
 from .script_tags import (
     TAG,
     misshapen_tag_line,
@@ -592,8 +593,15 @@ class _Converter:
     def leave_out_sort_arrays_true(self, tree: exp.Expression) -> None:
         """Leave out each SORT_ARRAY's TRUE, Spark's second argument, which Hive's refuses, as
         ascending is how Hive's sorts; a second argument of any other kind is kept, with a
-        finding that the user's Hive may refuse it."""
-        for node in list(tree.find_all(exp.SortArray)):
+        finding that the user's Hive may refuse it.
+
+        From sqlglot 30.24.0, SORT_ARRAY reads as ArraySort, which also says where its NULLs
+        go: that is left out too, as Hive's SORT_ARRAY takes no such argument, so the Python
+        written holds only the Hive's own."""
+        sorts = sort_array_class()
+        for node in list(tree.find_all(sorts)):
+            if sorts is exp.ArraySort:
+                node.set("nulls_first", None)
             ascending = node.args.get("asc")
             if ascending is None:
                 continue

@@ -1,6 +1,8 @@
-# Runs pytest on every push to `dev`, on Python 3.13, at sqlglot's pin in requirements-dev.txt,
-# the newest version the Toolbox is tested on. It supports sqlglot 30.19.0 up to (not including)
-# 31; since 7.2 CI doesn't run the bottom of that range.
+# Runs pytest on every push to `dev`, on Python 3.13, in two jobs: at sqlglot's pin in
+# requirements-dev.txt, and at 30.34.0, the newest version the Toolbox is tested on, engine.py's
+# _NEWEST_TESTED (Toolbox 8.10, ticket 01: sqlglot 30.24.0 changed how it reads SORT_ARRAY,
+# above the pin). It supports sqlglot 30.19.0 up to (not including) 31; since 7.2 CI doesn't
+# run the bottom of that range.
 # `main` has no CI: a workflow file there would sit outside its allowlist.
 # Each action is pinned to the commit its tag named on 2026-10-06, so a moved tag runs nothing
 # new, and the jobs may only read the repo.
@@ -21,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sqlglot: ["30.23.0"]
+        sqlglot: ["30.23.0", "30.34.0"]
     name: sqlglot Composer (sqlglot ${{ matrix.sqlglot }})
     # GitHub sets CI on every runner; said here too, since the suite reads it: on CI every
     # "committed is generated" test regenerates whole (tests/generated_memo.py). pytest runs on

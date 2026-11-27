@@ -304,8 +304,8 @@ def _steps(job: str) -> list[str]:
 
 def test_the_sqlglot_pin_is_inside_the_range_the_toolbox_supports() -> None:
     engine, pin = _engine(), _pin()
-    assert engine._LOWEST <= pin < engine._BELOW
-    assert pin == engine._NEWEST_TESTED
+    assert engine._LOWEST <= pin <= engine._NEWEST_TESTED < engine._BELOW
+    assert pin == engine._PIN
 
 
 def _requirements() -> dict[str, str]:
@@ -380,11 +380,12 @@ def test_requirements_pins_the_versions_dev_tests_on() -> None:
     assert _requirements() == {name: dev[name] for name in _requirements()}
 
 
-def test_ci_runs_at_sqlglots_pin() -> None:
+def test_ci_runs_at_sqlglots_pin_and_at_the_newest_it_is_tested_on() -> None:
+    # Toolbox 8.10, ticket 01: a second job, above the pin, so a break there shows on a push.
     job, library = _job(), toolbox_registry.LIBRARY
     matrix = re.search(rf"^\s+{library}: \[(.*)\]$", job, re.MULTILINE).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
-    assert versions == {_pin()}
+    assert versions == {_pin(), _engine()._NEWEST_TESTED}
     assert 'python-version: "3.13"' in job
     assert f'pip install "{library}==${{{{ matrix.{library} }}}}"' in _steps(job)
     assert "continue-on-error" not in job
