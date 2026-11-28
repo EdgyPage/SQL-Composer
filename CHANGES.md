@@ -43,6 +43,9 @@ Toolbox works on sqlglot 30.24.0 and later.
 - **`admin/check_project.ipynb` connects**, with the connection your Workflow notebooks give,
   and runs `project.check(query=query)`, which warns of each History table short of the days
   its Seed loads. A Warning stops nothing.
+- **Each setup cell ends in a newline**, the code cell under a notebook's top that imports
+  from `warehouse`, so a line you write at its end is a line of its own; the notebook as it
+  was is kept in `admin/removed/`.
 - **Your Scheduled runs keep their paths.** The Upgrade moves, renames, deletes and rewrites
   nothing under `scheduled_runs/`.
 - **The Upgrade records the Lineage state**, as `project.upgrade()`, each change it finds
@@ -84,6 +87,13 @@ Toolbox works on sqlglot 30.24.0 and later.
 
 ### Fixed
 
+- **A notebook not connected yet is told so at once.** convert, new_table with `QUERIES`,
+  `project.new_run_value(...)`, the `"sources"` Decision and add_references stop before they
+  write anything when the notebook's setup cell hasn't connected yet, saying to fill in its
+  `connect(...)` line, where convert went on with each table skipped. A batch that made none
+  of its tables, as when a DESCRIBE failed, is converted again by the convert notebook's "Run
+  the rest" once you mend what its report said. Each setup cell the Toolbox writes ends in a
+  newline, so a line you write at its end is a line of its own.
 - **SORT_ARRAY on sqlglot 30.24.0 and later.** sqlglot 30.24.0 merged its `SortArray` into
   `ArraySort`, so every Conversion stopped with an error there. 8.10 reads both: `SORT_ARRAY(x,
   TRUE)` loses its `TRUE`, `SORT_ARRAY(x, FALSE)` is kept as written with its finding, and

@@ -144,7 +144,7 @@ from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKED_AT, CHECKLIST
                         REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
-from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells,
+from .notebooks import (LOGIC, cell_as_written, logic_cell, notebook_bytes, read_cells,
                         read_cells_if_readable, template_cells, write_cell_text,
                         write_notebook)
 from .project_files import (
@@ -237,6 +237,10 @@ SCHEDULED_RUN_TEMPLATE = "scheduled_run"
 SHEET_COLUMNS = ["table", "column", "type", "partition", "in_key", "aliases",
                  "description", "exported_at"]
 
+# What warehouse.py's query and execute say first, as a RuntimeError, when called before the
+# notebook connected (Toolbox 8.6): a Project action that adds a Table reference for you reads
+# it as no connection given, and stops before it writes anything.
+NO_CONNECTION = "No connection: call connect(...) first."
 WAREHOUSE_TEXT = r'''"""warehouse - connect, which takes your connection, and its two calls.
 
 Why: every notebook in the Project reaches the warehouse through query and execute, so a change
@@ -688,10 +692,11 @@ def _add_what_start_lacks(root: Path) -> list[str]:
 
 def admin_notebook_cells(name: str) -> list[tuple[str, str]]:
     """The cells of one admin notebook, such as check_project: what it is for, the lines that
-    put the Project on Python's path, then its own code cells."""
+    put the Project on Python's path, then its own code cells, each as write_notebook writes
+    it."""
     about, cells = ADMIN_NOTEBOOKS[name]
     return [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
-            *[("code", cell) for cell in cells]]
+            *[cell_as_written("code", cell) for cell in cells]]
 
 
 def _add_admin_files(root: Path) -> list[str]:
@@ -1783,7 +1788,9 @@ def add_references(names: str | list[str],
     its columns) fails through your `query` are each skipped, and the rest still written. It
     logs them all in one entry; then, if it skipped any, it raises one SkippedTables error
     naming each, and why.
-    Fix those names, then run add_references again with them alone. It also writes the
+    Fix those names, then run add_references again with them alone. A `query` the notebook
+    hasn't connected yet, through connect(...) in its setup cell, is refused at its first
+    DESCRIBE, and nothing is written. It also writes the
     Database module of each Database the tables are in, such as references/ops.py, so that in
     a notebook of the Project, from references import ops gives the table as ops.jobs, and a
     column of it as ops.jobs.job_id.
@@ -1797,7 +1804,7 @@ def add_references(names: str | list[str],
     call = f"project.add_references({_names_as_written(names)}, query=...)"
     root = _project_root(call)
     _check_names_are_a_list(names, call)
-    files, skipped = _write_each_reference(root, names, query)
+    files, skipped = _write_each_reference(call, root, names, query)
     written = [name for name in names if isinstance(name, str)
                and REFERENCE.shown(REFERENCE.stem(name)) in files]
     proposed = _write_proposals(root, written, query)
@@ -1869,10 +1876,12 @@ def _check_names_are_a_list(names: object, call: str) -> None:
         )
 
 
-def _write_each_reference(root: Path, names: list[object],
+def _write_each_reference(call: str, root: Path, names: list[object],
                           query: Callable[[str], pd.DataFrame]) -> tuple[list[str], list[str]]:
     """Write a Table reference for each of `names` that can be, and register each: the files
-    written, and each table skipped, with why."""
+    written, and each table skipped, with why. A DESCRIBE your query refuses as warehouse.py
+    does with no connection yet refuses `call` at once, before anything is written: every
+    DESCRIBE after it would fail alike."""
     registry = Registry(root)
     files, skipped, to_register = [], [], []
     for name in names:
@@ -1888,6 +1897,8 @@ def _write_each_reference(root: Path, names: list[object],
             write_table_reference(name, query=query, folder=root / REFERENCE.folder)
         # Whatever the query raises, the table is reported, and the rest still written.
         except Exception as error:  # noqa: BLE001
+            if _is_no_connection(error):
+                _refuse_with_no_connection(call, name)
             skipped.append(f"{name} (DESCRIBE failed: {type(error).__name__}: "
                            f"{one_line_message(error)})")
             continue
@@ -1903,13 +1914,36 @@ def _write_references_from_describe(call: str, root: Path, missing: list[str],
                                     ) -> tuple[list[str], list[str]]:
     """Write a Table reference from DESCRIBE, through your query, for each of `missing`, the
     tables `call` reads that have none, then each Database module again: the files written,
-    and each table skipped, with why. Refused, writing nothing, when no query was given."""
+    and each table skipped, with why. Refused, writing nothing, when no query was given, or
+    the notebook hasn't connected it yet."""
     need_warehouse_call(call, "query", query, "It writes a Table reference for each table "
                         f"it reads that has none ({in_words(missing)}), through your query, "
                         "which gives back DESCRIBE's rows.")
-    added, skipped = _write_each_reference(root, missing, query)
+    added, skipped = _write_each_reference(call, root, missing, query)
     _write_databases(root)
     return added, skipped
+
+
+def _is_no_connection(error: Exception) -> bool:
+    """Whether `error` is warehouse.py's refusal of a query sent before the notebook
+    connected."""
+    return isinstance(error, RuntimeError) and one_line_message(error).startswith(NO_CONNECTION)
+
+
+def _refuse_with_no_connection(call: str, table: object) -> NoReturn:
+    """Refuse `call`, which has written nothing, as your query can't send DESCRIBE `table`
+    until the notebook connects."""
+    refuse(
+        what=f"{call} wrote nothing: this notebook hasn't connected to the warehouse yet, so "
+        f"your query couldn't send DESCRIBE {table}.",
+        why="It writes a Table reference for each table it reads that has none, from the "
+        "table's DESCRIBE, sent through your query; until the notebook connects, your query "
+        "sends nothing, and each table that reads one would be left out.",
+        fix="In this notebook's setup cell, its first code cell, fill in the line "
+        "connect(...) with your connection, such as connect(conn), each line of yours on a "
+        "line of its own, then run that cell, and this one again.",
+        error=RuntimeError,
+    )
 
 
 def _add_references_for(call: str, root: Path, tables: list[str],
@@ -3299,7 +3333,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     writes it, marks a Pivot filter, as the workbook's own are kept: each is recorded for its
     table, for its Decision.
     It needs your query, for DESCRIBE, only when a table it reads has no Table reference yet,
-    and never your execute: it changes only files.
+    and never your execute: it changes only files. A query the notebook hasn't connected yet,
+    through connect(...) in its setup cell, is refused at its first DESCRIBE, and nothing is
+    written; a table whose DESCRIBE fails for another reason is skipped, named in the report.
 
     It splits each script into its statements and orders them by what reads what, refusing two
     tables in different scripts that read each other. Each table the batch writes becomes a
@@ -3359,7 +3395,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     other statement an Unchecked statement, with its names in dev. Run again, it writes afresh
     each file still as it wrote it; it keeps one you changed, and
     writes a fresh copy of it into the batch's folder, under fresh/, for you to compare; and
-    with overwrite=True it writes over each, kept as it was in admin/removed/. A batch whose
+    with overwrite=True it writes over each, kept as it was in admin/removed/. A batch that
+    made none of its tables, each skipped, is converted again by its notebook's run cells, once
+    you mend what the report said. A batch whose
     tables project.compare_batch has all compared, passed or not, is finished, in
     admin/workflows/convert/finished/<name>/, and its name is refused.
     project.batch_tables(name) gives the Saved tables a batch made, for run_tables.
@@ -5092,6 +5130,11 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Next: answer its open Decisions in the decisions cell of "
                      f"{_decisions_notebook(files.made_for)}, then run its next steps."
                      + _paste_text(still_open, _decisions_notebook(files.made_for), proposed))
+        return lines
+    if skipped and not made and not created_only:
+        lines.append("Next: mend what each table was skipped for, above, then convert it "
+                     'again: the notebook\'s "Run the rest" converts a batch that made none of '
+                     "its tables again.")
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "

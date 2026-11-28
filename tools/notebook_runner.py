@@ -8,11 +8,14 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
     python run_notebook.py path/to/notebook.ipynb --list
     python run_notebook.py path/to/notebook.ipynb -p WEEK 2026-09-16
 
-The second runs only the code cells it names, counted from 1, in order, as a user runs a
-Workflow's cells one at a time to stop at a decision. `--cells` and `--list` may come before
-the path too. Each run starts with nothing defined, as a kernel just started does, so name the
-cells a step needs with it: the imports cell and the names cell, and from the decisions on,
-the decisions cell, such as --cells 1-3,6.
+The second runs only the code cells it names, in order, as a user runs a Workflow's cells one
+at a time to stop at a decision. `--cells` numbers code cells alone, counted from 1: a text
+(markdown) cell isn't counted, so a code cell's number differs from its place among all the
+notebook's cells, and from a step's number. `--list`, the third, prints each code cell's
+number, its place among all the cells, and its first line. `--cells` and `--list` may come
+before the path too. Each run starts with nothing defined, as a kernel just started does, so
+name the cells a step needs with it: the imports cell and the names cell, and from the
+decisions on, the decisions cell, such as --cells 1-3,6.
 
 The fourth runs it as a scheduler does (Toolbox 8.6, ticket 11): each `-p NAME VALUE` is given
 as text, `NAME = 'VALUE'`, in a cell run right after the code cell tagged `parameters`, as
@@ -85,7 +88,8 @@ def run_cell(source: str, namespace: dict[str, object]) -> None:
 
 
 def chosen_cells(spec: str) -> set[int]:
-    """The code cells a --cells spec names, such as "1-3,5" for 1, 2, 3 and 5."""
+    """The code cells a --cells spec names, such as "1-3,5" for code cells 1, 2, 3 and 5,
+    counted among code cells alone."""
     chosen: set[int] = set()
     for part in spec.split(","):
         first, _, last = part.strip().partition("-")
@@ -117,7 +121,7 @@ def run_notebook(notebook: Path, chosen: set[int] | None = None,
         for number, source in enumerate(code_cells(notebook), 1):
             if chosen is not None and number not in chosen:
                 continue
-            print(f"--- cell {number}")
+            print(f"--- code cell {number}")
             try:
                 run_cell(source, namespace)
                 if parameters and number == tagged:
@@ -125,16 +129,22 @@ def run_notebook(notebook: Path, chosen: set[int] | None = None,
                     run_cell(parameters_text(parameters), namespace)
             except Exception:
                 traceback.print_exc(file=sys.stdout)
-                print(f"--- stopped at cell {number}")
+                print(f"--- stopped at code cell {number}")
                 return 1
-    print("--- every cell ran" if chosen is None else "--- each chosen cell ran")
+    print("--- every code cell ran" if chosen is None else "--- each chosen code cell ran")
     return 0
 
 
 def list_cells(notebook: Path) -> int:
-    """Print each code cell of `notebook` by the number --cells gives it, and its first line."""
-    for number, source in enumerate(code_cells(notebook), 1):
-        print(f"{number}: {(source.splitlines() or [''])[0]}")
+    """Print each code cell of `notebook` by the number --cells takes, counted among code cells
+    alone, with its place among all the notebook's cells, and its first line."""
+    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+    places = [place for place, cell in enumerate(cells, 1) if cell["cell_type"] == "code"]
+    print("Code cells, numbered as --cells takes them: code cells alone, counted from 1, text "
+          "cells not counted. Each one's place among all the notebook's cells is in brackets.")
+    for number, place in enumerate(places, 1):
+        first = ("".join(cells[place - 1]["source"]).splitlines() or [""])[0]
+        print(f"{number} [cell {place} of all]: {first}")
     return 0
 
 
@@ -169,8 +179,9 @@ def main(arguments: list[str]) -> int:
     if not fits or ("--cells" in arguments and (spec is None or listing)):
         print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5 | "
               "--list] [-p NAME VALUE ...]\nEach run starts with nothing defined: name the "
-              "imports cell and the names cell with each step's. --list shows each code "
-              "cell's number. -p gives a parameter as text, as a scheduler does.")
+              "imports cell and the names cell with each step's. --cells counts code cells "
+              "alone, from 1, text cells not counted: --list shows each code cell's number. "
+              "-p gives a parameter as text, as a scheduler does.")
         return 2
     notebook = Path(rest[0])
     if listing:

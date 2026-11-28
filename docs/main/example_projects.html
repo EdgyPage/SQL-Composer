@@ -157,7 +157,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.check(query=query)  # and a History table lacking days its Seed loads</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
@@ -199,7 +200,8 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 print(project.refresh_reference_sheet())
 sheet = pathlib.Path.cwd().parent / &quot;references&quot; / &quot;reference_sheet.csv&quot;
 with open(sheet, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as file:
-    rows = list(csv.DictReader(file))</pre>
+    rows = list(csv.DictReader(file))
+</pre>
 <p class="label">It prints</p><pre class="out">Wrote references/reference_sheet.csv: 31 rows, 7 tables.</pre>
 <p class="label">Code cell 3</p><pre># Each table, as the Reference sheet holds it, compared with the table in the warehouse;
 # then its Key, where it has one.
@@ -457,7 +459,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.run_tables()  # first, with no execute: prints each Hive, sends nothing</pre>
 <p class="label">It prints</p><pre class="out">-- 1 of 4: mart.alerts_per_severity
@@ -560,7 +563,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.check()  # a loop among your tables, and what else needs you</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
@@ -1203,7 +1207,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLE = &#x27;&#x27;  # the Saved table to change, such as &quot;mart.daily_job_runs&quot;</pre>
 <p class="muted">It shows nothing.</p>
@@ -1265,7 +1270,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>NAME = &#x27;&#x27;  # the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot; (or, for the run cells alone, a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is True, each batch named for its file
 FILES = []  # the scripts&#x27; files, such as [&quot;daily.hql&quot;], or an Excel workbook&#x27;s, such as [&quot;runs.xlsx&quot;], each calculation of it a Saved table, each beside this notebook or a path anywhere, such as &quot;C:/work/daily.hql&quot;, read where it is: left [], every .hql file beside this notebook, never a workbook, which you name here; or HIVE when it is given
@@ -1325,7 +1331,7 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <p>Each step&#x27;s own cell, to run or run again one step on purpose; the cells above run them all for you.</p></div>
 <div class="md"><h4>1. Convert the scripts: each table they write a Saved table in dev</h4>
 <p>It is a call to the warehouse, yours to run.</p>
-<ul><li><strong>Goal:</strong> a Table folder and a Table reference for each table the scripts write, and for each calculation of a workbook that nothing else in it reads, each a Saved table in your Dev Database.</li><li><strong>Action:</strong> Run the cell below. It reads DESCRIBE through your query, and writes only files.</li><li><strong>Done when</strong> admin/workflows/convert/ holds the batch&#x27;s folder, under its name, with its batch.md, which convert writes last; then step 2.</li></ul></div>
+<ul><li><strong>Goal:</strong> a Table folder and a Table reference for each table the scripts write, and for each calculation of a workbook that nothing else in it reads, each a Saved table in your Dev Database.</li><li><strong>Action:</strong> Run the cell below. It reads DESCRIBE through your query, and writes only files. If the batch made none of its tables, as when a DESCRIBE failed, then mend what its report says and run this cell again, or &quot;Run the rest&quot;: either converts the batch again.</li><li><strong>Done when</strong> admin/workflows/convert/ holds the batch&#x27;s folder, under its name, with its batch.md, which convert writes last, and the batch made one of its tables at least; then step 2.</li></ul></div>
 <p class="label">Code cell 6</p><pre>project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)</pre>
 <p class="label">It stops with this message</p><pre class="stop">ValueError:
@@ -1390,7 +1396,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the new tables, by their names in the warehouse, such as [&quot;mart_dev.daily_job_runs&quot;]
 QUERIES = {}  # each table&#x27;s query, by its name without its database, as Hive text or a .hql file in admin/workflows/new_table/, such as {&quot;daily_job_runs&quot;: &quot;daily_job_runs.hql&quot;} for mart_dev.daily_job_runs: it is made in your Dev Database, its logic written from its query</pre>
@@ -1520,7 +1527,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the dev tables, by their names in your Dev Database, such as [&quot;mart_dev.daily_job_runs&quot;]: left [], the run cells promote every finished table not promoted yet, or changed in dev since, naming each and why</pre>
 <p class="muted">It shows nothing.</p>
@@ -1636,7 +1644,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]</pre>
 <p class="muted">It shows nothing.</p>
@@ -1739,7 +1748,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>NAME = &#x27;&#x27;  # the Scheduled run&#x27;s name, a Python name such as &quot;weekly&quot;, or a list of them</pre>
 <p class="muted">It shows nothing.</p>
@@ -1783,7 +1793,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <div class="md"><h4>1. Upgrade the Project&#x27;s files</h4>
 <p>It changes only files, or only prints: run its cell.</p>
@@ -2341,7 +2352,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the rows it reads, and functions only
@@ -2497,7 +2509,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the rows it reads, and functions only
@@ -2670,7 +2683,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the rows it reads, and functions only
@@ -2838,7 +2852,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the rows it reads, and functions only
@@ -3265,7 +3280,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.check(query=query)  # and a History table lacking days its Seed loads</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
@@ -3311,7 +3327,8 @@ connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#
 print(project.refresh_reference_sheet())
 sheet = pathlib.Path.cwd().parent / &quot;references&quot; / &quot;reference_sheet.csv&quot;
 with open(sheet, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as file:
-    rows = list(csv.DictReader(file))</pre>
+    rows = list(csv.DictReader(file))
+</pre>
 <p class="label">It prints</p><pre class="out">Wrote references/reference_sheet.csv: 53 rows, 13 tables.</pre>
 <p class="label">Code cell 3</p><pre># Each table, as the Reference sheet holds it, compared with the table in the warehouse;
 # then its Key, where it has one.
@@ -3803,7 +3820,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 
 <p class="label">Code cell 2</p><pre># logic
 from sqlglot_composer import (
@@ -3931,7 +3949,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.run_tables()  # first, with no execute: prints each Hive, sends nothing</pre>
 <p class="label">It prints</p><pre class="out">-- 1 of 9: mart.job_day_costs
@@ -4164,7 +4183,8 @@ from sqlglot_composer import project</pre>
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre>project.check()  # a loop among your tables, and what else needs you</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
@@ -4812,7 +4832,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLE = &#x27;&#x27;  # the Saved table to change, such as &quot;mart.daily_job_runs&quot;</pre>
 <p class="muted">It shows nothing.</p>
@@ -4874,7 +4895,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>NAME = &#x27;&#x27;  # the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot; (or, for the run cells alone, a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is True, each batch named for its file
 FILES = []  # the scripts&#x27; files, such as [&quot;daily.hql&quot;], or an Excel workbook&#x27;s, such as [&quot;runs.xlsx&quot;], each calculation of it a Saved table, each beside this notebook or a path anywhere, such as &quot;C:/work/daily.hql&quot;, read where it is: left [], every .hql file beside this notebook, never a workbook, which you name here; or HIVE when it is given
@@ -4934,7 +4956,7 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <p>Each step&#x27;s own cell, to run or run again one step on purpose; the cells above run them all for you.</p></div>
 <div class="md"><h4>1. Convert the scripts: each table they write a Saved table in dev</h4>
 <p>It is a call to the warehouse, yours to run.</p>
-<ul><li><strong>Goal:</strong> a Table folder and a Table reference for each table the scripts write, and for each calculation of a workbook that nothing else in it reads, each a Saved table in your Dev Database.</li><li><strong>Action:</strong> Run the cell below. It reads DESCRIBE through your query, and writes only files.</li><li><strong>Done when</strong> admin/workflows/convert/ holds the batch&#x27;s folder, under its name, with its batch.md, which convert writes last; then step 2.</li></ul></div>
+<ul><li><strong>Goal:</strong> a Table folder and a Table reference for each table the scripts write, and for each calculation of a workbook that nothing else in it reads, each a Saved table in your Dev Database.</li><li><strong>Action:</strong> Run the cell below. It reads DESCRIBE through your query, and writes only files. If the batch made none of its tables, as when a DESCRIBE failed, then mend what its report says and run this cell again, or &quot;Run the rest&quot;: either converts the batch again.</li><li><strong>Done when</strong> admin/workflows/convert/ holds the batch&#x27;s folder, under its name, with its batch.md, which convert writes last, and the batch made one of its tables at least; then step 2.</li></ul></div>
 <p class="label">Code cell 6</p><pre>project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)</pre>
 <p class="label">It stops with this message</p><pre class="stop">ValueError:
@@ -5035,7 +5057,7 @@ GROUP BY
   &quot;tables/mart__job_hours/conversion/in_dev.hql&quot;: &quot;131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4&quot;,
   &quot;tables/mart__job_hours/conversion/scan.md&quot;: &quot;d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e&quot;,
   &quot;tables/mart__job_hours/conversion/statement.hql&quot;: &quot;3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7&quot;,
-  &quot;tables/mart__job_hours/mart__job_hours.ipynb&quot;: &quot;f45a7e1e9ce2a2c054316522fd5a5043da4a2f3dec8f116dae78fe8913c08647&quot;
+  &quot;tables/mart__job_hours/mart__job_hours.ipynb&quot;: &quot;0ab952f155ca516351f0a9aa438557577596b9ae11b53260ebe45a5209375beb&quot;
  },
  &quot;originals&quot;: {
   &quot;mart.job_hours&quot;: null
@@ -5092,7 +5114,7 @@ GROUP BY
   &quot;tables/mart__team_failures/conversion/in_dev.hql&quot;: &quot;11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766&quot;,
   &quot;tables/mart__team_failures/conversion/scan.md&quot;: &quot;aabcee7c9b773f3edc43004da6b44640413bf249e97cd23bdcf0a901aaaf6a7a&quot;,
   &quot;tables/mart__team_failures/conversion/statement.hql&quot;: &quot;cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678&quot;,
-  &quot;tables/mart__team_failures/mart__team_failures.ipynb&quot;: &quot;bc8854d9e473202773f41e8b07892a7c27b919da60799ca5f3de5fa5661561f4&quot;
+  &quot;tables/mart__team_failures/mart__team_failures.ipynb&quot;: &quot;d4e8426028fd93ae014d17f3ebeddf467f96942f7cd6cb8b575f28f3bc1dca17&quot;
  },
  &quot;originals&quot;: {
   &quot;mart.team_failures&quot;: &quot;ops_reports.team_failures&quot;
@@ -5343,7 +5365,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the new tables, by their names in the warehouse, such as [&quot;mart_dev.daily_job_runs&quot;]
 QUERIES = {}  # each table&#x27;s query, by its name without its database, as Hive text or a .hql file in admin/workflows/new_table/, such as {&quot;daily_job_runs&quot;: &quot;daily_job_runs.hql&quot;} for mart_dev.daily_job_runs: it is made in your Dev Database, its logic written from its query</pre>
@@ -5473,7 +5496,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the dev tables, by their names in your Dev Database, such as [&quot;mart_dev.daily_job_runs&quot;]: left [], the run cells promote every finished table not promoted yet, or changed in dev since, naming each and why</pre>
 <p class="muted">It shows nothing.</p>
@@ -5609,7 +5633,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>TABLES = []  # the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]</pre>
 <p class="muted">It shows nothing.</p>
@@ -5712,7 +5737,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre>NAME = &#x27;weekly_team&#x27;  # the Scheduled run&#x27;s name, a Python name such as &quot;weekly&quot;, or a list of them</pre>
 <p class="muted">It shows nothing.</p>
@@ -5756,7 +5782,8 @@ from warehouse import connect, query, execute
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <div class="md"><h4>1. Upgrade the Project&#x27;s files</h4>
 <p>It changes only files, or only prints: run its cell.</p>
@@ -6851,7 +6878,8 @@ from warehouse import connect, execute, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 3</p><pre># scheduled
 # The Statements this run sends, each by its name: a SELECT&#x27;s rows come back in results by it.
@@ -7096,7 +7124,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the regions and days it writes, and functions only
@@ -7291,7 +7320,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the days it writes, and functions only
@@ -7477,7 +7507,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the days it writes, and functions only
@@ -7647,7 +7678,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the rows it checks, and functions only
@@ -7915,7 +7947,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 from sqlglot_composer import (
@@ -8141,7 +8174,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the days it looks up, and functions only
@@ -8293,7 +8327,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 # 2. The logic: imports, the days it writes, and functions only
@@ -8614,7 +8649,8 @@ from warehouse import connect, query
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
 #     connect(conn)
-connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s
+</pre>
 <p class="muted">It shows nothing.</p>
 <p class="label">Code cell 2</p><pre># logic
 from sqlglot_composer import (

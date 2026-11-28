@@ -34,7 +34,7 @@ import inspect
 import os
 import re
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -124,6 +124,13 @@ def forget_the_projects_modules() -> None:
     for name in [name for name in sys.modules
                  if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
         del sys.modules[name]
+
+
+def unconnected_query(root: Path) -> Callable[[str], pd.DataFrame]:
+    """The query of the Project's own warehouse.py at `root`, as a notebook whose setup cell
+    hasn't connected yet imports it: each call refuses, saying there is no connection."""
+    with project_on_the_path(root, ("warehouse",)):
+        return importlib.import_module("warehouse").query
 
 
 def example_rows(table: str) -> pd.DataFrame:

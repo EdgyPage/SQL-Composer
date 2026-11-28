@@ -7,7 +7,7 @@
   "tables/mart__job_hours/conversion/in_dev.hql": "131a496a06e0a9703ca789498f408100fc0f26b81962f4350f3c40a2b2b0bdc4",
   "tables/mart__job_hours/conversion/scan.md": "d1f31536dad32a2d18440276347cc1c377bc6aea11a026415ecffe0f7b15d46e",
   "tables/mart__job_hours/conversion/statement.hql": "3ad314c70f893e673580a44d5d73d694b6c75f7a58658923ddfe0cc6224bd2b7",
-  "tables/mart__job_hours/mart__job_hours.ipynb": "f45a7e1e9ce2a2c054316522fd5a5043da4a2f3dec8f116dae78fe8913c08647"
+  "tables/mart__job_hours/mart__job_hours.ipynb": "0ab952f155ca516351f0a9aa438557577596b9ae11b53260ebe45a5209375beb"
  },
  "originals": {
   "mart.job_hours": null

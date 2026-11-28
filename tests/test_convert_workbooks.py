@@ -25,7 +25,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import project, run_execute, run_query, set_admin_log, to_hive
@@ -614,6 +614,23 @@ def test_a_source_whose_describe_fails_is_refused_naming_it_and_nothing_is_writt
             tables=project.batch_tables("book"), query=query)
     assert not (started / "references" / "ops__job_runs.py").exists()
     assert reference.read_text(encoding="utf-8") == before
+
+
+def test_a_source_answered_with_no_connection_is_refused_at_once(
+        started: Path, books: dict[str, bytes]) -> None:
+    # Usability run W11: a "sources" answer naming a table with no Table reference, and a
+    # query whose notebook hasn't connected yet: nothing is written, and it says to fill in
+    # connect(...).
+    converted(started, books, "excel_names")
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.write_decisions(
+            {f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs"}}},
+            tables=project.batch_tables("book"), query=unconnected_query(started))
+    said = " ".join(str(refused.value).split())
+    assert ("project.write_decisions(...) wrote nothing: this notebook hasn't connected to the "
+            "warehouse yet, so your query couldn't send DESCRIBE ops.job_runs.") in said
+    assert tree_state(started) == before
 
 
 # --- The Pivot filter record, from either path ---------------------------------------------

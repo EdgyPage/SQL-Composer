@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import project
@@ -411,6 +411,58 @@ def test_new_table_from_a_query_adds_the_table_reference_of_a_source_with_none(
     assert (started / "tables" / f"{DEV}__failed_jobs").is_dir()
     log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
     assert "created references/ops__job_runs.py" in log
+
+
+def test_new_table_from_a_query_with_no_connection_is_refused_at_once(started: Path) -> None:
+    # Usability run W11: a table read with no Table reference, and a query whose notebook
+    # hasn't connected yet: nothing is written, and it says to fill in connect(...).
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY},
+                          query=unconnected_query(started))
+    said = " ".join(str(refused.value).split())
+    assert ("project.new_table(..., queries=...) wrote nothing: this notebook hasn't connected "
+            "to the warehouse yet, so your query couldn't send DESCRIBE ops.job_runs.") in said
+    assert tree_state(started) == before
+
+
+def test_convert_with_no_connection_stops_at_its_first_step_and_writes_no_batch(
+        started: Path) -> None:
+    # Usability run W11: the convert notebook run before its setup cell connected went on with
+    # every table skipped. It stops at step 1, saying to fill in connect(...), and writes
+    # nothing.
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+    before = tree_state(started)
+    stopped = repr(project.run_workflow("convert", query=unconnected_query(started)))
+    assert "convert, spare: 1. Convert the scripts" in stopped
+    assert "Stopped by what this says: mend it." in stopped
+    assert "this notebook hasn't connected to the warehouse yet" in " ".join(stopped.split())
+    assert "2. Answer each table's open Decisions" not in stopped
+    assert tree_state(started) == before
+
+
+def test_a_batch_that_made_no_saved_table_converts_again_when_its_notebook_runs_again(
+        started: Path) -> None:
+    # Usability run W11: once a DESCRIBE refused for another reason, as access not given yet,
+    # the batch made none of its tables, and its notebook run again went on from step 2; the
+    # user had to call convert(..., overwrite=True) from a script. Now step 1 isn't done
+    # while the batch made none of its tables, so the run stops there, and runs it again once
+    # mended.
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+
+    def refused(hive: str) -> object:
+        raise RuntimeError("Permission denied: ops.job_runs")
+
+    stopped = repr(project.run_workflow("convert", query=refused))
+    assert "ops.job_runs (DESCRIBE failed: RuntimeError: Permission denied" in stopped
+    assert "Stopped: it ran, and isn't done, as it says above" in stopped
+    assert not (started / "tables" / f"{DEV}__spare").exists()
+    went_on = run("convert")
+    assert "convert, spare: 1. Convert the scripts" in went_on
+    assert "Saved table in dev: done already" not in went_on
+    assert (started / "tables" / f"{DEV}__spare" / f"{DEV}__spare.ipynb").is_file()
 
 
 def test_a_dry_run_shows_the_describe_of_a_reference_it_would_add_and_writes_nothing(

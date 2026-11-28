@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import (
@@ -202,6 +202,23 @@ def test_a_source_whose_describe_fails_is_named_and_the_rest_written(started: Pa
 
 
 # --- Refusals ------------------------------------------------------------------------------
+
+
+def test_a_convert_with_no_connection_refuses_at_once_and_writes_nothing(started: Path) -> None:
+    # Usability run W11 (2026-11-28): convert's query, the Project's own, before the notebook's
+    # setup cell connected, skipped each table "DESCRIBE failed" and logged "worked", making 0
+    # Saved tables. It stops before writing anything, saying to fill in connect(...).
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                        query=unconnected_query(started), database="ops")
+    said = " ".join(str(refused.value).split())
+    assert ('project.convert("ops_reports", ...) wrote nothing: this notebook '
+            "hasn't connected to the warehouse yet, so your query couldn't send DESCRIBE "
+            "ops.job_runs.") in said
+    assert ("In this notebook's setup cell, its first code cell, fill in the line "
+            "connect(...) with your connection") in said
+    assert tree_state(started) == before
 
 
 def test_two_tables_that_read_each_other_are_refused(started: Path) -> None:

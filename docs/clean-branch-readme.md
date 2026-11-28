@@ -117,8 +117,8 @@ connect(conn)
 ```
 
 If your team keeps its connection in a file outside the Project, such as a file
-team_connection.py, then write these lines in place of that line: they put that file's folder
-on Python's path, then import it.
+team_connection.py, then write these lines in place of the line `# connect(your_connection)`,
+each on a line of its own: they put that file's folder on Python's path, then import it.
 
 ```python
 sys.path.append("C:/work/connections")  # the folder team_connection.py is in

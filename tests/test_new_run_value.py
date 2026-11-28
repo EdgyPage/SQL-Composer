@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import project
@@ -184,6 +184,21 @@ def test_a_table_whose_describe_fails_is_refused_naming_it(started: Path) -> Non
         project.new_run_value("period_end", latest_partition="ops.run_alertz.dt", query=query)
     assert not (started / "references" / "ops__run_alertz.py").exists()
     assert not (started / RUN_VALUES).exists()
+
+
+def test_a_table_with_no_table_reference_and_no_connection_is_refused_at_once(
+        started: Path) -> None:
+    # Usability run W11: a query whose notebook hasn't connected yet stops it before anything
+    # is written, saying to fill in connect(...), not "DESCRIBE failed".
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.new_run_value("period_end", latest_partition="ops.run_alerts.dt",
+                              query=unconnected_query(started))
+    said = " ".join(str(refused.value).split())
+    assert ("wrote nothing: this notebook hasn't connected to the warehouse yet, so your query "
+            "couldn't send DESCRIBE ops.run_alerts.") in said
+    assert "fill in the line connect(...) with your connection" in said
+    assert tree_state(started) == before
 
 
 def test_a_column_that_isnt_a_partition_column_is_refused(started: Path) -> None:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import json
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -175,6 +176,37 @@ def test_each_notebook_that_reaches_the_warehouse_connects_at_its_top(
         assert "team_connection" in connecting, path
         # The cell connecting is before any other cell that reaches the warehouse.
         assert code.index(connecting) <= 2, path
+
+
+def test_each_setup_cell_the_toolbox_writes_ends_in_a_newline(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Usability run W11 (2026-11-28): the convert notebook's setup cell ended in its last
+    # comment line with no newline, so the line the user pasted under it joined the comment,
+    # and the notebook never connected. Each setup cell, the code cell importing from
+    # warehouse, ends in a newline, in every notebook start, new_table, new_scheduled_run and
+    # convert write, so a line written at its end is a line of its own.
+    monkeypatch.chdir(tmp_path)
+    project.start()
+    project.new_table("mart.daily")
+    project.new_scheduled_run("weekly")
+    databases = tmp_path / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8").replace(
+        '"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
+    project.convert("spare", "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
+                    query=example_database.query, database="ops")
+    found = warehouse_notebooks(tmp_path)
+    assert {"mart__daily", "weekly", "mart_dev__spare", "convert", "check_project"} <= {
+        path.stem for path in found}
+    for path in found:
+        cells = json.loads(path.read_text(encoding="utf-8"))["cells"]
+        setup = [cell["source"] for cell in cells if cell["cell_type"] == "code"
+                 and "from warehouse import" in "".join(cell["source"])]
+        assert setup, path
+        for source in setup:
+            assert source[-1].endswith("\n"), (path, source[-1])
+            # The user's lines, written at its end as the README says, each a line of its own.
+            pasted = "".join([*source, "from team_connection import conn\n", "connect(conn)\n"])
+            assert "connect(conn)" in pasted.split("\n"), path
 
 
 def test_each_table_notebook_template_connects_at_its_top() -> None:

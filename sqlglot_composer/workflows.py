@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import decisions
+from .notebooks import cell_as_written
 from .project_files import REFERENCE, SCHEDULED_RUN, table_stem
 from .run_values import hivevar
 from .shared import escaped_literal, in_words, split_table_name
@@ -572,11 +573,23 @@ def every_new_table_decision_made(root: Path, inputs: dict[str, object]) -> bool
 
 
 def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the batch NAME names has its batch.md, which convert writes last."""
+    """Whether the batch NAME names has its batch.md, which convert writes last, and made one
+    of its tables at least. One that made none, each skipped, as when a DESCRIBE failed, isn't
+    converted yet: its step runs again, and converts it again, once you mend what it said."""
     name = inputs.get("NAME")
     if not isinstance(name, str) or not name:
         return False
-    return (root / BATCHES / name / BATCH_LIST).is_file()
+    if not (root / BATCHES / name / BATCH_LIST).is_file():
+        return False
+    tables = batch_record(root, name).get("tables", [])
+    return not tables or any(_is_made(root, table) for table in tables)
+
+
+def _is_made(root: Path, table: str) -> bool:
+    """Whether a batch made `table`: its Table folder, or, for one it only creates, its Table
+    reference alone."""
+    folder = root / "tables" / table_stem(table)
+    return folder.is_dir() or reference_path(root, table).is_file()
 
 
 def batch_instances(root: Path) -> list[dict[str, object]]:
@@ -1258,9 +1271,12 @@ CONVERT = Workflow(
              "for each calculation of a workbook that nothing else in it reads, each a Saved "
              "table in your Dev Database",
              action="run the cell below. It reads DESCRIBE through your query, and writes only "
-             "files.",
+             "files. If the batch made none of its tables, as when a DESCRIBE failed, then "
+             "mend what its report says and run this cell again, or \"Run the rest\": either "
+             "converts the batch again.",
              done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
-             "with its batch.md, which convert writes last"),
+             "with its batch.md, which convert writes last, and the batch made one of its "
+             "tables at least"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table, each Script tag in its TAGS",),
              ("each answer in the decisions cell",),
@@ -2061,8 +2077,9 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next. One
-    that reads straight down opens with its intended path, each step's cell below it."""
-    cells = [("markdown", about_cell(workflow)), ("code", "\n".join(path_lines))]
+    that reads straight down opens with its intended path, each step's cell below it. The
+    lines that find the Project, its setup cell, are as write_notebook writes them."""
+    cells = [("markdown", about_cell(workflow)), cell_as_written("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
     straight_down = reads_straight_down(workflow)

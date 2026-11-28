@@ -26,8 +26,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .notebooks import (LOGIC, first_line, read_cells, read_cells_if_readable, write_cell_text,
-                        write_notebook)
+from .notebooks import (LOGIC, cell_as_written, first_line, read_cells, read_cells_if_readable,
+                        write_cell_text, write_notebook)
 from .project_templates import CONNECT_LINES, CONNECT_PLACEHOLDER
 from .shared import counted
 
@@ -2492,7 +2492,9 @@ def to_8_10(upgrade: Upgrade) -> None:
     History table's Seed runs in the write step, and no compare stops you.
     admin/check_project.ipynb gains its cell that connects, given the connection the
     Project's other notebooks give, and project.check(query=query), which warns of a History
-    table short of the days its Seed loads; its text cell is 8.10's. A prod copy's record, and
+    table short of the days its Seed loads; its text cell is 8.10's. Each notebook's setup cell
+    ends in a newline, but a Scheduled run's, which the Upgrade leaves as it is. A prod copy's
+    record, and
     an open batch's, follow each file this step changed that was still as promote or convert
     wrote it. Last, the Lineage state is recorded as the Upgrade's. It needs no connection and
     sends nothing."""
@@ -2504,9 +2506,29 @@ def to_8_10(upgrade: Upgrade) -> None:
     _write_checklists_again(upgrade)
     _write_workflow_notebooks_again(upgrade)
     _write_check_project_as_8_10(upgrade)
+    _end_each_setup_cell_in_a_newline(upgrade)
     _rehash_records(upgrade, hashes)
     _rehash_promoted_code(upgrade, promoted)
     _record_the_lineage_state(upgrade)
+
+
+def _end_each_setup_cell_in_a_newline(upgrade: Upgrade) -> None:
+    """End each notebook's setup cell, the code cell importing from warehouse, in a newline, as
+    8.10 writes it, so a line you write at its end is a line of its own (usability run W11):
+    each notebook outside the Toolbox's folder, admin/removed/ and scheduled_runs/, whose
+    notebooks the Upgrade leaves as they are. Each other cell, and each output, is kept."""
+    for path in _searched_files(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        if path.suffix != ".ipynb" or relative.startswith("scheduled_runs/"):
+            continue
+        texts = {}
+        for number, (kind, text) in enumerate(read_cells_if_readable(path) or [], 1):
+            written = cell_as_written(kind, text)[1]
+            if written != text:
+                texts[number] = written
+        if texts:
+            upgrade.rewrite_cells(relative, texts, f"ended the setup cell of {relative} in a "
+                                  "newline, so a line written at its end is a line of its own")
 
 
 def _saved_tables_with_references(root: Path) -> list[str]:

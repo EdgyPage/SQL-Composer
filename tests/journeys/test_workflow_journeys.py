@@ -1830,18 +1830,20 @@ def test_a_notebook_run_without_its_connect_line_refuses(started: Started) -> No
     _edit_notebook(journey.notebook, lambda text: text.replace(CONNECTED, CONNECT_PLACEHOLDER),
                    CONNECTED)
     journey.type_names(TABLES=["ops.job_events"])
-    # Step 1 reports each table whose DESCRIBE failed, and why: the refusal's first part.
-    with pytest.raises(project.SkippedTables) as skipped:
+    # Step 1 stops at its first DESCRIBE, writing nothing, and says to fill in the line
+    # (usability run W11, 2026-11-28: before, it named each table "DESCRIBE failed").
+    with pytest.raises(RuntimeError) as refused:
         journey.run_to(1)
-    said = str(skipped.value)
-    assert ("ops.job_events (DESCRIBE failed: RuntimeError: No connection: call connect(...) "
-            "first. query(...) was called before this notebook gave warehouse.py its "
-            "connection.)") in said
+    said = " ".join(str(refused.value).split())
+    assert ("wrote nothing: this notebook hasn't connected to the warehouse yet, so your query "
+            "couldn't send DESCRIBE ops.job_events.") in said
+    assert "fill in the line connect(...) with your connection" in said
     assert "NoneType" not in said and "AttributeError" not in said
+    assert not (started.root / "references" / "ops__job_events.py").exists()
     # The same notebook, its Workflow run by its run cell, stops at the same step, saying so.
     stopped = journey.run_workflow()
     assert "references: 1. Write the Table references from DESCRIBE" in stopped
-    assert "No connection: call connect(...) first." in stopped
+    assert "this notebook hasn't connected to the warehouse yet" in " ".join(stopped.split())
     assert "NoneType" not in stopped
     # Filled in and run again, from the top, it goes on.
     _edit_notebook(journey.notebook, lambda text: text.replace(CONNECT_PLACEHOLDER, CONNECTED),

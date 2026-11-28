@@ -110,8 +110,9 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
     # had when the batch wrote it, before 8.6 connected the notebook.
     "8.6": ("admin/workflows/convert/finished/",),
     # And one finished before 8.10: its record keeps the hash each Table reference had when
-    # the batch wrote it, before 8.10 gave it its kind.
-    "8.10": ("admin/workflows/convert/finished/",),
+    # the batch wrote it, before 8.10 gave it its kind. And a Scheduled run, whose setup
+    # cell 8.10 leaves as it was, where a new one ends in a newline (usability run W11).
+    "8.10": ("admin/workflows/convert/finished/", "scheduled_runs/"),
 }
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
@@ -1737,7 +1738,9 @@ def test_8_8_writes_cell_5s_comment_as_8_7_wrote_it_and_leaves_one_you_changed(
     texts = [text for _, text in notebooks.read_cells(copy / "tables" / as_written
                                                       / f"{as_written}.ipynb")]
     assert upgrades.HIVE_CELL_8_8.format(stem=as_written) in texts
-    assert [text for _, text in notebooks.read_cells(path)] == [text for _, text in changed]
+    # Kept as you changed it, but for 8.10's newline at its setup cell's end.
+    assert [text for _, text in notebooks.read_cells(path)] == [
+        notebooks.cell_as_written(kind, text)[1] for kind, text in changed]
 
 
 def test_8_8_marks_a_table_notebook_with_no_export_hive_cell_never_above_its_logic(
