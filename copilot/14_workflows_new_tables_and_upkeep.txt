@@ -59,7 +59,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 - project.check()
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
-- project.reference_from_logic(name)
+- project.reference_from_logic(name, *, query=None)
 - project.add_references(names, *, query=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 
@@ -79,7 +79,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-       project.reference_from_logic(TABLES)
+       project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -97,6 +97,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
+       print(project.seed_tables(TABLES, query=query, execute=execute))
        project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to

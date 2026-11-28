@@ -74,8 +74,9 @@ def _reference(root: Path, table: str) -> str:
 
 
 def test_all_tables_answers_every_table_the_notebook_names(converted: Path) -> None:
-    # Toolbox 8.10, ticket 04: each table's kind too, nothing proposed for PARTITION (dt).
-    every = {"tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history"}
+    # Toolbox 8.10, ticket 04: each table's kind too, nothing proposed for PARTITION (dt); and
+    # ticket 05, its seed limits, as the Example database can't list the originals' Partitions.
+    every = {"tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history", "seed": {}}
     said = repr(project.write_decisions({"all_tables": every},
                                         tables=project.batch_tables("closing")))
     for table in BATCH:
@@ -258,6 +259,9 @@ def test_check_offers_all_tables_for_the_batch(converted: Path) -> None:
     assert '    "all_tables": {' in said
     # Toolbox 8.10, ticket 04: a kind with nothing proposed, for both, is offered there too.
     assert '        "kind": "<FILL IN>",  # "rebuilt" or "history", for each table' in said
+    # Ticket 05: a seed limit with nothing proposed, for both, once there too.
+    assert ('''        "seed": "<FILL IN>",  # the past rows each History table's Seed loads'''
+            in said)
     assert f'    "{DAILY}": {{' not in said
 
 
@@ -271,6 +275,9 @@ def test_the_decision_step_is_done_once_all_tables_answers_each(converted: Path)
     # Toolbox 8.10, ticket 04: nothing is proposed for PARTITION (dt), so the kind waits.
     assert not workflows.every_dev_decision_answered(converted, inputs)
     inputs["DECISIONS"]["all_tables"]["kind"] = "history"
+    # Ticket 05: a History table's seed limits wait too, nothing proposed for them here.
+    assert not workflows.every_dev_decision_answered(converted, inputs)
+    inputs["DECISIONS"]["all_tables"]["seed"] = {"dt": "2026-09-01"}
     assert workflows.every_dev_decision_answered(converted, inputs)
 
 
@@ -291,7 +298,7 @@ def test_do_next_writes_all_tables_into_every_table_of_the_batch(converted: Path
     (step,) = [each for each in workflows.CONVERT.steps if each.run is not None
                and each.call.startswith("project.write_decisions(")]
     step.run({"NAME": "closing", "TABLES": BATCH, "DECISIONS": {"all_tables": {
-        "tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history"}}})
+        "tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history", "seed": {}}}})
     assert workflows.every_dev_decision_made(converted, {"NAME": "closing", "TABLES": BATCH})
 
 

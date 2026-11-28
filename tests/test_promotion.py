@@ -57,9 +57,11 @@ def warehouse() -> Callable[[str], pd.DataFrame]:
 
 
 def fill_in(root: Path, table: str) -> None:
-    """Answer a dev table's Decisions: its Key, which none names, and its kind, proposed from
-    its write (Toolbox 8.10). Its location= is placed under DEV's location_root."""
-    project.write_decisions({table: {"key": None, "kind": "proposed"}})
+    """Answer a dev table's Decisions: its Key, which none names, its kind, proposed from its
+    write, and its seed limits, which nothing proposes, as the Example database can't list the
+    Partitions of the original: every Partition (Toolbox 8.10). Its location= is placed under
+    DEV's location_root."""
+    project.write_decisions({table: {"key": None, "kind": "proposed", "seed": {}}})
 
 
 # admin/databases.py's DEV and PROD, each with a root of its own (Toolbox 8.5, ticket 09).

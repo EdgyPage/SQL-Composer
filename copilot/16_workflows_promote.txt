@@ -89,22 +89,13 @@ table.
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))

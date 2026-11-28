@@ -1022,9 +1022,8 @@ flowchart TD
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its table's Table reference"]:::files_only
     s3[["4. Create each table in dev"]]:::warehouse_call
-    s4[["5. Seed each table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in dev"]]:::warehouse_call
-    s6[["7. Compare each table with its original"]]:::warehouse_call
+    s4[["5. Write each table in dev"]]:::warehouse_call
+    s5[["6. Compare each table with its original"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
@@ -1033,9 +1032,8 @@ flowchart TD
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing
-    t8("each seeded"):::thing
-    t9("each written in dev"):::thing
-    t10("each compared with its original"):::thing
+    t8("each written in dev"):::thing
+    t9("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -1051,8 +1049,6 @@ flowchart TD
     s4 --> t8
     t8 --> s5
     s5 --> t9
-    t9 --> s6
-    s6 --> t10
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -1077,22 +1073,13 @@ flowchart TD
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-       to_seed = project.batch_tables(NAME, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no table of the batch reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.batch_tables(NAME), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
@@ -1107,9 +1094,8 @@ flowchart TD
     s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its prod table's Table reference"]:::files_only
     s3[["4. Create each table in prod"]]:::warehouse_call
-    s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in prod"]]:::warehouse_call
-    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
+    s4[["5. Write each table in prod"]]:::warehouse_call
+    s5["6. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -1117,9 +1103,8 @@ flowchart TD
     t4("each answer in the decisions cell"):::thing
     t5("each with its location="):::thing
     t6("each made in prod"):::thing
-    t7("each seeded in prod"):::thing
-    t8("each written in prod"):::thing
-    t9("each in the Reference sheet"):::thing
+    t7("each written in prod"):::thing
+    t8("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -1134,8 +1119,6 @@ flowchart TD
     s4 --> t7
     t7 --> s5
     s5 --> t8
-    t8 --> s6
-    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -1159,22 +1142,13 @@ flowchart TD
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
@@ -1242,7 +1216,7 @@ flowchart TD
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-       project.reference_from_logic(TABLES)
+       project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -1260,6 +1234,7 @@ flowchart TD
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
+       print(project.seed_tables(TABLES, query=query, execute=execute))
        project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to

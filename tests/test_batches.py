@@ -22,7 +22,6 @@ from conftest import forget_the_projects_modules, toolbox_module
 
 import example_database
 from sqlglot_composer import (
-    hive_settings,
     project,
     run_execute,
     set_admin_log,
@@ -446,9 +445,11 @@ def test_check_names_the_batchs_next_step_and_answering_the_decisions_moves_it_o
     assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Answer each table's open "
             "Decisions in the decisions cell") in said
     assert "mart_dev.failed_runs_ops_reports: location: the folder its files go in" in said
-    # Toolbox 8.10: each table's kind too, proposed from its write and accepted.
+    # Toolbox 8.10: each table's kind too, proposed from its write and accepted, and its seed
+    # limits, which nothing proposes where the Example database can't list the original's
+    # Partitions.
     project.write_decisions({table: {"location": f"/data/{table}", "key": None,
-                                     "kind": "proposed"}
+                                     "kind": "proposed", "seed": {}}
                              for table in project.batch_tables("ops_reports")})
     assert "ops_reports: 4. Create each table in dev" in repr(project.check())
 
@@ -642,22 +643,27 @@ def test_a_later_overwrite_replaces_the_writes_before_it(started: Path) -> None:
     assert "UNION ALL" not in hive and "2026-09-24" in hive and "2026-09-23" not in hive
 
 
-def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None:
+def test_a_table_that_reads_itself_is_seeded_from_its_original_first(started: Path) -> None:
+    dev = "mart_dev.grows_ops_reports"
     report = convert_script(
         started, "CREATE TABLE ops_reports.grows AS SELECT j.job_id FROM ops.jobs j;\n"
                  "INSERT INTO TABLE ops_reports.grows SELECT r.job_id FROM ops.job_runs r\n"
                  "  WHERE r.dt = '2026-09-24'\n"
                  "  AND r.job_id NOT IN (SELECT g.job_id FROM ops_reports.grows g);\n")
     assert "Skipped" not in report
-    logic = project.load("mart_dev.grows_ops_reports")
-    seed = to_hive(logic.seed())
-    assert seed == ("INSERT OVERWRITE TABLE mart_dev.grows_ops_reports "
-                    "SELECT * FROM ops_reports.grows")
-    assert project.batch_tables("script", seeded=True) == ["mart_dev.grows_ops_reports"]
-    # Its write reads its own copy in dev, which the seed fills first.
-    assert "FROM mart_dev.grows_ops_reports" in to_hive(logic.preview())
-    assert "- Its write reads its own table, which in dev starts empty" in (
-        checklist(started, "mart_dev.grows_ops_reports"))
+    # Toolbox 8.10, ticket 05: a History table, its Seed in its Table reference, no seed() in
+    # its logic: with no Partitions, it copies every row of its original.
+    assert ("SEED = {}  # proposed: no Partitions: its Seed copies every row of "
+            "ops_reports.grows") in reference(started, dev)
+    project.write_decisions({dev: {"kind": "proposed"}})
+    said = project.seed_tables([dev], query=example_database.query).lines
+    assert said[-1] == ("would send: INSERT OVERWRITE TABLE mart_dev.grows_ops_reports "
+                        "SELECT * FROM ops_reports.grows")
+    assert project.batch_tables("script", seeded=True) == []
+    # Its write reads its own copy in dev, which the Seed fills first.
+    assert "FROM mart_dev.grows_ops_reports" in to_hive(project.load(dev).preview())
+    assert "- If it is a History table, which each write adds to, its copy in dev starts" in (
+        checklist(started, dev))
 
 
 # --- What ticket 15's review found -----------------------------------------------------------
@@ -708,17 +714,19 @@ def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path
     write = to_hive(project.load(dev).write())
     assert write.startswith("INSERT INTO mart_dev.inc_ops_reports PARTITION(dt = '2026-09-24')")
     assert "FROM mart_dev.inc_ops_reports AS i" in write
-    # Toolbox 8.10: a write reading itself is proposed History, accepted.
-    project.write_decisions({dev: {"key": None, "kind": "proposed"}})
+    # Toolbox 8.10: a write reading itself is proposed History, accepted, and its seed limits
+    # answered, which nothing proposes where the Example database can't list the original's.
+    project.write_decisions({dev: {"key": None, "kind": "proposed", "seed": {}}})
     run_execute(project.load(dev).create(), example_database.execute)
+    # Ticket 05: its Seed goes first in the write step's cell, the step no longer its own.
     said = repr(project.check())
-    assert "script: 5. Seed each table" in said
-    assert 'run_execute(hive_settings("dynamic_partitions"), execute)' in said
-    run_execute(hive_settings("dynamic_partitions"), example_database.execute)
-    run_execute(project.load(dev).seed(), example_database.execute)
-    assert "script: 6. Write each table in dev" in repr(project.check())
+    assert "script: 5. Write each table in dev" in said
+    assert 'print(project.seed_tables(project.batch_tables("script"), query=query,' in said
+    assert project.seed_tables([dev], query=example_database.query).lines[-1] == (
+        "would send: INSERT OVERWRITE TABLE mart_dev.inc_ops_reports PARTITION (dt) "
+        "SELECT * FROM ops_reports.inc")
     project.run_tables(tables=project.batch_tables("script"), execute=example_database.execute)
-    assert "script: 7. Compare each table" in repr(project.check())
+    assert "script: 6. Compare each table" in repr(project.check())
 
 
 def test_a_later_overwrite_replaces_only_its_own_partitions_writes(started: Path) -> None:

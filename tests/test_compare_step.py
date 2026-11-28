@@ -190,7 +190,7 @@ def test_a_partition_not_as_show_partitions_lists_it_is_refused(
 def test_the_compare_names_partitions_to_compare_another(started: Path) -> None:
     project.compare_batch("failed", query=SAME)
     assert ('to compare one, add it to PARTITIONS, such as PARTITIONS = [{"dt": "..."}], in '
-            "the convert notebook's names cell, run it, and run step 7 again"
+            "the convert notebook's names cell, run it, and run step 6 again"
             ) in compared(started)
 
 
@@ -317,17 +317,20 @@ def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_a
     assert "in a new cell" not in step.action
 
 
-def test_the_seed_step_says_it_seeded_nothing_when_no_table_reads_itself(
+def test_the_write_steps_seed_says_why_a_table_has_none_and_sends_nothing(
         started: Path, capsys: pytest.CaptureFixture[str]) -> None:
     # Toolbox 8.2, 23: W1-1 saw the seed cell send its Session setting, and say nothing,
-    # though no table of the batch reads itself.
+    # though no table of the batch reads itself. 8.10, ticket 05: the Seed is the write step's
+    # first line, and says why a table that is no History table has none.
     notebook = started / "admin" / "workflows" / "convert" / "convert.ipynb"
     code = [text for kind, text in toolbox_module("notebooks").read_cells(notebook)
             if kind == "code"]
-    seed = toolbox_module("workflows").CONVERT.steps[4]
-    assert seed.call in code
-    said = run_admin_notebook(notebook, [code[0], 'NAME = "failed"', seed.call], capsys)
-    assert said == "Seeded nothing: no table of the batch reads itself.\n"
+    write = toolbox_module("workflows").CONVERT.steps[4]
+    assert write.call in code
+    seed_line = write.call.split("\nproject.run_tables(")[0]
+    said = run_admin_notebook(notebook, [code[0], 'NAME = "failed"', seed_line], capsys)
+    assert said == ("mart_dev.failed_ops_reports: no Seed, as its Table reference says no "
+                    "kind, Rebuilt or History.\n")
     assert toolbox_module("workflows").sent_rows(started) == []
 
 # --- What ticket 16's review found -----------------------------------------------------------

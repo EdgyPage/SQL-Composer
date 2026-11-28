@@ -7014,7 +7014,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <h4>Goal</h4>
 <p>Turn scripts of Hive someone else wrote, with their temporary tables, their FROMs with several INSERTs, their incremental INSERTs and their Script tags, into your own code. Hive is the SQL your warehouse runs. You end with a Saved table, a real table your own Statements write, in your Dev Database for each table the scripts write; your Dev Database is the database where you may create and write tables of your own. Each Saved table&#x27;s notebook builds the same query from the Toolbox&#x27;s functions, is compared with the table it copies, its original, and is then promoted to your Prod Database, the database others read your finished tables from. That is a Conversion, and the convert Workflow, an ordered list of steps in a notebook of its own, takes you through it, step by step. What no Toolbox function writes yet stays Hive, at the smallest size it can, so you get the rest converted rather than none of it.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If you inherit Hive that works but that you can&#x27;t maintain, such as a nightly job another team wrote or a folder of scripts that has grown for years, convert it as the steps below do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev, before promoting it.</li><li>If one script writes a table another reads, convert both in one batch, as step 3 does.</li><li>If a Script tag stands for a day that changes each run, such as the latest day a table holds, answer it with a Run value, the value a function of yours gives at each write, as step 8 does.</li><li>If a table that reads itself has years of rows you don&#x27;t need, limit its seed, the one copy of the original&#x27;s rows, by Partition, as step 6 does.</li><li>If several tables share an answer, such as accepting each one&#x27;s proposed Key, give it once under &quot;all_tables&quot;, as step 6 does.</li><li>If the scripts are simple and read none of each other&#x27;s tables, convert each as a batch of its own, as One batch per script, below, says.</li><li>If your Database settings aren&#x27;t filled in yet, do <a href="#set_your_database_settings">Set your Database settings</a> first: each table is placed under DEV&#x27;s &quot;location_root&quot;, so its folder is no Decision.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li><li>If you have not yet written a Saved table of your own, read <a href="#save_a_table">Save a table</a> first.</li></ul>
+<ul><li>If you inherit Hive that works but that you can&#x27;t maintain, such as a nightly job another team wrote or a folder of scripts that has grown for years, convert it as the steps below do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev, before promoting it.</li><li>If one script writes a table another reads, convert both in one batch, as step 3 does.</li><li>If a Script tag stands for a day that changes each run, such as the latest day a table holds, answer it with a Run value, the value a function of yours gives at each write, as step 8 does.</li><li>If a History table, which each write adds to, has years of rows you don&#x27;t need, limit its Seed, the one copy of the original&#x27;s past rows before its first write, as step 6 does.</li><li>If several tables share an answer, such as accepting each one&#x27;s proposed Key, give it once under &quot;all_tables&quot;, as step 6 does.</li><li>If the scripts are simple and read none of each other&#x27;s tables, convert each as a batch of its own, as One batch per script, below, says.</li><li>If your Database settings aren&#x27;t filled in yet, do <a href="#set_your_database_settings">Set your Database settings</a> first: each table is placed under DEV&#x27;s &quot;location_root&quot;, so its folder is no Decision.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li><li>If you have not yet written a Saved table of your own, read <a href="#save_a_table">Save a table</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Project the story leaves</h5>
 <p>Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. Work in your own Project. This page uses a copy of the Starter Example project, which the download&#x27;s Example projects page shows file by file, made in the folder the page runs in by <code>example_project(&quot;starter&quot;)</code>, a line you leave out in your own Project. It is much like the one the how-tos before this one build, and its Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
@@ -7129,12 +7129,13 @@ print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &qu
 <p class="label">Python prints</p><pre class="output">Converted ops_reports: 2 scripts, 7 statements, into 3 Saved tables in mart: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
 Folded ops_reports.failed_runs, each a staging table, a Derived table in the tables that read it: batch.md says where.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
-Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, seed each that reads itself, write each, and compare each with its original.
+Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, write each, each History table&#x27;s Seed first, and compare each with its original.
 Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb, ops_reports&#x27;s decisions cell, or over a DECISIONS you pasted before (each answer written into a Table reference already is kept), then fill in each &lt;FILL IN&gt; and check each guessed type:
 
 DECISIONS = {
     &quot;all_tables&quot;: {  # answers for every table of this notebook; a table&#x27;s own answer, under its name, overrides it
         &quot;key&quot;: &quot;proposed&quot;,  # accepts each table&#x27;s proposed Key, marked # proposed in its Table reference, as if typed
+        &quot;seed&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the past rows each History table&#x27;s Seed loads, nothing proposed, as check() says why: by partition column, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}, or {} for every Partition
     },
     &quot;mart.alerts_by_severity_ops_reports&quot;: {
         &quot;types&quot;: {
@@ -7205,15 +7206,16 @@ tables/mart__fail_history/mart__fail_history.ipynb</pre>
 5. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerted_runs_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
 6. weekly.hql line 1, `CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIG...`: the columns, types and Partitions of mart.fail_history&#x27;s Table reference
 7. weekly.hql line 3, `INSERT INTO TABLE ops_reports.fail_history PARTITION (dt=&#x27;2026-09-24&#x27;) SELECT...`: mart.fail_history, written by its notebook</pre>
-<p>Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). mart.fail_history&#x27;s stays Hive, whole, an Unchecked statement, Hive text run through the Toolbox that no Guard looks inside: its WHERE holds a query, NOT IN (SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too, which copies the original&#x27;s rows into it once, before its first write. Which of the original&#x27;s Partitions it copies is SEED, in its Table reference: every one, <code>SEED = {}</code>, until you answer its &quot;seed&quot; Decision in step 6.</p>
+<p>Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). mart.fail_history&#x27;s stays Hive, whole, an Unchecked statement, Hive text run through the Toolbox that no Guard looks inside: its WHERE holds a query, NOT IN (SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing. All three are History tables, each write keeping the rows already there, so each has a Seed: its past rows, copied from its original once, before its first write. Which of the original&#x27;s Partitions it copies is SEED, in its Table reference: at work, <code>{&quot;months&quot;: 1}</code>, the month up to the newest, is proposed; here the Example database can&#x27;t list the originals&#x27; Partitions, so it is a Decision you answer in step 6.</p>
 <p>Done when batch.md starts <code># Batch ops_reports</code> and you have read what each statement became. Then step 5.</p>
 <h5>5. Read each table&#x27;s open Decisions</h5>
-<p>Goal: know what only you can decide. What only you can decide of a table is a Decision: here mart.fail_history&#x27;s Key, the columns whose values name one row, and its kind, a History table, proposed since its write reads its own table, to accept. Each table&#x27;s conversion/checklist.md lists its open Decisions, and project.check() names each one:</p>
+<p>Goal: know what only you can decide. What only you can decide of a table is a Decision: here mart.fail_history&#x27;s Key, the columns whose values name one row, its kind, a History table, proposed since its write reads its own table, to accept, and its seed limits, which past rows its Seed copies. Each table&#x27;s conversion/checklist.md lists its open Decisions, and project.check() names each one:</p>
 <pre class="python">checklist = Path(&quot;tables/mart__fail_history/conversion/checklist.md&quot;)
 text = checklist.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].strip())</pre>
 <p class="label">Python prints</p><pre class="output">- key: the columns whose values name one row, or None when none do, in references/mart__fail_history.py
-- kind: proposed a History table, as its write reads its own table, adding to the rows it holds: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there, in references/mart__fail_history.py</pre>
+- kind: proposed a History table, as its write reads its own table, adding to the rows it holds: accept it with &quot;proposed&quot;, or answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there, in references/mart__fail_history.py
+- seed: which past rows its Seed loads, if it is a History table, nothing proposed, as the Partitions of ops_reports.fail_history couldn&#x27;t be read through your query: answer by partition column, a value, that value or later, such as {&quot;dt&quot;: &quot;2026-09-01&quot;}, a range {&quot;from&quot;: ..., &quot;to&quot;: ...} or a list, or {} for every Partition, in references/mart__fail_history.py</pre>
 <p>Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is. project.check() says where it stands and how to answer it. A tag that stands alone, as <code>= &lt;PARM=&quot;RUN_DAY&quot;/&gt;</code> does here, is a bare tag, answered with the value&#x27;s own quotes:</p>
 <pre class="python">said = repr(project.check())  # -&gt; str
 print(next(line.strip() for line in said.splitlines() if &quot;tags:&quot; in line))</pre>
@@ -7225,25 +7227,26 @@ print(next(line.strip() for line in said.splitlines() if &quot;tags:&quot; in li
 <p class="label">Python prints</p><pre class="output">&quot;RUN_DAY&quot;: &quot;&lt;FILL IN&gt;&quot;,  # bare at daily.hql, line 9: the value with its own quotes, such as &quot;&#x27;2026-10-31&#x27;&quot;, or a number, such as &quot;5&quot;</pre>
 <p>You open no Table reference, and tick nothing. This page stands in for the decisions cell, where you paste the DECISIONS project.check() printed and fill it in:</p>
 <pre class="python">DECISIONS = {
-    &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot;},
+    &quot;all_tables&quot;: {&quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot;,
+                   &quot;seed&quot;: {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}},
     &quot;mart.alerts_by_severity_ops_reports&quot;: {&quot;types&quot;: {&quot;dt&quot;: &quot;string&quot;},
                                             &quot;tags&quot;: {&quot;RUN_DAY&quot;: &quot;&#x27;2026-09-24&#x27;&quot;}},
     &quot;mart.alerted_runs_ops_reports&quot;: {&quot;types&quot;: {&quot;dt&quot;: &quot;string&quot;}},
-    &quot;mart.fail_history&quot;: {&quot;key&quot;: None, &quot;seed&quot;: {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}},
+    &quot;mart.fail_history&quot;: {&quot;key&quot;: None},
 }</pre>
 <p>Each answer, by its kind:</p>
-<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered, since the query proves it. So &quot;key&quot;: &quot;proposed&quot; isn&#x27;t needed here, but it does no harm: for a Key kept already it only takes off the # proposed mark, and you needn&#x27;t tell the two kinds of Key apart. The other kind is the references Workflow&#x27;s: a Key add_references proposes from a table&#x27;s rows stays open, <code>key=None, # TODO: proposed [...]</code>, until you accept it. A table with none, fail_history here, keeps its own answer.</li><li>&quot;kind&quot; under &quot;all_tables&quot;, &quot;proposed&quot;, accepts each table&#x27;s kind proposed from its write: a Rebuilt table, which each write replaces whole, or a History table, which each write adds to, keeping its past rows. All three here are History tables: two replace one day&#x27;s Partition, PARTITION (dt = ...), and fail_history reads its own table.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;: fail_history reads itself, so step 11 seeds it, copying the original&#x27;s rows into it once. With no &quot;seed&quot;, it copies every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>.</li></ul>
+<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered, since the query proves it. So &quot;key&quot;: &quot;proposed&quot; isn&#x27;t needed here, but it does no harm: for a Key kept already it only takes off the # proposed mark, and you needn&#x27;t tell the two kinds of Key apart. The other kind is the references Workflow&#x27;s: a Key add_references proposes from a table&#x27;s rows stays open, <code>key=None, # TODO: proposed [...]</code>, until you accept it. A table with none, fail_history here, keeps its own answer.</li><li>&quot;kind&quot; under &quot;all_tables&quot;, &quot;proposed&quot;, accepts each table&#x27;s kind proposed from its write: a Rebuilt table, which each write replaces whole, or a History table, which each write adds to, keeping its past rows. All three here are History tables: two replace one day&#x27;s Partition, PARTITION (dt = ...), and fail_history reads its own table.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;, under &quot;all_tables&quot;, is each History table&#x27;s Seed: step 12 copies its original&#x27;s rows into it once, before its first write. <code>{}</code> would copy every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>. At work, where <code>{&quot;months&quot;: 1}</code> is proposed, you needn&#x27;t answer it.</li></ul>
 <p>A TODO line left, such as does_not_add_up=, waits on nothing.</p>
-<p>Done when DECISIONS holds &quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot;, a key for mart.fail_history, a dt type for the other two, RUN_DAY&#x27;s day and fail_history&#x27;s seed. Then step 7.</p>
+<p>Done when DECISIONS holds &quot;key&quot;: &quot;proposed&quot;, &quot;kind&quot;: &quot;proposed&quot; and a &quot;seed&quot;, a key for mart.fail_history, a dt type for the other two and RUN_DAY&#x27;s day. Then step 7.</p>
 <h5>7. Write each answer into its Table reference</h5>
 <p>Goal: each Decision made in the table&#x27;s files. Run &quot;Run the rest&quot;, under the decisions cell: its first step writes each answer into the table&#x27;s Table reference, then it goes on to the steps after. This page runs each step on its own, as the notebook&#x27;s &quot;Step by step&quot; cells do. The step&#x27;s cell gives the batch&#x27;s tables, which &quot;all_tables&quot; answers for:</p>
 <pre class="python">print(project.write_decisions(DECISIONS, tables=project.batch_tables(&quot;ops_reports&quot;)))</pre>
-<p class="label">Python prints</p><pre class="output">Wrote 4 answers into references/mart__alerts_by_severity_ops_reports.py.
+<p class="label">Python prints</p><pre class="output">Wrote 5 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait on nothing: fill each in when you like.
   line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
-Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+Wrote 4 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait on nothing: fill each in when you like.
   line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
@@ -7254,6 +7257,7 @@ mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which 
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
 all_tables: key &quot;proposed&quot;: accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.
+all_tables: seed: written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history, each for the partition columns it has; a Rebuilt table has no Seed.
 all_tables: kind &quot;proposed&quot;: written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
@@ -7352,6 +7356,13 @@ alerted_runs_ops_reports = Table(
 # &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
 KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
 
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__alerted_runs_ops_reports import alerted_runs_ops_reports, &lt;alias&gt;
@@ -7390,6 +7401,13 @@ TAGS = {
 # &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
 KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
 
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__alerts_by_severity_ops_reports import alerts_by_severity_ops_reports, &lt;alias&gt;
@@ -7418,15 +7436,18 @@ fail_history = Table(
     stored_as=&quot;ORC&quot;,
 )
 
-# The Partitions seed() copies from the original, by partition column: {} copies them
-# all. Answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}.
-SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
-
 # Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
 # each write keeps the rows already there, adding rows or replacing some, such as one
 # day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
 # &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
 KIND = &quot;history&quot;  # answered, proposed history: its write reads its own table, adding to the rows it holds
+
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
@@ -7450,6 +7471,7 @@ None: each Decision in references/mart__alerted_runs_ops_reports.py is made.
 ## Notes, which block nothing
 
 - project.convert proposed its Key, (run_id, dt), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- If it is a History table, which each write adds to, its copy in dev starts with none of the past rows its original holds. So the convert Workflow&#x27;s write step first loads them, its Seed, once, copied from its original: SEED, in its Table reference, picks which, such as {&quot;months&quot;: 1}, the month up to the newest Partition. To load others, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. A Rebuilt table has no Seed. The write step&#x27;s report says what its Seed loaded.
 - The original was one target of a FROM with several INSERTs.</pre>
 <p class="label">It writes tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md</p>
 <pre class="file"># Checklist: mart.alerts_by_severity_ops_reports
@@ -7463,6 +7485,7 @@ None: each Decision in references/mart__alerts_by_severity_ops_reports.py is mad
 ## Notes, which block nothing
 
 - project.convert proposed its Key, (severity, dt), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- If it is a History table, which each write adds to, its copy in dev starts with none of the past rows its original holds. So the convert Workflow&#x27;s write step first loads them, its Seed, once, copied from its original: SEED, in its Table reference, picks which, such as {&quot;months&quot;: 1}, the month up to the newest Partition. To load others, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. A Rebuilt table has no Seed. The write step&#x27;s report says what its Seed loaded.
 - The original was one target of a FROM with several INSERTs.</pre>
 <p class="label">It writes tables/mart__fail_history/conversion/checklist.md</p>
 <pre class="file"># Checklist: mart.fail_history
@@ -7476,7 +7499,7 @@ None: each Decision in references/mart__fail_history.py is made.
 ## Notes, which block nothing
 
 - Make each unchecked_ piece a Toolbox function where you can.
-- Its write reads its own table, which in dev starts empty. So the convert Workflow&#x27;s seed step, after it creates the table, copies the original&#x27;s rows into it once, with its seed(). It copies every Partition unless SEED, in its Table reference, limits them. To copy only those you need, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. The seed step&#x27;s line shows the WHERE it sends.</pre>
+- If it is a History table, which each write adds to, its copy in dev starts with none of the past rows its original holds. So the convert Workflow&#x27;s write step first loads them, its Seed, once, copied from its original: SEED, in its Table reference, picks which, such as {&quot;months&quot;: 1}, the month up to the newest Partition. To load others, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. A Rebuilt table has no Seed. The write step&#x27;s report says what its Seed loaded.</pre>
 <p>Each table&#x27;s first line and <code>does_not_add_up=</code> are TODO lines here, not <code># proposed</code> ones as in <a href="#add_your_tables_references">Add your tables&#x27; references</a>: add_references proposes them for a table you read, from its Key and its columns&#x27; names, and convert proposes neither for the tables it writes. They wait on nothing: fill each in when you like.</p>
 <p>Done when each table says <code>Each Decision of ... is made.</code> Then step 8.</p>
 <h5>8. Answer RUN_DAY with a Run value</h5>
@@ -7730,6 +7753,13 @@ TAGS = {
 # &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
 KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
 
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__alerts_by_severity_ops_reports import alerts_by_severity_ops_reports, &lt;alias&gt;
@@ -7766,7 +7796,7 @@ GROUP BY
 <p>A dry run, a run cell of the notebook with <code>dry_run=True</code> added, calls it the same way. If the function fails, say with no connection, the Hive holds a placeholder in its place and a Warning says why; nothing holding it is sent. Common mistakes, below, shows it.</p>
 <p>Done when the Hive shows the day RUN_DAY stands for, here &#x27;2026-09-24&#x27;. Then step 10.</p>
 <h5>10. Create each table in dev</h5>
-<p>Goal: each Saved table made in your Dev Database. The notebook&#x27;s steps 4 to 6 are calls to the warehouse, yours to run, each a cell of the notebook. At work, its step 4 creates each table in your Dev Database. Here execute is the Example database&#x27;s, which prints the first line of each Hive it is given and changes nothing:</p>
+<p>Goal: each Saved table made in your Dev Database. The notebook&#x27;s steps 4 and 5 are calls to the warehouse, yours to run, each a cell of the notebook. At work, its step 4 creates each table in your Dev Database. Here execute is the Example database&#x27;s, which prints the first line of each Hive it is given and changes nothing:</p>
 <pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;):
     run_execute(project.load(table).create(), execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerts_by_severity_ops_reports (
@@ -7774,33 +7804,24 @@ execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerted_runs_ops_reports (
 execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.fail_history (</pre>
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
 <p>Done when execute has been given each table&#x27;s create. Then step 11.</p>
-<h5>11. Seed the table that reads itself</h5>
-<p>Goal: mart.fail_history starts from the original&#x27;s rows. The notebook&#x27;s step 5 sends the Session settings for dynamic Partitions, the SET lines that let one write fill several Partitions from its rows, then seeds mart.fail_history from the original, once, copying only the Partitions its &quot;seed&quot; answer names:</p>
-<pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)</pre>
-<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
-execute: SET hive.exec.dynamic.partition.mode=nonstrict</pre>
-<pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;, seeded=True):  # those that read themselves
-    run_execute(project.load(table).seed(), execute)</pre>
-<p class="label">Python prints</p><pre class="output">execute: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt &gt;= &#x27;2026-09-01&#x27;</pre>
-<p class="label">It writes admin_log.md</p>
-<pre class="file"># Admin log
-
-Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
-
-## 2026-09-25 09:00:00, Unchecked statement
-
-- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
-- Tables named: mart.fail_history, ops_reports.fail_history
-- Script: a notebook, at commit 1a2b3c4
-- Result: worked
-
-```sql
-INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt &gt;= &#x27;2026-09-01&#x27;
-```</pre>
-<p class="note">It writes <code>admin/sent.csv</code> too.</p>
-<p>Done when execute has been given the seed. Then step 12.</p>
+<h5>11. Read each History table&#x27;s Seed</h5>
+<p>Goal: know what each table&#x27;s Seed loads before anything is sent. The notebook&#x27;s step 5 cell starts with <code>project.seed_tables</code>, which loads each History table&#x27;s past rows once, while it holds no Partitions yet, copying only the Partitions its &quot;seed&quot; answer names. Given no execute, it sends nothing and shows the Hive it would send, first the Session settings for dynamic Partitions, the SET lines that let one write fill several Partitions from its rows:</p>
+<pre class="python">print(project.seed_tables(project.batch_tables(&quot;ops_reports&quot;), query=query))</pre>
+<p class="label">Python prints</p><pre class="output">mart.alerts_by_severity_ops_reports: its Seed, copied from ops_reports.alerts_by_severity, its Original:
+would send: SET hive.exec.dynamic.partition=true
+would send: SET hive.exec.dynamic.partition.mode=nonstrict
+would send: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION (dt) SELECT * FROM ops_reports.alerts_by_severity WHERE dt &gt;= &#x27;2026-09-01&#x27;
+mart.alerted_runs_ops_reports: its Seed, copied from ops_reports.alerted_runs, its Original:
+would send: SET hive.exec.dynamic.partition=true
+would send: SET hive.exec.dynamic.partition.mode=nonstrict
+would send: INSERT OVERWRITE TABLE mart.alerted_runs_ops_reports PARTITION (dt) SELECT * FROM ops_reports.alerted_runs WHERE dt &gt;= &#x27;2026-09-01&#x27;
+mart.fail_history: its Seed, copied from ops_reports.fail_history, its Original:
+would send: SET hive.exec.dynamic.partition=true
+would send: SET hive.exec.dynamic.partition.mode=nonstrict
+would send: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt &gt;= &#x27;2026-09-01&#x27;</pre>
+<p>Done when each History table&#x27;s Seed shows the WHERE its &quot;seed&quot; answer gave. Then step 12.</p>
 <h5>12. Write each table in dev</h5>
-<p>Goal: each Saved table&#x27;s rows in dev. The notebook&#x27;s step 6 writes each table, in the order they read each other. It sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row:</p>
+<p>Goal: each Saved table&#x27;s rows in dev. The notebook&#x27;s step 5 cell, given your execute, sends each Seed first, then writes each table, in the order they read each other. It sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. The Example database holds no Dev Database to seed, so this page writes alone:</p>
 <pre class="python">print(project.run_tables(tables=project.batch_tables(&quot;ops_reports&quot;), execute=execute))</pre>
 <p class="label">Python prints</p><pre class="output">execute: SET hive.exec.parallel=true
 execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
@@ -7818,17 +7839,6 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 09:00:00, Unchecked statement
 
-- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
-- Tables named: mart.fail_history, ops_reports.fail_history
-- Script: a notebook, at commit 1a2b3c4
-- Result: worked
-
-```sql
-INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt &gt;= &#x27;2026-09-01&#x27;
-```
-
-## 2026-09-25 09:00:00, Unchecked statement
-
 - Call: `unchecked_hive(&quot;WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job&quot; ...)`
 - Tables named: ops.job_runs, mart.fail_history
 - Script: a notebook, at commit 1a2b3c4
@@ -7840,7 +7850,7 @@ WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs AS r WHER
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
 <p>Done when it prints <code>Wrote 3 tables, in order.</code> Then step 13.</p>
 <h5>13. Compare each with its original</h5>
-<p>Goal: proof that each dev table gives its original&#x27;s rows. The notebook&#x27;s step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and on each Partition the names cell&#x27;s PARTITIONS lists, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
+<p>Goal: proof that each dev table gives its original&#x27;s rows. The notebook&#x27;s step 6 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and on each Partition the names cell&#x27;s PARTITIONS lists, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
 <pre class="python">print(project.compare_batch(&quot;ops_reports&quot;, query=query, partitions=[]))</pre>
 <p class="label">Python prints</p><pre class="output">mart.alerted_runs_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
 mart.alerts_by_severity_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
@@ -8012,11 +8022,11 @@ except ValueError as refused:
     print(str(refused).strip().splitlines()[0])</pre>
 <p class="label">Python prints</p><pre class="output">What happened:  project.promote([&#x27;mart.alerts_by_severity_ops_reports&#x27;, &#x27;mart.alerted_runs_ops_reports&#x27;, &#x27;mart.fail_history&#x27;]) can&#x27;t promote yet: mart.alerts_by_severity_ops_reports: its compare hasn&#x27;t passed; mart.alerted_runs_ops_reports: its compare hasn&#x27;t passed; mart.fail_history: its compare hasn&#x27;t passed.</pre>
 <p>At work, open admin/workflows/promote/promote.ipynb, leave its names cell&#x27;s <code>TABLES = []</code>, and run its cells top to bottom, as the convert notebook&#x27;s: left [], &quot;Run up to your Decisions&quot; promotes every finished table not promoted yet, or changed in dev since, naming each and why, here the three. To promote only some, name them: <code>TABLES = [&quot;mart.fail_history&quot;]</code>. What promote carries:</p>
-<ul><li>Each prod copy&#x27;s location is the one an earlier promote gave it, else placed under PROD&#x27;s &quot;location_root&quot;, as /data/prod/mart_prod.db/fail_history, else a Decision to answer.</li><li>Each Building block a table imports, run_values among them, is copied into building_blocks/prod/, and the prod copy imports that copy: change run_day in dev, and prod gets it only when you promote again. <code>project.check()</code> names a prod copy edited by hand.</li><li>A prod copy keeps its dev table&#x27;s TAGS. Its seed is its own: it copies every Partition of the original until you answer &quot;seed&quot; for it in the promote notebook&#x27;s decisions cell, as step 6 did here, since prod often needs more of the original&#x27;s history than a dev compare did.</li></ul>
+<ul><li>Each prod copy&#x27;s location is the one an earlier promote gave it, else placed under PROD&#x27;s &quot;location_root&quot;, as /data/prod/mart_prod.db/fail_history, else a Decision to answer.</li><li>Each Building block a table imports, run_values among them, is copied into building_blocks/prod/, and the prod copy imports that copy: change run_day in dev, and prod gets it only when you promote again. <code>project.check()</code> names a prod copy edited by hand.</li><li>A prod copy keeps its dev table&#x27;s TAGS, and its SEED: its Seed copies the Partitions its dev table&#x27;s SEED names from the original, until you answer &quot;seed&quot; for it in the promote notebook&#x27;s decisions cell, as step 6 did here, since prod often needs more of the original&#x27;s history than a dev compare did.</li></ul>
 <p>Done when the promote Workflow names its next step for the three tables, at work. Then check it worked, below.</p>
 <h5>Run values, in full</h5>
 <p>What the steps used, and the cases they didn&#x27;t meet:</p>
-<ul><li><strong>What it may give:</strong> a <code>datetime.date</code> is written as &#x27;2026-09-24&#x27;, in quotes; a datetime with its time; a number as it is; True or False as TRUE or FALSE; and text as Hive, as a typed-in answer is, so a day given as text needs its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;. Anything else is refused, naming the function.</li><li><strong>When it runs:</strong> each time a Statement holding it is built, such as the table&#x27;s write(), preview() or seed(), for each table on its own. If two tables are answered with one function, the Toolbox calls it once for each, and they may get two days if the warehouse changed between the calls. A tag&#x27;s function is called with no arguments.</li><li><strong>Where it lives:</strong> a file of your Project, such as building_blocks/run_values.py, so a Table reference can import it. One made in a notebook, a lambda or one inside another function is left unwritten by the notebook&#x27;s step 3, which names it.</li><li><strong>Any other kind:</strong> <code>project.new_run_value</code> writes only a table&#x27;s latest Partition. Write any other function in building_blocks/run_values.py yourself. If new_run_value didn&#x27;t make the file, register it once: <code>project.check()</code> names it as made by hand, with the call, <code>project.register(&quot;run_values&quot;)</code>, to run in admin/check_project.ipynb.</li><li><strong>Its name:</strong> new_run_value refuses a name the file holds for something else, a table with no Table reference when it isn&#x27;t given your query, or whose DESCRIBE fails, naming it, and a column that isn&#x27;t one of the table&#x27;s partition columns, naming them.</li><li><strong>Its own day:</strong> today() is today&#x27;s date in UTC, and today(utc_offset_hours=-6) six hours behind it; today() - datetime.timedelta(days=1) is yesterday. <code>latest_partition</code> gives a date when every Partition&#x27;s value is one, a number when every one is digits, and otherwise the last in the order of their text, passing over Hive&#x27;s Partition for rows with no value.</li><li><strong>A tag inside quotes</strong>, as &#x27;&lt;PARM=&quot;RUN_MONTH&quot;/&gt;&#x27;, reads tag_text(TAGS[&quot;RUN_MONTH&quot;]) in the converted logic. It gives text as it is. A date a function gives is written with no quotes of its own, 2026-09-24, because the original&#x27;s quotes stand around it already. Lineage draws no box for it: it is part of a string.</li><li><strong>In a Statement of your own</strong>, run_value(function, ...) puts what any function gives where a value goes, called each time the Statement is built, with the arguments you give it. A partition column held to it is bounded, as by a plain day. Here run_day() is called with brackets, since its day is an argument to days_before; a tag&#x27;s answer never has them:</li></ul>
+<ul><li><strong>What it may give:</strong> a <code>datetime.date</code> is written as &#x27;2026-09-24&#x27;, in quotes; a datetime with its time; a number as it is; True or False as TRUE or FALSE; and text as Hive, as a typed-in answer is, so a day given as text needs its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;. Anything else is refused, naming the function.</li><li><strong>When it runs:</strong> each time a Statement holding it is built, such as the table&#x27;s write(), preview(), or each Statement its Seed sends, for each table on its own. If two tables are answered with one function, the Toolbox calls it once for each, and they may get two days if the warehouse changed between the calls. A tag&#x27;s function is called with no arguments.</li><li><strong>Where it lives:</strong> a file of your Project, such as building_blocks/run_values.py, so a Table reference can import it. One made in a notebook, a lambda or one inside another function is left unwritten by the notebook&#x27;s step 3, which names it.</li><li><strong>Any other kind:</strong> <code>project.new_run_value</code> writes only a table&#x27;s latest Partition. Write any other function in building_blocks/run_values.py yourself. If new_run_value didn&#x27;t make the file, register it once: <code>project.check()</code> names it as made by hand, with the call, <code>project.register(&quot;run_values&quot;)</code>, to run in admin/check_project.ipynb.</li><li><strong>Its name:</strong> new_run_value refuses a name the file holds for something else, a table with no Table reference when it isn&#x27;t given your query, or whose DESCRIBE fails, naming it, and a column that isn&#x27;t one of the table&#x27;s partition columns, naming them.</li><li><strong>Its own day:</strong> today() is today&#x27;s date in UTC, and today(utc_offset_hours=-6) six hours behind it; today() - datetime.timedelta(days=1) is yesterday. <code>latest_partition</code> gives a date when every Partition&#x27;s value is one, a number when every one is digits, and otherwise the last in the order of their text, passing over Hive&#x27;s Partition for rows with no value.</li><li><strong>A tag inside quotes</strong>, as &#x27;&lt;PARM=&quot;RUN_MONTH&quot;/&gt;&#x27;, reads tag_text(TAGS[&quot;RUN_MONTH&quot;]) in the converted logic. It gives text as it is. A date a function gives is written with no quotes of its own, 2026-09-24, because the original&#x27;s quotes stand around it already. Lineage draws no box for it: it is part of a string.</li><li><strong>In a Statement of your own</strong>, run_value(function, ...) puts what any function gives where a value goes, called each time the Statement is built, with the arguments you give it. A partition column held to it is bounded, as by a plain day. Here run_day() is called with brackets, since its day is an argument to days_before; a tag&#x27;s answer never has them:</li></ul>
 <pre class="python">import datetime
 from sqlglot_composer import (FROM, SELECT, WHERE, at_least, latest_partition, run_value,
                               statement, to_hive)
@@ -8070,15 +8080,15 @@ except ValueError as refused:
 <h5>Seed limits, in full</h5>
 <p>&quot;seed&quot; limits the Partitions the seed copies, by partition column, each column on its own:</p>
 <ul><li>a value, <strong>that value or later</strong>, never that one alone: <code>{&quot;dt&quot;: &quot;2026-09-01&quot;}</code>;</li><li>a range, either end left out as you like: <code>{&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;, &quot;to&quot;: &quot;2026-06-30&quot;}}</code>;</li><li>a list, those values alone, one value alone as a list of one: <code>{&quot;region&quot;: [&quot;US&quot;, &quot;CA&quot;]}</code>.</li></ul>
-<p>It works the same on any partition column, not only days: <code>{&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}, &quot;region&quot;: [&quot;US&quot;, &quot;CA&quot;], &quot;batch_no&quot;: 400}</code> copies the Partitions from 2026-01-01 on, of the US and Canada, from batch 400 on. Each value is written as the column&#x27;s type says: a number as it is, text and dates in quotes. Any value may be a Run value&#x27;s function, called as the seed is built. A partition column it leaves out is copied whole, and there is no top end unless &quot;to&quot; gives one. A limit on a column that isn&#x27;t one of the table&#x27;s partition columns is refused, as is one for a table that doesn&#x27;t read itself. Under &quot;all_tables&quot;, a limit applies only to the tables with that partition column; the notebook&#x27;s step 3 report and the seed&#x27;s line say what was sent.</p>
+<p>It works the same on any partition column, not only days: <code>{&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}, &quot;region&quot;: [&quot;US&quot;, &quot;CA&quot;], &quot;batch_no&quot;: 400}</code> copies the Partitions from 2026-01-01 on, of the US and Canada, from batch 400 on. Each value is written as the column&#x27;s type says: a number as it is, text and dates in quotes. Any value may be a Run value&#x27;s function, called as the seed is built. A partition column it leaves out is copied whole, and there is no top end unless &quot;to&quot; gives one. A limit on a column that isn&#x27;t one of the table&#x27;s partition columns is refused, as is one for a Rebuilt table, which has no Seed. Under &quot;all_tables&quot;, a limit applies only to the tables with that partition column; the notebook&#x27;s step 3 report and the Seed&#x27;s report say what was sent. <code>{&quot;months&quot;: N}</code> limits the partition column of dates to the N calendar months up to the newest Partition the original holds.</p>
 <p>The seed copies once, and each write after it reads what its own WHERE says. If a write reads a window of days, such as the day before RUN_DAY through RUN_DAY, and the seed starts at RUN_DAY&#x27;s day, the first write fills the day before too, as the original&#x27;s write did: the copy then holds that day as the original does, and its compare passes. There is nothing to do; start the seed earlier only if you want the copy to hold more days.</p>
 <h5>PARTITIONS, in full</h5>
-<ul><li>Left [], step 7 compares the latest Partition both tables hold.</li><li>Each Partition listed is compared too, a compare.md section each: <code>PARTITIONS = [{&quot;dt&quot;: &quot;2026-09-23&quot;}, {&quot;dt&quot;: &quot;2026-09-22&quot;}]</code>, each value with no quotes of its own.</li><li>A listed one that is the latest is compared once; one a table isn&#x27;t partitioned by is left out for that table, and the report names it.</li><li>A finished batch compares again through the same cell: list the Partition and run &quot;Run the rest&quot;; the batch stays in finished/.</li><li>compare_batch&#x27;s 8.4 keyword, <code>partition=</code>, is refused, naming <code>partitions=</code>.</li></ul>
+<ul><li>Left [], step 6 compares the latest Partition both tables hold.</li><li>Each Partition listed is compared too, a compare.md section each: <code>PARTITIONS = [{&quot;dt&quot;: &quot;2026-09-23&quot;}, {&quot;dt&quot;: &quot;2026-09-22&quot;}]</code>, each value with no quotes of its own.</li><li>A listed one that is the latest is compared once; one a table isn&#x27;t partitioned by is left out for that table, and the report names it.</li><li>A finished batch compares again through the same cell: list the Partition and run &quot;Run the rest&quot;; the batch stays in finished/.</li><li>compare_batch&#x27;s 8.4 keyword, <code>partition=</code>, is refused, naming <code>partitions=</code>.</li></ul>
 <h5>One batch per script</h5>
 <p><code>EACH_SCRIPT_ITS_OWN_BATCH = True</code>, in the names cell, makes each file of FILES, or each .hql file beside the notebook with FILES left [], a batch of its own, named for its file without .hql, daily for daily.hql; NAME is unused. &quot;Run up to your Decisions&quot; converts each, then runs each batch&#x27;s steps in turn, and prints one DECISIONS for every batch&#x27;s open Decisions, for the one decisions cell, where &quot;all_tables&quot; spans them all. Two scripts where one reads a table the other writes are refused before anything is written, naming the pair: convert them as one batch, as this page does. Two files of one name are refused too.</p>
 <h4>Check it worked</h4>
 <p>Before you go on, check that:</p>
-<ul><li>RUN_DAY&#x27;s line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names run_day, and the Hive <code>show_hive</code> shows holds the day it gave;</li><li>the seed&#x27;s line ends with the WHERE its &quot;seed&quot; answer gave, here <code>WHERE dt &gt;= &#x27;2026-09-01&#x27;</code>;</li><li>each result in each table&#x27;s conversion/compare.md says &quot;Passed:&quot;;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
+<ul><li>RUN_DAY&#x27;s line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names run_day, and the Hive <code>show_hive</code> shows holds the day it gave;</li><li>each Seed&#x27;s Hive, step 11&#x27;s, ends with the WHERE its &quot;seed&quot; answer gave, here <code>WHERE dt &gt;= &#x27;2026-09-01&#x27;</code>;</li><li>each result in each table&#x27;s conversion/compare.md says &quot;Passed:&quot;;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
 <h4>Common mistakes</h4>
 <h5>Converting related scripts one at a time</h5>
 <p>A table one script writes and another reads is made once, and read in dev, only when both are in one batch. Give the scripts together, with <code>files=</code>, or FILES left [], and keep EACH_SCRIPT_ITS_OWN_BATCH False.</p>
@@ -8098,7 +8108,7 @@ except ValueError as refused:
 <p>promote refuses a table whose compare hasn&#x27;t passed, so prod never gets rows that differ from the original&#x27;s. Compare each table, and fix it in dev until its compare passes, then promote.</p>
 <h4>Next</h4>
 <ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>hive_settings</code>, <code>latest_partition</code>, <code>run_value</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>latest_partition</code>, <code>run_value</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
 <section class="entry" id="describe_a_table_by_hand">
@@ -8285,7 +8295,9 @@ job_day = Table(
 The Lineage state is behind: 6 columns&#x27; logic differs from its last recording, in mart.job_day. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook&#x27;s cell 5, export_hive(), records the whole Project too.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
-  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
+  references/mart__job_hours.py, line 59: SEED = {&quot;months&quot;: 1}  # proposed: it has no Partitions and no Original, so its Seed runs its write as of each day of the month up to today</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/mart__job_day.py.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_hours, mart.job_notes, mart.team_days and mart.team_failures.
@@ -8608,7 +8620,9 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
-  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
+  references/mart__job_hours.py, line 59: SEED = {&quot;months&quot;: 1}  # proposed: it has no Partitions and no Original, so its Seed runs its write as of each day of the month up to today</pre>
 <p>Before you go on, check that:</p>
 <ul><li><code>check_table_reference</code> says the table matches its Table reference;</li><li>the Hive of <code>create_table(job_day)</code> holds dt under PARTITIONED BY and your LOCATION;</li><li><code>project.check()</code> says every Table reference is registered.</li></ul>
 <h4>Common mistakes</h4>
@@ -19700,7 +19714,9 @@ _ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&qu
 <p>Goal: know the Project is behind the Toolbox. Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before writing 7.2 in the version file, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
 <pre class="python">from sqlglot_composer import project
 print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.9: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.9: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
+  references/mart__job_hours.py, line 59: SEED = {&quot;months&quot;: 1}  # proposed: it has no Partitions and no Original, so its Seed runs its write as of each day of the month up to today</pre>
 <p>Done when <code>project.check()</code> names the version that last wrote the Project. Then step 3.</p>
 <h5>3. Upgrade it</h5>
 <p>Goal: the Project&#x27;s files carried to this Toolbox. Run <code>project.upgrade()</code> from a notebook in the Project. If the Project has admin/workflows/upgrade/upgrade.ipynb, as one 8.0 or later made does, run its step 1 cell, which is this call. If it has none, as here, run the call from admin/check_project.ipynb, which imports <code>project</code> already; the Upgrade adds the upgrade notebook, for the next time.</p>
@@ -19835,7 +19851,9 @@ PROD = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says nothing of the version, and lists no <code># UPGRADE</code> mark left:</p>
 <pre class="python">print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
+<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
+  references/mart__job_hours.py, line 59: SEED = {&quot;months&quot;: 1}  # proposed: it has no Partitions and no Original, so its Seed runs its write as of each day of the month up to today</pre>
 <p>Run again, the Upgrade does nothing:</p>
 <pre class="python">print(project.upgrade())</pre>
 <p class="label">Python prints</p><pre class="output">The Project is at 8.9 already, as this Toolbox is: nothing to upgrade.</pre>
@@ -19930,9 +19948,8 @@ flowchart TD
     s1{&quot;2. Answer each table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
     s2[&quot;3. Write each answer into its table&#x27;s Table reference&quot;]:::files_only
     s3[[&quot;4. Create each table in dev&quot;]]:::warehouse_call
-    s4[[&quot;5. Seed each table that reads itself, once, from its original&quot;]]:::warehouse_call
-    s5[[&quot;6. Write each table in dev&quot;]]:::warehouse_call
-    s6[[&quot;7. Compare each table with its original&quot;]]:::warehouse_call
+    s4[[&quot;5. Write each table in dev&quot;]]:::warehouse_call
+    s5[[&quot;6. Compare each table with its original&quot;]]:::warehouse_call
     t0(&quot;Hive scripts&quot;):::thing
     t1(&quot;your Dev Database&#x27;s name&quot;):::thing
     t2(&quot;read access to the sources&quot;):::thing
@@ -19941,9 +19958,8 @@ flowchart TD
     t5(&quot;each answer in the decisions cell&quot;):::thing
     t6(&quot;each answer written in&quot;):::thing
     t7(&quot;each made in dev&quot;):::thing
-    t8(&quot;each seeded&quot;):::thing
-    t9(&quot;each written in dev&quot;):::thing
-    t10(&quot;each compared with its original&quot;):::thing
+    t8(&quot;each written in dev&quot;):::thing
+    t9(&quot;each compared with its original&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     t2 --&gt; s0
@@ -19959,8 +19975,6 @@ flowchart TD
     s4 --&gt; t8
     t8 --&gt; s5
     s5 --&gt; t9
-    t9 --&gt; s6
-    s6 --&gt; t10
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -19992,7 +20006,7 @@ RENAME = {}
 # each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
 # &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
 STAGING = {}
-# the Partitions for step 7 to compare besides the latest, each a dict, such as
+# the Partitions for step 6 to compare besides the latest, each a dict, such as
 # [{&quot;dt&quot;: &quot;2026-09-23&quot;}], each value with no quotes of its own: [] compares only the
 # latest Partition your dev table and its original both hold
 PARTITIONS = []</pre>
@@ -20047,17 +20061,11 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <ol start="4"><li>Create each table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)</pre>
-<ol start="5"><li>Seed each table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print(&quot;Seeded nothing: no table of the batch reads itself.&quot;)
-else:
-    run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)</pre>
-<ol start="6"><li>Write each table in dev (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
-<ol start="7"><li>Compare each table with its original (it is a call to the warehouse, yours to run).</li></ol>
+<ol start="5"><li>Write each table in dev (it is a call to the warehouse, yours to run).</li></ol>
+<pre class="python">print(project.seed_tables(project.batch_tables(NAME), query=query,
+                          execute=execute))
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
+<ol start="6"><li>Compare each table with its original (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.compare_batch(NAME, query=query, partitions=PARTITIONS)</pre>
 <h5>The promote Workflow</h5>
 <p>Carries Saved tables from your Dev Database to your Prod Database.</p>
@@ -20068,9 +20076,8 @@ flowchart TD
     s1{&quot;2. Answer each prod table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
     s2[&quot;3. Write each answer into its prod table&#x27;s Table reference&quot;]:::files_only
     s3[[&quot;4. Create each table in prod&quot;]]:::warehouse_call
-    s4[[&quot;5. Seed each prod table that reads itself, once, from its original&quot;]]:::warehouse_call
-    s5[[&quot;6. Write each table in prod&quot;]]:::warehouse_call
-    s6[&quot;7. Refresh the Reference sheet and the Database modules&quot;]:::files_only
+    s4[[&quot;5. Write each table in prod&quot;]]:::warehouse_call
+    s5[&quot;6. Refresh the Reference sheet and the Database modules&quot;]:::files_only
     t0(&quot;dev Table folders, each Decision made and compared&quot;):::thing
     t1(&quot;your Prod Database&#x27;s name&quot;):::thing
     t2(&quot;prod Table folders&quot;):::thing
@@ -20078,9 +20085,8 @@ flowchart TD
     t4(&quot;each answer in the decisions cell&quot;):::thing
     t5(&quot;each with its location=&quot;):::thing
     t6(&quot;each made in prod&quot;):::thing
-    t7(&quot;each seeded in prod&quot;):::thing
-    t8(&quot;each written in prod&quot;):::thing
-    t9(&quot;each in the Reference sheet&quot;):::thing
+    t7(&quot;each written in prod&quot;):::thing
+    t8(&quot;each in the Reference sheet&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     s0 --&gt; t2
@@ -20095,8 +20101,6 @@ flowchart TD
     s4 --&gt; t7
     t7 --&gt; s5
     s5 --&gt; t8
-    t8 --&gt; s6
-    s6 --&gt; t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -20156,17 +20160,11 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <ol start="4"><li>Create each table in prod (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)</pre>
-<ol start="5"><li>Seed each prod table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">to_seed = project.promoted_tables(TABLES, seeded=True)
-if not to_seed:
-    print(&quot;Seeded nothing: no prod copy reads itself.&quot;)
-else:
-    run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)</pre>
-<ol start="6"><li>Write each table in prod (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)</pre>
-<ol start="7"><li>Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ol>
+<ol start="5"><li>Write each table in prod (it is a call to the warehouse, yours to run).</li></ol>
+<pre class="python">print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                          execute=execute))
+project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)</pre>
+<ol start="6"><li>Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.refresh_reference_sheet(project.promoted_tables(TABLES))</pre>
 <h5>The new_table Workflow</h5>
 <p>Makes a Table folder for each new Saved table: from its query, when QUERIES gives one, its logic written for you; else from a Template, its logic for you to write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
@@ -20271,7 +20269,7 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 <pre class="python">for table in TABLES:
     project.load(table).preview()  # says what stops it, if anything does</pre>
 <ol start="3"><li>Write each Table reference from its logic (it changes only files, so project.do_next() runs it for you).</li></ol>
-<pre class="python">project.reference_from_logic(TABLES)</pre>
+<pre class="python">project.reference_from_logic(TABLES, query=query)</pre>
 <ol start="4"><li>Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.write_decisions(DECISIONS, tables=TABLES)</pre>
 <ol start="6"><li>Check each table&#x27;s rows with preview(), which writes nothing (it is a call to the warehouse, yours to run).</li></ol>
@@ -20280,6 +20278,7 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 <ol start="7"><li>Create and write each in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in TABLES:
     run_execute(project.load(table).create(), execute)
+print(project.seed_tables(TABLES, query=query, execute=execute))
 project.run_tables(tables=TABLES, execute=execute)</pre>
 <ol start="8"><li>Compare each table made from a query with its query (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for name in QUERIES:
@@ -21737,7 +21736,9 @@ ends_a_run = is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;,
 The Lineage state is behind: 3 columns&#x27; logic differs from its last recording, in mart.job_day_facts, mart.team_days and weekly_team.week_totals. Record it with project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook&#x27;s cell 5, export_hive(), records the whole Project too.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
-  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow&#x27;s decisions cell, with &quot;key&quot;: &quot;proposed&quot; under its table&#x27;s name or under &quot;all_tables&quot;; accept any other line by taking off its # proposed comment, or change it.
+  references/mart__job_hours.py, line 59: SEED = {&quot;months&quot;: 1}  # proposed: it has no Partitions and no Original, so its Seed runs its write as of each day of the month up to today</pre>
 <p>weekly_team.week_totals is the Scheduled run weekly_team&#x27;s Statement week_totals: the Lineage state names a run&#x27;s Statement &lt;run&gt;.&lt;result&gt;, as the run&#x27;s results name it. The last lines are about a batch the Example project converted earlier, which needs nothing from you.</p>
 <p>Done when <code>project.check()</code> names the tables whose logic differs. Then step 3.</p>
 <h5>3. Record the Lineage state</h5>

@@ -175,8 +175,9 @@ _Avoid_: migration, port, translation, import, upgrade
 
 **Original**:
 The table a converted script writes, in the warehouse already, which its Saved table copies:
-a Saved table that reads itself is seeded once with the original's rows, and is compared with
-it. A prod copy's original is its dev copy's original, not the dev copy.
+a History table is seeded once with the original's rows, and each Saved table is compared
+with it. A prod copy's original is its dev copy's original, not the dev copy; a prod copy of a
+table with no original is seeded from its dev copy.
 _Avoid_: source table, old table
 
 **Batch**:

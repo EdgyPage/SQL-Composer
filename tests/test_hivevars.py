@@ -564,7 +564,7 @@ def converted(root: Path, script: str) -> None:
 def test_a_tag_answered_hivevar_is_written_into_its_reference(started: Path) -> None:
     converted(started, BARE)
     said = repr(project.write_decisions({TABLE: {
-        "location": "/data/team/mart_dev.db/daily_close", "kind": "history",
+        "location": "/data/team/mart_dev.db/daily_close", "kind": "history", "seed": {},
         "tags": {"PERIOD_END": hivevar("PERIOD_END", default="'2026-09-24'")}}}))
     assert f"Each Decision of {TABLE} is made." in said
     assert ("tags: PERIOD_END is the Hivevar PERIOD_END: the Toolbox sends "

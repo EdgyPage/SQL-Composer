@@ -25,8 +25,8 @@ so you get the rest converted rather than none of it.
 - If a Script tag stands for a day that changes each run, such as the latest day a table
   holds, answer it with a Run value, the value a function of yours gives at each write, as
   step 8 does.
-- If a table that reads itself has years of rows you don't need, limit its seed, the one copy
-  of the original's rows, by Partition, as step 6 does.
+- If a History table, which each write adds to, has years of rows you don't need, limit its
+  Seed, the one copy of the original's past rows before its first write, as step 6 does.
 - If several tables share an answer, such as accepting each one's proposed Key, give it once
   under "all_tables", as step 6 does.
 - If the scripts are simple and read none of each other's tables, convert each as a batch of
@@ -150,10 +150,12 @@ cell holds your code: the query's clauses, and create(), preview() and write().
 mart.fail_history's stays Hive, whole, an Unchecked statement, Hive text run through the
 Toolbox that no Guard looks inside: its WHERE holds a query, NOT IN (SELECT ...), which no
 Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as
-an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too,
-which copies the original's rows into it once, before its first write. Which of the original's
-Partitions it copies is SEED, in its Table reference: every one, `SEED = {}`, until you answer
-its "seed" Decision in step 6.
+an incremental INSERT does, so in dev it would start from nothing. All three are History
+tables, each write keeping the rows already there, so each has a Seed: its past rows, copied
+from its original once, before its first write. Which of the original's Partitions it copies
+is SEED, in its Table reference: at work, `{"months": 1}`, the month up to the newest, is
+proposed; here the Example database can't list the originals' Partitions, so it is a Decision
+you answer in step 6.
 
 Done when batch.md starts `# Batch ops_reports` and you have read what each statement became.
 Then step 5.
@@ -161,8 +163,9 @@ Then step 5.
 ### 5. Read each table's open Decisions
 
 Goal: know what only you can decide. What only you can decide of a table is a Decision: here
-mart.fail_history's Key, the columns whose values name one row, and its kind, a History table,
-proposed since its write reads its own table, to accept. Each table's
+mart.fail_history's Key, the columns whose values name one row, its kind, a History table,
+proposed since its write reads its own table, to accept, and its seed limits, which past rows
+its Seed copies. Each table's
 conversion/checklist.md lists its open Decisions, and project.check() names each one:
 
 >>> checklist = Path("tables/mart__fail_history/conversion/checklist.md")
@@ -173,6 +176,11 @@ conversion/checklist.md lists its open Decisions, and project.check() names each
 - kind: proposed a History table, as its write reads its own table, adding to the rows it
   holds: accept it with "proposed", or answer "rebuilt" if each write replaces the whole
   table, "history" if it keeps the rows already there, in references/mart__fail_history.py
+- seed: which past rows its Seed loads, if it is a History table, nothing proposed, as the
+  Partitions of ops_reports.fail_history couldn't be read through your query: answer by
+  partition column, a value, that value or later, such as {"dt": "2026-09-01"}, a range
+  {"from": ..., "to": ...} or a list, or {} for every Partition, in
+  references/mart__fail_history.py
 
 Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is.
 project.check() says where it stands and how to answer it. A tag that stands alone, as
@@ -199,11 +207,12 @@ You open no Table reference, and tick nothing. This page stands in for the decis
 where you paste the DECISIONS project.check() printed and fill it in:
 
 >>> DECISIONS = {
-...     "all_tables": {"key": "proposed", "kind": "proposed"},
+...     "all_tables": {"key": "proposed", "kind": "proposed",
+...                    "seed": {"dt": {"from": "2026-09-01"}}},
 ...     "mart.alerts_by_severity_ops_reports": {"types": {"dt": "string"},
 ...                                             "tags": {"RUN_DAY": "'2026-09-24'"}},
 ...     "mart.alerted_runs_ops_reports": {"types": {"dt": "string"}},
-...     "mart.fail_history": {"key": None, "seed": {"dt": {"from": "2026-09-01"}}},
+...     "mart.fail_history": {"key": None},
 ... }
 
 Each answer, by its kind:
@@ -230,16 +239,16 @@ Each answer, by its kind:
 - "tags": the Script tag's answer is the Hive the scheduler put in its place. A bare tag's
   answer is the day with its own quotes, "'2026-09-24'", the day of the run whose rows the
   original holds.
-- "seed": fail_history reads itself, so step 11 seeds it, copying the original's rows into it
-  once. With no "seed", it copies every Partition the original holds, years of them perhaps;
-  here it copies only those from 2026-09-01 on. **A single value means that value or later**,
-  not that one alone: for one Partition alone, give a list of one, `{"dt": ["2026-09-24"]}`.
+- "seed", under "all_tables", is each History table's Seed: step 12 copies its original's
+  rows into it once, before its first write. `{}` would copy every Partition the original
+  holds, years of them perhaps; here it copies only those from 2026-09-01 on. **A single value
+  means that value or later**, not that one alone: for one Partition alone, give a list of one,
+  `{"dt": ["2026-09-24"]}`. At work, where `{"months": 1}` is proposed, you needn't answer it.
 
 A TODO line left, such as does_not_add_up=, waits on nothing.
 
-Done when DECISIONS holds "key": "proposed", "kind": "proposed", a key for
-mart.fail_history, a dt type for the other two, RUN_DAY's day and fail_history's seed. Then
-step 7.
+Done when DECISIONS holds "key": "proposed", "kind": "proposed" and a "seed", a key for
+mart.fail_history, a dt type for the other two and RUN_DAY's day. Then step 7.
 
 ### 7. Write each answer into its Table reference
 
@@ -249,13 +258,13 @@ steps after. This page runs each step on its own, as the notebook's "Step by ste
 The step's cell gives the batch's tables, which "all_tables" answers for:
 
 >>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("ops_reports")))
-Wrote 4 answers into references/mart__alerts_by_severity_ops_reports.py.
+Wrote 5 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
-Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+Wrote 4 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
@@ -268,6 +277,7 @@ on nothing: fill each in when you like.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
 all_tables: key "proposed": accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.
+all_tables: seed: written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history, each for the partition columns it has; a Rebuilt table has no Seed.
 all_tables: kind "proposed": written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
 
 Each table's first line and `does_not_add_up=` are TODO lines here, not `# proposed` ones as
@@ -384,7 +394,7 @@ Done when the Hive shows the day RUN_DAY stands for, here '2026-09-24'. Then ste
 
 ### 10. Create each table in dev
 
-Goal: each Saved table made in your Dev Database. The notebook's steps 4 to 6 are calls to the
+Goal: each Saved table made in your Dev Database. The notebook's steps 4 and 5 are calls to the
 warehouse, yours to run, each a cell of the notebook. At work, its step 4 creates each
 table in your Dev Database. Here execute is the Example database's, which prints the first line
 of each Hive it is given and changes nothing:
@@ -395,26 +405,28 @@ execute: ...
 
 Done when execute has been given each table's create. Then step 11.
 
-### 11. Seed the table that reads itself
+### 11. Read each History table's Seed
 
-Goal: mart.fail_history starts from the original's rows. The notebook's step 5 sends the
-Session settings for dynamic Partitions, the SET lines that let one write fill several
-Partitions from its rows, then seeds mart.fail_history from the original, once,
-copying only the Partitions its "seed" answer names:
+Goal: know what each table's Seed loads before anything is sent. The notebook's step 5 cell
+starts with `project.seed_tables`, which loads each History table's past rows once, while it
+holds no Partitions yet, copying only the Partitions its "seed" answer names. Given no
+execute, it sends nothing and shows the Hive it would send, first the Session settings for
+dynamic Partitions, the SET lines that let one write fill several Partitions from its rows:
 
->>> run_execute(hive_settings("dynamic_partitions"), execute)
-execute: ...
->>> for table in project.batch_tables("ops_reports", seeded=True):  # those that read themselves
-...     run_execute(project.load(table).seed(), execute)
-execute: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt >= '2026-09-01'
+>>> print(project.seed_tables(project.batch_tables("ops_reports"), query=query))
+mart.alerts_by_severity_ops_reports: its Seed, copied from ops_reports.alerts_by_severity, its Original:
+...
+would send: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt >= '2026-09-01'
 
-Done when execute has been given the seed. Then step 12.
+Done when each History table's Seed shows the WHERE its "seed" answer gave. Then step 12.
 
 ### 12. Write each table in dev
 
-Goal: each Saved table's rows in dev. The notebook's step 6 writes each table, in the order
-they read each other. It sends each table's SET lines, the original's, before its write: here
-hive.exec.parallel, which makes Hive faster and changes no row:
+Goal: each Saved table's rows in dev. The notebook's step 5 cell, given your execute, sends
+each Seed first, then writes each table, in the order they read each other. It sends each
+table's SET lines, the original's, before its write: here hive.exec.parallel, which makes Hive
+faster and changes no row. The Example database holds no Dev Database to seed, so this page
+writes alone:
 
 >>> print(project.run_tables(tables=project.batch_tables("ops_reports"), execute=execute))
 execute: SET hive.exec.parallel=true
@@ -428,7 +440,7 @@ Done when it prints `Wrote 3 tables, in order.` Then step 13.
 
 ### 13. Compare each with its original
 
-Goal: proof that each dev table gives its original's rows. The notebook's step 7 compares each
+Goal: proof that each dev table gives its original's rows. The notebook's step 6 compares each
 dev table's rows with the table it copies, on the latest Partition both hold, and on each
 Partition the names cell's PARTITIONS lists, and writes each result in its
 conversion/compare.md. The Example database holds no Dev Database, so here each says it
@@ -475,10 +487,10 @@ and why, here the three. To promote only some, name them:
 - Each Building block a table imports, run_values among them, is copied into
   building_blocks/prod/, and the prod copy imports that copy: change run_day in dev, and prod
   gets it only when you promote again. `project.check()` names a prod copy edited by hand.
-- A prod copy keeps its dev table's TAGS. Its seed is its own: it copies every Partition of
-  the original until you answer "seed" for it in the promote notebook's decisions cell, as
-  step 6 did here, since prod often needs more of the original's history than a dev compare
-  did.
+- A prod copy keeps its dev table's TAGS, and its SEED: its Seed copies the Partitions its
+  dev table's SEED names from the original, until you answer "seed" for it in the promote
+  notebook's decisions cell, as step 6 did here, since prod often needs more of the
+  original's history than a dev compare did.
 
 Done when the promote Workflow names its next step for the three tables, at work. Then check
 it worked, below.
@@ -492,7 +504,7 @@ What the steps used, and the cases they didn't meet:
   typed-in answer is, so a day given as text needs its own quotes, "'2026-09-24'". Anything
   else is refused, naming the function.
 - **When it runs:** each time a Statement holding it is built, such as the table's write(),
-  preview() or seed(), for each table on its own. If two tables are answered with one
+  preview(), or each Statement its Seed sends, for each table on its own. If two tables are answered with one
   function, the Toolbox calls it once for each, and they may get two days if the warehouse
   changed between the calls. A tag's function is called with no arguments.
 - **Where it lives:** a file of your Project, such as building_blocks/run_values.py, so a
@@ -607,9 +619,10 @@ and Canada, from batch 400 on. Each value is written as the column's type says: 
 is, text and dates in quotes. Any value may be a Run value's function, called as the seed is
 built. A partition column it leaves out is copied whole, and there is no top end unless "to"
 gives one. A limit on a column that isn't one of the table's partition columns is refused, as
-is one for a table that doesn't read itself. Under "all_tables", a limit applies only to the
-tables with that partition column; the notebook's step 3 report and the seed's line say
-what was sent.
+is one for a Rebuilt table, which has no Seed. Under "all_tables", a limit applies only to
+the tables with that partition column; the notebook's step 3 report and the Seed's report
+say what was sent. `{"months": N}` limits the partition column of dates to the N calendar
+months up to the newest Partition the original holds.
 
 The seed copies once, and each write after it reads what its own WHERE says. If a write
 reads a window of days, such as the day before RUN_DAY through RUN_DAY, and the seed starts
@@ -619,7 +632,7 @@ do; start the seed earlier only if you want the copy to hold more days.
 
 ### PARTITIONS, in full
 
-- Left [], step 7 compares the latest Partition both tables hold.
+- Left [], step 6 compares the latest Partition both tables hold.
 - Each Partition listed is compared too, a compare.md section each: `PARTITIONS = [{"dt":
   "2026-09-23"}, {"dt": "2026-09-22"}]`, each value with no quotes of its own.
 - A listed one that is the latest is compared once; one a table isn't partitioned by is left
@@ -644,7 +657,8 @@ Before you go on, check that:
 
 - RUN_DAY's line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names
   run_day, and the Hive `show_hive` shows holds the day it gave;
-- the seed's line ends with the WHERE its "seed" answer gave, here `WHERE dt >= '2026-09-01'`;
+- each Seed's Hive, step 11's, ends with the WHERE its "seed" answer gave, here
+  `WHERE dt >= '2026-09-01'`;
 - each result in each table's conversion/compare.md says "Passed:";
 - `project.check()` names no step of the batch;
 - the batch is in admin/workflows/convert/finished/;

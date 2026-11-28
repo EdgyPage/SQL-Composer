@@ -182,7 +182,7 @@ def test_a_tag_answered_with_a_function_is_written_into_its_reference(
     project.convert("closing", files=["close.hql"], query=example_database.query,
                     database="ops")
     said = repr(project.write_decisions({TABLE: {
-        "location": "/data/team/mart_dev.db/daily_close", "kind": "history",
+        "location": "/data/team/mart_dev.db/daily_close", "kind": "history", "seed": {},
         "tags": {"PERIOD_END": _users_period_end()}}}))
     assert f"Each Decision of {TABLE} is made." in said
     reference = REFERENCE.read_text(encoding="utf-8")

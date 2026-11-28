@@ -17,6 +17,7 @@ know: with_opt_out adds the one a Guard's or Load limit's refusal names to the c
 from __future__ import annotations
 
 import ast
+import datetime
 import io
 import keyword
 import re
@@ -2364,28 +2365,6 @@ def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
     return values
 
 
-def with_seed(logic: str, short: str, original: str) -> str:
-    """A Table notebook's logic with seed(): the original's rows copied into the dev copy once,
-    before the first write, for a table that reads itself, limited by SEED, its Table
-    reference's seed limits, which the logic imports from there with the table."""
-    lines = logic.rstrip("\n").split("\n")
-    imported = "from sqlglot_composer import UncheckedStatement, seed_copy"
-    if not any(line.startswith(imported) for line in lines):
-        at = _after_imports(lines)
-        lines[at:at] = [f"{imported}  # for seed()"]
-    own = re.compile(rf"^(from references\.\w+ import {re.escape(short)}(?:, TAGS)?)(\s|$)")
-    lines = [own.sub(r"\1, SEED\2", line, count=1) for line in lines]
-    return "\n".join(lines + [
-        "",
-        "",
-        "def seed() -> UncheckedStatement:",
-        '    """Copy the original\'s rows into this table once, before its first write():',
-        "    its write reads its own table, which starts empty. SEED, in its Table reference,",
-        '    limits the Partitions it copies."""',
-        f"    return seed_copy({short}, {python_literal(original)}, SEED)",
-    ]) + "\n"
-
-
 def reads_itself(statement: BatchStatement, database: str) -> bool:
     """Whether a write reads the table it writes, as an incremental INSERT does."""
     named = [table for table in statement.tree.find_all(exp.Table)
@@ -2451,6 +2430,74 @@ def proposed_kind_of_hive(hive: str, table: str) -> tuple[TableKind | None, str]
     database = split_table_name(table)[0]
     statements = batch_statements([("write.hql", hive)], database, table)
     return proposed_table_kind(statements, table.lower(), database)
+
+
+def day_on_column(hive: str, column: str) -> datetime.date | None:
+    """The day a write's Hive gives the column named `column`, for a Seed to tell which day a
+    run writes (Toolbox 8.10): the value of a static PARTITION (dt = ...), else of the first
+    `dt = ...` it compares, worked out where that is a date, written 2026-09-24 or 20260924, or
+    date_add or date_sub of one, as date_sub('2026-09-25', 1) gives 2026-09-24. None where it
+    holds no day it can work out."""
+    try:
+        trees = [tree for tree in sqlglot.parse(hive, read="hive") if tree is not None]
+    except sqlglot.errors.SqlglotError:
+        return None
+    for tree in trees:
+        given = [each for partition in tree.find_all(exp.Partition)
+                 for each in partition.expressions if isinstance(each, exp.EQ)]
+        for compared in [*given, *tree.find_all(exp.EQ)]:
+            if compared.this.name.lower() != column.lower():
+                continue
+            day = _day_of(compared.expression)
+            if day is not None:
+                return day
+    return None
+
+
+def _day_of(node: exp.Expression) -> datetime.date | None:
+    """The day a piece of Hive gives, where it is a date written as text, or date_add or
+    date_sub of one by a whole number of days; None where it is anything else."""
+    if isinstance(node, (exp.Paren, exp.Cast)):
+        return _day_of(node.this)
+    if isinstance(node, exp.Literal) and node.is_string:
+        return day_written(node.this)
+    if not isinstance(node, (exp.TsOrDsAdd, exp.DateAdd, exp.DateSub)):
+        return None
+    day, days = _day_of(node.this), _whole_number_of(node.expression)
+    if day is None or days is None:
+        return None
+    if isinstance(node, exp.DateSub):
+        days = -days
+    return day + datetime.timedelta(days=days)
+
+
+def _whole_number_of(node: exp.Expression) -> int | None:
+    """The whole number a piece of Hive gives, as 1 * -1 gives -1; None where it is anything
+    else."""
+    if isinstance(node, exp.Paren):
+        return _whole_number_of(node.this)
+    if isinstance(node, exp.Neg):
+        inner = _whole_number_of(node.this)
+        return None if inner is None else -inner
+    if isinstance(node, exp.Mul):
+        left, right = _whole_number_of(node.this), _whole_number_of(node.expression)
+        if left is None or right is None:
+            return None
+        return left * right
+    if isinstance(node, exp.Literal) and not node.is_string and node.this.isdigit():
+        return int(node.this)
+    return None
+
+
+def day_written(text: str) -> datetime.date | None:
+    """The day text writes, as 2026-09-24 or 20260924 does; None for text that isn't a day."""
+    for pattern, written in ((r"\d{4}-\d{2}-\d{2}", "%Y-%m-%d"), (r"\d{8}", "%Y%m%d")):
+        if re.fullmatch(pattern, text):
+            try:
+                return datetime.datetime.strptime(text, written).date()
+            except ValueError:
+                return None
+    return None
 
 
 def names_by_then(ordered: list[BatchStatement], statement: BatchStatement,

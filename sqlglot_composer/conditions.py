@@ -8,6 +8,8 @@ is no `not_(...)`. Values are escaped by the Toolbox, so any string is safe to p
 from __future__ import annotations
 
 import datetime
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import NoReturn
 
 from .refusals import (
@@ -48,7 +50,25 @@ def today(utc_offset_hours: float = 0) -> datetime.date:
             fix="Give a number of hours between -24 and 24, such as -6 or 5.5.",
             error=ValueError,
         )
+    if _DAYS_RUN_AS_OF:
+        return _DAYS_RUN_AS_OF[-1]
     return (utc_now() + datetime.timedelta(hours=utc_offset_hours)).date()
+
+
+# While a Seed runs a History table's write as of a past day (Toolbox 8.10), that day, which
+# today() gives whatever its offset: only the run's today changes, never the logic.
+_DAYS_RUN_AS_OF: list[datetime.date] = []
+
+
+@contextmanager
+def run_as_of(day: datetime.date) -> Iterator[None]:
+    """While the block runs, today() gives `day`, as when a Seed runs a write as of that day:
+    a Run value's function that starts from today(), and last_n_days, count from it."""
+    _DAYS_RUN_AS_OF.append(day)
+    try:
+        yield
+    finally:
+        _DAYS_RUN_AS_OF.pop()
 
 
 def utc_now() -> datetime.datetime:

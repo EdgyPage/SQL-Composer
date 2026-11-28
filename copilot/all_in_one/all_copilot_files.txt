@@ -434,7 +434,7 @@ table, or asks about a table's columns, partitions or Key.
 ## Names for this objective, with their arguments
 
 - project.add_references(names, *, query=None)
-- project.reference_from_logic(name)
+- project.reference_from_logic(name, *, query=None)
 - Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
@@ -2282,22 +2282,13 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-       to_seed = project.batch_tables(NAME, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no table of the batch reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.batch_tables(NAME), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
@@ -2415,7 +2406,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 - project.check()
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
-- project.reference_from_logic(name)
+- project.reference_from_logic(name, *, query=None)
 - project.add_references(names, *, query=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 
@@ -2435,7 +2426,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-       project.reference_from_logic(TABLES)
+       project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -2453,6 +2444,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
+       print(project.seed_tables(TABLES, query=query, execute=execute))
        project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
@@ -2810,22 +2802,13 @@ table.
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))

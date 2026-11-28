@@ -90,7 +90,7 @@ def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
     typed(started, "convert", "HIVE = None", QUERY)
     typed(started, "convert", "DECISIONS = {}", {f"{DEV}.spare": answers("spare")})
     stopped = run("convert")
-    assert "convert, spare: 7. Compare each table with its original" in stopped
+    assert "convert, spare: 6. Compare each table with its original" in stopped
     assert "Stopped: it ran, and isn't done, as it says above" in stopped
     assert 'Then save the notebook, and run "Run the rest", the cell under' in stopped
 
@@ -126,10 +126,10 @@ def test_a_names_cell_naming_several_batches_runs_each_and_a_stop_names_which(
     typed(started, "convert", "DECISIONS = {}",
           {f"{DEV}.{name}": answers(name) for name in ("first", "second")})
     stopped = run("convert")
-    assert "convert, first: 7. Compare" in stopped
+    assert "convert, first: 6. Compare" in stopped
     assert "convert, second" not in stopped
     checked = repr(project.check())
-    assert "convert.ipynb, first: 7. Compare" in checked
+    assert "convert.ipynb, first: 6. Compare" in checked
     assert "convert.ipynb, second: 4. Create" in checked
 
 

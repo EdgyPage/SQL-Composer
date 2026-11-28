@@ -101,7 +101,7 @@ table, or asks about a table's columns, partitions or Key.
 ## Names for this objective, with their arguments
 
 - project.add_references(names, *, query=None)
-- project.reference_from_logic(name)
+- project.reference_from_logic(name, *, query=None)
 - Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)

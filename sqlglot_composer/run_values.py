@@ -732,12 +732,17 @@ def _refuse_not_a_partition_column(call: str, column: object, table: Table | Non
 
 def _listed_value(text: str) -> datetime.date | int | str:
     """A value SHOW PARTITIONS lists, its %XX escapes undone, as a date, a number or text."""
-    text = re.sub(r"%([0-9A-Fa-f]{2})", _unescaped, text)
+    text = listed_text(text)
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
         return datetime.date.fromisoformat(text)
     if re.fullmatch(r"-?\d+", text):
         return int(text)
     return text
+
+
+def listed_text(text: str) -> str:
+    """A value as SHOW PARTITIONS lists it, its %XX escapes undone, as text."""
+    return re.sub(r"%([0-9A-Fa-f]{2})", _unescaped, text)
 
 
 def _unescaped(escape: re.Match[str]) -> str:
