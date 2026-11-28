@@ -342,13 +342,10 @@ def _how_to_steps() -> list[str]:
                   "imported at the top of the decisions cell and given by its name, which the "
                   "Toolbox calls each time the table is written. \"all_tables\" answers once "
                   "for every table the notebook names, and "
-                  "a table's own answer overwrites it. \"kind\" says whether each write "
-                  "replaces the whole table, a Rebuilt table, or keeps the rows already there, "
-                  "a History table, whose past rows are loaded once, its Seed, before its first "
-                  "write, as its \"seed\" answer limits them. [Convert someone else's "
-                  "Hive](#convert_someone_elses_hive) shows each one, and [Load a History "
-                  "table's past days](#load_a_history_tables_past_days) the kind and the "
-                  "Seed."), "",
+                  "a table's own answer overwrites it. \"kind\" is Rebuilt or History, and a "
+                  "History table's \"seed\" limits its Seed. [Convert someone else's Hive]"
+                  "(#convert_someone_elses_hive) shows each one, and [Load a History table's "
+                  "past days](#load_a_history_tables_past_days) the kind and the Seed."), "",
         *_wrapped("Done when `project.check()` says every step of the Workflow is done. Then "
                   "check it worked, below."), "",
         "The Workflows, for steps 2 to 5:", ""]

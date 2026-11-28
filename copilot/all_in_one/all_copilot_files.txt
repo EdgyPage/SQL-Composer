@@ -1050,8 +1050,8 @@ s = statement(
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: write a Saved table from a Statement, in its Table notebook. Load this file to
-save rows into the user's own table, a day of it or more, or to write a logic cell.
+Objective: write a Saved table from a Statement, in its Table notebook. Load this file when
+the user saves rows into their own table, a day of it or more, or writes a logic cell.
 
 ## Patterns: when the user says X, do Y
 
@@ -1288,7 +1288,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
 - **R9** Each table's kind is a Decision (file 13): `"kind": "history"` if each write keeps
-  the rows there, as `PARTITION (dt = ...)` or INSERT INTO; `"rebuilt"` if it replaces the
+  the rows there, as PARTITION (dt = ...) or INSERT INTO; `"rebuilt"` if it replaces the
   table; `"proposed"` accepts it.
 
 ## Always: rules A1 to A11

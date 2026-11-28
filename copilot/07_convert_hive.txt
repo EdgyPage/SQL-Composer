@@ -58,7 +58,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
 - **R9** Each table's kind is a Decision (file 13): `"kind": "history"` if each write keeps
-  the rows there, as `PARTITION (dt = ...)` or INSERT INTO; `"rebuilt"` if it replaces the
+  the rows there, as PARTITION (dt = ...) or INSERT INTO; `"rebuilt"` if it replaces the
   table; `"proposed"` accepts it.
 
 ## Always: rules A1 to A11

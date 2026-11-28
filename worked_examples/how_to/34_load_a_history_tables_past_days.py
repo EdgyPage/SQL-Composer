@@ -104,10 +104,8 @@ Its write reads yesterday, worked out from today each time the table is written,
 run each morning writes the day before. `last_n_days(job_events.dt, 1)` is that day; on this
 page today is 2026-09-25:
 
->>> from sqlglot_composer import last_n_days, today
+>>> from sqlglot_composer import last_n_days
 >>> from references.ops__job_events import job_events
->>> today()
-datetime.date(2026, 9, 25)
 >>> last_n_days(job_events.dt, 1)
 job_events.dt = '2026-09-24'
 
@@ -333,7 +331,7 @@ answer "history".
 A write that reads `"2026-09-24"` writes that day on every run, so its Seed can't run it for
 each past day, and says so, as mart.job_day_facts's does in step 6. Work the day out from
 today, with `last_n_days`, or with a Run value, a function of yours that the Toolbox calls
-each time the table is written, starting from `today()`.
+each time the table is written, starting from today().
 
 ### Expecting the Seed to run again
 

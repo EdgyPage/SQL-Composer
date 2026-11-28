@@ -65,6 +65,17 @@ Built 2026-11-27.
   decisions cell (`"kind": "proposed"`, Rebuilt, "it is a query alone"). Both READMEs say so.
   Both projects, docs/main/example_projects.html, examples.html and how_to.html written again.
 
+- **Also fixed**: the pages' stand-in for today (`tools/example_gallery.example_setting`)
+  replaced `conditions.today`, so a Seed's run as of each day (`conditions.run_as_of`) gave
+  2026-09-25 on the page and how-to 34's Seed read "reads no today" there while its doctest
+  passed: it now pins `conditions.utc_now`, as the tests do; the gallery is unchanged by it.
+  The Copilot evaluation's control `makes_the_prod_copy_but_never_writes_it` leaves out the
+  whole write step, since the Seed alone now loads the prod copy's days.
+- **Snapshot**: `SNAPSHOT_WRITE=1` writes only from a whole, passing suite, which the
+  upgrade test waiting on ticket 08 blocks, so the 192 texts a whole run made and it lacked, some from tickets 02 to 06, were added to
+  `tests/snapshot/known.txt` from the hashes a run made; the stale ones stay until 08's
+  whole-suite write.
+
 For ticket 08:
 
 - to_8_10 must write the KIND blocks exactly as the sources hold them (kind_block's comment,

@@ -130,9 +130,11 @@ def names_in(code: str) -> list[str]:
 # --- Running a Statement on the Example database ---------------------------------------------
 
 
-def _example_today() -> datetime.date:
-    """Today on the page, 2026-09-25, standing in for conditions.today."""
-    return TODAY
+def _example_now() -> datetime.datetime:
+    """The time on the page, noon of 2026-09-25 in UTC, standing in for conditions.utc_now, as
+    the tests pin it: today() gives 2026-09-25, and a Seed's run as of a past day still gives
+    that day (Toolbox 8.10)."""
+    return datetime.datetime.combine(TODAY, datetime.time(12), datetime.timezone.utc)
 
 
 @contextlib.contextmanager
@@ -140,11 +142,11 @@ def example_setting() -> Iterator[None]:
     """Today is 2026-09-25, and a file an example writes goes to a folder deleted afterwards;
     each Saved table's folder an example takes is given back afterwards, since the Toolbox keeps
     every folder taken in this Python and the next example, or test, may take the same one."""
-    real_today, here = conditions.today, os.getcwd()
+    real_now, here = conditions.utc_now, os.getcwd()
     folders_taken = dict(tables._FOLDERS)
     with tempfile.TemporaryDirectory() as folder, warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        conditions.today = _example_today
+        conditions.utc_now = _example_now
         os.chdir(folder)
         # An example that runs an Unchecked statement logs it there too, not beside this file.
         sqlglot_composer.set_admin_log(Path(folder) / "admin_log.md")
@@ -152,7 +154,7 @@ def example_setting() -> Iterator[None]:
             yield
         finally:
             os.chdir(here)
-            conditions.today = real_today
+            conditions.utc_now = real_now
             tables._FOLDERS.clear()
             tables._FOLDERS.update(folders_taken)
             sqlglot_composer.set_load_limits()

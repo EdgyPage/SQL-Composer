@@ -19986,7 +19986,7 @@ from warehouse import connect, query, execute</pre>
 <p>Done when each name the cell asks for is filled in and saved. Then step 5.</p>
 <h5>5. Run its steps in order</h5>
 <p>Goal: the Workflow&#x27;s end goal reached. Run its run cells, as its Workflow&#x27;s section below shows them, or each step&#x27;s cell in turn in their place. At a step that is a decision, yours to make, make it: write your answer to each open Decision in the decisions cell and save it, or read what the step before printed. Then run on.</p>
-<p>An answer is what its kind takes, as the decisions cell&#x27;s comment shows: a folder as text, a Key as a list, a Script tag&#x27;s day as Hive text. A tag may be answered by a Run value&#x27;s function instead, one of your Project&#x27;s, imported at the top of the decisions cell and given by its name, which the Toolbox calls each time the table is written. &quot;all_tables&quot; answers once for every table the notebook names, and a table&#x27;s own answer overwrites it. &quot;kind&quot; says whether each write replaces the whole table, a Rebuilt table, or keeps the rows already there, a History table, whose past rows are loaded once, its Seed, before its first write, as its &quot;seed&quot; answer limits them. <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows each one, and <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> the kind and the Seed.</p>
+<p>An answer is what its kind takes, as the decisions cell&#x27;s comment shows: a folder as text, a Key as a list, a Script tag&#x27;s day as Hive text. A tag may be answered by a Run value&#x27;s function instead, one of your Project&#x27;s, imported at the top of the decisions cell and given by its name, which the Toolbox calls each time the table is written. &quot;all_tables&quot; answers once for every table the notebook names, and a table&#x27;s own answer overwrites it. &quot;kind&quot; is Rebuilt or History, and a History table&#x27;s &quot;seed&quot; limits its Seed. <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows each one, and <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> the kind and the Seed.</p>
 <p>Done when <code>project.check()</code> says every step of the Workflow is done. Then check it worked, below.</p>
 <p>The Workflows, for steps 2 to 5:</p>
 <h5>The convert Workflow</h5>
@@ -23562,11 +23562,9 @@ job_day_events = Table(
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__job_day_events/mart__job_day_events.ipynb</code> too.</p>
 <p>Its write reads yesterday, worked out from today each time the table is written, so a write run each morning writes the day before. <code>last_n_days(job_events.dt, 1)</code> is that day; on this page today is 2026-09-25:</p>
-<pre class="python">from sqlglot_composer import last_n_days, today
+<pre class="python">from sqlglot_composer import last_n_days
 from references.ops__job_events import job_events
-today()</pre>
-<p class="label">Python shows</p><pre class="output">datetime.date(2026, 11, 28)</pre>
-<pre class="python">last_n_days(job_events.dt, 1)</pre>
+last_n_days(job_events.dt, 1)</pre>
 <p class="label">Python shows</p><pre class="output">job_events.dt = &#x27;2026-09-24&#x27;</pre>
 <p>Fill in its notebook&#x27;s logic with it:</p>
 <p class="label">The file <code>tables/mart__job_day_events/mart__job_day_events.ipynb</code>, after you fill it in</p>
@@ -24135,7 +24133,20 @@ SEED = {&quot;months&quot;: 1}</pre>
 <p>Goal: the Seed&#x27;s days seen before anything is sent. The new_table Workflow&#x27;s write step starts with <code>project.seed_tables</code>, which, given no execute, sends nothing and shows what it would send. A table with no original runs its own write once for each day, oldest first, as of the day after, so <code>last_n_days</code> gives that day as yesterday:</p>
 <pre class="python">said = repr(project.seed_tables([&quot;mart.job_day_events&quot;], query=query))  # -&gt; str
 print(&quot;\n&quot;.join(said.splitlines()[:14]))</pre>
-<p class="label">Python prints</p><pre class="output">mart.job_day_events: no Seed: its write reads no today, CURRENT_DATE or a Run value of today(), so each day&#x27;s run would write the same rows: its first write loads them.</pre>
+<p class="label">Python prints</p><pre class="output">mart.job_day_events: its Seed, its write run as of each day, oldest first, dt from 2026-08-24 to 2026-09-24:
+would send: SET hive.exec.dynamic.partition=true
+would send: SET hive.exec.dynamic.partition.mode=nonstrict
+would send: INSERT OVERWRITE TABLE mart.job_day_events PARTITION(dt)
+would send: SELECT
+would send:   job_events.job_id,
+would send:   COUNT(*) AS events,
+would send:   job_events.dt
+would send: FROM ops.job_events AS job_events
+would send: WHERE
+would send:   job_events.dt = &#x27;2026-08-24&#x27;
+would send: GROUP BY
+would send:   job_events.job_id,
+would send:   job_events.dt</pre>
 <p>The same write follows for each day to 2026-09-24, 32 in all: ops.job_events&#x27; newest day is 2026-09-24, and the month before it starts on 2026-08-24. Each run is the write&#x27;s own Hive, its day alone changed, so each writes the one Partition a run on the morning after writes.</p>
 <p>A write whose day is typed in has no Seed of this kind: each run would write the same rows. mart.job_day_facts reads <code>DAY = &quot;2026-09-24&quot;</code>, so its first write loads its days:</p>
 <pre class="python">print(project.seed_tables([&quot;mart.job_day_facts&quot;], query=query))</pre>
@@ -24163,12 +24174,12 @@ print(next(line for line in said.splitlines() if line.startswith(&quot;Not check
 <h5>Answering &quot;rebuilt&quot; for a table of days</h5>
 <p>A table answered Rebuilt has no Seed, so a daily table answered so starts with one day, and nothing warns that the rest are missing. If each write replaces one day and keeps the rest, answer &quot;history&quot;.</p>
 <h5>Typing the day in</h5>
-<p>A write that reads <code>&quot;2026-09-24&quot;</code> writes that day on every run, so its Seed can&#x27;t run it for each past day, and says so, as mart.job_day_facts&#x27;s does in step 6. Work the day out from today, with <code>last_n_days</code>, or with a Run value, a function of yours that the Toolbox calls each time the table is written, starting from <code>today()</code>.</p>
+<p>A write that reads <code>&quot;2026-09-24&quot;</code> writes that day on every run, so its Seed can&#x27;t run it for each past day, and says so, as mart.job_day_facts&#x27;s does in step 6. Work the day out from today, with <code>last_n_days</code>, or with a Run value, a function of yours that the Toolbox calls each time the table is written, starting from today().</p>
 <h5>Expecting the Seed to run again</h5>
 <p>The Seed runs once, while the table holds no Partition. To load a day it missed, write that day, as <code>project.check(query=query)</code> names it, rather than seeding again.</p>
 <h4>Next</h4>
 <ul><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: a converted table&#x27;s Seed, copied from its original, and Seed limits by partition column.</li><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, the new_table Workflow&#x27;s among them.</li></ul>
-<p class="names">Toolbox names used: <code>last_n_days</code>, <code>today</code>, <code>project.new_table</code>, <code>project.check</code>, <code>project.write_decisions</code>, <code>project.reference_from_logic</code>, <code>project.seed_tables</code></p>
+<p class="names">Toolbox names used: <code>last_n_days</code>, <code>project.new_table</code>, <code>project.check</code>, <code>project.write_decisions</code>, <code>project.reference_from_logic</code>, <code>project.seed_tables</code></p>
 </section>
 </main>
 <script>

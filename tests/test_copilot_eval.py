@@ -121,7 +121,11 @@ CONTROLS = [
     pytest.param("T40", fenced(BY_ID["T40"].reference.replace(
         '"mart_dev.daily_fails_mart"', '"mart.daily_fails"')), "builds",
                  id="promotes_the_original_not_the_dev_table"),
+    # Its write step left out, the Seed and the write (Toolbox 8.10): the Seed alone would
+    # load the prod copy's days.
     pytest.param("T42", fenced(BY_ID["T42"].reference.replace(
+        "print(project.seed_tables(project.promoted_tables(TABLES), query=query,\n"
+        "                          execute=execute))\n", "").replace(
         "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)\n", "")),
                  "correct", id="makes_the_prod_copy_but_never_writes_it"),
 ]

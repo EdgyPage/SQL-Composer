@@ -3,8 +3,8 @@
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: write a Saved table from a Statement, in its Table notebook. Load this file to
-save rows into the user's own table, a day of it or more, or to write a logic cell.
+Objective: write a Saved table from a Statement, in its Table notebook. Load this file when
+the user saves rows into their own table, a day of it or more, or writes a logic cell.
 
 ## Patterns: when the user says X, do Y
 
