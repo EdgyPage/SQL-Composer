@@ -1,10 +1,10 @@
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.9)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database with sqlglot Composer 8.9, each step a cell of the promote Workflow's notebook, in order.
+Database with sqlglot Composer 8.10, each step a cell of the promote Workflow's notebook, in order.
 Load this file when the user asks how to carry dev tables to prod. File 13 converts Hive into
 dev first; file 14 covers new tables, Table references, upgrades and changes to a Saved
 table.

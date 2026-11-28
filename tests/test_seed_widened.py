@@ -155,6 +155,27 @@ def test_a_rebuilt_table_has_no_seed(started: Path) -> None:
         f"{table}: no Seed, as it is a Rebuilt table, which each write replaces whole."]
 
 
+def test_a_history_table_with_no_seed_line_loads_the_proposed_month(started: Path) -> None:
+    # As a table converted before 8.10 whose write doesn't read itself, which project.upgrade()
+    # answers History: its Table reference has a KIND line and no SEED, as
+    # mart.budget_overruns's in the intermediate Example project. Its Seed, in a dry run, or in
+    # prod after a promote, loads the month every History table's is proposed.
+    table = _convert(started, _copy_into(
+        "job_events", "t.event_id, t.job_id, t.event_type, t.minutes, t.dt", "dt"))
+    reference = started / "references" / f"{table.replace('.', '__')}.py"
+    text = reference.read_text(encoding="utf-8")
+    reference.write_text(text.replace(_seed_line(started, table), ""), encoding="utf-8")
+    said = project.seed_tables([table], query=example_database.query).lines
+    assert said[0] == (
+        f"{table}: its Table reference has no SEED, as a table converted before 8.10 whose "
+        "write doesn't read itself has none, so its Seed loads the limit proposed for every "
+        'History table, {"months": 1}. To load others, add a SEED line above its Aliases, '
+        'such as SEED = {"months": 3}.')
+    assert _would_send(table)[-1] == (
+        f"INSERT OVERWRITE TABLE {table} PARTITION (dt) SELECT * FROM ops.job_events "
+        "WHERE dt >= '2026-08-24' AND dt <= '2026-09-24'")
+
+
 def test_a_months_limit_that_isnt_a_whole_number_is_refused(started: Path) -> None:
     table = _convert(started, _copy_into(
         "job_events", "t.event_id, t.job_id, t.event_type, t.minutes, t.dt", "dt"))

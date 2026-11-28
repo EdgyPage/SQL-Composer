@@ -1535,8 +1535,10 @@ NEW_TABLE = Workflow(
              action="run the cell below. `project.compare_batch` compares each with its query, "
              "through your query, and writes the result in its `conversion/compare.md`. If "
              "`QUERIES` gives no query, this step is done once step 7 is.",
-             done_when="each table made from a query has a `conversion/compare.md` that says "
-             "it passed"),
+             done_when="each table made from a query has a `conversion/compare.md` that "
+             "holds a result. A result that failed, or a table not compared, stops nothing: "
+             "its `compare.md` says so first, and promote promotes it all the same, naming it, "
+             "as promoting is your call"),
     ),
     inputs=(Input("TABLES", [], 'the new tables, by their names in the warehouse, such as '
                   '["mart_dev.daily_job_runs"]', starts=True),
@@ -1551,7 +1553,8 @@ NEW_TABLE = Workflow(
             "with no error.",
             "Each table's Table reference lists its columns and leaves no Decision open.",
             "admin/sent.csv records each table created and written.",
-            "Each table made from a query has a `conversion/compare.md` that says it passed.",
+            "Each table made from a query has a `conversion/compare.md` that holds a result, "
+            "one that failed or wasn't compared saying so first.",
             "`project.check()` names no next step of this Workflow."),
 )
 
@@ -1788,11 +1791,11 @@ DECISIONS_CELL = (
     '# "all_tables" accepts each table\'s.\n'
     "# A tag may be answered with a Run value's function of your Project's, imported above\n"
     '# DECISIONS, such as "PERIOD_END": period_end. For a table\'s latest Partition, write\n'
-    '# project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top\n'
-    "# of this cell, the import it prints under it, and run the cell once: it writes the\n"
-    '# function into building_blocks/run_values.py. And "seed", such as\n'
-    '# {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself\n'
-    "# copies: how-to 09 shows both.")
+    '# project.new_run_value("period_end", latest_partition="ops.job_runs.dt",\n'
+    "# query=query) at the top of this cell, the import it prints under it, and run the cell\n"
+    '# once: it writes the function into building_blocks/run_values.py. And "seed", such as\n'
+    '# {"months": 1}, limits the past rows a History table\'s Seed loads before its first\n'
+    "# write: how-to 09 shows both, and how-to 34 the Seed.")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
@@ -2006,9 +2009,9 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
         ("code", DECISIONS_CELL),
         ("markdown", f"## {RUN_THE_REST}\n\nRun the cell below once the decisions cell above "
          "is filled in and saved: the same call again, it goes on from where the cell before "
-         "stopped, and it too stops at the first step only you can do: a refusal, a compare "
-         "that failed, or a Decision left open, each named. Mend what it names, such as an "
-         "answer in the decisions cell, save, and run this cell again."),
+         "stopped, and it too stops at the first step only you can do: a refusal or a "
+         "Decision left open, each named; a compare that failed stops nothing. Mend what it "
+         "names, such as an answer in the decisions cell, save, and run this cell again."),
         ("code", run_cell_text(workflow, RUN_THE_REST)),
         ("markdown", f"# {STEP_BY_STEP}\n\nEach step's own cell, to run or run again one step "
          "on purpose; the cells above run them all for you."),
@@ -2051,8 +2054,8 @@ def run_cell_text(workflow: Workflow, heading: str = "") -> str:
                  "# Decision, whose DECISIONS it prints to paste into the cell under it.\n")
     elif heading == RUN_THE_REST:
         first = (f"# {heading}: the same call, run again once you have answered: it goes\n"
-                 "# on from where it stopped, and stops again at a refusal, a compare that\n"
-                 "# failed or a Decision left open.\n")
+                 "# on from where it stopped, and stops again at a refusal or a Decision left\n"
+                 "# open; a compare that failed stops nothing.\n")
     elif heading:
         first = f"# {heading}: every step left, up to the first only you can do.\n"
     return (first + "# Add dry_run=True to see the Hive it would send, sending nothing through "
