@@ -374,6 +374,23 @@ GROUP BY o.team, r.dt;
 PERIOD_END = "2026-09-24"
 PERIOD_RUNS_RAN = PERIOD_RUNS.replace('<PARM="PERIOD_END"/>', f"'{PERIOD_END}'")
 
+# W11's script (Toolbox 8.10, ticket 07): each job's events on the day before the morning it
+# runs, a day Hive works out from current_date, added to that day's Partition; and as it ran on
+# each morning from 2026-09-21 to 2026-09-25, each run's current_date written in, so the
+# original holds 2026-09-20 to 2026-09-24.
+DAILY_EVENTS = """SET hive.exec.dynamic.partition.mode=nonstrict;
+CREATE TABLE IF NOT EXISTS mart.daily_events (job_id BIGINT, events BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT INTO TABLE mart.daily_events PARTITION (dt)
+SELECT e.job_id, COUNT(*) AS events, e.dt
+FROM ops.job_events e
+WHERE e.dt = date_sub(current_date, 1)
+GROUP BY e.job_id, e.dt;
+"""
+DAILY_EVENTS_MORNINGS = ["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25"]
+DAILY_EVENTS_RAN = "".join(DAILY_EVENTS.replace("current_date", f"'{morning}'")
+                           for morning in DAILY_EVENTS_MORNINGS)
+
 # W8's warehouse (Toolbox 8.6, ticket 11): the three tables of the intermediate Example project
 # a Scheduled run of mart.team_days writes, created as each one's Table notebook's step 1
 # creates them, holding no row yet.
@@ -516,8 +533,8 @@ def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
 def scenarios() -> dict[str, Built]:
     """Each scenario, by its id: the Workflow ones, then the Excel ones."""
     return {**workflow_scenarios(), **run_value_scenarios(), **hivevar_scenarios(),
-            **new_table_scenarios(), **scheduled_run_scenarios(), **lineage_scenarios(),
-            **excel_scenarios(),
+            **history_scenarios(), **new_table_scenarios(), **scheduled_run_scenarios(),
+            **lineage_scenarios(), **excel_scenarios(),
             **held_out_workflow_scenarios()}
 
 
@@ -640,6 +657,43 @@ def hivevar_scenarios() -> dict[str, Built]:
                            "holds": [f"--hivevar PERIOD_END={PERIOD_END}"]}]},
             reads=path_reads([*CONVERT_README, "6. Save a table"],
                              [*CONVERT_HOW_TOS, "save_a_table"],
+                             [*CONVERT_COPILOT, "17_run_values_and_seed_limits.txt"])),
+    }
+
+
+def history_scenarios() -> dict[str, Built]:
+    """Each Workflow scenario whose batch holds a History table, its Seed loading its past
+    days (Toolbox 8.10, ticket 07), by its id."""
+    daily_events = f"{DEV}.daily_events"
+    stem = "mart_dev__daily_events"
+    first, last = DAILY_EVENTS_MORNINGS[0], DAILY_EVENTS_MORNINGS[-1]
+    return {
+        "W11": Built({
+            "id": "W11", "split": "dev",
+            "title": "convert a script whose day Hive works out, its past days loaded",
+            "phases": [technical(
+                "Your team's script, from_your_team/daily_events.hql, writes "
+                "mart.daily_events, a table in a database you can't write to. Each morning it "
+                "runs, it adds each job's events of the day before to that day's Partition, "
+                "the day worked out by Hive from the date it runs on, never typed in. It has "
+                f"run each morning from {first} to {last}, so mart.daily_events holds those "
+                "days' rows. Make your own copy of that table in your Dev Database, "
+                f"{daily_events}, written there and checked against the original, with the "
+                "Toolbox. Your copy keeps its past days, as the original does: accept the kind "
+                "of table the Toolbox proposes for it, and have your copy hold, from its first "
+                "write, the original's past days, the month of them the Toolbox proposes. "
+                f"{DATABASES_SAID}")],
+            "hive_ran": ["daily_events_ran.hql"],
+            "given": {"from_your_team/daily_events.hql": "daily_events.hql"}},
+            {"daily_events.hql": DAILY_EVENTS, "daily_events_ran.hql": DAILY_EVENTS_RAN},
+            key=lambda: {"tables": {daily_events: table_key(
+                [DAILY_EVENTS_RAN], "SELECT job_id, events, dt FROM mart.daily_events")},
+                "files": [{"path": COMPARED.format(stem=stem), "holds": ["Passed"]},
+                          {"path": f"references/{stem}.py",
+                           "holds": ['KIND = "history"', 'SEED = {"months": 1}']},
+                          {"path": "admin/sent.csv", "holds": [f",seed,{daily_events},"]}]},
+            reads=path_reads(CONVERT_README,
+                             [*CONVERT_HOW_TOS, "load_a_history_tables_past_days"],
                              [*CONVERT_COPILOT, "17_run_values_and_seed_limits.txt"])),
     }
 
@@ -1002,6 +1056,20 @@ DECISIONS = {{
 """
 
 
+def reference_w11(root: Path, warehouse: SavedWarehouse) -> None:
+    """W11's end: the script converted, its kind accepted as proposed, History, and its Seed
+    left to the month proposed, which copies the original's past days before its first
+    write (Toolbox 8.10, ticket 07)."""
+    folder = root / "admin" / "workflows" / "convert"
+    shutil.copyfile(root.parent / "from_your_team" / "daily_events.hql",
+                    folder / "daily_events.hql")
+    table = f"{DEV}.daily_events"
+    type_into(root, "convert", NAME="daily_events", FILES=["daily_events.hql"],
+              RENAME={"mart.daily_events": "daily_events"},
+              DECISIONS=where_each_goes([table], "proposed"))
+    finish("convert", warehouse)
+
+
 def fill_runs_per_day_logic(text: str) -> str:
     """The saved_table Template's logic, filled in for runs_per_day, as a user fills it in."""
     for placeholder, value in (
@@ -1195,7 +1263,7 @@ JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
     "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "W8": reference_w8,
-    "W9": reference_w9, "W10": reference_w10, "H1": reference_h1,
+    "W9": reference_w9, "W10": reference_w10, "W11": reference_w11, "H1": reference_h1,
     "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),
