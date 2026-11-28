@@ -111,9 +111,13 @@ def test_arithmetic_refuses_what_isnt_a_number() -> None:
 
 def test_a_value_of_the_wrong_type_for_a_typed_column_is_refused() -> None:
     with pytest.raises(TypeError, match="a string column"):
-        equals(job_runs.dt, 20260925)
+        equals(job_runs.dt, True)
     with pytest.raises(TypeError, match="a int column"):
-        equals(job_runs.duration_mins, "30")
+        equals(job_runs.duration_mins, "thirty")
+    # Toolbox 8.10, ticket 09: a number and text that reads as one are compared as Hive
+    # compares them, as two numbers.
+    assert repr(equals(job_runs.dt, 20260925)) == "job_runs.dt = 20260925"
+    assert repr(equals(job_runs.duration_mins, "30")) == "job_runs.duration_mins = '30'"
 
 
 def test_numpy_and_pandas_values_become_plain_values() -> None:

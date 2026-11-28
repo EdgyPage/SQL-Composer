@@ -1,7 +1,7 @@
 # A number and a string compared as Hive compares them, '1' with 1
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: M
 
@@ -73,3 +73,36 @@ The user took every recommendation, 2026-11-28: "take all answers as given".
   `"one"` case), and `tests/test_misuse_refusals.py`, the docstrings and the snapshot texts
   follow. CONTEXT.md, if it names the rule.
 - The beginner reader runs, since a refusal and a how-to change.
+
+## Answer
+
+Built test-first, 2026-11-28.
+
+- **The check**: `tables._check_type` takes `in_condition`, as `literal` already does. In a
+  condition, text that reads as a number beside a number column, and a number beside a string
+  column, pass silently (`_is_compared_as_numbers`), and the Hive keeps the value as given,
+  `job_runs.job_id = '3'`. `COMPARABLE_VALUES` is unchanged, so first_match's values, mapped's
+  keys among themselves, a Python step's saved values, `partition=` values and stacked
+  columns stay of one kind. mapped's keys reach `_check_type` as comparisons with its column,
+  as its docstring says ("as equals(...) refuses it"), so `mapped(job_id, {"3": ...})` is
+  taken as `equals(job_id, "3")` is; mixing `3` and `"4"` among its keys is still refused.
+- **"Reads as a number"** is one function, `shared.number_read_from` (a row in
+  standards.md's table): an ASCII decimal, with a sign, a fraction and an exponent, spaces
+  around it allowed. Anything else, `"one"` or `"NaN"`, stays refused.
+- **The why for "one"**: "Hive compares text with a number by reading the text as a number,
+  and would read 'one', which isn't a number, as NULL, so the comparison would match no row."
+  Every other mismatch keeps 8.9's why.
+- **The executor** (`hive_executor.run_on_executor`, which the Example database and the
+  Workbook check run on) compares text with a number as Hive does: its EQ, NEQ, GT, GTE, LT,
+  LTE, BETWEEN and IN read the text as a number, or NULL. Without it, `job_id = '3'` gave no
+  rows on the Example database, where Hive gives job 3's.
+- **Tests**: `tests/test_numbers_beside_strings.py` (each comparison builds as written, the
+  rows on the Example database, "one" refused, CASE values still of one kind);
+  `tests/test_batches.py::test_a_number_compared_with_text_converts_is_written_and_compares`
+  (both Conversions: no refusal, no checklist line, written in dev, compare passed); a misuse
+  in `tests/test_misuse_refusals.py`.
+- **Docs**: how-to 03's "A value of the wrong type" rewritten (its refusal now the "one"
+  case, "3" shown building), `equals`' docstring, and a line under 8.10's `### Fixed` in
+  CHANGES.md. No Copilot file and no CONTEXT.md entry names the rule, so neither changed.
+- **Left**: the beginner reader, which this ticket asks for, was not run here; the
+  coordinator runs it.

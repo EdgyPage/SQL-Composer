@@ -1565,7 +1565,7 @@ run_query(not_test, query)</pre>
 <pre class="python">equals(job_runs.job_id, &quot;one&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with &#x27;one&#x27;.
-  Why it matters: Hive compares text with a number by reading the text as a number, and would read &#x27;one&#x27;, which isn&#x27;t one, as NULL, so the comparison would match no row.
+  Why it matters: Hive compares text with a number by reading the text as a number, and would read &#x27;one&#x27;, which isn&#x27;t a number, as NULL, so the comparison would match no row.
   Usual fix:      Pass a value of the column&#x27;s own type, such as 42.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Write the number you meant: <code>equals(job_runs.job_id, 1)</code>. It works the other way too: a string column, such as <code>job_runs.status</code>, may be compared with a number, as in <code>equals(job_runs.status, 1)</code>, which matches the rows whose text reads as 1.</p>

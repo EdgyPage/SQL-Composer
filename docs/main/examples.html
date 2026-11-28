@@ -2759,7 +2759,11 @@ GROUP BY
 <pre class="python">equals(job_runs.status, &quot;O&#x27;Brien&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;O\&#x27;Brien&#x27;</pre>
-<p>To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL.</p>
+<p>Hive compares a number column with text by reading the text as a number, so text that reads as one is written as you gave it, and matches the rows of that number:</p>
+<pre class="python">equals(job_runs.job_id, &quot;3&quot;)</pre>
+<p class="label">Hive</p>
+<pre class="output">job_runs.job_id = &#x27;3&#x27;</pre>
+<p>Text that reads as no number, such as &quot;one&quot;, is refused, since Hive reads it as NULL. A string column may be compared with a number the same way. To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL.</p>
 <p class="names">Toolbox names used: <code>equals</code></p>
 <p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>

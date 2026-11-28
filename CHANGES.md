@@ -76,6 +76,13 @@ Toolbox works on sqlglot 30.24.0 and later.
   TRUE)` loses its `TRUE`, `SORT_ARRAY(x, FALSE)` is kept as written with its finding, and
   Spark's `ARRAY_SORT(x)` becomes `SORT_ARRAY(x)`, on 30.23.0 and on 30.34.0 alike, which CI
   now tests too.
+- **A number and a string compared as Hive compares them.** Hive reads text beside a number
+  as a number, so `job_id = '3'` matches job 3, and `status = 1` the rows whose text reads
+  as the number 1. 8.9 refused both, in `equals(job_runs.job_id, "3")` and in a Conversion of
+  Hive you already run, which stopped the convert Workflow. 8.10 takes them, and writes the value as
+  you gave it. Text that reads as no number, such as `"one"` beside a number column, is still
+  refused, as Hive reads it as NULL, which matches no row. A CASE's values, as in
+  `first_match` and `mapped`, stay all of one kind.
 
 ## 8.9
 
