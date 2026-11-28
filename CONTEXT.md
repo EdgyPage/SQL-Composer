@@ -66,8 +66,9 @@ Database: a prod copy of each table's code and of each Building block it uses, e
 reading the prod copies of the others promoted with it and the Prod Database's settings. The
 dev table stays the source: a change is made in dev and promoted again, never in the prod
 copy, so dev's Building blocks may change freely while prod's change only when promoted. A
-table is promoted only once each of its Decisions is made and, for a Conversion's table, it is
-compared, and with each dev table it reads.
+table is promoted only once each of its Decisions is made, and with each dev table it reads.
+A Conversion's table whose compare failed, or that wasn't compared, is promoted all the same,
+named as such first, since the choice is the user's (Toolbox 8.10).
 _Avoid_: deploy, release, convert to prod, publish
 
 ### The user's own scripts
@@ -142,7 +143,8 @@ One thing about one table that only the user decides, which the table's files sh
 not: its location, its Key, a column type the Toolbox could only guess, the value a Script
 tag stands for, the Partitions its Seed copies, the name proposed for a table made from a
 Formula workbook, the database table proposed for cells a PivotTable reads, each Pivot
-filter kept or its every slice kept instead, or a `<...>` left to fill in. The user answers
+filter kept or its every slice kept instead, whether it is a Rebuilt table or a History table,
+or a `<...>` left to fill in. The user answers
 each in a Workflow's decisions cell, and a step writes each answer into the table's Table
 reference. An answer may be given once for every table of a batch, and a table's own answer
 overrides it; an answer may also be a Run value's function, called each time the table is
@@ -174,8 +176,9 @@ _Avoid_: migration, port, translation, import, upgrade
 
 **Original**:
 The table a converted script writes, in the warehouse already, which its Saved table copies:
-a Saved table that reads itself is seeded once with the original's rows, and is compared with
-it. A prod copy's original is its dev copy's original, not the dev copy.
+a History table is seeded once with the original's rows, and each Saved table is compared
+with it. A prod copy's original is its dev copy's original, not the dev copy; a prod copy of a
+table with no original is seeded from its dev copy.
 _Avoid_: source table, old table
 
 **Batch**:
@@ -390,15 +393,27 @@ create_table made those before 5.0, and admin.move_to_own_folder moves one to a 
 own.
 _Avoid_: materialized view, cache, temp table, output table
 
+**Rebuilt table**:
+A Saved table each write replaces whole, so its first write leaves it complete and it needs
+no Seed. Which kind a table is, Rebuilt or History, is one of its Decisions. What its query
+computes doesn't decide it: a summary rebuilt every run is a Rebuilt table.
+_Avoid_: aggregate table, full refresh
+
+**History table**:
+A Saved table each write adds rows to, or replaces some of, such as one Partition for the
+run's date, keeping the rest: what reads it expects its past rows to be there. A new copy
+holds only what its writes have added since, so it needs a Seed to be usable from its first
+day. A daily summary that keeps every day's Partition is a History table.
+_Avoid_: historical table, incremental table, aggregate table
+
 **Seed**:
-The one-time copy of an original table's rows into its copy, in dev or in prod, for a Saved
-table a Conversion made whose write reads its own table, as an incremental INSERT does: the
-copy starts empty, so its first write would start from nothing. It runs once, before that
-first write; a write runs every time. It copies every Partition unless the table's Decision
-limits it, by a value, a range or a list for each partition column, so years of rows the
-table doesn't need are left behind. In Python, `seed()` in its Table notebook, an Unchecked
-statement.
-_Avoid_: backfill, preload, bootstrap
+The one-time load of a History table's past rows, in dev or in prod, before its first write,
+so the table is usable from that first day: copied from its Original when a Conversion made
+it, and otherwise written by its own write for each past Partition. It runs once; a write
+runs every time. Its limit, one of the table's Decisions, picks which of the past Partitions
+it loads, so years of rows the table doesn't need are left behind. In Python, `seed()` in its
+Table notebook.
+_Avoid_: backfill, preload, bootstrap, initial load
 
 **Unchecked statement**:
 Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no

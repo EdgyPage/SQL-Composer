@@ -17,6 +17,12 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
 - Pivot filter: a line of its `PIVOT_FILTERS = {...}`, what the PivotTable it was made from
   leaves out, by the filter's field, kept as converted until answered (Toolbox 8.9), its other
   answers keeping every slice: "fold", "batch" or "tables";
+- kind: its `KIND = ...` line, whether it is a Rebuilt table, which each write replaces whole,
+  or a History table, which each write adds to and so needs a Seed (Toolbox 8.10), proposed
+  from its write where the write says, open until an answer accepts or changes it;
+- seed limit: its `SEED = {...}` line, which of a History table's past rows its Seed loads
+  (Toolbox 8.10): `{"months": 1}` proposed where a partition column holds dates alone, made
+  and marked `# proposed`, else open; a Rebuilt table has none;
 - placeholder: any other `<...>` left in its code, as a Template leaves them, filled in by
   hand.
 
@@ -32,7 +38,8 @@ answers. It never writes over any other line that is made already, as yours is o
 change it: the answer is kept unwritten, to name.
 
 `DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
-"seed", the limits of the seed's copy, and "tags", each for the tables that hold it.
+"seed", the limits of the seed's copy, "tags", each for the tables that hold it, and "kind"
+(8.10), for each table with a KIND line.
 `table_answer` gives one table's answer: all_tables' first, then the table's own over it, kind
 by kind and, for tags, tag by tag. A Key, a type and a location are each table's own: the
 folder every table's own goes under is a Database setting since 8.5, "location_root" in
@@ -58,9 +65,12 @@ TAG = "tag"
 NAME = "name"
 SOURCE = "source"
 PIVOT_FILTER = "Pivot filter"
+TABLE_KIND = "table kind"
+SEED_LIMIT = "seed limit"
 PLACEHOLDER = "placeholder"
 # Every kind that waits for you, in the order check() names them.
-KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, NAME, SOURCE, PIVOT_FILTER, PLACEHOLDER)
+KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, NAME, SOURCE, PIVOT_FILTER, TABLE_KIND, SEED_LIMIT,
+         PLACEHOLDER)
 # What check() and step 1's report write for each answer still to give, in the DECISIONS
 # they print to paste: an answer left so is no answer.
 FILL_IN = "<FILL IN>"
@@ -69,7 +79,8 @@ DECISIONS_NAME = "DECISIONS"
 # The kinds the decisions cell answers, each by its name there; a placeholder is filled in by
 # hand.
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags", NAME: "name",
-           SOURCE: "sources", PIVOT_FILTER: "pivot_filters"}
+           SOURCE: "sources", PIVOT_FILTER: "pivot_filters", TABLE_KIND: "kind",
+           SEED_LIMIT: "seed"}
 ANSWERED_KINDS = tuple(ANSWERS)
 # A table's name proposed for a workbook's final, as a Conversion writes it in the table's
 # Table reference above its Aliases, open while it holds TODO: (Toolbox 8.9), such as
@@ -124,13 +135,47 @@ PIVOT_FILTERS_COMMENT = (
     '# selection as converted; "fold", "batch" or "tables" keeps every value instead, as its',
     "# checklist says.",
 )
+
+
+class TableKind(StrEnum):
+    """Each kind a Saved table is (Toolbox 8.10), by what each write does to the rows already
+    there: a Rebuilt table is replaced whole by each write; a History table keeps them, each
+    write adding rows or replacing some, such as one day's Partition, so it needs a Seed."""
+
+    REBUILT = "rebuilt"
+    HISTORY = "history"
+
+
+# A Saved table's kind, Rebuilt or History, a line of its Table reference above its Aliases,
+# as convert and new_table write it, open while it holds TODO: (Toolbox 8.10), its proposal and
+# why in the comment, or why nothing is proposed, such as
+#     KIND = "history"  # TODO: proposed history: its INSERT OVERWRITE replaces one Partition
+#     KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills Partitions from ...
+# Answered, its TODO is ANSWERED_KIND and the rest kept, so check() never lists it as a line
+# marked # proposed, as in
+#     KIND = "rebuilt"  # answered, proposed history: its INSERT OVERWRITE replaces one ...
+# This line is the one place a table's kind is stored; table_kind reads it.
+ANSWERED_KIND = "answered, "
+NOTHING_PROPOSED = "nothing proposed"
+_EACH_KIND = "|".join(TableKind)
+KIND_LINE = re.compile(rf'^KIND = (?P<value>"(?:{_EACH_KIND})"|None)  '
+                       rf"# (?:(?P<todo>TODO: )|{ANSWERED_KIND})"
+                       rf"(?P<what>(?:proposed (?P<proposal>{_EACH_KIND})|{NOTHING_PROPOSED}): "
+                       r"(?P<why>.+))$")
+KIND_COMMENT = (
+    '# Rebuilt or History: "rebuilt" if each write replaces the whole table; "history" if',
+    "# each write keeps the rows already there, adding rows or replacing some, such as one",
+    "# day's Partition, so the table needs its past rows loaded first, its Seed. Answer",
+    '# "kind" in the decisions cell: "proposed" accepts the kind proposed below.',
+)
 # The decisions cell's answer for every table its Workflow's notebook names, beside each
 # table's own (Toolbox 8.4), and the kinds it answers, each by its name there: "proposed" for
-# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, and Script
-# tags. A location is placed under its Database's location_root, a Database setting (8.5).
+# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, Script
+# tags, and the kind, Rebuilt or History, or "proposed", accepting each table's proposed one
+# (8.10). A location is placed under its Database's location_root, a Database setting (8.5).
 ALL_TABLES = "all_tables"
 SEED = "seed"
-ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG])
+ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG], ANSWERS[TABLE_KIND])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -161,13 +206,29 @@ COLUMNS = "<COLUMNS>"
 # The line TAGS starts on in a Table reference, and the mark on the line above TAGS or SEED
 # that imports a Run value's function for them (Toolbox 8.4).
 TAGS_START = "TAGS = {"
-# A Table reference's seed limits, SEED, as a Conversion writes them for a table that reads
-# itself, and the line they start on: the Partitions its seed() copies (Toolbox 8.4).
+# A Table reference's seed limits, SEED, and the line they start on: which past rows its Seed
+# loads (Toolbox 8.4, for a table that reads itself; 8.10, for every History table). Since
+# 8.10 convert and new_table write it for each table with a KIND line, its proposal and why in
+# the comment, or why nothing is proposed, open, as in
+#     SEED = {"months": 1}  # proposed: dt holds dates in mart.team_fails, its Original
+#     SEED = {}  # TODO: nothing proposed: no partition column of mart.x holds dates alone
+# and an answer writes the line again, with no comment. Its comment never holds a brace.
 SEED_START = "SEED = {"
+SEED_LINE = re.compile(r"^SEED = (?P<value>\{.*\})(?:  # (?:TODO: )?(?P<what>(?:proposed|"
+                       r"nothing proposed): (?P<why>[^{}]+)))?$")
+# The months form of a seed limit (Toolbox 8.10): {"months": N} loads N calendar months back
+# from the newest Partition its source holds, both ends included, on the partition column
+# whose every value is a date.
+MONTHS = "months"
 SEED_COMMENT = (
-    "# The Partitions seed() copies from the original, by partition column: {} copies them",
-    '# all. Answer "seed" in the decisions cell, such as {"dt": {"from": "2026-01-01"}}.',
+    "# The Seed: if this is a History table, the past rows loaded once, before its first",
+    '# write. Answer "seed" in the decisions cell: {"months": 1} loads one month back from',
+    "# the newest Partition, by the partition column whose every value is a date; or, by",
+    '# partition column, a value, that value or later, a range {"from": ..., "to": ...}, or a',
+    "# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.",
 )
+# The answer seed_block proposes where a partition column holds dates alone: one month.
+PROPOSED_MONTHS = {MONTHS: 1}
 RUN_VALUE_MARK = "  # a Run value, for TAGS or SEED"
 # The import above TAGS while it holds a Hivevar (Toolbox 8.7), and how each one's value
 # starts in TAGS.
@@ -258,6 +319,10 @@ class Decision:
                     f'or "{PivotFilterAnswer.FOLD}", "{PivotFilterAnswer.BATCH}" or '
                     f'"{PivotFilterAnswer.TABLES}" to keep every value instead, as its '
                     "checklist says")
+        if self.kind == TABLE_KIND:
+            return kind_question(self.subject, self.where)
+        if self.kind == SEED_LIMIT:
+            return seed_question(self.where, self.proposal)
         return (f"sources: {self.subject}, proposed as the database table {self.where} "
                 'samples: keep it with "proposed", or answer the table it samples')
 
@@ -265,6 +330,50 @@ class Decision:
 def _sentence(text: str) -> str:
     """Text as a sentence starts: its first letter in capitals."""
     return text[:1].upper() + text[1:]
+
+
+def kind_question(proposal: str, why: str) -> str:
+    """What a table's kind asks, as check() names it: to accept `proposal`, "rebuilt" or
+    "history", proposed from its write, saying why; or, with none, to answer it, saying why
+    nothing was proposed. `why` is its KIND line's comment after "proposed <kind>: " or
+    "nothing proposed: "."""
+    answer = (f'"{TableKind.REBUILT}" if each write replaces the whole table, '
+              f'"{TableKind.HISTORY}" if it keeps the rows already there')
+    if proposal:
+        return (f"kind: proposed a {_kind_words(proposal)}, as {why}: accept it with "
+                f'"{ACCEPT_PROPOSED}", or answer {answer}')
+    return f"kind: Rebuilt or History table, nothing proposed, as {why}: answer {answer}"
+
+
+def seed_question(why: str, proposal: str = "") -> str:
+    """What an open seed limit asks, as check() names it: which past rows a History table's
+    Seed loads, saying why nothing was proposed, or, as project.upgrade() asks it of a table
+    written before 8.10, the limit proposed, as Python, and why (Toolbox 8.10). `why` is its
+    SEED line's comment after "nothing proposed: " or "proposed: "."""
+    forms = ('{"months": 1}, one calendar month back from the newest Partition, where a '
+             "partition column's every value is a date; or, by partition column, a value, "
+             'that value or later, such as {"dt": "2026-09-01"}, a range {"from": ..., '
+             '"to": ...} or a list; or {} for every Partition')
+    if proposal:
+        return (f"seed: which past rows its Seed loads, proposed {proposal}, as {why}: "
+                f"answer it to accept it, or answer {forms}")
+    return ("seed: which past rows its Seed loads, if it is a History table, nothing "
+            f"proposed, as {why}: answer {forms}")
+
+
+def seed_proposal(line: str) -> str:
+    """The seed limits an open SEED line proposes, as Python, such as '{"months": 1}', as
+    project.upgrade() writes one for a History table that had none; "" for one with nothing
+    proposed, or one made."""
+    found = SEED_LINE.match(line)
+    if found is None or not is_open(line) or not (found["what"] or "").startswith("proposed"):
+        return ""
+    return found["value"]
+
+
+def _kind_words(kind: str) -> str:
+    """A kind as the glossary names it: "Rebuilt table" or "History table"."""
+    return f"{_sentence(kind)} table"
 
 
 def key_question(proposal: str, made_from: str = "") -> str:
@@ -446,16 +555,54 @@ def _seed_line_number(lines: list[str]) -> int | None:
     return None
 
 
-def _with_seed_written(text: str, answer: dict[str, object]) -> tuple[str, bool]:
-    """A Table reference's text with its SEED line holding the answer's seed limits, and
-    whether it was written: a table that doesn't read itself has no SEED line."""
-    limits = answer.get(SEED)
+def _answered_seed(line: str, limits: object) -> tuple[str | None, str]:
+    """A SEED line written with its answer's seed limits, its comment taken off, and the
+    answer's name; None for no answer, as for a table that has no SEED line."""
+    if not isinstance(limits, dict):
+        return None, ""
+    return SEED_START.removesuffix("{") + seed_python(limits), SEED
+
+
+def seed_block(proposal: dict[str, object] | None, why: str) -> list[str]:
+    """The lines of a table's seed limits, as convert and new_table write them into its Table
+    reference beside its kind (Toolbox 8.10): the limits proposed and why, made and marked
+    # proposed, or, with none, why nothing is, an open Decision. `why` holds no brace."""
+    if proposal is None:
+        return [*SEED_COMMENT, f"SEED = {{}}  # TODO: {NOTHING_PROPOSED}: {why}"]
+    return [*SEED_COMMENT, f"SEED = {seed_python(proposal)}  # proposed: {why}"]
+
+
+def _without_seed_block(text: str) -> str:
+    """A Table reference's text with no SEED line, nor the comment above it and the blank line
+    after it: a Rebuilt table has no Seed."""
     lines = text.split("\n")
     at = _seed_line_number(lines)
-    if not isinstance(limits, dict) or at is None:
-        return text, False
-    lines[at] = SEED_START.removesuffix("{") + seed_python(limits)
-    return "\n".join(lines), True
+    if at is None:
+        return text
+    above = at
+    while above > 0 and lines[above - 1].startswith("#"):
+        above -= 1
+    after = at + 1
+    if after < len(lines) and not lines[after].strip():
+        after += 1
+    return "\n".join([*lines[:above], *lines[after:]])
+
+
+def _with_seed_for_its_kind(text: str) -> str:
+    """A Table reference's text as its kind, just answered, says of its SEED: none for a
+    Rebuilt table; for a History table that has none, as one proposed or answered Rebuilt
+    before has none, an open one, written above its Aliases."""
+    kind = table_kind(text)
+    if kind == TableKind.REBUILT:
+        return _without_seed_block(text)
+    if kind != TableKind.HISTORY or _seed_line_number(text.split("\n")) is not None:
+        return text
+    # tables.py imports this file: its heading is read here.
+    from .tables import ALIASES_HEADING
+
+    block = seed_block(None, "it was a Rebuilt table, proposed or answered, which has no Seed")
+    at = text.index(ALIASES_HEADING)
+    return text[:at] + "\n".join(block) + "\n\n" + text[at:]
 
 
 def seed_python(value: object) -> str:
@@ -478,8 +625,9 @@ def seed_python(value: object) -> str:
 def seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
                 answer: dict[str, object]) -> dict[str, object]:
     """One table's answer with its seed limits as they apply to it: its own as given, which
-    the refusals check first; all_tables' for the partition columns it has; none for a table
-    that doesn't read itself, which has no seed."""
+    the refusals check first; all_tables' for the partition columns it has, and its months
+    form, {"months": N}, for any; none for a table with no SEED line, as a Rebuilt table has
+    none."""
     if not isinstance(answer.get(SEED), dict):
         return answer
     partitions = seed_partitions(text)
@@ -489,13 +637,14 @@ def seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
     if isinstance(own, dict) and SEED in own:
         return answer
     limits = {column: limit for column, limit in answer[SEED].items()
-              if column in partitions}
+              if column in partitions or column == MONTHS}
     return {**answer, SEED: limits}
 
 
 def seed_partitions(text: str) -> list[str] | None:
     """The partition columns a Table reference's text names, for its seed limits; None when
-    it has no SEED, as a table that doesn't read itself has none."""
+    it has no SEED, as a Rebuilt table has none, and a table converted before 8.10 that doesn't
+    read itself."""
     if not any(line.startswith(SEED_START.removesuffix("{")) for line in text.split("\n")):
         return None
     found = re.search(r"partitioned_by=\[([^\]]*)\]", text)
@@ -667,10 +816,15 @@ def _bare_answer_problem(value: str) -> str | None:
 
 
 def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> list[Decision]:
-    """Each Decision of `kinds` a Table reference's text leaves open, top to bottom."""
+    """Each Decision of `kinds` a Table reference's text leaves open, top to bottom: a seed
+    limit only while the table isn't a Rebuilt table, answered or proposed, which has no
+    Seed."""
     still_open = []
+    rebuilt = (table_kind(text) or proposed_kind(text)) == TableKind.REBUILT
     for line in code_of(text).split("\n"):
         kind = kind_of(line)
+        if kind == SEED_LIMIT and rebuilt:
+            continue
         if kind in kinds and is_open(line):
             where, quoted, proposal, set_up = "", False, "", ""
             if kind in LINE_KINDS:
@@ -681,6 +835,8 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
                                             tag_set_up(line))
             if kind == KEY and PROPOSED_FROM_QUERY_AGAIN in line:
                 where = KEY_FROM_QUERY
+            if kind == SEED_LIMIT:
+                proposal = seed_proposal(line)
             still_open.append(Decision(table, kind, _subject_of(kind, line), where, quoted,
                                        proposal, set_up))
     return still_open
@@ -690,12 +846,14 @@ def _subject_of(kind: str, line: str) -> str:
     """What a Decision's line is about: a guessed type's column, the <...> a placeholder's
     line holds first, the Key proposed on an open key= line, as Python, such as '["run_id"]',
     or, for a kind of LINE_KINDS, what its line names: a tag's NAME, the name or table
-    proposed, or a Pivot filter's field."""
+    proposed, a Pivot filter's field, or the table's kind proposed, "" where none is."""
     if kind == GUESSED_TYPE:
         return COLUMN_LINE.match(line)["column"]
     if kind in LINE_KINDS:
         read = LINE_KINDS[kind]
         subject = read.line.match(line)[read.subject]
+        if subject is None:  # a KIND line with nothing proposed
+            return ""
         return ast.literal_eval(subject) if read.subject_in_quotes else subject
     if kind == PLACEHOLDER:
         return PLACEHOLDER_WORD.search(line).group()
@@ -737,7 +895,10 @@ def is_left_to_fill_in(value: object) -> bool:
 
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
     """Whether a table's answer in the decisions cell answers this Decision: one left
-    <FILL IN>, as check() prints it to paste, doesn't."""
+    <FILL IN>, as check() prints it to paste, doesn't. A seed limit is answered too by the
+    answer's kind, "rebuilt", since a Rebuilt table has no Seed."""
+    if decision.kind == SEED_LIMIT and answer.get(ANSWERS[TABLE_KIND]) == TableKind.REBUILT:
+        return True
     if decision.kind in ANSWERED_BY_SUBJECT:
         answers = answer.get(ANSWERS[decision.kind])
         return (isinstance(answers, dict) and decision.subject in answers
@@ -768,7 +929,38 @@ def table_answer(answers: dict[str, object], table: str, text: str) -> dict[str,
         proposed = proposed_key(text)
         if proposed is not None:
             answer[ANSWERS[KEY]] = proposed
+    if answer.get(ANSWERS[TABLE_KIND]) == ACCEPT_PROPOSED:
+        del answer[ANSWERS[TABLE_KIND]]
+        kind = proposed_kind(text)
+        if kind is not None:
+            answer[ANSWERS[TABLE_KIND]] = kind
     return answer
+
+
+def proposed_kind(text: str) -> TableKind | None:
+    """The kind a Table reference's KIND line proposes, which an answer of "proposed" accepts,
+    or None when it proposes none, or has no KIND line."""
+    for line in code_of(text).split("\n"):
+        found = KIND_LINE.match(line)
+        if found and found["proposal"]:
+            return TableKind(found["proposal"])
+    return None
+
+
+def table_kind(text: str) -> TableKind | None:
+    """A Saved table's kind as its Table reference's KIND line answers it, Rebuilt or History;
+    None while it is open, or where the Table reference has no KIND line, as a table made before
+    8.10 has none until it is upgraded. Each place that asks a table's kind asks it here."""
+    for line in code_of(text).split("\n"):
+        found = KIND_LINE.match(line)
+        if found and not found["todo"]:
+            return TableKind(ast.literal_eval(found["value"]))
+    return None
+
+
+def has_kind_line(text: str) -> bool:
+    """Whether a Table reference holds a KIND line, open or answered."""
+    return any(KIND_LINE.match(line) for line in code_of(text).split("\n"))
 
 
 def proposed_key(text: str) -> list[str] | None:
@@ -790,13 +982,16 @@ def proposed_key(text: str) -> list[str] | None:
 def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
     """What "all_tables", `every`, answers for one table, its Table reference's text being
     `text`: its seed limits as they are, for the seed to read; each tag of "tags" the table
-    holds; and, for a "key" of "proposed", "proposed", which table_answer turns into its
-    proposed Key.
+    holds; its kind, for a table with a KIND line; and, for a "key" or "kind" of "proposed",
+    "proposed", which table_answer turns into its proposal.
     An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
     answer: dict[str, object] = {}
     if every.get(ANSWERS[KEY]) == ACCEPT_PROPOSED:
         answer[ANSWERS[KEY]] = ACCEPT_PROPOSED
-    if SEED in every:
+    kind = every.get(ANSWERS[TABLE_KIND])
+    if kind is not None and not is_left_to_fill_in(kind) and has_kind_line(text):
+        answer[ANSWERS[TABLE_KIND]] = kind
+    if SEED in every and not is_left_to_fill_in(every[SEED]):
         answer[SEED] = every[SEED]
     tags = every.get(ANSWERS[TAG])
     if isinstance(tags, dict):
@@ -894,9 +1089,9 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
                                     f"{_tag_answer_shown(line)}")
         lines[number] = written
         answered.written.append(name)
-    seeded, wrote_seed = _with_seed_written("\n".join(lines), answer)
-    if wrote_seed:
-        answered.written.append(SEED)
+    seeded = "\n".join(lines)
+    if ANSWERS[TABLE_KIND] in answered.written:
+        seeded = _with_seed_for_its_kind(seeded)
     if ANSWERS[KEY] in answered.written:
         seeded = _with_row_line_proposed_again(seeded, answer[ANSWERS[KEY]])
     answered.text = _with_run_value_imports(seeded, answer)
@@ -909,6 +1104,9 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
     """A line naming each answer `answer` gives that wasn't written into `reference`, and
     why."""
     unwritten = []
+    if is_left_to_fill_in(answer.get(SEED)) and answer.get(ANSWERS[TABLE_KIND]) != (
+            TableKind.REBUILT):
+        unwritten.append(f"{SEED} {still_to_fill_in('its answer')}")
     for name in (ANSWERS[LOCATION], ANSWERS[KEY]):
         if is_left_to_fill_in(answer.get(name)):
             unwritten.append(f"{name} {still_to_fill_in('its answer')}")
@@ -1027,6 +1225,30 @@ def _answered_pivot_filter(line: str, filters: object) -> tuple[str | None, str]
         return None, ""
     return (f'    {found["field"]}: "{answer}",  # {found["what"]}',
             f"{ANSWERS[PIVOT_FILTER]}: {field}")
+
+
+def _answered_kind(line: str, kind: object) -> tuple[str | None, str]:
+    """A KIND line written with its answer, "rebuilt" or "history", marked answered in place of
+    its TODO and what was proposed kept, and the answer's name; None for no answer, or one
+    that is neither, which project.write_decisions refuses first. table_answer has turned
+    "proposed" into the kind proposed already."""
+    if kind not in tuple(TableKind):
+        return None, ""
+    found = KIND_LINE.match(line)
+    return f'KIND = "{kind}"  # {ANSWERED_KIND}{found["what"]}', ANSWERS[TABLE_KIND]
+
+
+def kind_block(proposal: TableKind | None, why: str, *, answered: bool = False) -> list[str]:
+    """The lines of a table's kind, as convert and new_table write it into its Table reference:
+    the kind proposed from its write and why, or, with none, why nothing is, an open Decision
+    either way. With `answered`, as project.upgrade() writes it for a table written before
+    8.10, a kind proposed is written in as answered; one with none stays open."""
+    if proposal is None:
+        return [*KIND_COMMENT, f"KIND = None  # TODO: {NOTHING_PROPOSED}: {why}"]
+    if answered:
+        return [*KIND_COMMENT,
+                f'KIND = "{proposal}"  # {ANSWERED_KIND}proposed {proposal}: {why}']
+    return [*KIND_COMMENT, f'KIND = "{proposal}"  # TODO: proposed {proposal}: {why}']
 
 
 def pivot_filter_answers(text: str) -> dict[str, str]:
@@ -1223,16 +1445,22 @@ def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -
         lines += _name_lines([each for each in decided if each.kind == NAME])
         lines += _sources_lines([each for each in decided if each.kind == SOURCE])
         lines += _pivot_filters_lines([each for each in decided if each.kind == PIVOT_FILTER])
+        lines += _kind_lines([each for each in decided if each.kind == TABLE_KIND])
+        lines += _seed_lines([each for each in decided if each.kind == SEED_LIMIT])
         lines.append("    },")
     return [*lines, "}"]
 
 
 def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
     """What a Decision answered for several tables at once has in common: a tag's NAME and
-    whether it stands inside quotes; None for a location, a Key or a type, which each table
-    answers itself."""
+    whether it stands inside quotes, or a kind with nothing proposed; None for a location, a
+    Key, a type or a kind proposed, which each table answers itself."""
     if decision.kind == TAG:
         return (TAG, decision.subject, decision.quoted)
+    if decision.kind == TABLE_KIND and not decision.subject:
+        return (TABLE_KIND, "", False)
+    if decision.kind == SEED_LIMIT and not decision.proposal:
+        return (SEED_LIMIT, "", False)
     return None
 
 
@@ -1254,7 +1482,8 @@ def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
 
 def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[str]:
     """The lines of "all_tables" in DECISIONS to paste: "key": "proposed" when it
-    `accepts_every_key`, and each shared tag's <FILL IN>, with how its answer is written."""
+    `accepts_every_key`, each shared tag's <FILL IN>, with how its answer is written, and the
+    kind's, where nothing is proposed for several tables."""
     if not shared and not accepts_every_key:
         return []
     lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
@@ -1265,6 +1494,14 @@ def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[s
     # Where a shared tag stands differs from table to table, so its hint names no place.
     lines += _tags_lines([replace(decision, where="") for decision in shared
                           if decision.kind == TAG])
+    if any(decision.kind == TABLE_KIND for decision in shared):
+        lines.append(f'        "{ANSWERS[TABLE_KIND]}": "{FILL_IN}",  # "{TableKind.REBUILT}" '
+                     f'or "{TableKind.HISTORY}", for each table nothing was proposed for, as '
+                     "check() says why")
+    if any(decision.kind == SEED_LIMIT for decision in shared):
+        lines.append(f'        "{SEED}": "{FILL_IN}",  # the past rows each History table\'s '
+                     'Seed loads, nothing proposed, as check() says why: by partition column, '
+                     'such as {"dt": {"from": "2026-09-01"}}, or {} for every Partition')
     return [*lines, "    },"]
 
 
@@ -1319,6 +1556,42 @@ def _pivot_filters_lines(pivot_filters: list[Decision]) -> list[str]:
     return [*lines, "        },"]
 
 
+def _kind_lines(kinds: list[Decision]) -> list[str]:
+    """The line of one table's "kind" in DECISIONS to paste: the kind proposed, which keeps it
+    to accept it, saying why; or, with none proposed, <FILL IN>, saying why."""
+    if not kinds:
+        return []
+    decision = kinds[0]
+    if decision.subject:
+        return [f'        "{ANSWERS[TABLE_KIND]}": "{decision.subject}",  # proposed, as '
+                f"{decision.where}: keep it to accept it, or answer "
+                f'"{_other_kind(decision.subject)}"']
+    return [f'        "{ANSWERS[TABLE_KIND]}": "{FILL_IN}",  # "{TableKind.REBUILT}" or '
+            f'"{TableKind.HISTORY}": nothing proposed, as {decision.where}']
+
+
+def _seed_lines(seeds: list[Decision]) -> list[str]:
+    """The line of one table's "seed" in DECISIONS to paste, for its open seed limit: its
+    proposal, where project.upgrade() proposed one, to keep or change; else <FILL IN>, saying
+    why nothing was proposed and how an answer is written."""
+    if not seeds:
+        return []
+    if seeds[0].proposal:
+        return [f'        "{SEED}": {seeds[0].proposal},  # proposed, as {seeds[0].where}: '
+                'keep it to accept it, or write another, such as {"dt": {"from": '
+                '"2026-09-01"}}']
+    return [f'        "{SEED}": "{FILL_IN}",  # nothing proposed, as {seeds[0].where}: by '
+            'partition column, such as {"dt": {"from": "2026-09-01"}}, or {} for every '
+            'Partition; none for a "rebuilt" kind']
+
+
+def _other_kind(kind: str) -> str:
+    """The kind that isn't `kind`: "history" for "rebuilt", and "rebuilt" for "history"."""
+    if kind == TableKind.REBUILT:
+        return TableKind.HISTORY
+    return TableKind.REBUILT
+
+
 def _types_lines(guessed: list[Decision]) -> list[str]:
     """The lines of one table's "types" in DECISIONS to paste: each guessed type's proposal,
     "string"."""
@@ -1367,13 +1640,15 @@ class LineKind:
 
 
 # Each kind of Decision whose line names what it is about: a Script tag, a name proposed for
-# a workbook's final, the database table a range samples, and a Pivot filter. Each place that
-# reads one reads it here.
+# a workbook's final, the database table a range samples, a Pivot filter, and a table's kind.
+# Each place that reads one reads it here.
 LINE_KINDS = {
     TAG: LineKind(TAG_LINE, "name", True, "where", _answered_tag),
     NAME: LineKind(NAME_LINE, "name", False, "what", _answered_name),
     SOURCE: LineKind(SOURCE_LINE, "proposed", False, "what", _answered_source),
     PIVOT_FILTER: LineKind(PIVOT_FILTER_LINE, "field", True, "what", _answered_pivot_filter),
+    TABLE_KIND: LineKind(KIND_LINE, "proposal", False, "why", _answered_kind),
+    SEED_LIMIT: LineKind(SEED_LINE, "value", False, "why", _answered_seed),
 }
 # The kinds whose answer in the decisions cell is a dict, one answer by what each is about.
 ANSWERED_BY_SUBJECT = (GUESSED_TYPE, TAG, SOURCE, PIVOT_FILTER)

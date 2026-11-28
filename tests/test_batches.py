@@ -17,12 +17,12 @@ import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
+import pandas as pd
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import (
-    hive_settings,
     project,
     run_execute,
     set_admin_log,
@@ -139,6 +139,15 @@ def test_each_table_the_batch_creates_is_a_saved_table_in_dev(started: Path,
     assert not (started / "references" / "mart_dev__job_runs_ops.py").exists()
 
 
+def test_a_table_reference_convert_adds_has_its_key_proposed(started: Path, batch: str) -> None:
+    # Toolbox 8.10, ticket 02: every reference added for you has its Key proposed, to accept,
+    # as the references Workflow proposes one; convert's own too.
+    added = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
+    (key_line,) = [line for line in added.split("\n") if line.strip().startswith("key=")]
+    assert key_line.startswith('    key=None,  # TODO: proposed ["run_id"], checked')
+    assert '"""ops.job_runs - One row per run_id."""' in added
+
+
 def test_a_statement_that_reads_a_created_table_reads_its_dev_copy(started: Path,
                                                                     batch: str) -> None:
     fails = logic(started, "mart_dev.fails_per_job_ops_reports")
@@ -193,6 +202,23 @@ def test_a_source_whose_describe_fails_is_named_and_the_rest_written(started: Pa
 
 
 # --- Refusals ------------------------------------------------------------------------------
+
+
+def test_a_convert_with_no_connection_refuses_at_once_and_writes_nothing(started: Path) -> None:
+    # Usability run W11 (2026-11-28): convert's query, the Project's own, before the notebook's
+    # setup cell connected, skipped each table "DESCRIBE failed" and logged "worked", making 0
+    # Saved tables. It stops before writing anything, saying to fill in connect(...).
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                        query=unconnected_query(started), database="ops")
+    said = " ".join(str(refused.value).split())
+    assert ('project.convert("ops_reports", ...) wrote nothing: this notebook '
+            "hasn't connected to the warehouse yet, so your query couldn't send DESCRIBE "
+            "ops.job_runs.") in said
+    assert ("In this notebook's setup cell, its first code cell, fill in the line "
+            "connect(...) with your connection") in said
+    assert tree_state(started) == before
 
 
 def test_two_tables_that_read_each_other_are_refused(started: Path) -> None:
@@ -446,8 +472,14 @@ def test_check_names_the_batchs_next_step_and_answering_the_decisions_moves_it_o
     assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Answer each table's open "
             "Decisions in the decisions cell") in said
     assert "mart_dev.failed_runs_ops_reports: location: the folder its files go in" in said
-    project.write_decisions({table: {"location": f"/data/{table}", "key": None}
-                             for table in project.batch_tables("ops_reports")})
+    # Toolbox 8.10: each table's kind too, proposed from its write and accepted, and, under
+    # all_tables, the seed limits of each History one, which nothing proposes where the Example
+    # database can't list the original's Partitions.
+    project.write_decisions({"all_tables": {"seed": {}},
+                             **{table: {"location": f"/data/{table}", "key": None,
+                                        "kind": "proposed"}
+                                for table in project.batch_tables("ops_reports")}},
+                            tables=project.batch_tables("ops_reports"))
     assert "ops_reports: 4. Create each table in dev" in repr(project.check())
 
 
@@ -461,11 +493,13 @@ def test_a_write_that_cant_convert_is_still_made_and_the_batch_goes_on(started: 
                  "WHERE r.dt = '2026-09-24';\n"
                  "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
     assert "mart_dev.tot_ops_reports" in report
-    # Its Hive, kept whole, types run_id from its Table reference: y, which explode gives, is
-    # still a guess.
-    assert '"run_id": "bigint",\n' in reference(started, "mart_dev.bad_ops_reports")
-    assert '"y": "string",  # TODO: guessed' in reference(started, "mart_dev.bad_ops_reports")
-    assert "- types: y's type" in checklist(started, "mart_dev.bad_ops_reports")
+    # Its Hive, kept whole, types run_id from its Table reference. y, which explode gives, is
+    # typed by a sqlglot that reads explode's element type (30.34.0 does), else still a guess.
+    written = reference(started, "mart_dev.bad_ops_reports")
+    assert '"run_id": "bigint",\n' in written
+    if '"y": "int",\n' not in written:
+        assert '"y": "string",  # TODO: guessed' in written
+        assert "- types: y's type" in checklist(started, "mart_dev.bad_ops_reports")
 
 
 def test_a_fresh_reference_for_one_you_changed_leaves_your_references_alone(
@@ -640,22 +674,27 @@ def test_a_later_overwrite_replaces_the_writes_before_it(started: Path) -> None:
     assert "UNION ALL" not in hive and "2026-09-24" in hive and "2026-09-23" not in hive
 
 
-def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None:
+def test_a_table_that_reads_itself_is_seeded_from_its_original_first(started: Path) -> None:
+    dev = "mart_dev.grows_ops_reports"
     report = convert_script(
         started, "CREATE TABLE ops_reports.grows AS SELECT j.job_id FROM ops.jobs j;\n"
                  "INSERT INTO TABLE ops_reports.grows SELECT r.job_id FROM ops.job_runs r\n"
                  "  WHERE r.dt = '2026-09-24'\n"
                  "  AND r.job_id NOT IN (SELECT g.job_id FROM ops_reports.grows g);\n")
     assert "Skipped" not in report
-    logic = project.load("mart_dev.grows_ops_reports")
-    seed = to_hive(logic.seed())
-    assert seed == ("INSERT OVERWRITE TABLE mart_dev.grows_ops_reports "
-                    "SELECT * FROM ops_reports.grows")
-    assert project.batch_tables("script", seeded=True) == ["mart_dev.grows_ops_reports"]
-    # Its write reads its own copy in dev, which the seed fills first.
-    assert "FROM mart_dev.grows_ops_reports" in to_hive(logic.preview())
-    assert "- Its write reads its own table, which in dev starts empty" in (
-        checklist(started, "mart_dev.grows_ops_reports"))
+    # Toolbox 8.10, ticket 05: a History table, its Seed in its Table reference, no seed() in
+    # its logic: with no Partitions, it copies every row of its original.
+    assert ("SEED = {}  # proposed: no Partitions: its Seed copies every row of "
+            "ops_reports.grows") in reference(started, dev)
+    project.write_decisions({dev: {"kind": "proposed"}})
+    said = project.seed_tables([dev], query=example_database.query).lines
+    assert said[-1] == ("would send: INSERT OVERWRITE TABLE mart_dev.grows_ops_reports "
+                        "SELECT * FROM ops_reports.grows")
+    assert project.batch_tables("script", seeded=True) == []
+    # Its write reads its own copy in dev, which the Seed fills first.
+    assert "FROM mart_dev.grows_ops_reports" in to_hive(project.load(dev).preview())
+    assert "- If it is a History table, which each write adds to, its copy in dev starts" in (
+        checklist(started, dev))
 
 
 # --- What ticket 15's review found -----------------------------------------------------------
@@ -706,16 +745,19 @@ def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path
     write = to_hive(project.load(dev).write())
     assert write.startswith("INSERT INTO mart_dev.inc_ops_reports PARTITION(dt = '2026-09-24')")
     assert "FROM mart_dev.inc_ops_reports AS i" in write
-    project.write_decisions({dev: {"key": None}})
+    # Toolbox 8.10: a write reading itself is proposed History, accepted, and its seed limits
+    # answered, which nothing proposes where the Example database can't list the original's.
+    project.write_decisions({dev: {"key": None, "kind": "proposed", "seed": {}}})
     run_execute(project.load(dev).create(), example_database.execute)
+    # Ticket 05: its Seed goes first in the write step's cell, the step no longer its own.
     said = repr(project.check())
-    assert "script: 5. Seed each table" in said
-    assert 'run_execute(hive_settings("dynamic_partitions"), execute)' in said
-    run_execute(hive_settings("dynamic_partitions"), example_database.execute)
-    run_execute(project.load(dev).seed(), example_database.execute)
-    assert "script: 6. Write each table in dev" in repr(project.check())
+    assert "script: 5. Write each table in dev" in said
+    assert 'print(project.seed_tables(project.batch_tables("script"), query=query,' in said
+    assert project.seed_tables([dev], query=example_database.query).lines[-1] == (
+        "would send: INSERT OVERWRITE TABLE mart_dev.inc_ops_reports PARTITION (dt) "
+        "SELECT * FROM ops_reports.inc")
     project.run_tables(tables=project.batch_tables("script"), execute=example_database.execute)
-    assert "script: 7. Compare each table" in repr(project.check())
+    assert "script: 6. Compare each table" in repr(project.check())
 
 
 def test_a_later_overwrite_replaces_only_its_own_partitions_writes(started: Path) -> None:
@@ -909,3 +951,34 @@ def test_a_read_before_the_create_in_its_script_reads_the_table_as_it_was(
     # It still reads the table as it was, which the Example database doesn't hold.
     assert ("mart_dev.before_it_ops_reports (it reads ops_reports.failed, which has no Table "
             "reference)") in said
+
+
+# --- A number and a string compared as Hive compares them (Toolbox 8.10, ticket 09) ---------
+
+
+@pytest.mark.parametrize(("where", "as_its_rows"), [
+    ("r.job_id = '3'", "c.job_id = 3"),
+    ("r.status = 1", "c.status = '1'"),
+], ids=["text_beside_a_number", "a_number_beside_text"])
+def test_a_number_compared_with_text_converts_is_written_and_compares(
+        started: Path, where: str, as_its_rows: str) -> None:
+    # The user met it in the convert Workflow: the Toolbox refused job_id = '3', a comparison
+    # Hive makes by reading '3' as 3, so the table couldn't be written.
+    dev = "mart_dev.script"
+    convert_script(started, "SELECT r.run_id, r.job_id FROM ops.job_runs r\n"
+                            f"WHERE r.dt = '2026-09-24' AND {where};\n")
+    assert "refused" not in checklist(started, dev)
+    scan = started / "tables" / "mart_dev__script" / "conversion" / "scan.md"
+    assert "Stopped" not in scan.read_text(encoding="utf-8")
+    # Its Hive is the original's: the value as given.
+    assert f"r.dt = '2026-09-24' AND {where}" in to_hive(project.load(dev).preview())
+    project.write_decisions({dev: {"location": "/data/dev/script"}})
+    project.run_tables(tables=[dev], execute=example_database.execute)
+    # The dev table holds the rows Hive gives, read here from the Example database.
+    rows = ("SELECT c.run_id, c.job_id FROM ops.job_runs c WHERE c.dt = '2026-09-24' AND "
+            f"{as_its_rows}")
+    assert len(example_database.query(rows)) == (1 if "job_id" in where else 0)
+
+    def query(hive: str) -> pd.DataFrame:
+        return example_database.query(hive.replace(dev, f"({rows})"))
+    assert f"{dev}: passed" in repr(project.compare_batch("script", query=query))

@@ -23,6 +23,9 @@ tables.
 - If you need each Partition's rows kept as they were when they were written, save them in a
   Saved table. A Partition is a slice of a table: the rows that share one value of each column
   the table is partitioned by, such as one day.
+- If each write keeps the days already there, replacing one day's Partition, the table is a
+  History table, and a new one needs its past days loaded once: [Load a History table's past
+  days](#load_a_history_tables_past_days) shows how.
 - If you only need the rows once, run the Statement with `run_query` instead, as
   [Build and run a first statement](#build_and_run_a_first_statement) shows.
 
@@ -928,6 +931,8 @@ Open the notebook that is there instead. To start a table again, archive its fol
   [Keep the Project in order](#keep_the_project_in_order).
 - Rewrite some of its Partitions, such as last week's: [Rewrite some
   partitions](#rewrite_some_partitions).
+- A table that keeps its days, its past days loaded first: [Load a History table's past
+  days](#load_a_history_tables_past_days).
 - How a Saved table is stored, and its Key: [Choose how a Saved table is
   stored](#choose_how_a_saved_table_is_stored) and [Keys](#keys).
 - The gallery's [`create_table`](examples.html#create_table) and

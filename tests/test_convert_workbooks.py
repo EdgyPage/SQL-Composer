@@ -25,7 +25,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import project, run_execute, run_query, set_admin_log, to_hive
@@ -565,12 +565,72 @@ def test_the_workbook_check_runs_over_the_workbooks_own_tables_whatever_the_answ
     assert "couldn't run" not in check and "no Table of the workbook" not in check
 
 
-def test_a_ranges_table_answered_needs_its_table_reference(
+def test_a_ranges_table_answered_with_no_table_reference_needs_your_query(
         started: Path, books: dict[str, bytes]) -> None:
     converted(started, books, "range")
-    with pytest.raises(ValueError, match="ops.region_runs has no Table reference"):
-        decide({f"{DEV}.pivot": {"sources": {"ops.region_runs": "x", "ops.runs":
-                                             "ops.region_runs"}}})
+    with pytest.raises(TypeError, match=r"needs query=(.|\n)*ops.region_runs"):
+        decide({f"{DEV}.pivot": {"sources": {"ops.runs": "ops.region_runs"}}})
+
+
+def test_a_source_answered_with_a_table_that_isnt_named_as_one_is_refused(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "range")
+    with pytest.raises(ValueError, match="sources: x isn't a table's name"):
+        decide({f"{DEV}.pivot": {"sources": {"ops.runs": "x"}}})
+
+
+def test_a_source_answered_with_a_table_with_no_table_reference_gets_one(
+        started: Path, books: dict[str, bytes]) -> None:
+    # Toolbox 8.10, ticket 02: written for you from its DESCRIBE, said, its Key proposed for
+    # you to accept, and the answer written, where 8.9 sent you to add_references first.
+    converted(started, books, "excel_names")
+    report = repr(project.write_decisions(
+        {f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs",
+                                              "ops.table2": "proposed"}}},
+        tables=project.batch_tables("book"), query=example_database.query))
+    assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
+            "was written from its DESCRIBE.") in report
+    assert "ops.job_runs: its Key proposed, (run_id)" in report
+    assert (f"{DEV}.table1_report: its logic reads ops.job_runs now, in place of ops.table1"
+            in report)
+    sheet = (started / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.job_runs,run_id," in sheet
+
+
+def test_a_source_whose_describe_fails_is_refused_naming_it_and_nothing_is_written(
+        started: Path, books: dict[str, bytes]) -> None:
+    converted(started, books, "excel_names")
+    reference = started / "references" / f"{DEV}__table1_report.py"
+    before = reference.read_text(encoding="utf-8")
+
+    def query(hive: str) -> object:
+        raise RuntimeError("Permission denied: ops.job_runs")
+
+    with pytest.raises(ValueError, match=(
+            r"ops.job_runs \(DESCRIBE failed: RuntimeError: Permission denied: "
+            r"ops.job_runs\)")):
+        project.write_decisions(
+            {f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs"}}},
+            tables=project.batch_tables("book"), query=query)
+    assert not (started / "references" / "ops__job_runs.py").exists()
+    assert reference.read_text(encoding="utf-8") == before
+
+
+def test_a_source_answered_with_no_connection_is_refused_at_once(
+        started: Path, books: dict[str, bytes]) -> None:
+    # Usability run W11: a "sources" answer naming a table with no Table reference, and a
+    # query whose notebook hasn't connected yet: nothing is written, and it says to fill in
+    # connect(...).
+    converted(started, books, "excel_names")
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.write_decisions(
+            {f"{DEV}.table1_report": {"sources": {"ops.table1": "ops.job_runs"}}},
+            tables=project.batch_tables("book"), query=unconnected_query(started))
+    said = " ".join(str(refused.value).split())
+    assert ("project.write_decisions(...) wrote nothing: this notebook hasn't connected to the "
+            "warehouse yet, so your query couldn't send DESCRIBE ops.job_runs.") in said
+    assert tree_state(started) == before
 
 
 # --- The Pivot filter record, from either path ---------------------------------------------

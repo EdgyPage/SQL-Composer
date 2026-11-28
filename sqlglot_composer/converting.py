@@ -17,6 +17,7 @@ know: with_opt_out adds the one a Guard's or Load limit's refusal names to the c
 from __future__ import annotations
 
 import ast
+import datetime
 import io
 import keyword
 import re
@@ -27,6 +28,8 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
+from .decisions import TableKind
+from .engine import sort_array_class
 from .script_tags import (
     TAG,
     misshapen_tag_line,
@@ -592,8 +595,15 @@ class _Converter:
     def leave_out_sort_arrays_true(self, tree: exp.Expression) -> None:
         """Leave out each SORT_ARRAY's TRUE, Spark's second argument, which Hive's refuses, as
         ascending is how Hive's sorts; a second argument of any other kind is kept, with a
-        finding that the user's Hive may refuse it."""
-        for node in list(tree.find_all(exp.SortArray)):
+        finding that the user's Hive may refuse it.
+
+        From sqlglot 30.24.0, SORT_ARRAY reads as ArraySort, which also says where its NULLs
+        go: that is left out too, as Hive's SORT_ARRAY takes no such argument, so the Python
+        written holds only the Hive's own."""
+        sorts = sort_array_class()
+        for node in list(tree.find_all(sorts)):
+            if sorts is exp.ArraySort:
+                node.set("nulls_first", None)
             ascending = node.args.get("asc")
             if ascending is None:
                 continue
@@ -2355,33 +2365,140 @@ def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
     return values
 
 
-def with_seed(logic: str, short: str, original: str) -> str:
-    """A Table notebook's logic with seed(): the original's rows copied into the dev copy once,
-    before the first write, for a table that reads itself, limited by SEED, its Table
-    reference's seed limits, which the logic imports from there with the table."""
-    lines = logic.rstrip("\n").split("\n")
-    imported = "from sqlglot_composer import UncheckedStatement, seed_copy"
-    if not any(line.startswith(imported) for line in lines):
-        at = _after_imports(lines)
-        lines[at:at] = [f"{imported}  # for seed()"]
-    own = re.compile(rf"^(from references\.\w+ import {re.escape(short)}(?:, TAGS)?)(\s|$)")
-    lines = [own.sub(r"\1, SEED\2", line, count=1) for line in lines]
-    return "\n".join(lines + [
-        "",
-        "",
-        "def seed() -> UncheckedStatement:",
-        '    """Copy the original\'s rows into this table once, before its first write():',
-        "    its write reads its own table, which starts empty. SEED, in its Table reference,",
-        '    limits the Partitions it copies."""',
-        f"    return seed_copy({short}, {python_literal(original)}, SEED)",
-    ]) + "\n"
-
-
 def reads_itself(statement: BatchStatement, database: str) -> bool:
     """Whether a write reads the table it writes, as an incremental INSERT does."""
     named = [table for table in statement.tree.find_all(exp.Table)
              if _full_name(table, database) == statement.table]
     return len(named) > 1
+
+
+def proposed_table_kind(ordered: list[BatchStatement], table: str,
+                        database: str) -> tuple[TableKind | None, str]:
+    """The kind proposed for a table a batch writes, Rebuilt or History, from what its writes
+    do to the rows already there, never from what its query computes, and why, in words; or
+    None, and why nothing is proposed, where the write doesn't say (Toolbox 8.10). `ordered`
+    is the batch's statements in the order they run, and `table` is named as they name it.
+
+    A write reading its own table, as an incremental INSERT does, is History. A DROP or a
+    TRUNCATE of it before its first write, or a CREATE ... AS, or a query alone, is Rebuilt;
+    then by its first write: an INSERT INTO is History; an INSERT OVERWRITE with no PARTITION
+    is Rebuilt; one giving each partition column its value, PARTITION (dt = ...), is History;
+    one filling a Partition from its rows' own values, PARTITION (dt), has no proposal, as it
+    may replace every Partition or only some."""
+    writes = [each for each in ordered if each.kind in WRITES and each.table == table]
+    if any(reads_itself(each, database) for each in writes):
+        return TableKind.HISTORY, "its write reads its own table, adding to the rows it holds"
+    first = writes[0]
+    for each in ordered[:ordered.index(first)]:
+        if each.table == table and each.note in _EMPTIED_FIRST:
+            return TableKind.REBUILT, _EMPTIED_FIRST[each.note]
+    if first.kind in _WRITTEN_WHOLE:
+        return TableKind.REBUILT, _WRITTEN_WHOLE[first.kind]
+    return _kind_of_insert(first)
+
+
+# Why a table is proposed Rebuilt when its script drops or empties it before its first write,
+# by the DROP's or the TRUNCATE's note; and when its first write is a CREATE ... AS or a query
+# alone.
+_EMPTIED_FIRST = {DROPPED: "its script drops it first, then writes it whole",
+                  TRUNCATED: "its script empties it first, then writes it whole"}
+_WRITTEN_WHOLE = {CREATE_AS: "its CREATE ... AS writes it whole",
+                  QUERY: "it is a query alone, which each write writes whole"}
+
+
+def _kind_of_insert(insert: BatchStatement) -> tuple[TableKind | None, str]:
+    """The kind proposed for a table from its first write, an INSERT, and why, as
+    proposed_table_kind says."""
+    if not is_overwrite(insert):
+        return TableKind.HISTORY, "its INSERT INTO adds rows to the ones it holds"
+    named = insert_partitions(insert)
+    if not named:
+        return (TableKind.REBUILT,
+                "its INSERT OVERWRITE names no Partition, so it replaces the whole table")
+    filled = [column for column in named if column not in static_partition(insert)]
+    if not filled:
+        return (TableKind.HISTORY,
+                "its INSERT OVERWRITE replaces one Partition, keeping the others")
+    return None, (f"its INSERT OVERWRITE fills {in_words(filled)} from its rows' own values, "
+                  f"PARTITION ({', '.join(named)}), so it may replace every Partition or only "
+                  "some")
+
+
+def proposed_kind_of_hive(hive: str, table: str) -> tuple[TableKind | None, str]:
+    """The kind proposed_table_kind proposes for `table`, db.table, from its write as Hive,
+    such as to_hive gives a table's write(), and why."""
+    database = split_table_name(table)[0]
+    statements = batch_statements([("write.hql", hive)], database, table)
+    return proposed_table_kind(statements, table.lower(), database)
+
+
+def day_on_column(hive: str, column: str) -> datetime.date | None:
+    """The day a write's Hive gives the column named `column`, for a Seed to tell which day a
+    run writes (Toolbox 8.10): the value of a static PARTITION (dt = ...), else of the first
+    `dt = ...` it compares, worked out where that is a date, written 2026-09-24 or 20260924, or
+    date_add or date_sub of one, as date_sub('2026-09-25', 1) gives 2026-09-24. None where it
+    holds no day it can work out."""
+    try:
+        trees = read_hive(hive)
+    except sqlglot.errors.SqlglotError:
+        return None
+    for tree in trees:
+        given = []
+        for partition in tree.find_all(exp.Partition):
+            given += [each for each in partition.expressions if isinstance(each, exp.EQ)]
+        for compared in [*given, *tree.find_all(exp.EQ)]:
+            if compared.this.name.lower() != column.lower():
+                continue
+            day = _day_given_by(compared.expression)
+            if day is not None:
+                return day
+    return None
+
+
+def _day_given_by(node: exp.Expression) -> datetime.date | None:
+    """The day a piece of Hive gives, where it is a date written as text, or date_add or
+    date_sub of one by a whole number of days; None where it is anything else."""
+    if isinstance(node, (exp.Paren, exp.Cast)):
+        return _day_given_by(node.this)
+    if isinstance(node, exp.Literal) and node.is_string:
+        return day_written(node.this)
+    if not isinstance(node, (exp.TsOrDsAdd, exp.DateAdd, exp.DateSub)):
+        return None
+    day, days = _day_given_by(node.this), _whole_number_of(node.expression)
+    if day is None or days is None:
+        return None
+    if isinstance(node, exp.DateSub):
+        days = -days
+    return day + datetime.timedelta(days=days)
+
+
+def _whole_number_of(node: exp.Expression) -> int | None:
+    """The whole number a piece of Hive gives, as 1 * -1 gives -1; None where it is anything
+    else."""
+    if isinstance(node, exp.Paren):
+        return _whole_number_of(node.this)
+    if isinstance(node, exp.Neg):
+        inner = _whole_number_of(node.this)
+        return None if inner is None else -inner
+    if isinstance(node, exp.Mul):
+        left, right = _whole_number_of(node.this), _whole_number_of(node.expression)
+        if left is None or right is None:
+            return None
+        return left * right
+    if isinstance(node, exp.Literal) and not node.is_string and node.this.isdigit():
+        return int(node.this)
+    return None
+
+
+def day_written(text: str) -> datetime.date | None:
+    """The day text writes, as 2026-09-24 or 20260924 does; None for text that isn't a day."""
+    for pattern, written in ((r"\d{4}-\d{2}-\d{2}", "%Y-%m-%d"), (r"\d{8}", "%Y%m%d")):
+        if re.fullmatch(pattern, text):
+            try:
+                return datetime.datetime.strptime(text, written).date()
+            except ValueError:
+                return None
+    return None
 
 
 def names_by_then(ordered: list[BatchStatement], statement: BatchStatement,

@@ -1,4 +1,4 @@
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.9)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.10)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
 each final's Hive by files 11, 12, 20, 23 and 24, then tick the Self-check. Reply as Output says.**
@@ -49,8 +49,8 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
   table; it keeps the summary Table's own name.
 - **R2** A Total Row's final has a column for each Total Row cell holding a total, no other.
 - **R3** A Table with a formula column and no query loading it is a step if any other piece
-  reads it (a Table, query or PivotTable), else a final; its own formula columns reading its
-  own row don't count. A query loading a Table: the Table is a step if any other piece reads
+  reads it (a Table, query or PivotTable), else a final; its formula columns reading its own
+  row don't count. A query loading a Table: the Table is a step if any other piece reads
   it, else a final, its rows the query's.
 
 ## Rules: Hive that stays small

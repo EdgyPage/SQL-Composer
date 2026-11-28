@@ -1,4 +1,4 @@
-# Copilot file 07: converting Hive (sqlglot Composer 8.9)
+# Copilot file 07: converting Hive (sqlglot Composer 8.10)
 
 **Find each Hive part in Patterns, write the code it names, then tick the Self-check. Add
 nothing the Hive doesn't hold.**
@@ -57,6 +57,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   table holds: a Run value, the value a function of theirs gives (file 17).
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
+- **R9** Each table's kind is a Decision (file 13): `"kind": "history"` if each write keeps
+  the rows there, as PARTITION (dt = ...) or INSERT INTO; `"rebuilt"` if it replaces the
+  table; `"proposed"` accepts it.
 
 ## Always: rules A1 to A11
 
@@ -96,7 +99,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.load(name)
-- project.check()
+- project.check(*, query=None)
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - derived(name, statement)
 - AS(expression, name)

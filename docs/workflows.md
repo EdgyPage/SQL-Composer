@@ -34,7 +34,7 @@ through one.
 
 ## convert
 
-Steps: 1 file step, 5 permission, 1 decision, 0 fiddling.
+Steps: 1 file step, 4 permission, 1 decision, 0 fiddling.
 
 Starts from: Hive scripts, your Dev Database's name, read access to the sources.
 
@@ -45,18 +45,14 @@ flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)"]]:::warehouse_call
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
-    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))"]:::files_only
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                        query=query)"]:::files_only
     s3[["4. Create each table in dev: for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s4[["5. Seed each table that reads itself, once, from its original: to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print(#quot;Seeded nothing: no table of the batch reads itself.#quot;)
-else:
-    run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
-    s5[["6. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
-    s6[["7. Compare each table with its original: project.compare_batch(NAME, query=query, partitions=PARTITIONS)"]]:::warehouse_call
+    s4[["5. Write each table in dev: print(project.seed_tables(project.batch_tables(NAME), query=query,
+                          execute=execute))
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
+    s5[["6. Compare each table with its original: project.compare_batch(NAME, query=query, partitions=PARTITIONS)"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
@@ -65,9 +61,8 @@ else:
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing
-    t8("each seeded"):::thing
-    t9("each written in dev"):::thing
-    t10("each compared with its original"):::thing
+    t8("each written in dev"):::thing
+    t9("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -83,8 +78,6 @@ else:
     s4 --> t8
     t8 --> s5
     s5 --> t9
-    t9 --> s6
-    s6 --> t10
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -93,7 +86,7 @@ else:
 
 ## promote
 
-Steps: 3 file step, 3 permission, 1 decision, 0 fiddling.
+Steps: 3 file step, 2 permission, 1 decision, 0 fiddling.
 
 Starts from: dev Table folders, each Decision made and compared, your Prod Database's name.
 
@@ -106,15 +99,10 @@ flowchart TD
     s2["3. Write each answer into its prod table's Table reference: project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))"]:::files_only
     s3[["4. Create each table in prod: for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s4[["5. Seed each prod table that reads itself, once, from its original: to_seed = project.promoted_tables(TABLES, seeded=True)
-if not to_seed:
-    print(#quot;Seeded nothing: no prod copy reads itself.#quot;)
-else:
-    run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
-    s5[["6. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
-    s6["7. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(project.promoted_tables(TABLES))"]:::files_only
+    s4[["5. Write each table in prod: print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                          execute=execute))
+project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
+    s5["6. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(project.promoted_tables(TABLES))"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -122,9 +110,8 @@ else:
     t4("each answer in the decisions cell"):::thing
     t5("each with its location="):::thing
     t6("each made in prod"):::thing
-    t7("each seeded in prod"):::thing
-    t8("each written in prod"):::thing
-    t9("each in the Reference sheet"):::thing
+    t7("each written in prod"):::thing
+    t8("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -139,8 +126,6 @@ else:
     s4 --> t7
     t7 --> s5
     s5 --> t8
-    t8 --> s6
-    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -157,16 +142,17 @@ Ends with: a dev Table folder whose logic loads, written in dev, its Table refer
 
 ```mermaid
 flowchart TD
-    s0["1. Make each Table folder, converting each table's query QUERIES gives: project.new_table(TABLES, queries=QUERIES)"]:::files_only
+    s0["1. Make each Table folder, converting each table's query QUERIES gives: project.new_table(TABLES, queries=QUERIES, query=query)"]:::files_only
     s1{"2. Write each table's logic in its Table notebook, and save it: for table in TABLES:
     project.load(table).preview()  #35; says what stops it, if anything does"}:::your_decision
-    s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES)"]:::files_only
+    s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES, query=query)"]:::files_only
     s3{"4. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s4["5. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=TABLES)"]:::files_only
     s5[["6. Check each table's rows with preview(), which writes nothing: for table in TABLES:
     print(run_query(project.load(table).preview(), query))"]]:::warehouse_call
     s6[["7. Create and write each in dev: for table in TABLES:
     run_execute(project.load(table).create(), execute)
+print(project.seed_tables(TABLES, query=query, execute=execute))
 project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
     s7[["8. Compare each table made from a query with its query: for name in QUERIES:
     print(project.compare_batch(name, query=query))"]]:::warehouse_call

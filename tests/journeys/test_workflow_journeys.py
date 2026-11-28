@@ -98,6 +98,11 @@ KNOWN_ACTIONS: dict[str, int] = {
     # Toolbox 8.8, ticket 08: a Building block changed, its table's cell 5 and one write run,
     # then admin/lineage.ipynb's three cells.
     "test_a_building_block_changed_then_found_in_the_lineage_difference": 10,
+    # Toolbox 8.10, ticket 02: new_table adds the Table reference its query reads, so the
+    # references Workflow's 8 actions before it are gone: 21 in 8.9, through the runner. Ticket
+    # 04, merged with it, has each table's kind typed in the decisions cell: one more each.
+    "test_new_table_from_a_query_then_promote_it": 14,
+    "test_new_table_from_a_query_cell_by_cell": 15,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -419,6 +424,11 @@ DROP TABLE IF EXISTS failed_runs;
 """
 
 
+# The decisions cell answering History for each table of a batch (Toolbox 8.10, ticket 04),
+# as a user whose daily loads fill dt from their rows' own values, PARTITION (dt), answers it.
+HISTORY_FOR_ALL = {"all_tables": {"kind": "history"}}
+
+
 def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[str]:
     """The convert Workflow, from a script whose originals ran in the warehouse, to the Batch
     finished: the dev tables it made, each with the Key `keys` says convert proposes."""
@@ -434,10 +444,18 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
         written = path.read_text(encoding="utf-8")
         assert f"    key={keys[table]!r},  # proposed".replace("'", '"') in written
     _check_each_placed(started.root, tables)
-    assert "DECISIONS = {" not in repr(project.check()), "a Decision is left to answer"
+    # Toolbox 8.10, ticket 04: each write fills dt from its rows' own values, PARTITION (dt),
+    # so nothing is proposed for its kind, the one Decision left: the user answers History.
+    journey.paste_decisions(_kinds_answered(tables, "history"))
     journey.run_to()
     _check_converted(started, tables, keys)
     return tables
+
+
+def _kinds_answered(tables: list[str], kind: str) -> dict[str, dict[str, object]]:
+    """The answers a pasted DECISIONS fills in for each table's kind, nothing proposed for it:
+    under all_tables, where several share it, or under its own name."""
+    return {"all_tables": {"kind": kind}, **{table: {"kind": kind} for table in tables}}
 
 
 def _check_converted(started: Started, tables: list[str], keys: dict[str, list[str]]) -> None:
@@ -456,11 +474,13 @@ def _convert_through_the_runner(started: Started, script: str,
                                 keys: dict[str, list[str]]) -> list[str]:
     """The convert Workflow as one project.run_workflow call: its names typed first, then a
     dry run, which sends nothing, then the run, to the Batch finished. Each location is
-    placed under DEV's root, and each Key proposed, so no Decision is typed."""
+    placed under DEV's root, and each Key proposed, so the one Decision typed is each table's
+    kind, which nothing is proposed for (Toolbox 8.10, ticket 04)."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", script)
-    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS=HISTORY_FOR_ALL)
     sent = list(started.warehouse.executed)
     dry_run = journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -525,7 +545,8 @@ def test_convert_then_promote_one_script(started: Started) -> None:
 def test_convert_compares_another_partition_listed_in_partitions(started: Started) -> None:
     # Toolbox 8.3, ticket 06: another Partition is compared by setting it in the names cell
     # and running step 7 again, with no cell of the user's own; 8.5, ticket 04: PARTITIONS, a
-    # list of them.
+    # list of them. 8.10, ticket 05: the compare is step 6, the seed step folded into the
+    # write step.
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
@@ -535,7 +556,7 @@ def test_convert_compares_another_partition_listed_in_partitions(started: Starte
                 / "compare.md")
     assert "dt = '2026-09-23'" not in compared.read_text(encoding="utf-8")
     journey.type_names(PARTITIONS=[{"dt": "2026-09-23"}])
-    journey.run_again(7)
+    journey.run_again(6)
     text = compared.read_text(encoding="utf-8")
     assert "dt = '2026-09-23'" in text
     assert text.count("Passed: ") == 2
@@ -547,7 +568,7 @@ def test_the_runner_compares_the_partitions_listed(started: Started) -> None:
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITIONS=[{"dt": "2026-09-23"}])
+                       PARTITIONS=[{"dt": "2026-09-23"}], DECISIONS=HISTORY_FOR_ALL)
     assert "convert, weekly: every step is done." in journey.run_workflow()
     compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
     text = compared.read_text(encoding="utf-8")
@@ -568,7 +589,7 @@ def test_the_runner_compares_a_finished_batch_again_on_the_partitions_listed(
     assert "convert: every step is done." in journey.run_workflow()
     journey.type_names(PARTITIONS=[{"dt": "2026-09-23"}])
     said = journey.run_workflow()
-    assert "convert, weekly: 7. Compare each table with its original, again" in said
+    assert "convert, weekly: 6. Compare each table with its original, again" in said
     assert "The batch was finished already, in admin/workflows/convert/finished/weekly/" in said
     assert "convert, weekly: every step is done." in said
     text = compared.read_text(encoding="utf-8")
@@ -582,10 +603,10 @@ def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITIONS=[{"dt": "'2026-09-23'"}])
+                       PARTITIONS=[{"dt": "'2026-09-23'"}], DECISIONS=HISTORY_FOR_ALL)
     said = journey.run_workflow()
-    # The runner stops at step 7 on its refusal, as the cell's call does.
-    assert "7. Compare each table with its original\n    Stopped by what this says" in said
+    # The runner stops at step 6 on its refusal, as the cell's call does.
+    assert "6. Compare each table with its original\n    Stopped by what this says" in said
     assert "partitions= gives dt in quotes of its own" in said
 
 
@@ -601,6 +622,64 @@ def test_convert_then_promote_the_long_script(started: Started) -> None:
         "mart_dev.job_runs_counted_mart": ["job_id", "dt"],
         "mart_dev.job_fails_counted_mart": ["job_id", "dt"]})
     _promote(started, tables)
+
+
+# Toolbox 8.10, ticket 04: each table's kind, Rebuilt or History, a Decision proposed from what
+# its write does to the rows already there. A daily load names its one Partition by value; a
+# total its script drops, creates and fills again is written whole.
+DAILY_LOAD = """CREATE TABLE IF NOT EXISTS mart.daily_runs (job_id BIGINT, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r WHERE r.dt = '2026-09-24'
+GROUP BY r.job_id;
+"""
+DROPPED_AND_FILLED = """DROP TABLE IF EXISTS mart.job_totals;
+CREATE TABLE mart.job_totals (job_id BIGINT, runs BIGINT);
+INSERT INTO TABLE mart.job_totals
+SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.job_id;
+"""
+
+
+def _kind_of(root: Path, table: str) -> object:
+    return toolbox_module("decisions").table_kind(
+        _reference(root, table).read_text(encoding="utf-8"))
+
+
+def test_convert_proposes_each_tables_kind_and_the_user_accepts_both(started: Started) -> None:
+    started.warehouse.execute(DAILY_LOAD + DROPPED_AND_FILLED)
+    journey = started.journey("convert")
+    journey.save_by_hand(journey.folder / "daily.hql", DAILY_LOAD)
+    journey.save_by_hand(journey.folder / "totals.hql", DROPPED_AND_FILLED)
+    journey.type_names(NAME="kinds", FILES=["daily.hql", "totals.hql"], DATABASE="ops")
+    said = journey.run_workflow()
+    assert "2. Answer each table's open Decisions" in said
+    daily, totals = "mart_dev.daily_runs_mart", "mart_dev.job_totals_mart"
+    assert ("kind: proposed a History table, as its INSERT OVERWRITE replaces one Partition, "
+            "keeping the others") in said
+    assert "kind: proposed a Rebuilt table, as its script drops it first" in said
+    # The DECISIONS it prints holds each proposal: pasted as it is, it accepts both.
+    journey.paste_decisions({}, printed=said)
+    assert "convert, kinds: every step is done." in journey.run_workflow()
+    assert _kind_of(started.root, daily) == "history"
+    assert _kind_of(started.root, totals) == "rebuilt"
+
+
+def test_the_runner_waits_on_a_kind_nothing_was_proposed_for(started: Started) -> None:
+    # ONE_SCRIPT fills dt from its rows' own values, PARTITION (dt): it may replace every
+    # Partition or only some, which only the user knows.
+    started.warehouse.execute(ONE_SCRIPT)
+    journey = started.journey("convert")
+    journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    sent = list(started.warehouse.executed)
+    said = journey.run_workflow()
+    table = "mart_dev.team_fails_mart"
+    assert "2. Answer each table's open Decisions" in said
+    assert f"{table}: kind: Rebuilt or History table, nothing proposed, as its INSERT " in said
+    assert started.warehouse.executed == sent, "a table was created while its kind is open"
+    journey.paste_decisions({table: {"kind": "history"}}, printed=said)
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    assert _kind_of(started.root, table) == "history"
 
 
 # The user's snag (Toolbox 8.3): a script whose program fills in each Script tag,
@@ -661,8 +740,9 @@ TAGGED_KEYS = {"mart_dev.daily_close_mart": ["job_id", "dt"],
 
 
 def _tag_answers(values: dict[str, dict[str, str]]) -> dict[str, dict[str, object]]:
-    """The decisions cell for the tagged script: each table's tags."""
-    return {table: {"tags": tags} for table, tags in values.items()}
+    """The decisions cell for the tagged script: each table's tags, and History for each, which
+    nothing is proposed for, as each fills dt from its rows' own values."""
+    return {**HISTORY_FOR_ALL, **{table: {"tags": tags} for table, tags in values.items()}}
 
 
 def _check_tagged_rows(started: Started, tables: list[str]) -> None:
@@ -725,15 +805,19 @@ def test_a_tag_answered_wrong_is_answered_again_in_the_decisions_cell(
     journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     wrong = {**TAG_VALUES, "mart_dev.daily_close_mart": {"PERIOD_END": "'2026-09-24'"}}
-    journey.type_names(DECISIONS=_tag_answers(wrong))
+    # Toolbox 8.10, ticket 05: its Seed limited to days before the original's, so it copies
+    # none, and the compare reads what the write wrote.
+    no_seed = {"all_tables": {**HISTORY_FOR_ALL["all_tables"],
+                              "seed": {"dt": {"to": "2026-09-22"}}}}
+    journey.type_names(DECISIONS={**_tag_answers(wrong), **no_seed})
     journey.run_to()
     compared = (started.root / "tables" / "mart_dev__daily_close_mart" / "conversion"
                 / "compare.md")
     assert "Passed: " not in compared.read_text(encoding="utf-8")
-    # The date answered again in the decisions cell, then steps 3, 6 and 7 run again: no file
-    # is edited by hand.
-    journey.type_names(DECISIONS=_tag_answers(TAG_VALUES))
-    journey.run_again(3, 6, 7)
+    # The date answered again in the decisions cell, then steps 3, 5 and 6 run again: no file
+    # is edited by hand. Ticket 05: the table holds Partitions, so no Seed is sent again.
+    journey.type_names(DECISIONS={**_tag_answers(TAG_VALUES), **no_seed})
+    journey.run_again(3, 5, 6)
     tables = project.batch_tables("weekly")
     _check_converted(started, tables, TAGGED_KEYS)
     # The first write's Partition, 2026-09-24, is still in dev, as an INSERT OVERWRITE leaves
@@ -762,7 +846,8 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     table = "mart_dev.daily_close_mart"
     journey.run_to(1)
-    journey.paste_decisions({table: {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
+    journey.paste_decisions({table: {"tags": {"PERIOD_END": "'${hivevar:period_end}'"},
+                                     "kind": "history"}})
     journey.run_to()
     _check_converted(started, [table], {table: ["job_id", "dt"]})
     assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
@@ -812,12 +897,15 @@ def period_end() -> datetime.date:
     return latest_partition(job_runs.dt, query)
 '''
 # The decisions cell, as the user types it: the function imported, and answers for every
-# table given once.
+# table given once. Each table's kind (Toolbox 8.10, ticket 04): job_teams' proposed Rebuilt,
+# team_log's History, as it reads itself, each accepted, and recent_runs', which fills dt from
+# its rows' own values, so nothing is proposed, answered History.
 PERIOD_DECISIONS = """from building_blocks.run_values import period_end
 
 DECISIONS = {
-    "all_tables": {"tags": {"PERIOD_END": period_end}},
+    "all_tables": {"tags": {"PERIOD_END": period_end}, "kind": "proposed"},
     "mart_dev.team_log_mart": {"key": None, "seed": {"dt": {"from": "2026-09-24"}}},
+    "mart_dev.recent_runs_mart": {"kind": "history"},
 }
 """
 # The line above the import that writes the user's function for them (Toolbox 8.5, ticket 06).
@@ -901,11 +989,127 @@ def test_convert_a_batch_whose_partition_is_a_tag_answered_by_a_run_value(
     journey.run_to()
     table = "mart_dev.daily_counts_mart"
     _check_converted(started, [table], {table: None})
+    # Toolbox 8.10, ticket 05: its Seed, a copy of the original's month, is sent first.
     writes = [hive for hive in started.warehouse.executed
-              if hive.startswith(f"INSERT OVERWRITE TABLE {table} PARTITION")]
+              if hive.startswith(f"INSERT OVERWRITE TABLE {table} PARTITION")
+              and "SELECT * FROM mart.daily_counts" not in hive]
     assert writes and all("PARTITION(dt = '2026-09-24')" in hive for hive in writes)
     assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
                                                                   "mart.daily_counts")
+
+
+# Scripts with params, each a batch of its own (Toolbox 8.10, ticket 03): a query alone whose
+# bare tag, quoted tag, Hivevar answer and SET hivevar line are all filled for its compare,
+# its RUN_DAY by the Run value's value its write used; a query alone holding a Hivevar only
+# the user's program sets, whose compare isn't sent; and a table whose RUN_DAY is answered
+# with another day than the original's last run read, whose compare fails. None stops the
+# user: each batch finishes, and promote promotes each, naming the two that didn't pass.
+PARAM_SCRIPTS = {
+    "filled": """SET hivevar:min_mins=15;
+SELECT r.run_id, r.status FROM ops.job_runs r
+WHERE r.dt = <PARM="RUN_DAY"/> AND r.status <> '<PARM="SKIP"/>'
+AND r.duration_mins >= ${hivevar:min_mins} AND r.job_id <> <PARM="NO_JOB"/>;
+""",
+    "unset": """SELECT r.run_id, r.status FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status <> '${hivevar:skip}';
+""",
+    "differs": """CREATE TABLE IF NOT EXISTS mart.team_runs (team STRING, runs BIGINT);
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT o.team AS team, COUNT(*) AS runs
+FROM ops.job_runs r JOIN ops.job_owners o ON r.job_id = o.job_id AND r.dt = o.dt
+WHERE r.dt = <PARM="RUN_DAY"/>
+GROUP BY o.team;
+""",
+}
+PARAM_TABLES = {"filled": "mart_dev.filled", "unset": "mart_dev.unset",
+                "differs": "mart_dev.team_runs_mart"}
+# The decisions cell, as the user types it: RUN_DAY answered for every table by the Run value
+# period_end, the day the original's last run read being the day before.
+PARAM_DECISIONS = """from building_blocks.run_values import period_end
+from sqlglot_composer import hivevar
+
+DECISIONS = {
+    "all_tables": {"tags": {"RUN_DAY": period_end}, "kind": "proposed"},
+    "mart_dev.filled": {"key": None, "tags": {"SKIP": "FAILED",
+                                              "NO_JOB": hivevar("NO_JOB", default="0")}},
+    "mart_dev.unset": {"key": None},
+}
+"""
+
+
+def _check_compared_with_params(started: Started) -> None:
+    """Each batch with params finished, its compare.md saying what each table's compare
+    did: passed, filled in; not compared, and why; failed, and the likely reason first."""
+    finished = started.root / "admin" / "workflows" / "convert" / "finished"
+    for name, table in PARAM_TABLES.items():
+        assert (finished / name).is_dir(), f"the batch {name} isn't finished"
+        assert len(started.warehouse.rows_of(table)) > 0, f"{table} holds no row"
+
+    def compared(name: str) -> str:
+        return (started.root / "tables" / _stem(PARAM_TABLES[name]) / "conversion"
+                / "compare.md").read_text(encoding="utf-8")
+
+    assert "## Every row\n\nPassed: every row" in compared("filled")
+    assert "Warning" not in compared("filled")
+    assert ("Warning: mart_dev.unset wasn't compared: it holds ${hivevar:skip}, which only "
+            "your program fills") in compared("unset")
+    assert "Not compared: it holds ${hivevar:skip}" in compared("unset")
+    differs = compared("differs")
+    assert differs.index("Warning: mart_dev.team_runs_mart failed its compare") < (
+        differs.index("## Every row\n\nFailed: "))
+    assert ("Its Script tags were answered in the decisions cell (RUN_DAY): the original's "
+            "last run may have used other values for them") in differs
+
+
+def _save_param_scripts(started: Started, journey: Journey) -> None:
+    """Run the original whose table the "differs" batch copies, its RUN_DAY the day before
+    the latest, as its own team's job ran it; then save each script beside the notebook."""
+    started.warehouse.execute(PARAM_SCRIPTS["differs"].replace('<PARM="RUN_DAY"/>',
+                                                               "'2026-09-23'"))
+    for name, script in PARAM_SCRIPTS.items():
+        journey.save_by_hand(journey.folder / f"{name}.hql", script)
+
+
+def test_convert_then_promote_scripts_with_params_none_stopping_you(started: Started) -> None:
+    journey = started.journey("convert")
+    _save_param_scripts(started, journey)
+    # Each script converted, then the one decisions cell typed for all their tables, then
+    # each batch's other steps.
+    for name in PARAM_SCRIPTS:
+        journey.type_names(NAME=name, FILES=[f"{name}.hql"], DATABASE="ops")
+        journey.run_to(1, again=(1,))
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
+    journey.type_decisions_cell(PARAM_DECISIONS)
+    for name in PARAM_SCRIPTS:
+        journey.type_names(NAME=name, FILES=[f"{name}.hql"])
+        journey.run_to(again=tuple(range(2, 8)))
+    _check_compared_with_params(started)
+    promote = started.journey("promote")
+    promote.type_names(TABLES=list(PARAM_TABLES.values()))
+    promote.run_to()
+    _check_promoted(started, list(PARAM_TABLES.values()))
+
+
+def test_convert_then_promote_scripts_with_params_through_the_runner(started: Started) -> None:
+    journey = started.journey("convert")
+    _save_param_scripts(started, journey)
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
+    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops")
+    assert "every step is done" not in journey.run_workflow()
+    journey.type_decisions_cell(PARAM_DECISIONS)
+    said = journey.run_workflow()
+    for name in PARAM_SCRIPTS:
+        assert f"convert, {name}: every step is done." in said
+    _check_compared_with_params(started)
+    promote = started.journey("promote")
+    said = promote.run_workflow()
+    assert "promote: every step is done." in said
+    assert ("Warning: promoting mart_dev.team_runs_mart, which failed its compare: "
+            "tables/mart_dev__team_runs_mart/conversion/compare.md says why.") in said
+    assert ("Warning: promoting mart_dev.unset, which wasn't compared: "
+            "tables/mart_dev__unset/conversion/compare.md says why.") in said
+    assert "Warning: promoting mart_dev.filled" not in said
+    _check_promoted(started, list(PARAM_TABLES.values()))
 
 
 def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None:
@@ -990,14 +1194,16 @@ def test_convert_three_unrelated_scripts_each_its_own_batch(started: Started) ->
     for name, script in UNRELATED_SCRIPTS.items():
         started.warehouse.execute(script)
         journey.save_by_hand(journey.folder / f"{name}.hql", script)
-    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops")
+    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops",
+                       DECISIONS=HISTORY_FOR_ALL)
     said = journey.run_workflow()
     # Each converted, in name order, then each run to the end: with each location placed under
-    # DEV's root (ticket 09) and each Key proposed from its query, no Decision is left open,
-    # so no DECISIONS is printed to paste.
+    # DEV's root (ticket 09) and each Key proposed from its query, the one Decision left is
+    # each table's kind (Toolbox 8.10, ticket 04), which nothing is proposed for: convert's
+    # report prints it to paste, and the decisions cell, typed once, answers it for every batch.
     for name in sorted(UNRELATED_SCRIPTS):
         assert f"convert, {name}: 1. Convert the scripts" in said
-    assert "Paste this over" not in said
+    assert "Still open" not in said and "Stopped" not in said
     finished = started.root / "admin" / "workflows" / "convert" / "finished"
     for name in UNRELATED_SCRIPTS:
         assert f"    {name}: finished, every step done" in said
@@ -1043,10 +1249,12 @@ def test_promote_left_empty_promotes_a_table_changed_in_dev_again(started: Start
     assert "Promoted mart_dev.team_fails_mart to team_prod.team_fails_mart" in said
     prod = _reference(started.root, "team_prod.team_fails_mart").read_text(encoding="utf-8")
     assert "One row per team and day." in prod
-    # Its prod rows are written again, by its new code.
+    # Its prod rows are written again, by its new code; its Seed, a copy of its original's
+    # month, was sent once, before the first (Toolbox 8.10, ticket 05).
     writes = [hive for hive in started.warehouse.executed
               if "INSERT OVERWRITE TABLE team_prod.team_fails_mart" in hive]
-    assert len(writes) == 2
+    assert len(writes) == 3
+    assert len([hive for hive in writes if "SELECT * FROM mart.team_fails" in hive]) == 1
     assert "nothing to promote" in repr(project.run_workflow("promote"))
 
 
@@ -1061,7 +1269,14 @@ def test_new_table_then_change_it(started: Started) -> None:
     journey.run_to(1)
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
+    journey.run_to(4)
+    # Toolbox 8.10, ticket 04: the Template's write fills dt from its rows' own values, so
+    # nothing is proposed for its kind, which the decisions cell answers, as convert's does.
+    assert (f"{table}: kind: Rebuilt or History table, nothing proposed, as its INSERT "
+            "OVERWRITE fills dt") in repr(project.check())
+    journey.paste_decisions({table: {"kind": "history"}})
     journey.run_to()
+    assert _kind_of(started.root, table) == "history"
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id", "dt"],  # proposed' in written
     _check_each_placed(started.root, [table])
@@ -1089,6 +1304,10 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     assert "2. Write each table's logic" in journey.run_workflow()
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
+    # Toolbox 8.10, ticket 04: the runner waits on its kind, which nothing is proposed for.
+    said = journey.run_workflow()
+    assert "4. Answer each table's open Decisions" in said
+    journey.paste_decisions({table: {"kind": "history"}}, printed=said)
     sent = list(started.warehouse.executed)
     assert "would read: SELECT" in journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -1112,24 +1331,61 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     assert "2026-09-24" not in set(started.warehouse.rows_of(table)["dt"])
 
 
+JOB_COUNTS = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
+              "WHERE r.status = 'FAILED' GROUP BY r.job_id")
+
+
 def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
     """A query typed into new_table's names cell becomes a dev table, compared with its query
-    and promoted, with no hand edit but its Decisions."""
-    _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
+    and promoted, with no hand edit but its Decisions; the table it reads, which has no Table
+    reference, gets one on the way (Toolbox 8.10, ticket 02)."""
     table = "mart_dev.job_counts"
-    query = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
-             "WHERE r.status = 'FAILED' GROUP BY r.job_id")
     journey = started.journey("new_table", by_hand=False)
-    journey.type_names(TABLES=[table], QUERIES={"job_counts": query})
+    # Toolbox 8.10, ticket 04: a query alone is written whole by each write, so a Rebuilt
+    # table is proposed for it, accepted in the decisions cell.
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS},
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
     sent = list(started.warehouse.executed)
-    assert "would send: CREATE" in journey.run_workflow(dry_run=True)
+    # A dry run shows the DESCRIBE of the reference it would add, and writes nothing (ticket
+    # 02's story 13), so the steps after it, which read what it writes, are only named.
+    dry_run = journey.run_workflow(dry_run=True)
+    assert "would send: DESCRIBE ops.job_runs" in dry_run
     assert started.warehouse.executed == sent, "a dry run sent something"
-    assert "new_table: every step is done." in journey.run_workflow()
+    assert not (started.root / "references" / "ops__job_runs.py").exists()
+    assert not (started.root / "tables" / "mart_dev__job_counts").exists()
+    said = journey.run_workflow()
+    assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
+            "was written from its DESCRIBE.") in said
+    assert "new_table: every step is done." in said
+    _check_made_from_its_query(started, table)
+    _promote_through_the_runner(started, [table])
+
+
+def test_new_table_from_a_query_cell_by_cell(started: Started) -> None:
+    """The same, each step's cell run in turn, as the notebook reads top to bottom."""
+    table = "mart_dev.job_counts"
+    journey = started.journey("new_table", by_hand=False)
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS},
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
+    journey.run_to()
+    _check_made_from_its_query(started, table)
+    compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
+    assert "Passed: " in compared.read_text(encoding="utf-8")
+
+
+def _check_made_from_its_query(started: Started, table: str) -> None:
+    """new_table's end goal from a query: the table written with its query's rows, its Key
+    proposed, and the Table reference of ops.job_runs, which it reads, added, its own Key
+    proposed, and in the Reference sheet."""
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id"],  # proposed' in written
+    assert _kind_of(started.root, table) == "rebuilt"
+    read = _reference(started.root, "ops.job_runs").read_text(encoding="utf-8")
+    assert '    key=None,  # TODO: proposed ["run_id"], checked' in read
+    sheet = (started.root / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.job_runs,run_id," in sheet
     assert _sorted_rows(started.warehouse, table) == sorted(
-        started.warehouse.query(query).astype(str).values.tolist())
-    _promote_through_the_runner(started, [table])
+        started.warehouse.query(JOB_COUNTS).astype(str).values.tolist())
 
 
 def _fill_daily_runs_logic(text: str) -> str:
@@ -1147,6 +1403,405 @@ def _drop_one_partition(text: str) -> str:
         "change = admin.drop_partitions(table, where=...)",
         "from sqlglot_composer import equals\n"
         "change = admin.drop_partitions(table, where=equals(table.dt, '2026-09-24'))")
+
+
+# --- The Seed widened: a History table usable from its first day (Toolbox 8.10, ticket 05) ---
+
+# A daily load that reads only a source table, one Partition a day: its team's job has run it
+# each day ops.job_events holds, 2026-09-11 to 2026-09-24.
+DAILY_EVENTS_LOAD = """\
+CREATE TABLE IF NOT EXISTS mart.daily_events (job_id BIGINT, events BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_events PARTITION (dt = '<DAY>')
+SELECT e.job_id, COUNT(*) AS events FROM ops.job_events e WHERE e.dt = '<DAY>'
+GROUP BY e.job_id;
+"""
+EVENT_DAYS = [f"2026-09-{day}" for day in range(11, 25)]
+DAILY_EVENTS = "mart_dev.daily_events_mart"
+
+
+def _daily_load(started: Started) -> Journey:
+    """The daily load's original written for each of its days, as its team's job wrote it, and
+    the script saved beside the convert notebook, as of its last day."""
+    for day in EVENT_DAYS:
+        started.warehouse.execute(DAILY_EVENTS_LOAD.replace("<DAY>", day))
+    journey = started.journey("convert")
+    journey.save_by_hand(journey.folder / "weekly.hql",
+                         DAILY_EVENTS_LOAD.replace("<DAY>", "2026-09-24"))
+    return journey
+
+
+def _seeds_sent(warehouse: Warehouse, table: str) -> list[str]:
+    """Each Seed copied into `table` the warehouse was sent: a SELECT * of another table."""
+    return [hive for hive in warehouse.executed
+            if hive.startswith(f"INSERT OVERWRITE TABLE {table} ") and "SELECT * FROM" in hive]
+
+
+def test_convert_a_daily_load_seeds_its_month_from_its_original(started: Started) -> None:
+    journey = _daily_load(started)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.run_to(1)
+    written = _reference(started.root, DAILY_EVENTS).read_text(encoding="utf-8")
+    assert 'SEED = {"months": 1}  # proposed: dt holds dates in mart.daily_events\n' in written
+    # Its write doesn't read itself, and it is still a History table: its kind is proposed,
+    # accepted as pasted, and its SEED is proposed already.
+    journey.paste_decisions({})
+    journey.run_to()
+    _check_converted(started, [DAILY_EVENTS], {DAILY_EVENTS: ["job_id", "dt"]})
+    assert _seeds_sent(started.warehouse, DAILY_EVENTS) == [
+        f"INSERT OVERWRITE TABLE {DAILY_EVENTS} PARTITION (dt) SELECT * FROM mart.daily_events "
+        "WHERE dt >= '2026-08-24' AND dt <= '2026-09-24'"]
+    rows = started.warehouse.rows_of(DAILY_EVENTS)
+    assert sorted(set(rows["dt"])) == EVENT_DAYS
+    assert _sorted_rows(started.warehouse, DAILY_EVENTS) == _sorted_rows(started.warehouse,
+                                                                         "mart.daily_events")
+    # The write step run again sends no Seed: the table holds Partitions now.
+    journey.run_again(5)
+    assert len(_seeds_sent(started.warehouse, DAILY_EVENTS)) == 1
+
+
+def test_convert_a_daily_load_seeds_its_month_through_the_runner(started: Started) -> None:
+    journey = _daily_load(started)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
+    dry_run = journey.run_workflow(dry_run=True)
+    assert ("would send: INSERT OVERWRITE TABLE mart_dev.daily_events_mart PARTITION (dt) "
+            "SELECT * FROM mart.daily_events WHERE dt >= '2026-08-24'") in dry_run
+    assert not _seeds_sent(started.warehouse, DAILY_EVENTS), "a dry run sent a Seed"
+    said = journey.run_workflow()
+    assert "convert, weekly: every step is done." in said
+    # The days it holds, as loaded, a run of days written as one range.
+    assert (f"Seeded {DAILY_EVENTS}: 14 Partitions loaded, dt from 2026-09-11 to 2026-09-24."
+            in said)
+    assert _sorted_rows(started.warehouse, DAILY_EVENTS) == _sorted_rows(started.warehouse,
+                                                                         "mart.daily_events")
+
+
+# A new table whose write targets yesterday, as Hive works it out: date_sub(current_date, 1).
+NEW_DAILY_EVENTS = "mart_dev.new_daily_events"
+
+
+def _fill_daily_events_logic(text: str, reads: str) -> str:
+    """The Template's logic for a count of ops.job_events per job and day, reading the day
+    `reads` picks."""
+    for placeholder, value in (
+            ("<SOURCE_NAME>", "ops__job_events"), ("<SOURCE_TABLE>", "job_events"),
+            ("<READS>", reads), ("<GROUP_COLUMN>", "job_id"), ("<COUNT_NAME>", '"events"'),
+            ("<PARTITION_COLUMN>", "dt")):
+        text = text.replace(placeholder, value)
+    # Its day is in Hive's own text, so the read says it has checked that it filters dt.
+    text = text.replace("FROM(job_events)", "FROM(job_events, reads_all_partitions=True)")
+    return text.replace("create_table, equals,",
+                        "create_table, equals, run_value, unchecked_condition,", 1)
+
+
+def _fill_with_yesterday_in_hive(text: str) -> str:
+    """The logic reading yesterday as Hive works it out, date_sub(current_date, 1)."""
+    return _fill_daily_events_logic(
+        text, 'unchecked_condition("{dt} = date_sub(current_date, 1)", dt=job_events.dt)')
+
+
+def _fill_with_yesterday_as_a_run_value(text: str) -> str:
+    """The logic reading yesterday as the user's Run value works it out, from today()."""
+    text = text.replace("from references.<SOURCE_NAME> import <SOURCE_TABLE>",
+                        "from references.<SOURCE_NAME> import <SOURCE_TABLE>\n"
+                        "from building_blocks.run_values import yesterday", 1)
+    return _fill_daily_events_logic(text, "equals(job_events.dt, run_value(yesterday))")
+
+
+# The same day as a Run value of the user's, which today() starts from.
+YESTERDAY_RUN_VALUE = '''"""Run values: what a table reads, worked out each time it is
+written."""
+
+import datetime
+
+from sqlglot_composer import today
+
+
+def yesterday() -> datetime.date:
+    """The day before today."""
+    return today() - datetime.timedelta(days=1)
+'''
+
+
+def _events_of(warehouse: Warehouse, day: str) -> list[list[str]]:
+    """What the new table's write gives for one day: each job's events, read from the source."""
+    return sorted(warehouse.query(
+        f"SELECT e.job_id, COUNT(*) AS events, e.dt FROM ops.job_events e "
+        f"WHERE e.dt = '{day}' GROUP BY e.job_id, e.dt").astype(str).values.tolist())
+
+
+def _check_each_day_written(warehouse: Warehouse, table: str, days: list[str]) -> None:
+    """Each Partition of `table` holds the rows its write gives as of the day after, for each
+    of `days`, and no other."""
+    rows = warehouse.rows_of(table)
+    assert sorted(set(rows["dt"])) == days
+    for day in days:
+        held = rows[rows["dt"] == day][["job_id", "events", "dt"]]
+        assert sorted(held.astype(str).values.tolist()) == _events_of(warehouse, day), day
+
+
+def _source_missing_a_day_and_failing_on_another(started: Started) -> None:
+    """ops.job_events with no rows on 2026-09-15, and a warehouse that refuses the run that
+    writes 2026-09-20, as of 2026-09-21, as if a file of its source were unreadable."""
+    events = started.warehouse.tables["ops.job_events"]
+    events.rows = [row for row in events.rows if row[-1] != "2026-09-15"]
+    sent = started.warehouse.execute
+
+    def refusing_one_day(hive: str) -> None:
+        if hive.startswith("INSERT") and "'2026-09-21'" in hive:
+            raise ValueError("Error while compiling statement: FAILED: a file of "
+                             "ops.job_events dt=2026-09-20 can't be read")
+        sent(hive)
+
+    started.monkeypatch.setattr(started.warehouse, "execute", refusing_one_day)
+
+
+def test_new_table_runs_its_write_as_of_each_past_day(started: Started,
+                                                      capsys: pytest.CaptureFixture[str]
+                                                      ) -> None:
+    _run_references(started, "ops.job_events", ["event_id"])
+    _source_missing_a_day_and_failing_on_another(started)
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    journey.run_to(1)
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         _fill_with_yesterday_in_hive, "# logic")
+    journey.run_to(4)
+    written = _reference(started.root, NEW_DAILY_EVENTS).read_text(encoding="utf-8")
+    assert 'SEED = {"months": 1}  # proposed: dt holds dates in ops.job_events\n' in written
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history"}})
+    capsys.readouterr()
+    journey.run_to()
+    printed = capsys.readouterr().out
+    # A month back from ops.job_events' newest day, 2026-09-24, each run as of the day after,
+    # but the run as of today, 2026-09-25, which is the table's first write: the Seed leaves
+    # 2026-09-24 to it, so no day is written twice (the beginner reader's stop 17). The
+    # stand-in warehouse reads CURRENT_DATE as this computer's own today, so here the first
+    # write adds no row of these days.
+    loaded = [day for day in EVENT_DAYS
+              if day not in ("2026-09-15", "2026-09-20", "2026-09-24")]
+    _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, loaded)
+    assert (f"{NEW_DAILY_EVENTS}: its Seed, its write run as of each past day, oldest first, "
+            "dt from 2026-08-24 to 2026-09-23, each run as of the day after:") in printed
+    # Each day loaded is listed, each run of days in a row as one range.
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 11 days loaded of 31, dt from 2026-09-11 to "
+            "2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to 2026-09-23."
+            in printed)
+    assert ("  dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: a file of "
+            "ops.job_events dt=2026-09-20 can't be read") in printed
+    assert "  dt = 2026-09-15: no rows, its empty Partition kept" in printed
+    assert "  dt from 2026-08-24 to 2026-09-10: no rows, each empty Partition kept" in printed
+    assert "  dt = 2026-08-24: no rows" not in printed
+    # Each run was the write's own Hive, its today alone written in, date_sub as the Toolbox
+    # writes it.
+    runs = [hive for hive in started.warehouse.executed
+            if hive.startswith(f"INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}")]
+    assert "DATE_ADD('2026-09-24', 1 * -1)" in runs[-2]
+    assert "DATE_ADD(CURRENT_DATE, 1 * -1)" in runs[-1]
+    assert not any("'2026-09-25'" in run for run in runs), "the Seed ran as of today"
+    # The step run again sends no Seed.
+    sent = len(runs)
+    journey.run_again(7)
+    assert f"{NEW_DAILY_EVENTS}: no Seed: it holds rows already" in capsys.readouterr().out
+    assert len([hive for hive in started.warehouse.executed
+                if hive.startswith(f"INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}")]) == sent + 1
+    # Promoted, its prod copy has no Original: it copies its dev copy's Partitions, a month
+    # back from the newest its dev copy holds, 2026-09-23 here.
+    prod = _promote(started, [NEW_DAILY_EVENTS])[0]
+    assert _seeds_sent(started.warehouse, prod) == [
+        f"INSERT OVERWRITE TABLE {prod} PARTITION (dt) SELECT * FROM {NEW_DAILY_EVENTS} "
+        "WHERE dt >= '2026-08-23' AND dt <= '2026-09-23'"]
+
+
+def test_new_table_runs_its_write_as_of_each_past_day_through_the_runner(
+        started: Started) -> None:
+    _run_references_through_the_runner(started, "ops.job_events", ["event_id"])
+    journey = started.journey("new_table")
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py",
+                         YESTERDAY_RUN_VALUE)
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    assert "2. Write each table's logic" in journey.run_workflow()
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         _fill_with_yesterday_as_a_run_value, "# logic")
+    said = journey.run_workflow()
+    assert "4. Answer each table's open Decisions" in said
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history"}}, printed=said)
+    sent = list(started.warehouse.executed)
+    dry_run = journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert f"would send: INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}" in dry_run
+    said = journey.run_workflow()
+    assert "new_table: every step is done." in said
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 13 days loaded of 31, dt from 2026-09-11 to "
+            "2026-09-23." in said)
+    _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, EVENT_DAYS)
+    # Promoted, prod's Partitions are dev's.
+    prod = _promote_through_the_runner(started, [NEW_DAILY_EVENTS])[0]
+    assert sorted(set(started.warehouse.rows_of(prod)["dt"])) == EVENT_DAYS
+
+
+# --- check_project warns while a History table lacks its Seed's days (8.10, ticket 06) -------
+
+
+def _check_project(started: Started) -> str:
+    """admin/check_project.ipynb run top to bottom, its connect(...) filled in: what its
+    check() cell printed."""
+    notebook = started.root / "admin" / "check_project.ipynb"
+    printed = _run_cells(started, notebook, [1, 2, 3])
+    assert "project.check(query=query)" in notebook_runner.code_cells(notebook)[2]
+    return printed
+
+
+def _missing_days_warnings(said: str) -> list[str]:
+    """Each Warning check() gave of a table lacking days its Seed loads, on one line."""
+    return [line for line in said.split("\n")
+            if line.startswith("Warning: ") and "days its Seed loads" in line]
+
+
+def _seeded_daily_events(started: Started) -> None:
+    """The daily load converted to its end, its Seed a copy of the 14 days its Original holds,
+    2026-09-11 to 2026-09-24, within the month up to its newest."""
+    journey = _daily_load(started)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    assert sorted(set(started.warehouse.rows_of(DAILY_EVENTS)["dt"])) == EVENT_DAYS
+
+
+def _drop_days(started: Started, table: str, days: list[str]) -> None:
+    for day in days:
+        started.warehouse.execute(f"ALTER TABLE {table} DROP PARTITION (dt = '{day}')")
+
+
+def test_check_project_warns_of_the_days_a_seeded_table_lacks(started: Started) -> None:
+    _seeded_daily_events(started)
+    # Whole, it gives no Warning.
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+    _drop_days(started, DAILY_EVENTS, ["2026-09-13", "2026-09-20"])
+    assert _missing_days_warnings(repr(project.check(query=started.warehouse.query))) == [
+        f"Warning: {DAILY_EVENTS} lacks 2 of the 14 days its Seed loads: 2026-09-13 and "
+        "2026-09-20. That stops nothing, but what reads it finds no rows for those days "
+        "until each is written."]
+    # Without your query, check() reads nothing of the warehouse, and says nothing of them.
+    assert not _missing_days_warnings(repr(project.check()))
+
+
+def test_check_project_counts_an_empty_day_as_missing(started: Started) -> None:
+    _seeded_daily_events(started)
+    _drop_days(started, DAILY_EVENTS, ["2026-09-15"])
+    # Hive keeps a Partition a write gave no rows: SHOW PARTITIONS still lists it.
+    asked = started.warehouse.query
+
+    def listing_an_empty_day(hive: str) -> pd.DataFrame:
+        found = asked(hive)
+        if hive == f"SHOW PARTITIONS {DAILY_EVENTS}":
+            found = pd.DataFrame({"partition": sorted([*found["partition"], "dt=2026-09-15"])})
+        return found
+
+    assert _missing_days_warnings(repr(project.check(query=listing_an_empty_day))) == [
+        f"Warning: {DAILY_EVENTS} lacks 1 of the 14 days its Seed loads: 2026-09-15 (no rows)."
+        " That stops nothing, but what reads it finds no rows for those days until each is "
+        "written."]
+
+
+def test_check_project_reads_every_seed_limit_alike(started: Started) -> None:
+    _seeded_daily_events(started)
+    _drop_days(started, DAILY_EVENTS, ["2026-09-12", "2026-09-21"])
+    # A value: that day or later; a day dropped before it is no day its Seed loads.
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": "2026-09-20"}}})
+    assert _missing_days_warnings(repr(project.check(query=started.warehouse.query))) == [
+        f"Warning: {DAILY_EVENTS} lacks 1 of the 5 days its Seed loads: 2026-09-21. That stops"
+        " nothing, but what reads it finds no rows for those days until each is written."]
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": {"from": "2026-09-11",
+                                                            "to": "2026-09-13"}}}})
+    assert "lacks 1 of the 3 days its Seed loads: 2026-09-12." in repr(
+        project.check(query=started.warehouse.query))
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": ["2026-09-11", "2026-09-24"]}}})
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+
+
+def test_check_project_gives_a_rebuilt_table_no_warning(started: Started) -> None:
+    _seeded_daily_events(started)
+    project.write_decisions({DAILY_EVENTS: {"kind": "rebuilt"}})
+    _drop_days(started, DAILY_EVENTS, ["2026-09-13", "2026-09-20"])
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+
+
+def test_check_project_says_when_its_query_cant_list_a_tables_partitions(
+        started: Started) -> None:
+    _seeded_daily_events(started)
+
+    def not_connected(hive: str) -> pd.DataFrame:
+        raise RuntimeError("\n  What happened:  No connection: call connect(...) first.\n"
+                           "  Why it matters: ...")
+
+    said = repr(project.check(query=not_connected))
+    assert (f"Not checked for the days its Seed loads: {DAILY_EVENTS}, as your query couldn't "
+            "read its Partitions. Your query said: No connection: call connect(...) first."
+            ) in said
+
+
+def test_check_project_passes_over_a_history_table_that_has_no_seed(
+        started: Started, capsys: pytest.CaptureFixture[str]) -> None:
+    # A History table with no Original whose write reads a day typed in has no Seed, since each
+    # day's run would write the same rows: check() has no days to count for it, so it never
+    # reads its Partitions, and never says it couldn't (the beginner reader's stop A).
+    _run_references(started, "ops.job_events", ["event_id"])
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    journey.run_to(1)
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         lambda text: _fill_daily_events_logic(
+                             text, 'equals(job_events.dt, "2026-09-24")'), "# logic")
+    journey.run_to(4)
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history", "seed": {"months": 1}}})
+    capsys.readouterr()
+    journey.run_to()
+    assert (f"{NEW_DAILY_EVENTS}: no Seed: its write reads no today"
+            in capsys.readouterr().out)
+
+    def not_connected(hive: str) -> pd.DataFrame:
+        raise RuntimeError("\n  What happened:  No connection: call connect(...) first.\n"
+                           "  Why it matters: ...")
+
+    said = repr(project.check(query=not_connected))
+    assert "Not checked for the days" not in said
+    assert not _missing_days_warnings(said)
+
+
+def test_check_project_warns_until_a_seeds_missing_days_are_written(started: Started) -> None:
+    # The new table whose write targets yesterday, its Seed run as of each day of the month up
+    # to ops.job_events' newest: the days before ops.job_events' first, 2026-09-15, which it
+    # lacks, and 2026-09-20, which the warehouse refused, are missing.
+    _run_references(started, "ops.job_events", ["event_id"])
+    _source_missing_a_day_and_failing_on_another(started)
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    journey.run_to(1)
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         _fill_with_yesterday_in_hive, "# logic")
+    journey.run_to(4)
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history"}})
+    journey.run_to()
+    assert _missing_days_warnings(_check_project(started)) == [
+        f"Warning: {NEW_DAILY_EVENTS} lacks 20 of the 31 days its Seed loads: 2026-08-24, "
+        "2026-08-25, 2026-08-26, 2026-08-27, 2026-08-28 and 15 more. That stops nothing, but "
+        "what reads it finds no rows for those days until each is written."]
+    # Each missing day written, as a load of the user's writes it, the Warning is gone.
+    loaded = set(started.warehouse.rows_of(NEW_DAILY_EVENTS)["dt"])
+    first = datetime.date(2026, 8, 24)
+    for each in range(32):
+        day = (first + datetime.timedelta(days=each)).isoformat()
+        if day not in loaded:
+            started.warehouse.execute(
+                f"INSERT INTO TABLE {NEW_DAILY_EVENTS} PARTITION (dt = '{day}') "
+                "SELECT j.job_id, 0 AS events FROM ops.jobs j")
+    assert not _missing_days_warnings(_check_project(started))
 
 
 # --- references -------------------------------------------------------------------------------
@@ -1175,18 +1830,20 @@ def test_a_notebook_run_without_its_connect_line_refuses(started: Started) -> No
     _edit_notebook(journey.notebook, lambda text: text.replace(CONNECTED, CONNECT_PLACEHOLDER),
                    CONNECTED)
     journey.type_names(TABLES=["ops.job_events"])
-    # Step 1 reports each table whose DESCRIBE failed, and why: the refusal's first part.
-    with pytest.raises(project.SkippedTables) as skipped:
+    # Step 1 stops at its first DESCRIBE, writing nothing, and says to fill in the line
+    # (usability run W11, 2026-11-28: before, it named each table "DESCRIBE failed").
+    with pytest.raises(RuntimeError) as refused:
         journey.run_to(1)
-    said = str(skipped.value)
-    assert ("ops.job_events (DESCRIBE failed: RuntimeError: No connection: call connect(...) "
-            "first. query(...) was called before this notebook gave warehouse.py its "
-            "connection.)") in said
+    said = " ".join(str(refused.value).split())
+    assert ("wrote nothing: this notebook hasn't connected to the warehouse yet, so your query "
+            "couldn't send DESCRIBE ops.job_events.") in said
+    assert "fill in the line connect(...) with your connection" in said
     assert "NoneType" not in said and "AttributeError" not in said
+    assert not (started.root / "references" / "ops__job_events.py").exists()
     # The same notebook, its Workflow run by its run cell, stops at the same step, saying so.
     stopped = journey.run_workflow()
     assert "references: 1. Write the Table references from DESCRIBE" in stopped
-    assert "No connection: call connect(...) first." in stopped
+    assert "this notebook hasn't connected to the warehouse yet" in " ".join(stopped.split())
     assert "NoneType" not in stopped
     # Filled in and run again, from the top, it goes on.
     _edit_notebook(journey.notebook, lambda text: text.replace(CONNECT_PLACEHOLDER, CONNECTED),
@@ -1249,8 +1906,9 @@ def _check_no_todo_left(started: Started, table: str, key: str) -> None:
 
 
 # Each version whose Upgrade step marks nothing in any Project, as 8.9's writes the convert
-# notebook again and records: the upgrade journey starts before it, so its step 2 has marks.
-MARKS_NOTHING = ("8.9",)
+# notebook again and records, and 8.10's gives each table its kind, leaving one with none
+# proposed open, a Decision: the upgrade journey starts before them, so its step 2 has marks.
+MARKS_NOTHING = ("8.9", "8.10")
 
 @pytest.fixture
 def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch

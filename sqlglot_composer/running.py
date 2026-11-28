@@ -46,6 +46,7 @@ from .unchecked import (
     UncheckedStatement,
     hive_settings,
     logged_run,
+    record_run_values,
     record_sent,
     settings_text,
     tables_read_and_written,
@@ -1038,6 +1039,8 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
         sent = to_hive(s)
         send_logged(s, sent, execute)
     record_sent(kind, sent, callers_frame())
+    if kind == kinds.WRITE:
+        record_run_values(sent, s._run_values_given, callers_frame())
 
 
 def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object],

@@ -34,7 +34,7 @@ import inspect
 import os
 import re
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -124,6 +124,13 @@ def forget_the_projects_modules() -> None:
     for name in [name for name in sys.modules
                  if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
         del sys.modules[name]
+
+
+def unconnected_query(root: Path) -> Callable[[str], pd.DataFrame]:
+    """The query of the Project's own warehouse.py at `root`, as a notebook whose setup cell
+    hasn't connected yet imports it: each call refuses, saying there is no connection."""
+    with project_on_the_path(root, ("warehouse",)):
+        return importlib.import_module("warehouse").query
 
 
 def example_rows(table: str) -> pd.DataFrame:
@@ -375,22 +382,24 @@ def admin_log_where_it_starts(tmp_path_factory: pytest.TempPathFactory) -> Itera
 
 
 @pytest.fixture(scope="session")
-def snapshot_known(tmp_path_factory: pytest.TempPathFactory) -> set[str]:
-    """The snapshot's hashes, read once, with the recorder in place for the whole run. The
-    run's end checks the snapshot of the whole run, `pytest_sessionfinish` below, in the
-    process that started the workers, which has every worker's hashes."""
+def snapshot_known(tmp_path_factory: pytest.TempPathFactory) -> set[str] | None:
+    """The hashes of the snapshot of the sqlglot the run is on, read once, with the recorder in
+    place for the whole run; None where that sqlglot has none. The run's end checks the
+    snapshot of the whole run, `pytest_sessionfinish` below, in the process that started the
+    workers, which has every worker's hashes."""
     snapshot_recorder.install(toolbox_module, str(tmp_path_factory.getbasetemp()))
     return snapshot_recorder.known_hashes()
 
 
 @pytest.fixture(autouse=True)
-def nothing_a_user_sees_changed(snapshot_known: set[str]) -> Iterator[None]:
+def nothing_a_user_sees_changed(snapshot_known: set[str] | None) -> Iterator[None]:
     """Each test makes only Hive, messages, printed text, reports and rows the snapshot knows
     (Toolbox 8.0, ticket 02)."""
     yield
     unknown = snapshot_recorder.take_unknown_texts(snapshot_known)
     if unknown:
-        pytest.fail("The Toolbox showed what tests/snapshot/known.txt doesn't know:\n\n"
+        name = snapshot_recorder.snapshot_name(snapshot_recorder.snapshot_file())
+        pytest.fail(f"The Toolbox showed what {name} doesn't know:\n\n"
                     + "\n\n".join(unknown[:3]), pytrace=False)
 
 
@@ -477,13 +486,15 @@ def pytest_testnodedown(node: WorkerController, error: str | None) -> None:
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """A worker hands what the run's end needs to the process that started it. That process, or
     a run in one process, fails the run if a worker ran without the offline trap, and checks
-    the snapshot of the whole run (snapshot_recorder.py)."""
+    the snapshot of the whole run (snapshot_recorder.py), or says in one line why it checks
+    none."""
     config = session.config
     if hasattr(config, "workerinput"):
         config.workeroutput["snapshot"] = sorted(snapshot_recorder.hashes_made_in_this_run)
         config.workeroutput["memory"] = memory_after_each_unit
         config.workeroutput["offline_trap"] = offline_trap.is_installed()
         return
+    reporter = config.pluginmanager.get_plugin("terminalreporter")
     failures = []
     if workers_without_the_trap:
         failures.append(f"the offline trap: {', '.join(workers_without_the_trap)} ran without "
@@ -492,7 +503,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         whole = snapshot_recorder.is_the_whole_suite(
             config.args, config.option.keyword, config.option.markexpr, session.testsfailed)
         failures.append(snapshot_recorder.finish_the_run(whole))
-    reporter = config.pluginmanager.get_plugin("terminalreporter")
+        unchecked = snapshot_recorder.why_no_snapshot_is_checked()
+        if unchecked is not None and reporter is not None:
+            reporter.write_line(unchecked)
     for failure in filter(None, failures):
         if reporter is not None:
             reporter.write_line(f"ERROR {failure}", red=True)

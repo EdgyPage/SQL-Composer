@@ -54,7 +54,7 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "project_files.py", "project_lineage.py", "project_templates.py", "public.py",
                 "python_steps.py",
                 "refusals.py", "run_values.py", "running.py", "scheduled_runs.py",
-                "script_tags.py", "shared.py",
+                "script_tags.py", "seeding.py", "shared.py",
                 "stacking.py", "tables.py",
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py",

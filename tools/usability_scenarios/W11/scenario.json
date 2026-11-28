@@ -1,0 +1,17 @@
+{
+ "id": "W11",
+ "split": "dev",
+ "title": "convert a script whose day Hive works out, its past days loaded",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's script, from_your_team/daily_events.hql, writes mart.daily_events, a table in a database you can't write to. Each morning it runs, it adds each job's events of the day before to that day's Partition, the day worked out by Hive from the date it runs on, never typed in. It has run each morning from 2026-09-21 to 2026-09-25, so mart.daily_events holds those days' rows. Make your own copy of that table in your Dev Database, mart_dev.daily_events, written there and checked against the original, with the Toolbox. Your copy keeps its past days, as the original does: accept the kind of table the Toolbox proposes for it, and have your copy hold, from its first write, the original's past days, the month of them the Toolbox proposes. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
+  }
+ ],
+ "hive_ran": [
+  "daily_events_ran.hql"
+ ],
+ "given": {
+  "from_your_team/daily_events.hql": "daily_events.hql"
+ }
+}

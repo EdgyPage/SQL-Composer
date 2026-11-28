@@ -25,8 +25,8 @@ from typing import NamedTuple, NoReturn
 
 from .describe import printed_answer
 from .refusals import callers_frame, refuse, warn_run_value_failed
-from .script_tags import SCRIPT_TAG, check_tag_value
-from .shared import escaped_literal, with_article
+from .script_tags import SCRIPT_TAG, check_tag_value, tag_name, tags_in
+from .shared import escaped_literal, in_words, singular_or_plural, with_article
 from .tables import Column, Table, literal, python_text
 from .trees import Node
 from .writing import hive_text, tag_value_problem
@@ -165,12 +165,29 @@ def _traced_call(function: Callable[..., object], arguments: tuple[object, ...],
         return stand_in_value(function), traced, None
     _TRACING.append(traced)
     try:
-        return function(*arguments, **keywords), traced, None
+        given = function(*arguments, **keywords)
     except Exception as error:  # the user's own function: whatever it raises is reported
         failed = f"{traced.function}({shown}) raised {type(error).__name__}: {error}"
         return None, traced, failed
     finally:
         _TRACING.remove(traced)
+    if not arguments and not keywords:
+        _LAST_GIVEN_BY_FUNCTION[traced.function] = given
+    return given, traced, None
+
+
+# What each Run value's function called with nothing, as a Script tag's answer is, last gave,
+# by its function (function_name). A Statement keeps a copy of it as it is made
+# (last_values_given), which a write records beside its Table folder's compare (Toolbox 8.10,
+# ticket 03), so the compare of a query alone fills each tag with the value its dev table
+# was written with, never calling the function again.
+_LAST_GIVEN_BY_FUNCTION: dict[str, object] = {}
+
+
+def last_values_given() -> dict[str, object]:
+    """What each Run value's function called with nothing last gave, by its function: a copy,
+    which a Statement keeps as it is made."""
+    return dict(_LAST_GIVEN_BY_FUNCTION)
 
 
 def _traced_column(call: str, function: Callable[..., object], arguments: tuple[object, ...],
@@ -662,6 +679,60 @@ def last_hivevar_values() -> dict[str, str]:
     return dict(_LAST_VALUE_BY_NAME)
 
 
+# --- A query alone, filled in for its compare (Toolbox 8.10, ticket 03) ----------------------
+
+
+def filled_query(text: str, tags: dict[str, object], given: dict[str, object],
+                 hivevars: dict[str, str], written: str) -> tuple[str, str]:
+    """A query alone's Hive, `text`, as its script wrote it, filled in so it reads what its
+    dev table, `written`, read: each Script tag with its answer in `tags`, its table's TAGS,
+    and each Hivevar with its value in `hivevars`, by NAME, the SET lines its notebook sends.
+    A tag answered by a Run value's function, or by a Hivevar whose default is one, gets what
+    `given` holds for that function, the value recorded when the table was written: the
+    function isn't called again. Gives the filled Hive and "", or "" and why it can't be
+    filled, naming what only the user's program fills."""
+    unanswered, unrecorded = [], []
+    for tag in reversed(tags_in(text)):
+        answer = tags.get(tag.name)
+        if isinstance(answer, Hivevar):
+            answer = answer.default
+        if callable(answer) and function_name(answer) not in given:
+            unrecorded.insert(0, (tag.name, answer.__qualname__))
+        elif callable(answer):
+            value = tag_value_as_hive(given[function_name(answer)], quoted=tag.quoted)
+            text = text[:tag.start] + value + text[tag.end:]
+        elif isinstance(answer, str) and tag_name(answer) is None:
+            text = text[:tag.start] + answer + text[tag.end:]
+        else:
+            unanswered.insert(0, f'<PARM="{tag.name}"/>')
+    if unanswered:
+        return "", (f"it holds {in_words(list(dict.fromkeys(unanswered)))}, which only your "
+                    "program fills")
+    if unrecorded:
+        tag, function = unrecorded[0]
+        return "", (f'its <PARM="{tag}"/> is answered by {function}(), whose value when '
+                    f"{written} was written isn't recorded: write {written} again, then "
+                    "compare it")
+    unset = [f"${{hivevar:{name}}}" for name in dict.fromkeys(HIVEVAR_IN_HIVE.findall(text))
+             if name not in hivevars]
+    if unset:
+        return "", (f"it holds {in_words(unset)}, which only your program fills: no SET line "
+                    "in its notebook's session_settings() gives "
+                    f"{singular_or_plural(len(unset), 'it', 'them')}")
+    for name, value in hivevars.items():
+        text = text.replace(f"${{hivevar:{name}}}", value)
+    return text, ""
+
+
+def tag_value_as_hive(given: object, *, quoted: bool) -> str:
+    """What a Run value's function gave, written where a Script tag stood: bare, as
+    script_tag writes it; inside quotes, as tag_text writes it."""
+    call = "project.compare_batch(...)"
+    if quoted:
+        return _tag_text_written(given, call, "its Run value", quoted=True)
+    return _tag_value(given, call, "its Run value").parts["text"]
+
+
 # --- Helpers for a Run value's function -----------------------------------------------------
 
 
@@ -732,12 +803,17 @@ def _refuse_not_a_partition_column(call: str, column: object, table: Table | Non
 
 def _listed_value(text: str) -> datetime.date | int | str:
     """A value SHOW PARTITIONS lists, its %XX escapes undone, as a date, a number or text."""
-    text = re.sub(r"%([0-9A-Fa-f]{2})", _unescaped, text)
+    text = listed_text(text)
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
         return datetime.date.fromisoformat(text)
     if re.fullmatch(r"-?\d+", text):
         return int(text)
     return text
+
+
+def listed_text(text: str) -> str:
+    """A value as SHOW PARTITIONS lists it, its %XX escapes undone, as text."""
+    return re.sub(r"%([0-9A-Fa-f]{2})", _unescaped, text)
 
 
 def _unescaped(escape: re.Match[str]) -> str:

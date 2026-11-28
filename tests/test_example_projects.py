@@ -173,7 +173,16 @@ def test_a_project_has_no_todo_left_and_nothing_unregistered(
             f"{folder.name}/." for folder in sorted(finished)]
     if done:
         done.insert(0, "Done: each convert batch below.")
-    assert checked.split("\n")[1:] == done
+    # Since 8.10, each kind and Seed the project leaves open, as project.upgrade() leaves a
+    # write that fills dt from its rows' own values, is named above them, under its heading:
+    # promote waits on them, and nothing else does.
+    rest = checked.split("\n")[1:]
+    if rest and rest[0].startswith("Open in a Table reference"):
+        rest = rest[1:]
+        while rest and rest[0].startswith("  references/"):
+            assert rest[0].endswith((" kind, nothing proposed", " seed, nothing proposed"))
+            rest = rest[1:]
+    assert rest == done
 
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)

@@ -37,10 +37,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import decisions
-from .project_files import SCHEDULED_RUN, table_stem
+from .notebooks import cell_as_written
+from .project_files import REFERENCE, SCHEDULED_RUN, table_stem
 from .run_values import hivevar
 from .shared import escaped_literal, in_words, split_table_name
-from .unchecked import SENT, hive_settings
+from .unchecked import SENT
 from .upgrades import MARK_LINE, marks_in, project_version
 
 if TYPE_CHECKING:  # project.py imports this file, so its name is for the hints alone
@@ -58,6 +59,23 @@ RUN_THE_CHECK_CELL = ("Run the cell below, `project.check()`: it names each open
                       "prints a whole `DECISIONS` to paste over the decisions cell's")
 FIDDLING = "fiddling"
 KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
+# How a dev write step's text opens, since its Seed runs first (Toolbox 8.10): what
+# project.seed_tables does.
+SEED_ACTION = ("run the cell below. `project.seed_tables` first loads each History table's "
+               "past rows, its Seed, once, while it holds no Partitions yet, through your "
+               "query and execute: copied from its original, or, for a table with none, by "
+               "running its write as of each past day, as SEED in its Table reference picks "
+               "them. Its report lists each day not loaded, with the warehouse's error, and "
+               "each that wrote no rows. A Rebuilt table has no Seed, and running the cell "
+               "again loads nothing twice.")
+# The same for promote's write step, whose prod copies copy their Seed from dev's side.
+PROD_SEED_ACTION = ("run the cell below. `project.seed_tables` first loads each History "
+                    "table's past rows, its Seed, once, while it holds no Partitions yet, "
+                    "through your query and execute: copied from its dev copy's original, or, "
+                    "where the dev copy has none, from the dev copy itself, the days you "
+                    "checked there, as SEED in its Table reference picks them. Its report "
+                    "lists what it loaded. A Rebuilt table has no Seed, and running the cell "
+                    "again loads nothing twice.")
 
 # Each Workflow's folder in a Project, and the file naming the user's two Databases.
 WORKFLOWS_FOLDER = Path("admin") / "workflows"
@@ -67,9 +85,9 @@ DATABASES = Path("admin") / "databases.py"
 BATCHES = WORKFLOWS_FOLDER / "convert"
 BATCH_LIST = "batch.md"
 BATCH_RECORD = "written.json"
-# A batch's folder once every table it made has passed the compare step, which check names
-# done; and each table's result, in its conversion/ folder, its third line saying whether it
-# passed.
+# A batch's folder once the compare step has compared every table it made, passed or not,
+# which check names done; and each table's result, in its conversion/ folder, saying whether
+# it passed.
 FINISHED = "finished"
 # Each table promote made in prod: its dev table, whether it reads itself, and each file of its
 # prod Table folder, with its hash, to tell one edited by hand.
@@ -78,6 +96,14 @@ COMPARED = "compare.md"
 PASSED = "Passed: "
 FAILED = "Failed: "
 COMPARED_AT = "Compared at "
+# A result of a compare that wasn't sent, as a query alone whose value only the user's program
+# fills (Toolbox 8.10, ticket 03): why, then when it was checked.
+NOT_COMPARED = "Not compared: "
+CHECKED_AT = "Checked at "
+# What compare_result says of a table, by its results.
+RESULT_PASSED = "passed"
+RESULT_FAILED = "failed"
+RESULT_NOT_COMPARED = "not compared"
 # Each result compare.md keeps, one for each Partition compared, starts on a line of its own:
 # "## dt = '2026-09-24'", or "## Every row" for a table compared whole.
 RESULT_HEADING = "## "
@@ -87,6 +113,9 @@ CONVERSION = "conversion"
 CHECKLIST = "checklist.md"
 # The convert notebook's switch making each script of FILES a batch of its own (Toolbox 8.5).
 EACH_SCRIPT_ITS_OWN_BATCH = "EACH_SCRIPT_ITS_OWN_BATCH"
+# What admin/sent.csv calls each send of a Seed (Toolbox 8.10), so a write step tells it from
+# a write.
+SEED_SENT = "seed"
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
 PLACEHOLDER = decisions.PLACEHOLDER_WORD
 
@@ -459,12 +488,45 @@ def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
     reference, all_tables' into each table TABLES names: a convert batch's own tables, or,
     when each script is its own batch, every batch's, as one decisions cell answers them all."""
+    return write_the_decisions_through(inputs, None)
+
+
+def write_the_batch_decisions(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """Convert's step that writes each answer, as write_the_decisions does, given your query,
+    which writes the Table reference of a table a "sources" answer gives that has none
+    (Toolbox 8.10). It writes files only, so a dry run runs it too, but where it would add a
+    Table reference: then a dry run says the DESCRIBE it would send, and writes nothing."""
+    from . import project  # project.py imports this file
+
+    if calls.dry_run:
+        answers = inputs.get(DECISIONS)
+        missing = project.references_write_decisions_adds(
+            answers if isinstance(answers, dict) else {})
+        if missing:
+            return say_references_would_be_added(missing, calls)
+    return write_the_decisions_through(inputs, calls.query).lines
+
+
+def say_references_would_be_added(missing: list[str], calls: Calls) -> list[str]:
+    """What a dry run of a step that would add the Table reference of each of `missing` says,
+    in place of running it: the DESCRIBE it would send for each through your query, and that
+    it writes nothing, so the file steps after it are only named."""
+    files = [REFERENCE.shown(table_stem(table)) for table in missing]
+    lines = calls.say_would_send([f"would send: DESCRIBE {table}" for table in missing])
+    return [*lines, f"would add {in_words(files)}, each from its DESCRIBE, then run this step: "
+            "a dry run writes neither"]
+
+
+def write_the_decisions_through(inputs: dict[str, object],
+                                query: Callable[[str], pd.DataFrame] | None) -> ProjectReport:
+    """project.write_decisions of the decisions cell, for the tables TABLES names or every
+    batch's, given `query`, or None."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
     tables = names_in(inputs, "TABLES_OF_EVERY_BATCH") or names_in(inputs, "TABLES")
     return project.write_decisions(answers if isinstance(answers, dict) else {},
-                                   tables=tables)
+                                   tables=tables, query=query)
 
 
 def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
@@ -511,11 +573,23 @@ def every_new_table_decision_made(root: Path, inputs: dict[str, object]) -> bool
 
 
 def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the batch NAME names has its batch.md, which convert writes last."""
+    """Whether the batch NAME names has its batch.md, which convert writes last, and made one
+    of its tables at least. One that made none, each skipped, as when a DESCRIBE failed, isn't
+    converted yet: its step runs again, and converts it again, once you mend what it said."""
     name = inputs.get("NAME")
     if not isinstance(name, str) or not name:
         return False
-    return (root / BATCHES / name / BATCH_LIST).is_file()
+    if not (root / BATCHES / name / BATCH_LIST).is_file():
+        return False
+    tables = batch_record(root, name).get("tables", [])
+    return not tables or any(_is_made(root, table) for table in tables)
+
+
+def _is_made(root: Path, table: str) -> bool:
+    """Whether a batch made `table`: its Table folder, or, for one it only creates, its Table
+    reference alone."""
+    folder = root / "tables" / table_stem(table)
+    return folder.is_dir() or reference_path(root, table).is_file()
 
 
 def batch_instances(root: Path) -> list[dict[str, object]]:
@@ -563,7 +637,7 @@ def write_batch_record(root: Path, name: str, record: dict[str, object]) -> None
 
 def finished_batch_names(root: Path) -> list[str]:
     """Each batch the convert Workflow finished, by its name: its folder moved to
-    admin/workflows/convert/finished/ once every table it wrote passed its compare. A table
+    admin/workflows/convert/finished/ once every table it wrote was compared. A table
     new_table made from its query is left out: its own Workflow takes it on."""
     names = []
     for record in sorted((root / BATCHES / FINISHED).glob(f"*/{BATCH_RECORD}")):
@@ -578,17 +652,10 @@ def every_table_created(root: Path, inputs: dict[str, object]) -> bool:
     return bool(tables) and all(was_sent(root, "create", table) for table in tables)
 
 
-def every_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether admin/sent.csv records the seed, an Unchecked statement, of each table
-    SEEDED names, once each table is created; true then when none reads itself."""
-    if not every_table_created(root, inputs):
-        return False
-    return all(was_sent(root, "unchecked", table) for table in names_in(inputs, "SEEDED"))
-
-
 def every_table_written(root: Path, inputs: dict[str, object]) -> bool:
     """Whether admin/sent.csv records a write of each table TABLES names: a write, or an
-    Unchecked statement, its write kept as Hive, besides the seed of one SEEDED names."""
+    Unchecked statement, its write kept as Hive, besides the seed of one SEEDED names, which a
+    Workflow sent before 8.10 as an Unchecked statement too."""
     tables = names_in(inputs, "TABLES")
     seeded = names_in(inputs, "SEEDED")
     return bool(tables) and all(was_written(root, table, table in seeded) for table in tables)
@@ -596,38 +663,54 @@ def every_table_written(root: Path, inputs: dict[str, object]) -> bool:
 
 def was_written(root: Path, table: str, seeded: bool) -> bool:
     """Whether admin/sent.csv records a write of `table`: a write, or an Unchecked statement
-    besides its seed when it was `seeded`."""
+    besides its seed when it was `seeded` and its seed was sent as one, before 8.10. A Seed
+    since, recorded as SEED_SENT, is no write."""
     if was_sent(root, "write", table):
         return True
     seeds = 0
-    if seeded:
+    if seeded and not was_sent(root, SEED_SENT, table):
         seeds = 1
     return times_sent(root, "unchecked", table) > seeds
 
 
 def every_table_compared(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table MADE names, each a batch wrote, passed its compare."""
+    """Whether each table MADE names, each a batch wrote, has a compare result since it was
+    last written: passed, failed or not compared, since none stops the user (Toolbox 8.10)."""
     made = names_in(inputs, "MADE")
-    return bool(made) and all(compare_passed(root, table) for table in made)
+    return bool(made) and all(compare_result(root, table) is not None for table in made)
 
 
 def compare_passed(root: Path, table: str) -> bool:
     """Whether each result a converted table's conversion/compare.md keeps says it passed,
     and admin/sent.csv records no write of it since."""
+    return compare_result(root, table) == RESULT_PASSED
+
+
+def compare_result(root: Path, table: str) -> str | None:
+    """What a converted table's conversion/compare.md says of it: RESULT_FAILED when a result
+    it keeps failed, else RESULT_NOT_COMPARED when one wasn't compared, else RESULT_PASSED;
+    None when it keeps no result, or admin/sent.csv records a write of the table since one."""
     path = root / "tables" / table_stem(table) / CONVERSION / COMPARED
     text = file_text(path)
-    said = [line for line in text.split("\n") if line.startswith((PASSED, FAILED))]
+    said = [line for line in text.split("\n")
+            if line.startswith((PASSED, FAILED, NOT_COMPARED))]
     times = compared_times(text)
-    if not said or len(said) != len(times) or not all(line.startswith(PASSED) for line in said):
-        return False
-    return all(written <= min(times) for written in write_times(root, table))
+    if not said or len(said) != len(times):
+        return None
+    if any(written > min(times) for written in write_times(root, table)):
+        return None
+    if any(line.startswith(FAILED) for line in said):
+        return RESULT_FAILED
+    if any(line.startswith(NOT_COMPARED) for line in said):
+        return RESULT_NOT_COMPARED
+    return RESULT_PASSED
 
 
 def compared_times(text: str) -> list[str]:
     """When each result of a compare.md's text was compared, as its Compared at line says,
-    such as 2026-10-31 09:30:00."""
-    return [line.removeprefix(COMPARED_AT).rstrip(".") for line in text.split("\n")
-            if line.startswith(COMPARED_AT)]
+    such as 2026-10-31 09:30:00, or checked, for one not compared."""
+    return [line.removeprefix(COMPARED_AT).removeprefix(CHECKED_AT).rstrip(".")
+            for line in text.split("\n") if line.startswith((COMPARED_AT, CHECKED_AT))]
 
 
 def write_times(root: Path, table: str) -> list[str]:
@@ -695,11 +778,6 @@ def every_table_promoted(root: Path, inputs: dict[str, object]) -> bool:
 def every_prod_table_created(root: Path, inputs: dict[str, object]) -> bool:
     """Whether admin/sent.csv records a create of each prod copy."""
     return every_table_created(root, prod_inputs(root, inputs))
-
-
-def every_prod_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether admin/sent.csv records the seed of each prod copy that reads itself."""
-    return every_table_seeded(root, prod_inputs(root, inputs))
 
 
 def every_prod_table_written(root: Path, inputs: dict[str, object]) -> bool:
@@ -905,16 +983,17 @@ def _send_creates(tables: list[str], calls: Calls) -> list[str]:
     return lines
 
 
-def _send_seeds(to_seed: list[str], calls: Calls) -> list[str]:
-    """Send each seed() of the tables that read themselves, after the Session setting their
-    Partitions need; nothing when none does."""
+def _send_seeds(tables: list[str], calls: Calls) -> list[str]:
+    """Load each History table's Seed with project.seed_tables, through your query and
+    execute, before its first write (Toolbox 8.10); in a dry run, the Hive it would send."""
     from . import project  # project.py imports this file
 
-    if not to_seed:
-        return []
-    lines = calls.send(hive_settings("dynamic_partitions"))
-    for table in to_seed:
-        lines += calls.send(project.load(table).seed())
+    execute = calls.execute
+    if calls.dry_run:
+        execute = None
+    lines = project.seed_tables(tables, query=calls.query, execute=execute).lines
+    if calls.dry_run and any(line.startswith("would send: ") for line in lines):
+        return calls.say_would_send(lines)
     return lines
 
 
@@ -938,14 +1017,11 @@ def create_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     return _send_creates(batch_tables_of(inputs), calls)
 
 
-def seed_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """convert's seed step: each table of the batch that reads itself seeded."""
-    return _send_seeds(batch_tables_of(inputs, seeded=True), calls)
-
-
 def write_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """convert's write step: each table of the batch written in dev."""
-    return _send_writes(batch_tables_of(inputs), calls)
+    """convert's write step: each History table of the batch seeded, then each table written
+    in dev."""
+    tables = batch_tables_of(inputs)
+    return _send_seeds(tables, calls) + _send_writes(tables, calls)
 
 
 def create_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -953,30 +1029,30 @@ def create_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]
     return _send_creates(prod_tables_of(inputs), calls)
 
 
-def seed_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """promote's seed step: each prod copy that reads itself seeded."""
-    return _send_seeds(prod_tables_of(inputs, seeded=True), calls)
-
-
 def write_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """promote's write step: each prod copy written."""
-    return _send_writes(prod_tables_of(inputs), calls)
+    """promote's write step: each History prod copy seeded, then each prod copy written."""
+    tables = prod_tables_of(inputs)
+    return _send_seeds(tables, calls) + _send_writes(tables, calls)
 
 
 def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """new_table's last step: each table TABLES names created, then written."""
+    """new_table's last step: each table TABLES names created, each History one seeded, then
+    each written."""
     tables = names_in(inputs, "TABLES")
-    return _send_creates(tables, calls) + _send_writes(tables, calls)
+    return _send_creates(tables, calls) + _send_seeds(tables, calls) + _send_writes(tables,
+                                                                                     calls)
 
 
 def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     """project.compare_batch for the batch NAME names, on the latest Partition and each
-    PARTITIONS lists; a dry run names what it would read."""
+    PARTITIONS lists; a dry run names what it would read, and each query alone as it would
+    send it, filled in."""
     from . import project  # project.py imports this file
 
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
-                f"{in_words(batch_tables_of(inputs))}"]
+                f"{in_words(batch_tables_of(inputs))}",
+                *project.queries_alone_as_sent(str(inputs.get("NAME")))]
     # As given, so compare_batch refuses a PARTITIONS it can't use, as the cell's call does.
     return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
                                  partitions=inputs.get("PARTITIONS")).lines
@@ -1051,10 +1127,27 @@ def first_check_hive(change: Statement) -> str | None:
 
 
 def make_table_folders(inputs: dict[str, object]) -> ProjectReport:
-    """project.new_table for each table TABLES names, from its query where QUERIES gives one."""
+    """project.new_table for each table TABLES names, from its query where QUERIES gives one,
+    as project.do_next runs it, with no query of yours."""
     from . import project  # project.py imports this file
 
     return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs))
+
+
+def make_table_folders_reading(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.new_table, as make_table_folders runs it, given your query, which writes the
+    Table reference of a table a query of QUERIES reads that has none (Toolbox 8.10). It
+    writes files only, so a dry run runs it too, but where it would add a Table reference:
+    then a dry run says the DESCRIBE it would send, and writes nothing."""
+    from . import project  # project.py imports this file
+
+    if calls.dry_run:
+        missing = project.references_new_table_adds(names_in(inputs, "TABLES"),
+                                                     queries_given(inputs))
+        if missing:
+            return say_references_would_be_added(missing, calls)
+    return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs),
+                             query=calls.query).lines
 
 
 def queries_given(inputs: dict[str, object]) -> dict[str, str]:
@@ -1074,11 +1167,12 @@ def queries_of(inputs: dict[str, object]) -> list[str]:
 
 
 def every_query_table_compared(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table is written, and each made from a query has passed its compare with
-    it, or finished."""
+    """Whether each table is written, and each made from a query has a compare result
+    since, passed or not, or is finished."""
     dev = database_name(root, "DEV")
     return every_table_written(root, inputs) and all(
-        (root / BATCHES / FINISHED / name).is_dir() or compare_passed(root, f"{dev}.{name}")
+        (root / BATCHES / FINISHED / name).is_dir()
+        or compare_result(root, f"{dev}.{name}") is not None
         for name in queries_of(inputs))
 
 
@@ -1096,10 +1190,21 @@ def compare_the_queries(inputs: dict[str, object], calls: Calls) -> list[str]:
 
 
 def write_references_from_logic(inputs: dict[str, object]) -> ProjectReport:
-    """project.reference_from_logic for each table TABLES names."""
+    """project.reference_from_logic for each table TABLES names, as project.do_next runs it,
+    with no query of yours."""
     from . import project  # project.py imports this file
 
     return project.reference_from_logic(names_in(inputs, "TABLES"))
+
+
+def write_references_from_logic_reading(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.reference_from_logic, as write_references_from_logic runs it, given your
+    query, which reads the Partitions of what each table reads to propose its seed limits
+    (Toolbox 8.10). It reads SHOW PARTITIONS only, and writes files, so a dry run runs it
+    too."""
+    from . import project  # project.py imports this file
+
+    return project.reference_from_logic(names_in(inputs, "TABLES"), query=calls.query).lines
 
 
 def refresh_the_sheet(inputs: dict[str, object]) -> ProjectReport:
@@ -1166,9 +1271,12 @@ CONVERT = Workflow(
              "for each calculation of a workbook that nothing else in it reads, each a Saved "
              "table in your Dev Database",
              action="run the cell below. It reads DESCRIBE through your query, and writes only "
-             "files.",
+             "files. If the batch made none of its tables, as when a DESCRIBE failed, then "
+             "mend what its report says and run this cell again, or \"Run the rest\": either "
+             "converts the batch again.",
              done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
-             "with its batch.md, which convert writes last"),
+             "with its batch.md, which convert writes last, and the batch made one of its "
+             "tables at least"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table, each Script tag in its TAGS",),
              ("each answer in the decisions cell",),
@@ -1187,15 +1295,18 @@ CONVERT = Workflow(
              "in "
              """`'<PARM="SKIP_TEAM"/>'`, is answered without them: """
              """`{"tags": {"SKIP_TEAM": "nobody"}}`. To change one, answer it again and run """
-             "steps 3, 6 and 7 again: the table is made already, so 4 and 5 stay done.",
+             "steps 3, 5 and 6 again: the table is made already, so 4 stays done.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each answer written in",),
-             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
-             every_dev_decision_made, write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),\n"
+             "                        query=query)",
+             every_dev_decision_made, write_the_decisions, send=write_the_batch_decisions,
              goal="each answer written into its table's Table reference",
-             action="run the cell below.",
+             action="run the cell below. A table a `\"sources\"` answer gives that has no "
+             "Table reference gets one, from its DESCRIBE through your query, its Key "
+             "proposed: it names each file it added.",
              done_when="each table's `conversion/checklist.md` says None under Open Decisions"),
         Step("Create each table in dev", PERMISSION, ("each answer written in",),
              ("each made in dev",),
@@ -1206,27 +1317,15 @@ CONVERT = Workflow(
              action="run the cell below. It sends each table's `create()` through your "
              "execute.",
              done_when="admin/sent.csv records a create of each table"),
-        Step("Seed each table that reads itself, once, from its original", PERMISSION,
-             ("each made in dev",), ("each seeded",),
-             "to_seed = project.batch_tables(NAME, seeded=True)\n"
-             "if not to_seed:\n"
-             '    print("Seeded nothing: no table of the batch reads itself.")\n'
-             "else:\n"
-             '    run_execute(hive_settings("dynamic_partitions"), execute)\n'
-             "    for table in to_seed:\n"
-             "        run_execute(project.load(table).seed(), execute)", every_table_seeded,
-             send=seed_the_batch,
-             goal="each table that reads itself holding its original's rows, once",
-             action="run the cell below. It sends the Session setting their Partitions need, "
-             "then each such table's `seed()`, through your execute. If no table of the batch "
-             "reads itself, then this step is done once step 4 is, and the cell sends nothing "
-             "and prints that it seeded nothing.",
-             done_when="admin/sent.csv records the seed of each table that reads itself"),
-        Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
+        Step("Write each table in dev", PERMISSION, ("each made in dev",),
+             ("each written in dev",),
+             "print(project.seed_tables(project.batch_tables(NAME), query=query,\n"
+             "                          execute=execute))\n"
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
              every_table_written, send=write_the_batch,
-             goal="each table's rows written in your Dev Database",
-             action="run the cell below. `project.run_tables` sends each table's `write()` "
+             goal="each table's rows written in your Dev Database, each History table's past "
+             "rows loaded first, its Seed",
+             action=SEED_ACTION + " Then `project.run_tables` sends each table's `write()` "
              "through your execute.",
              done_when="admin/sent.csv records each table written"),
         Step("Compare each table with its original",
@@ -1250,9 +1349,10 @@ CONVERT = Workflow(
              "already, then the same: list them in PARTITIONS and run this step's cell, or "
              '"Run the rest", which compares a finished batch again whenever PARTITIONS '
              "lists a Partition, and says the batch was finished.",
-             done_when="every result in each table's `conversion/compare.md` says Passed, "
-             "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
-             "with a result that failed is one promote refuses"),
+             done_when="each table's `conversion/compare.md` holds a result, and the "
+             "batch's folder has moved to admin/workflows/convert/finished/. A result that "
+             "failed, or a table not compared, stops nothing: its `compare.md` says so first, "
+             "and promote promotes it all the same, naming it, as promoting is your call"),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
                   "for the run cells alone, a list of batches converted already); unused when "
@@ -1278,7 +1378,7 @@ CONVERT = Workflow(
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept"),
-            Input("PARTITIONS", [], "the Partitions for step 7 to compare besides the "
+            Input("PARTITIONS", [], "the Partitions for step 6 to compare besides the "
                   'latest, each a dict, such as [{"dt": "2026-09-23"}], each value with no '
                   "quotes of its own: [] compares only the latest Partition your dev table and "
                   "its original both hold")),
@@ -1290,10 +1390,10 @@ CONVERT = Workflow(
     checks=("Each table the scripts write has its Table folder in tables/ and its Table "
             "reference in references/.",
             "Each table's `conversion/checklist.md` says None under Open Decisions.",
-            "admin/sent.csv records each table created and written, and each that reads itself "
-            "seeded.",
-            "Each table's `conversion/compare.md` says it passed, and the batch's folder is in "
-            "admin/workflows/convert/finished/.",
+            "admin/sent.csv records each table created and written, and each History table "
+            "seeded first.",
+            "Each table's `conversion/compare.md` holds a result, and you have read each that "
+            "didn't pass, and the batch's folder is in admin/workflows/convert/finished/.",
             "`project.check()` names no next step of this batch, and names it under Done."),
 )
 
@@ -1347,30 +1447,17 @@ PROMOTE = Workflow(
              action="run the cell below. It sends each prod copy's `create()` through your "
              "execute.",
              done_when="admin/sent.csv records a create of each prod copy"),
-        Step("Seed each prod table that reads itself, once, from its original", PERMISSION,
-             ("each made in prod",), ("each seeded in prod",),
-             "to_seed = project.promoted_tables(TABLES, seeded=True)\n"
-             "if not to_seed:\n"
-             '    print("Seeded nothing: no prod copy reads itself.")\n'
-             "else:\n"
-             '    run_execute(hive_settings("dynamic_partitions"), execute)\n'
-             "    for table in to_seed:\n"
-             "        run_execute(project.load(table).seed(), execute)",
-             every_prod_table_seeded, send=seed_the_prod_copies,
-             goal="each prod copy that reads itself holding its original's rows, once: a prod "
-             "copy's original is its dev copy's original",
-             action="run the cell below. It sends the Session setting their Partitions need, "
-             "then each such prod copy's `seed()`, through your execute. If no prod copy reads "
-             "itself, then this step is done once step 4 is, and the cell sends nothing and "
-             "prints that it seeded nothing.",
-             done_when="admin/sent.csv records the seed of each prod copy that reads itself"),
-        Step("Write each table in prod", PERMISSION, ("each seeded in prod",),
+        Step("Write each table in prod", PERMISSION, ("each made in prod",),
              ("each written in prod",),
+             "print(project.seed_tables(project.promoted_tables(TABLES), query=query,\n"
+             "                          execute=execute))\n"
              "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
              every_prod_table_written, send=write_the_prod_copies,
-             goal="each prod copy's rows written in your Prod Database",
-             action="run the cell below. `project.run_tables` sends each prod copy's `write()` "
-             "through your execute.",
+             goal="each prod copy's rows written in your Prod Database, each History table's "
+             "past rows loaded first, its Seed: from its dev copy's original, or, where that "
+             "has none, from its dev copy",
+             action=PROD_SEED_ACTION + " Then `project.run_tables` sends each prod copy's "
+             "`write()` through your execute.",
              done_when="admin/sent.csv records each prod copy written since it was last "
              "promoted"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
@@ -1391,8 +1478,8 @@ PROMOTE = Workflow(
     checks=("Each dev table in `TABLES` has a prod copy: its Table folder in tables/ and its "
             "Table reference in references/.",
             "Each prod copy's Table reference has its `location=` and leaves no Decision open.",
-            "admin/sent.csv records each prod copy created and written, and each that reads "
-            "itself seeded.",
+            "admin/sent.csv records each prod copy created and written, and each History "
+            "table seeded first.",
             "references/reference_sheet.csv lists each prod copy's columns.",
             "`project.check()` names no next step of this Workflow."),
 )
@@ -1406,16 +1493,17 @@ NEW_TABLE = Workflow(
     steps=(
         Step("Make each Table folder, converting each table's query QUERIES gives",
              FILE_STEP, ("the tables' names",), ("a Table folder",),
-             "project.new_table(TABLES, queries=QUERIES)", every_table_folder_made,
-             make_table_folders,
+             "project.new_table(TABLES, queries=QUERIES, query=query)",
+             every_table_folder_made, make_table_folders, send=make_table_folders_reading,
              goal="a Table folder for each table in `TABLES`: from its query, when `QUERIES` "
              "gives one, its logic written for you; else from a Template, its logic for you to "
              "write",
-             action="if `QUERIES` gives a query, first give each table it reads a Table "
-             "reference, with the references Workflow. Then run the cell below. Each query is "
-             "converted as the convert Workflow converts one: in a batch of its own, named for "
-             "its table, in `admin/workflows/convert/`; the batch moves to `finished/` once "
-             "compared.",
+             action="run the cell below. If `QUERIES` gives a query, each table it reads that "
+             "has no Table reference gets one first, from its DESCRIBE through your query, its "
+             "Key proposed, as the references Workflow writes one: it names each file it "
+             "added. Each query is converted as the convert Workflow converts one: in a batch "
+             "of its own, named for its table, in `admin/workflows/convert/`; the batch moves "
+             "to `finished/` once compared.",
              done_when="each table in `TABLES` has its Table folder in tables/"),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"), ("its logic",),
@@ -1433,8 +1521,9 @@ NEW_TABLE = Workflow(
              "below: it says what stops each table's logic, if anything does.",
              done_when="the cell below runs with no error"),
         Step("Write each Table reference from its logic", FILE_STEP, ("its logic",),
-             ("its Table reference",), "project.reference_from_logic(TABLES)",
+             ("its Table reference",), "project.reference_from_logic(TABLES, query=query)",
              every_reference_from_logic, write_references_from_logic,
+             send=write_references_from_logic_reading,
              goal="each table's Table reference written from its logic: its columns and types "
              "from `preview()`, its partition columns from `PARTITIONED_BY`, and the Key its "
              "logic makes",
@@ -1477,10 +1566,13 @@ NEW_TABLE = Workflow(
              ("written in dev",),
              "for table in TABLES:\n"
              "    run_execute(project.load(table).create(), execute)\n"
+             "print(project.seed_tables(TABLES, query=query, execute=execute))\n"
              "project.run_tables(tables=TABLES, execute=execute)", every_table_written,
              send=create_and_write_the_tables,
-             goal="each table made and written in your Dev Database",
-             action="run the cell below. It sends each table's `create()`, then "
+             goal="each table made and written in your Dev Database, each History table's past "
+             "rows loaded first, its Seed",
+             action="run the cell below. It sends each table's `create()`, through your "
+             "execute. " + SEED_ACTION.removeprefix("run the cell below. ") + " Then "
              "`project.run_tables` sends each table's `write()`, through your execute.",
              done_when="admin/sent.csv records each table written"),
         Step("Compare each table made from a query with its query", PERMISSION,
@@ -1492,8 +1584,10 @@ NEW_TABLE = Workflow(
              action="run the cell below. `project.compare_batch` compares each with its query, "
              "through your query, and writes the result in its `conversion/compare.md`. If "
              "`QUERIES` gives no query, this step is done once step 7 is.",
-             done_when="each table made from a query has a `conversion/compare.md` that says "
-             "it passed"),
+             done_when="each table made from a query has a `conversion/compare.md` that "
+             "holds a result. A result that failed, or a table not compared, stops nothing: "
+             "its `compare.md` says so first, and promote promotes it all the same, naming it, "
+             "as promoting is your call"),
     ),
     inputs=(Input("TABLES", [], 'the new tables, by their names in the warehouse, such as '
                   '["mart_dev.daily_job_runs"]', starts=True),
@@ -1508,7 +1602,8 @@ NEW_TABLE = Workflow(
             "with no error.",
             "Each table's Table reference lists its columns and leaves no Decision open.",
             "admin/sent.csv records each table created and written.",
-            "Each table made from a query has a `conversion/compare.md` that says it passed.",
+            "Each table made from a query has a `conversion/compare.md` that holds a result, "
+            "one that failed or wasn't compared saying so first.",
             "`project.check()` names no next step of this Workflow."),
 )
 
@@ -1739,13 +1834,17 @@ DECISIONS_CELL = (
     "# accepts each table's proposed Key and gives each table holding PERIOD_END that\n"
     "# value. A table's location is placed under \"location_root\" in\n"
     '# admin/databases.py; answer "location" only for one it can\'t place.\n'
+    '# "kind" says whether each write replaces the whole table, "rebuilt", or keeps the\n'
+    '# rows already there, "history", as a daily table keeps each day: "proposed" accepts\n'
+    "# the kind proposed from its write, which project.check() names, and under\n"
+    '# "all_tables" accepts each table\'s.\n'
     "# A tag may be answered with a Run value's function of your Project's, imported above\n"
     '# DECISIONS, such as "PERIOD_END": period_end. For a table\'s latest Partition, write\n'
-    '# project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top\n'
-    "# of this cell, the import it prints under it, and run the cell once: it writes the\n"
-    '# function into building_blocks/run_values.py. And "seed", such as\n'
-    '# {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself\n'
-    "# copies: how-to 09 shows both.")
+    '# project.new_run_value("period_end", latest_partition="ops.job_runs.dt",\n'
+    "# query=query) at the top of this cell, the import it prints under it, and run the cell\n"
+    '# once: it writes the function into building_blocks/run_values.py. And "seed", such as\n'
+    '# {"months": 1}, limits the past rows a History table\'s Seed loads before its first\n'
+    "# write: how-to 09 shows both, and how-to 34 the Seed.")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
@@ -1802,6 +1901,13 @@ NOTEBOOK_TERMS = {
                 "workbook, the rows the query gives.",
     "reads itself": "a table whose own script reads it, such as a running total, seeded once "
                     "from its original before its first write.",
+    "Rebuilt table": "a Saved table each write replaces whole, so its first write leaves it "
+                     "complete.",
+    "History table": "a Saved table each write keeps, adding rows or replacing some, such as "
+                     "one day's Partition, so a new copy needs its past rows loaded first.",
+    "Seed": "a History table's past rows, loaded once before its first write: copied from "
+            "its original, or written by its own write as of each past day, as SEED in its "
+            "Table reference picks them.",
     "staging table": "a table one script makes and a later one reads, folded into the table "
                      "that reads it or kept as a Saved table of its own.",
     "batch": "the scripts converted together, under one name.",
@@ -1959,9 +2065,9 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
         ("code", DECISIONS_CELL),
         ("markdown", f"## {RUN_THE_REST}\n\nRun the cell below once the decisions cell above "
          "is filled in and saved: the same call again, it goes on from where the cell before "
-         "stopped, and it too stops at the first step only you can do: a refusal, a compare "
-         "that failed, or a Decision left open, each named. Mend what it names, such as an "
-         "answer in the decisions cell, save, and run this cell again."),
+         "stopped, and it too stops at the first step only you can do: a refusal or a "
+         "Decision left open, each named; a compare that failed stops nothing. Mend what it "
+         "names, such as an answer in the decisions cell, save, and run this cell again."),
         ("code", run_cell_text(workflow, RUN_THE_REST)),
         ("markdown", f"# {STEP_BY_STEP}\n\nEach step's own cell, to run or run again one step "
          "on purpose; the cells above run them all for you."),
@@ -1971,8 +2077,9 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next. One
-    that reads straight down opens with its intended path, each step's cell below it."""
-    cells = [("markdown", about_cell(workflow)), ("code", "\n".join(path_lines))]
+    that reads straight down opens with its intended path, each step's cell below it. The
+    lines that find the Project, its setup cell, are as write_notebook writes them."""
+    cells = [("markdown", about_cell(workflow)), cell_as_written("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
     straight_down = reads_straight_down(workflow)
@@ -2004,8 +2111,8 @@ def run_cell_text(workflow: Workflow, heading: str = "") -> str:
                  "# Decision, whose DECISIONS it prints to paste into the cell under it.\n")
     elif heading == RUN_THE_REST:
         first = (f"# {heading}: the same call, run again once you have answered: it goes\n"
-                 "# on from where it stopped, and stops again at a refusal, a compare that\n"
-                 "# failed or a Decision left open.\n")
+                 "# on from where it stopped, and stops again at a refusal or a Decision left\n"
+                 "# open; a compare that failed stops nothing.\n")
     elif heading:
         first = f"# {heading}: every step left, up to the first only you can do.\n"
     return (first + "# Add dry_run=True to see the Hive it would send, sending nothing through "
@@ -2159,9 +2266,10 @@ def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
 
 
 def is_finished(root: Path, workflow: Workflow, inputs: dict[str, object]) -> bool:
-    """Whether the batch NAME names is finished: each table compared and passed, its folder
-    moved to finished/, so no step of it is left. Only convert's batches finish: the schedule
-    Workflow's NAME, a Scheduled run's, is never one, whatever batch shares its name."""
+    """Whether the batch NAME names is finished: each table compared, passed or not, its
+    folder moved to finished/, so no step of it is left. Only convert's batches finish: the
+    schedule Workflow's NAME, a Scheduled run's, is never one, whatever batch shares its
+    name."""
     name = inputs.get("NAME")
     return (workflow is CONVERT and isinstance(name, str) and bool(name)
             and (root / BATCHES / FINISHED / name).is_dir())

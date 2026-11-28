@@ -186,7 +186,7 @@ def test_the_runner_runs_each_cell_in_turn_from_the_notebooks_folder(
     assert notebook_runner.run_notebook(notebook) == 1
     shown = capsys.readouterr().out
     assert "printed" in shown and "'work'" in shown and "ValueError: stops here" in shown
-    assert "--- stopped at cell 4" in shown and "never" not in shown
+    assert "--- stopped at code cell 4" in shown and "never" not in shown
 
 
 def test_a_run_holds_what_the_user_has_and_nothing_of_the_key(
@@ -920,7 +920,12 @@ def test_the_runner_lists_each_code_cell_by_its_number_and_first_line(
     notebook.write_text(json.dumps({"cells": cells}), encoding="utf-8")
     arguments = [str(notebook), "--list"] if path_first else ["--list", str(notebook)]
     assert notebook_runner.main(arguments) == 0
-    assert capsys.readouterr().out == "1: import pathlib\n2: # names\n"
+    # Usability run W11 (2026-11-28): it says plainly that it counts code cells alone, and
+    # gives each one's place among all the cells too.
+    assert capsys.readouterr().out == (
+        "Code cells, numbered as --cells takes them: code cells alone, counted from 1, text "
+        "cells not counted. Each one's place among all the notebook's cells is in brackets.\n"
+        "1 [cell 2 of all]: import pathlib\n2 [cell 4 of all]: # names\n")
 
 
 def _tagged_notebook(path: Path, tagged: bool = True) -> Path:
@@ -959,7 +964,7 @@ def test_the_runner_refuses_parameters_when_cells_leaves_out_the_tagged_cell(
     assert notebook_runner.main([str(notebook), "--cells", "2", "-p", "WEEK", "x"]) == 1
     shown = capsys.readouterr().out
     assert "code cell 1, tagged parameters" in shown and "--cells" in shown
-    assert "--- cell" not in shown
+    assert "--- code cell" not in shown
     assert notebook_runner.main([str(notebook), "--cells", "1-2", "-p", "WEEK", "x"]) == 0
 
 

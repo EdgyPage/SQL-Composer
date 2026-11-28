@@ -1,4 +1,4 @@
-# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.9)
+# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each whole-column total
 and Total Row in Patterns, then write the Hive its rule gives.**

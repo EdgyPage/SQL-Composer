@@ -1,10 +1,10 @@
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.9)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database
-with sqlglot Composer 8.9, each step a cell of the convert Workflow's notebook, in order.
+with sqlglot Composer 8.10, each step a cell of the convert Workflow's notebook, in order.
 Load this file when the user asks to turn Hive into tables. File 16 promotes to prod; file
 14 covers new tables, Table references, upgrades and changes to a Saved table.
 
@@ -75,11 +75,11 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
 
 ## The steps of convert
@@ -94,29 +94,21 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-       to_seed = project.batch_tables(NAME, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no table of the batch reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.batch_tables(NAME), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 

@@ -158,11 +158,20 @@ Done when the registry has six rows, none removed. Then step 3.
 
 ### 3. Check the registry against the files
 
-Goal: know whether the registry and the files agree. `project.check()`, which the admin
-notebook admin/check_project.ipynb runs, compares the registry with the files, and changes
-nothing:
+Goal: know whether the registry and the files agree. `project.check()` compares the registry
+with the files, and changes nothing:
 
 >>> project.check()
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
+
+The admin notebook admin/check_project.ipynb runs it given your query, which also reads the
+days each History table holds, a table whose writes keep its past days: it warns of each day
+the table's Seed, its past days loaded once, should have loaded and it lacks. The warning
+stops nothing; [Load a History table's past days](#load_a_history_tables_past_days) shows it.
+This Project has no History table, so it says the same:
+
+>>> project.check(query=query)
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
 
@@ -452,6 +461,8 @@ only shows it.
 
 - Start the Intermediate how-tos, from the Intermediate Example project, such as [Rewrite some
   partitions](#rewrite_some_partitions).
+- A History table's past days, and the warning `project.check(query=query)` gives while one
+  is missing: [Load a History table's past days](#load_a_history_tables_past_days).
 - Move a Saved table that shares its folder: [Move a Saved table to its own
   folder](#move_a_saved_table_to_its_own_folder).
 - The gallery's [`check_table_reference`](examples.html#check_table_reference) and

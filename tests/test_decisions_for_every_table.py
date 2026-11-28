@@ -1,8 +1,9 @@
 """Decisions for every table: DECISIONS["all_tables"] answers for every table a Workflow's
 notebook names, and a table's own answer overwrites it. Toolbox 8.4, ticket 08.
 
-It takes "seed", for the seed's limits, "tags", and "key": "proposed" (8.5), accepting each
-proposed Key; a type and a location are each table's own. 8.4's "location_root" is a Database
+It takes "seed", for the seed's limits, "tags", "key": "proposed" (8.5), accepting each
+proposed Key, and "kind" (8.10, ticket 04), Rebuilt or History, or "proposed"; a type and a
+location are each table's own. 8.4's "location_root" is a Database
 setting since 8.5 (ticket 09), in admin/databases.py, and refused here.
 project.write_decisions is given the notebook's tables with tables=, as each Workflow's step
 cell does, and says which tables each answer of all_tables was written into.
@@ -73,15 +74,42 @@ def _reference(root: Path, table: str) -> str:
 
 
 def test_all_tables_answers_every_table_the_notebook_names(converted: Path) -> None:
-    every = {"tags": {"PERIOD_END": "'2026-09-24'"}}
+    # Toolbox 8.10, ticket 04: each table's kind too, nothing proposed for PARTITION (dt); and
+    # ticket 05, its seed limits, as the Example database can't list the originals' Partitions.
+    every = {"tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history", "seed": {}}
     said = repr(project.write_decisions({"all_tables": every},
                                         tables=project.batch_tables("closing")))
     for table in BATCH:
         reference = _reference(converted, table)
         assert f'    location="/data/team/mart_dev.db/{table.split(".")[1]}",' in reference
         assert '    "PERIOD_END": "\'2026-09-24\'",  # bare' in reference
+        assert ('KIND = "history"  # answered, nothing proposed: its INSERT OVERWRITE fills dt'
+                in reference)
+        assert decisions.table_kind(reference) == decisions.TableKind.HISTORY
         assert f"Each Decision of {table} is made." in said
     assert f"all_tables: tags: PERIOD_END: written into {DAILY} and {WEEKLY}." in said
+    assert f'all_tables: kind "history": written into {DAILY} and {WEEKLY}.' in said
+
+
+def test_a_tables_own_kind_overwrites_all_tables_and_answering_again_changes_it(
+        converted: Path) -> None:
+    said = repr(project.write_decisions({"all_tables": {"kind": "history"},
+                                         WEEKLY: {"kind": "rebuilt"}}, tables=BATCH))
+    assert decisions.table_kind(_reference(converted, DAILY)) == decisions.TableKind.HISTORY
+    assert decisions.table_kind(_reference(converted, WEEKLY)) == decisions.TableKind.REBUILT
+    assert (f'all_tables: kind "history": written into {DAILY}. {WEEKLY} keeps its own kind.'
+            in said)
+    project.write_decisions({DAILY: {"kind": "rebuilt"}})
+    assert decisions.table_kind(_reference(converted, DAILY)) == decisions.TableKind.REBUILT
+
+
+def test_all_tables_accepting_each_proposed_kind_leaves_one_with_none_open(
+        converted: Path) -> None:
+    said = repr(project.write_decisions({"all_tables": {"kind": "proposed"}}, tables=BATCH))
+    assert decisions.table_kind(_reference(converted, DAILY)) is None
+    assert (f'all_tables: kind "proposed": written into no table. {DAILY} and {WEEKLY} have '
+            'nothing proposed, so their kinds stay open: answer "kind" under each name.'
+            in said)
 
 
 def test_a_tables_own_answer_overwrites_all_tables_kind_by_kind(converted: Path) -> None:
@@ -141,14 +169,19 @@ def test_a_seed_under_all_tables_is_passed_through_for_each_table() -> None:
      f"table at once: answer it under the name of each table it is for, {DAILY} and {WEEKLY}"),
     ({"location": "/data/team"},
      "all_tables: 'location' is no kind of answer for every table; all_tables answers key, "
-     "seed and tags"),
+     "seed, tags and kind"),
+    # Toolbox 8.10, ticket 04.
+    ({"kind": "daily"},
+     "all_tables: kind: 'daily' is no kind of table: answer \"rebuilt\", \"history\" or "
+     "\"proposed\", which accepts each table's proposed kind"),
     # Toolbox 8.5, ticket 09: the root is a Database setting.
     ({"location_root": "/data/team"},
      'all_tables: location_root is a Database setting now: give it as "location_root" in DEV '
      "and PROD, in admin/databases.py"),
     ({"tags": "'2026-09-24'"},
      "all_tables: tags: give a dict of each answer by its name"),
-], ids=["tag held by no table", "key", "types", "location", "root", "tags not a dict"])
+], ids=["tag held by no table", "key", "types", "location", "kind", "root",
+        "tags not a dict"])
 def test_an_answer_all_tables_cant_give_is_refused_writing_nothing(
         converted: Path, every: dict, said: str) -> None:
     before = _reference(converted, DAILY)
@@ -224,6 +257,11 @@ def test_a_tag_bare_in_one_table_and_quoted_in_another_stays_with_each() -> None
 def test_check_offers_all_tables_for_the_batch(converted: Path) -> None:
     said = repr(project.check())
     assert '    "all_tables": {' in said
+    # Toolbox 8.10, ticket 04: a kind with nothing proposed, for both, is offered there too.
+    assert '        "kind": "<FILL IN>",  # "rebuilt" or "history", for each table' in said
+    # Ticket 05: a seed limit with nothing proposed, for both, once there too.
+    assert ('''        "seed": "<FILL IN>",  # the past rows each History table's Seed loads'''
+            in said)
     assert f'    "{DAILY}": {{' not in said
 
 
@@ -234,6 +272,12 @@ def test_the_decision_step_is_done_once_all_tables_answers_each(converted: Path)
     inputs = {"NAME": "closing", "TABLES": BATCH, "DECISIONS": {"all_tables": {}}}
     assert not workflows.every_dev_decision_answered(converted, inputs)
     inputs["DECISIONS"]["all_tables"]["tags"] = {"PERIOD_END": "'2026-09-24'"}
+    # Toolbox 8.10, ticket 04: nothing is proposed for PARTITION (dt), so the kind waits.
+    assert not workflows.every_dev_decision_answered(converted, inputs)
+    inputs["DECISIONS"]["all_tables"]["kind"] = "history"
+    # Ticket 05: a History table's seed limits wait too, nothing proposed for them here.
+    assert not workflows.every_dev_decision_answered(converted, inputs)
+    inputs["DECISIONS"]["all_tables"]["seed"] = {"dt": "2026-09-01"}
     assert workflows.every_dev_decision_answered(converted, inputs)
 
 
@@ -241,7 +285,9 @@ def test_each_write_step_gives_write_decisions_the_notebooks_tables() -> None:
     calls = {workflow.name: step.call for workflow in workflows.WORKFLOWS
              for step in workflow.steps if step.call.startswith("project.write_decisions(")}
     assert calls == {
-        "convert": "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
+        # Toolbox 8.10, ticket 02: convert's takes your query too, for a "sources" answer.
+        "convert": "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),\n"
+                   "                        query=query)",
         "promote": "project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))",
         "new_table": "project.write_decisions(DECISIONS, tables=TABLES)",
         "references": "project.write_decisions(DECISIONS, tables=TABLES)",
@@ -252,7 +298,7 @@ def test_do_next_writes_all_tables_into_every_table_of_the_batch(converted: Path
     (step,) = [each for each in workflows.CONVERT.steps if each.run is not None
                and each.call.startswith("project.write_decisions(")]
     step.run({"NAME": "closing", "TABLES": BATCH, "DECISIONS": {"all_tables": {
-        "tags": {"PERIOD_END": "'2026-09-24'"}}}})
+        "tags": {"PERIOD_END": "'2026-09-24'"}, "kind": "history", "seed": {}}}})
     assert workflows.every_dev_decision_made(converted, {"NAME": "closing", "TABLES": BATCH})
 
 

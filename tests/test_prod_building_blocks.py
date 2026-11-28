@@ -96,7 +96,10 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     project.convert("weekly", files=["weekly.hql"], query=example_database.query,
                     database="ops")
     for table in (FAILED, PER_JOB):
-        project.write_decisions({table: {"key": None}})
+        project.write_decisions({table: {"key": None, "kind": "proposed"}})
+    # The History one's seed limits, which nothing proposes where the Example database can't
+    # list the original's Partitions (Toolbox 8.10); FAILED, proposed Rebuilt, has none.
+    project.write_decisions({PER_JOB: {"seed": {}}})
     import_the_block(tmp_path, PER_JOB)
     forget_the_projects_modules()
     project.compare_batch("weekly", query=warehouse())

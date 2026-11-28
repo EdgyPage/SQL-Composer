@@ -5,7 +5,8 @@ sqlglot's executor runs a query in Python, over rows held in memory: it reaches 
 warehouse and no file. It knows only part of Hive, so `run_on_executor` first works out, in
 Hive's own way, what it has no Python for: GROUPING SETS and ROLLUP, window functions, a
 grouped column beside an aggregate, an escaped LIKE, a CASE on one column, a CAST to text, and
-two reads of one table stacked with UNION ALL. A part it still can't run, such as a function
+two reads of one table stacked with UNION ALL; and it compares text with a number as Hive
+does, reading the text as a number. A part it still can't run, such as a function
 it has no Python for, stops it with a MissingPart naming that part, never a guess.
 
 Two places run Hive on it: the Workbook check (`workbook_check.py`), over a Formula
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import decimal
 import functools
 import re
 from collections.abc import Callable, Iterator
@@ -28,6 +30,7 @@ from sqlglot.executor import env
 from sqlglot.executor import table as executed
 from sqlglot.optimizer.scope import traverse_scope
 
+from .shared import number_read_from
 from .writing import executed_hive, optimized_hive, qualified_hive, sql_text
 
 # The database the tables made while windows are worked out are held in, apart from any the
@@ -97,6 +100,35 @@ def _next_day(day: object, weekday: object) -> str | None:
 HIVE_DAYS: dict[str, Callable[..., object]] = {"TSORDSADD": _date_add, "NEXTDAY": _next_day}
 
 
+def _compared_as_hive_compares(compare: Callable[..., object]) -> Callable[..., object]:
+    """One of the executor's comparisons, made to compare as Hive does (Toolbox 8.10, ticket
+    09): given text and a number, it reads the text as a number, or as NULL where it reads as
+    none, as job_id = '3' matches 3 in Hive. Python's own == would match nothing."""
+    def compared(*values: object) -> object:
+        has_text = any(isinstance(value, str) for value in values)
+        has_number = any(isinstance(value, (int, float, decimal.Decimal))
+                         and not isinstance(value, bool) for value in values)
+        if has_text and has_number:
+            values = tuple(_number_or_value(value) for value in values)
+        return compare(*values)
+    return compared
+
+
+def _number_or_value(value: object) -> object:
+    """Text as the number Hive reads it as, None where it reads as none; any other value as it
+    is."""
+    if isinstance(value, str):
+        return number_read_from(value)
+    return value
+
+
+# The executor's comparisons, by its name for each, each comparing text and a number as Hive
+# does: taught to it each time it runs.
+_HIVE_COMPARISONS: dict[str, Callable[..., object]] = {
+    name: _compared_as_hive_compares(env.ENV[name])
+    for name in ("EQ", "NEQ", "GT", "GTE", "LT", "LTE", "BETWEEN", "IN")}
+
+
 def run_on_executor(tree: exp.Expression, schema: dict[str, dict[str, dict[str, str]]],
                     rows: dict[str, dict[str, list[dict[str, object]]]],
                     functions: dict[str, Callable[..., object]]
@@ -114,7 +146,8 @@ def run_on_executor(tree: exp.Expression, schema: dict[str, dict[str, dict[str, 
         # Grouping sets stack a SELECT per set, so they are worked out before the stacked reads
         # are told apart.
         tree = _stacked_reads_told_apart(_work_out_grouping_sets(tree), schema)
-        with _joined_tables_kept_apart(), _functions_taught(functions):
+        with _joined_tables_kept_apart(), _functions_taught({**_HIVE_COMPARISONS,
+                                                             **functions}):
             def run(query: exp.Expression) -> executed.Table:
                 spelled_out = _make_casts_plain(_spell_out_cases(_spell_out_likes(query)))
                 return executed_hive(_work_out_mixed_groups(spelled_out), schema, rows)

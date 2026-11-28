@@ -7,8 +7,10 @@ can be (ADR 0014). These tests read the Python it writes; tests/test_conversions
 
 from __future__ import annotations
 
+import re
+
 import pytest
-from conftest import toolbox_module
+from conftest import toolbox_folder, toolbox_module
 
 converting = toolbox_module("converting")
 
@@ -231,6 +233,35 @@ def test_sort_arrays_false_is_kept_saying_your_hive_may_refuse_it(name: str) -> 
     assert ("line 1: SORT_ARRAY's FALSE is kept as written, though Hive's SORT_ARRAY takes one "
             "argument and sorts ascending, so your Hive may refuse it: if it does, and "
             "ascending will do, take out its second argument") in found(done, "kept")
+
+
+def test_sort_arrays_false_is_kept_in_a_query_kept_whole() -> None:
+    done = convert_sorted("SELECT run_id, SORT_ARRAY(COLLECT_SET(exception_reason), FALSE) "
+                          "AS r, (SELECT MAX(dt) FROM ops.exceptions) + 1 AS m "
+                          "FROM ops.exceptions GROUP BY run_id")
+    assert done.kept_whole
+    assert "SORT_ARRAY(COLLECT_SET(exception_reason), FALSE) AS r" in done.query
+
+
+# Toolbox 8.10, ticket 01: Spark's ARRAY_SORT(x) in someone else's Hive becomes Hive's
+# SORT_ARRAY(x), as sqlglot writes it, with no finding of the Toolbox's own about it.
+@pytest.mark.parametrize("name", list(SORT_ARRAY_SHAPES))
+def test_array_sort_becomes_sort_array_as_sqlglot_writes_it(name: str) -> None:
+    hive = SORT_ARRAY_SHAPES[name].format(t="")
+    sorted_by_spark = convert_sorted(re.sub("sort_array", "array_sort", hive,
+                                            flags=re.IGNORECASE))
+    sorted_by_hive = convert_sorted(hive)
+    assert python_of(sorted_by_spark) == python_of(sorted_by_hive)
+    assert ([str(one) for one in sorted_by_spark.findings]
+            == [str(one) for one in sorted_by_hive.findings])
+
+
+def test_only_the_engine_asks_which_array_sort_sqlglot_has() -> None:
+    # Toolbox 8.10, ticket 01: sqlglot 30.24.0 removed SortArray; engine.py answers which
+    # shape this sqlglot has, by what it holds, and every other file asks it.
+    naming = sorted(path.name for path in toolbox_folder().glob("*.py")
+                    if "SortArray" in path.read_text(encoding="utf-8"))
+    assert naming == ["engine.py"]
 
 
 def test_hive_function_still_takes_sort_arrays_second_argument() -> None:

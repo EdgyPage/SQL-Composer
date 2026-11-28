@@ -117,8 +117,8 @@ connect(conn)
 ```
 
 If your team keeps its connection in a file outside the Project, such as a file
-team_connection.py, then write these lines in place of that line: they put that file's folder
-on Python's path, then import it.
+team_connection.py, then write these lines in place of the line `# connect(your_connection)`,
+each on a line of its own: they put that file's folder on Python's path, then import it.
 
 ```python
 sys.path.append("C:/work/connections")  # the folder team_connection.py is in
@@ -562,10 +562,13 @@ whose cells create, preview and write it. The new_table Workflow,
 `admin/workflows/new_table/new_table.ipynb`, takes you from its name to the table written in
 dev.
 
-1. **Add what it reads.** Goal: a Table reference for each table the new table reads, from its
-   query or from logic you write. Action: add them with the references Workflow,
-   `admin/workflows/references/references.ipynb`, before you run the new_table Workflow. Done
-   when each has its file in `references/`; then step 2.
+1. **Add what it reads.** Goal: a Table reference for each table the new table reads. Action:
+   if you give its query in step 2, do nothing here: the new_table Workflow's first step adds
+   each table the query reads that has none, from its DESCRIBE, its Key proposed, and names
+   each file it added. If you write its logic yourself, add them with the references
+   Workflow, `admin/workflows/references/references.ipynb`, before you run the new_table
+   Workflow. Done when each has its file in `references/`, or you have its query; then
+   step 2.
 2. **Name the table.** Goal: the Workflow knows what to make. Action: name the table in the
    new_table Workflow's names cell, by the rules below, and save the notebook. Done when the
    names cell holds it; then step 3.
@@ -592,12 +595,18 @@ Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writ
 5. **Write its Table reference.** Goal: the stand-in replaced. Action: run the step
    `project.reference_from_logic`, which writes it from the logic you wrote: its columns and
    types from `preview()`, its partition columns from the logic's `PARTITIONED_BY`, its Key,
-   and its location, placed under DEV's `"location_root"`. Done when its file in
+   and its location, placed under DEV's `"location_root"`. It also writes its kind, `KIND`,
+   Rebuilt or History, proposed from its write, a Decision you answer in the Workflow's
+   decisions cell, and for a History table its Seed, `SEED`, its past days loaded once before
+   its first write, as [Load a History table's past
+   days](../docs/how_to.html#load_a_history_tables_past_days) shows. Done when its file in
    `references/` lists those columns; then step 6.
 6. **Write it.** Goal: its rows in the warehouse. Action: run
    `project.run_tables(execute=execute)`, which writes every Saved table, each after the tables
    it reads, sending the Session setting below first. With no execute, it prints each write's
-   Hive in order and sends nothing. Done when it has sent each write; then step 7.
+   Hive in order and sends nothing. The new_table Workflow's write step runs
+   `project.seed_tables` before it, which loads each History table's Seed once, while the
+   table holds no Partition. Done when it has sent each write; then step 7.
 7. **Write its Hive file.** Goal: the table's Hive to read at a glance. Action: run its
    notebook's Hive cell, `export_hive()`, which writes it into `<db>__<table>.hql` beside the
    notebook: `create()`, then `write()`, in the order they are sent. Done when the file is
@@ -701,6 +710,10 @@ Goal: every file the registry lists is there, and every file there is registered
    - It also lists each line still marked `# proposed`, which blocks nothing, as below, where
      section 2's proposals are left as add_references wrote them: keep each by taking off its
      comment, or change it, and it goes from the list.
+   - If you run `admin/check_project.ipynb`, it gives `project.check` your query, and also
+     warns of each History table, one whose writes keep its past days, that lacks a day its
+     Seed should have loaded, or holds it with no rows. The warning stops nothing: write each
+     day it names.
 
 ```python
 >>> project.check()
@@ -805,7 +818,8 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    - If a tag stands for a day that changes each run, answer it with a **Run value**, the
      value a function of yours gives each time the table is written. For the latest day a
      table holds, write at the top of the decisions cell
-     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")`, then, under
+     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt", query=query)`,
+     which writes ops.job_runs's Table reference first if it has none, then, under
      it, this import line, which the call also prints:
      `from building_blocks.run_values import period_end`; and run the cell once: it writes the function into building_blocks/run_values.py and registers the
      file. Run again as it is, it changes nothing. Then give the function's name, with no
@@ -847,18 +861,26 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      `NOT IN (SELECT run_id FROM ...)`, the column the `NOT IN` reads, `{"key": ["run_id"]}`.
    - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
      or answer `"location"` for that table.
-   - If a table reads itself, its seed copies every Partition of its original unless you
-     limit it, by partition column: `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those
-     from 2026-01-01 on; a list, `{"region": ["US", "CA"]}`, those values alone. A single
-     value, `{"dt": "2026-01-01"}`, means **that value or later**.
+   - If each write of a table replaces the whole table, it is a **Rebuilt table**; if each
+     keeps the rows already there, replacing one day's Partition or adding rows, it is a
+     **History table**. That is its kind, a Decision proposed from its write: accept it with
+     `{"kind": "proposed"}`, under the table or `"all_tables"`. If nothing is proposed, as for
+     a write that fills its Partitions from its rows' own values, `PARTITION (dt)`, answer
+     `"rebuilt"` or `"history"`.
+   - If a table is a History table, its **Seed** copies its original's past rows into it
+     once, before its first write: `{"seed": {"months": 1}}`, proposed where a partition column
+     holds dates, copies one month back from the newest Partition; by partition column,
+     `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those from 2026-01-01 on, and a list,
+     `{"region": ["US", "CA"]}`, those values alone. A single value, `{"dt": "2026-01-01"}`,
+     means **that value or later**. A Rebuilt table has no Seed.
    - If an answer was wrong, answer it again and run "Run the rest" again: it writes the
      answers in, writes each table, and compares each. Each table is made and seeded already,
      so those steps stay done.
 5. **Run the rest.** Goal: each table written in dev and compared. Action: run the cell "Run
    the rest", under the decisions cell: it writes your answers in, creates each table in dev,
-   seeds each whose write reads its own table (copy its **original**'s rows in once, the
-   original being the table the script writes, so its first write doesn't start from
-   nothing, each Partition or those its `"seed"` answer names), writes each, and compares each
+   seeds each History table (copies its **original**'s rows in once, the original being the
+   table the script writes, so its first write doesn't start from nothing, the Partitions
+   its `"seed"` answer names), writes each, and compares each
    with the table it copies, `project.compare_batch`. A partitioned table is compared on the
    latest Partition both tables hold; `compare.md` says how many other Partitions both hold
    were not compared. To see which they are, run `query("SHOW PARTITIONS mart.team_fails")`
@@ -866,8 +888,11 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    Partition compared too, once your dev table holds it, then list it in `PARTITIONS` in the
    names cell, such as
    `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch too:
-   its `conversion/compare.md` keeps each Partition's result. Done when every result of each
-   table has passed; then step 6.
+   its `conversion/compare.md` keeps each Partition's result. A compare that fails, or a
+   query alone whose value only your program fills, which isn't compared, stops nothing: the
+   batch is finished all the same, and the warning at the top of that table's `compare.md`
+   says why, in plain words. Done when the batch is finished and you have read each warning;
+   then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: fill in PROD's
    `"database"` and `"location_root"` in `admin/databases.py`, then run the promote
    Workflow's cells top to bottom with `TABLES = []` left empty, which promotes every
@@ -875,8 +900,10 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    names cell's `[]` is read by the run cells, `project.run_workflow`, which work out those
    tables; `project.promote`, the call in step 1's own cell under Step by step, takes the
    tables by name, and refuses `project.promote([])`, naming the run cells. It carries each
-   to your Prod Database, keeping its name unless `rename=` gives it another. Done when each
-   is written in prod. What it carries, by the rules below:
+   to your Prod Database, keeping its name unless `rename=` gives it another; one whose
+   compare failed, or that wasn't compared, too, since promoting is your call: its report
+   names each first, as `Warning: promoting ...`. Done when each is written in prod. What it
+   carries, by the rules below:
    - If a prod copy was promoted before, it keeps that location; if not, it is placed under
      PROD's `"location_root"`; if that is not filled in, its location is a Decision, in the
      DECISIONS it prints.
@@ -891,7 +918,8 @@ How-to: [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_
 
 Before you go on, check:
 
-- Each table of the batch passed `project.compare_batch` before you promoted it.
+- Each table of the batch passed `project.compare_batch`, or you read the warning at the top
+  of its `compare.md` before you promoted it.
 - Each change you make to a promoted table is made in dev.
 
 ## The Workflows
@@ -931,8 +959,8 @@ The convert, promote, new_table and references notebooks read top to bottom, in 
    rules below:
    - If an answer was wrong, or a Decision is left open, it names it: mend it in the
      decisions cell, save, and run "Run the rest" again. You never go back up the notebook.
-   - If a step is refused, or a compare fails, it names why: mend what it names, then run
-     "Run the rest" again.
+   - If a step is refused, it names why: mend what it names, then run "Run the rest" again.
+     A compare that fails is no stop: its `compare.md` says why, first.
 
 How the rest of a notebook runs, by the rules below:
 
@@ -1018,9 +1046,8 @@ flowchart TD
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its table's Table reference"]:::files_only
     s3[["4. Create each table in dev"]]:::warehouse_call
-    s4[["5. Seed each table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in dev"]]:::warehouse_call
-    s6[["7. Compare each table with its original"]]:::warehouse_call
+    s4[["5. Write each table in dev"]]:::warehouse_call
+    s5[["6. Compare each table with its original"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
@@ -1029,9 +1056,8 @@ flowchart TD
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing
-    t8("each seeded"):::thing
-    t9("each written in dev"):::thing
-    t10("each compared with its original"):::thing
+    t8("each written in dev"):::thing
+    t9("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -1047,8 +1073,6 @@ flowchart TD
     s4 --> t8
     t8 --> s5
     s5 --> t9
-    t9 --> s6
-    s6 --> t10
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -1065,29 +1089,21 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-       to_seed = project.batch_tables(NAME, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no table of the batch reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.batch_tables(NAME), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
@@ -1102,9 +1118,8 @@ flowchart TD
     s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its prod table's Table reference"]:::files_only
     s3[["4. Create each table in prod"]]:::warehouse_call
-    s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in prod"]]:::warehouse_call
-    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
+    s4[["5. Write each table in prod"]]:::warehouse_call
+    s5["6. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -1112,9 +1127,8 @@ flowchart TD
     t4("each answer in the decisions cell"):::thing
     t5("each with its location="):::thing
     t6("each made in prod"):::thing
-    t7("each seeded in prod"):::thing
-    t8("each written in prod"):::thing
-    t9("each in the Reference sheet"):::thing
+    t7("each written in prod"):::thing
+    t8("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -1129,8 +1143,6 @@ flowchart TD
     s4 --> t7
     t7 --> s5
     s5 --> t8
-    t8 --> s6
-    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -1154,22 +1166,13 @@ flowchart TD
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
@@ -1226,7 +1229,7 @@ flowchart TD
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-       project.new_table(TABLES, queries=QUERIES)
+       project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
@@ -1237,7 +1240,7 @@ flowchart TD
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-       project.reference_from_logic(TABLES)
+       project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -1255,6 +1258,7 @@ flowchart TD
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
+       print(project.seed_tables(TABLES, query=query, execute=execute))
        project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
@@ -1886,7 +1890,8 @@ Before you go on, check:
   or you have read each difference.
 - Each final you keep converted from the workbook, or has its query saved as a .hql file, with
   no `<...>` left in it.
-- Each table the batch made has passed its compare in the convert notebook.
+- Each table the batch made has passed its compare in the convert notebook, or you have
+  read the warning at the top of its `compare.md`.
 
 ## Update
 
@@ -1973,6 +1978,19 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      marked `toolbox` in the `change` column of `admin/lineage/lineage_state.csv`, and the
      Lineage difference, written from `admin/lineage.ipynb`, shows it apart from your own
      changes.
+   - If your Project was at 8.9, the 8.10 Upgrade carries it to 8.10. Each Saved table's
+     Table reference gets its kind, a `KIND` line: `"rebuilt"` or `"history"`, proposed from
+     its write and written in as answered. Where nothing is proposed, as for a write that
+     fills `dt` from its rows' own values, it stays open, `KIND = None`, and
+     the Upgrade's checklist and `project.check()` name the table: answer `"kind"` for it by
+     its dev name before you promote it, in `admin/check_project.ipynb` with
+     `project.write_decisions({"mart.x": {"kind": "history"}})`. A History table with no
+     `SEED` is asked for one the same way, nothing proposed. No Seed runs and nothing is sent,
+     since your tables hold their Partitions already, and each `seed()` and `SEED` is
+     kept. Each Workflow notebook is
+     written again, keeping each name you gave, each step cell you wrote in and your answered
+     decisions cell, and `admin/check_project.ipynb` connects and runs
+     `project.check(query=query)`, which warns of a History table short of its Seed's days.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made

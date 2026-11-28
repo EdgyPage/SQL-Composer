@@ -26,6 +26,10 @@ PARAMETERS = "# parameters"
 PARAMETERS_TAG = "parameters"
 # The first line of a Scheduled run's logic cell (Toolbox 8.6), which defines statements().
 SCHEDULED = "# scheduled"
+# How a setup cell's import of warehouse.py's calls starts: the cell where you fill in
+# connect(...), which write_notebook ends in a newline, so a line you write at its end is a
+# line of its own (usability run W11, 2026-11-28).
+WAREHOUSE_IMPORT = "from warehouse import "
 
 
 def read_cells(path: Path, *, shown: str = "", call: str = "") -> list[tuple[str, str]]:
@@ -141,8 +145,10 @@ def write_cell_text(path: Path, number: int, text: str) -> None:
 
 
 def _cell_json(kind: str, text: str) -> dict[str, object]:
-    """A cell as Jupyter's JSON holds it, not yet run: a parameters cell, whose first line is
-    # parameters, tagged parameters, as papermill finds it."""
+    """A cell as Jupyter's JSON holds it, not yet run, its text as cell_as_written gives it: a
+    parameters cell, whose first line is # parameters, tagged parameters, as papermill finds
+    it."""
+    kind, text = cell_as_written(kind, text)
     if kind == "markdown":
         return {"cell_type": "markdown", "metadata": {}, "source": _source_lines(text)}
     metadata: dict[str, object] = {}
@@ -150,6 +156,16 @@ def _cell_json(kind: str, text: str) -> dict[str, object]:
         metadata["tags"] = [PARAMETERS_TAG]
     return {"cell_type": "code", "execution_count": None, "metadata": metadata, "outputs": [],
             "source": _source_lines(text)}
+
+
+def cell_as_written(kind: str, text: str) -> tuple[str, str]:
+    """A cell, as (kind, text), as write_notebook writes it and read_cells reads it back: a
+    setup cell, the code cell one of whose lines imports from warehouse, ends in a newline."""
+    is_setup = kind == "code" and any(line.startswith(WAREHOUSE_IMPORT)
+                                      for line in text.split("\n"))
+    if is_setup and not text.endswith("\n"):
+        return kind, text + "\n"
+    return kind, text
 
 
 def first_line(text: str) -> str:

@@ -90,6 +90,14 @@ GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
                              "tables/mart__job_hours/", "references/mart__job_hours.py",
                              "references/mart.py", "references/reference_sheet.csv",
                              "admin/registry.csv", "README.md")},
+    # 8.10's ticket 07: the intermediate's mart.job_day_facts answered History by hand, with
+    # its SEED; mart.job_hours's kind accepted in the convert decisions cell, its reason the
+    # batch's ("it is a query alone"), where its write's Hive alone gives another, with its
+    # checklist; and both READMEs, which name each table's kind.
+    "8.10": {"starter": ("README.md",),
+             "intermediate": ("references/mart__job_day_facts.py",
+                              "references/mart__job_hours.py",
+                              "tables/mart__job_hours/conversion/checklist.md", "README.md")},
 }
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
@@ -101,10 +109,15 @@ LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
     # So is one finished before 8.6: its record keeps the hash its converted table's notebook
     # had when the batch wrote it, before 8.6 connected the notebook.
     "8.6": ("admin/workflows/convert/finished/",),
+    # And one finished before 8.10: its record keeps the hash each Table reference had when
+    # the batch wrote it, before 8.10 gave it its kind. And a Scheduled run, whose setup
+    # cell 8.10 leaves as it was, where a new one ends in a newline (usability run W11).
+    "8.10": ("admin/workflows/convert/finished/", "scheduled_runs/"),
 }
 # What the coming version's tickets changed in the Example projects before its Upgrade step is
 # written, left out of every comparison until it is, and emptied once its step makes them, as
-# 8.6's ticket 12, 8.7's ticket 14, 8.8's ticket 10 and 8.9's ticket 16 emptied it.
+# 8.6's ticket 12, 8.7's ticket 14, 8.8's ticket 10, 8.9's ticket 16 and 8.10's ticket 08
+# emptied it.
 AWAITING_ITS_STEP: tuple[str, ...] = ()
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
@@ -284,12 +297,13 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[8].startswith("8.6: ")
     assert said[9].startswith("8.7: ")
     assert said[10].startswith("8.8: ")
-    assert said[11].startswith(f"{VERSION}: ")
-    assert said[12] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+    assert said[11].startswith("8.9: ")
+    assert said[12].startswith(f"{VERSION}: ")
+    assert said[13] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
                         "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
                         "admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md, "
-                        "admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md and "
-                        f"admin/upgrade_{VERSION}.md.")
+                        "admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md, "
+                        f"admin/upgrade_8.9.md and admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -1724,7 +1738,9 @@ def test_8_8_writes_cell_5s_comment_as_8_7_wrote_it_and_leaves_one_you_changed(
     texts = [text for _, text in notebooks.read_cells(copy / "tables" / as_written
                                                       / f"{as_written}.ipynb")]
     assert upgrades.HIVE_CELL_8_8.format(stem=as_written) in texts
-    assert [text for _, text in notebooks.read_cells(path)] == [text for _, text in changed]
+    # Kept as you changed it, but for 8.10's newline at its setup cell's end.
+    assert [text for _, text in notebooks.read_cells(path)] == [
+        notebooks.cell_as_written(kind, text)[1] for kind, text in changed]
 
 
 def test_8_8_marks_a_table_notebook_with_no_export_hive_cell_never_above_its_logic(
@@ -1768,13 +1784,22 @@ def _copy_of_8_8(tmp_path: Path, name: str = "starter") -> Path:
     return copy
 
 
+def _upgraded_to(copy: Path, monkeypatch: pytest.MonkeyPatch, version: str) -> None:
+    """Upgrade the Project at `copy` only as far as `version`, as if it were this Toolbox's,
+    so a test of that version's step reads what it alone changed."""
+    monkeypatch.setattr(upgrades, "STEPS", {
+        each: step for each, step in upgrades.STEPS.items()
+        if not upgrades.is_older(version, than=each)})
+    _upgraded(copy, monkeypatch)
+
+
 def test_8_9_writes_the_convert_notebook_again_keeping_the_names_you_gave(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
     copy = _copy_of_8_8(tmp_path)
     notebook = copy / upgrades.CONVERT_NOTEBOOK
     notebooks.write_notebook(notebook, [(kind, text.replace("NAME = ''", "NAME = 'weekly'"))
                                         for kind, text in notebooks.read_cells(notebook)])
-    _upgraded(copy, monkeypatch)
+    _upgraded_to(copy, monkeypatch, STEP_8_9)
     code = _code(notebook)
     assert "NAME = 'weekly'" in code
     assert 'or an Excel workbook\'s, such as ["runs.xlsx"]' in code
@@ -1817,8 +1842,163 @@ def test_8_9_changes_nothing_of_an_8_8_project_but_its_convert_notebook(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
     copy = _copy_of_8_8(tmp_path, "intermediate")
     before = files_of(copy)
-    _upgraded(copy, monkeypatch)
+    _upgraded_to(copy, monkeypatch, STEP_8_9)
     after = files_of(copy)
     assert sorted(after) == sorted(before)
     assert [relative for relative in before if after[relative] != before[relative]] == [
         "admin/project_version.txt", upgrades.CONVERT_NOTEBOOK]
+
+
+# --- 8.10: each table's kind, and check_project's Warning ------------------------------------
+
+
+STEP_8_10 = "8.10"
+ALIASES_HEADING = toolbox_module("tables").ALIASES_HEADING
+
+
+def _copy_of_8_9(tmp_path: Path, name: str = "starter") -> Path:
+    """An Example project as 8.9 left it, to upgrade."""
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / STEP_8_9 / name, copy)
+    return copy
+
+
+def _kind_line(copy: Path, table: str) -> str:
+    """A table's KIND line, in its Table reference."""
+    reference = copy / "references" / f"{table.replace('.', '__')}.py"
+    (line,) = [line for line in reference.read_text(encoding="utf-8").split("\n")
+               if line.startswith("KIND = ")]
+    return line
+
+
+def _checklist_8_10(copy: Path) -> str:
+    return (copy / "admin" / f"upgrade_{STEP_8_10}.md").read_text(encoding="utf-8")
+
+
+def test_8_10_writes_each_kind_proposed_as_answered_and_names_each_left_open(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_9(tmp_path, "intermediate")
+    sent_before = (copy / "admin" / "sent.csv").read_bytes()
+    _upgraded(copy, monkeypatch)
+    # A write() of several Statements, one per region, is read as one script.
+    assert _kind_line(copy, "mart.budget_overruns") == (
+        'KIND = "history"  # answered, proposed history: its INSERT OVERWRITE replaces one '
+        "Partition, keeping the others")
+    assert _kind_line(copy, "mart.job_notes").startswith(
+        'KIND = "rebuilt"  # answered, proposed rebuilt: ')
+    assert _kind_line(copy, "mart.team_days").startswith(
+        "KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows' "
+        "own values")
+    checklist = _checklist_8_10(copy)
+    assert ("- wrote mart.budget_overruns's kind, history, proposed from its write, in "
+            "references/mart__budget_overruns.py: " in checklist)
+    assert ("- left mart.team_days's kind open in references/mart__team_days.py, as nothing "
+            "was proposed: " in checklist)
+    assert "Nothing: 8.10 needs nothing changed by hand." in checklist
+    # Nothing is sent, so no Seed runs; and each kind left open is a Decision.
+    assert (copy / "admin" / "sent.csv").read_bytes() == sent_before
+    decisions = toolbox_module("decisions")
+    text = (copy / "references" / "mart__team_days.py").read_text(encoding="utf-8")
+    assert [each.kind for each in decisions.open_decisions(text, "mart.team_days")] == [
+        decisions.TABLE_KIND]
+
+
+def test_8_10_asks_each_history_table_with_no_seed_for_its_seed_limit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # Ticket 05's story 14: a History table is always asked about its Seed. One written before
+    # 8.10 has no SEED, so the Upgrade asks for it, an open Decision. It reads no Partitions,
+    # so it can't tell a column of dates, and proposes nothing, as spec 05 proposes the months
+    # form only where one is found (the beginner reader's stop B). It runs no Seed, as the
+    # table holds its Partitions already.
+    decisions = toolbox_module("decisions")
+    copy = _copy_of_8_9(tmp_path, "intermediate")
+    sent_before = (copy / "admin" / "sent.csv").read_bytes()
+    # A converted table answered History by hand before the Upgrade, so its checklist asks too.
+    converted = copy / "references" / "mart__team_failures.py"
+    converted.write_text(converted.read_text(encoding="utf-8")
+                         + '\nKIND = "history"  # answered, nothing proposed: mine\n',
+                         encoding="utf-8")
+    _upgraded(copy, monkeypatch)
+    asked = ("SEED = {}  # TODO: nothing proposed: project.upgrade() reads no Partitions, so "
+             "nothing says which partition column, if any, holds dates")
+    for table in ("mart.budget_overruns", "mart.team_failures"):
+        reference = copy / "references" / f"{table.replace('.', '__')}.py"
+        text = reference.read_text(encoding="utf-8")
+        assert [line for line in text.split("\n") if line.startswith("SEED = ")] == [asked]
+        (seed,) = decisions.open_decisions(text, table, (decisions.SEED_LIMIT,))
+        assert seed.proposal == ""
+        assert (f"- asked {table}'s Seed in references/{table.replace('.', '__')}.py: "
+                in _checklist_8_10(copy))
+    checklist = (copy / "tables" / "mart__team_failures" / "conversion" / "checklist.md"
+                 ).read_text(encoding="utf-8")
+    assert ("seed: which past rows its Seed loads, if it is a History table, nothing proposed, "
+            "as project.upgrade() reads no Partitions" in checklist)
+    # A Rebuilt table, a kind left open and a SEED there already are left as they were.
+    for rebuilt in ("mart__job_notes", "mart__team_days"):
+        assert "SEED" not in (copy / "references" / f"{rebuilt}.py").read_text(
+            encoding="utf-8")
+    assert (copy / "admin" / "sent.csv").read_bytes() == sent_before
+
+
+def test_8_10_keeps_a_seed_and_a_kind_already_there_and_goes_on_past_a_logic_that_stops(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_9(tmp_path)
+    seeded = copy / "references" / "mart__team_day.py"
+    seed = 'SEED = {"dt": {"from": "2026-09-01"}}'
+    seeded.write_text(seeded.read_text(encoding="utf-8").replace(
+        ALIASES_HEADING, f"{seed}\n\n{ALIASES_HEADING}", 1), encoding="utf-8")
+    kept = copy / "references" / "mart__daily_job_runs.py"
+    kept.write_text(kept.read_text(encoding="utf-8").replace(
+        ALIASES_HEADING, 'KIND = "rebuilt"  # answered, proposed rebuilt: mine\n\n'
+        f"{ALIASES_HEADING}", 1), encoding="utf-8")
+    kept_before = kept.read_bytes()
+    stops = copy / "tables" / "mart__alerts_per_job" / "mart__alerts_per_job.ipynb"
+    notebooks.write_notebook(stops, [("code", "# logic\nraise RuntimeError('mine')")])
+    _upgraded(copy, monkeypatch)
+    lines = seeded.read_text(encoding="utf-8").split("\n")
+    # The kind goes above SEED, which is kept as it was.
+    assert lines.index(seed) > lines.index(_kind_line(copy, "mart.team_day"))
+    assert kept.read_bytes() == kept_before
+    assert _kind_line(copy, "mart.alerts_per_job") == (
+        "KIND = None  # TODO: nothing proposed: its logic stops before its write() builds, so "
+        "nothing says what it does to the rows already there")
+
+
+def test_8_10_connects_check_project_and_gives_check_your_query(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_9(tmp_path)
+    notebook = copy / "admin" / "check_project.ipynb"
+    _upgraded(copy, monkeypatch)
+    code = _code(notebook)
+    assert "from warehouse import connect, query\n" in code
+    # The connection the Workflow notebooks give, as the Example projects give theirs.
+    assert code.count(EXAMPLE_CONNECTION_8_7) == 1
+    assert ("project.check(query=query)  # and a History table lacking days its Seed loads"
+            in code)
+    assert "\nproject.check()" not in f"\n{code}"
+    assert "- wrote admin/check_project.ipynb again: it connects" in _checklist_8_10(copy)
+
+
+def test_8_10_keeps_a_prod_copys_record_as_promote_wrote_it(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # A prod copy, mart.team_day, promoted from mart.alerts_per_job, as far as its record
+    # reads: 8.10 adds a KIND line to both Table references, and the record follows each hash
+    # still as promote wrote it, so check() calls neither changed by hand.
+    project_module = toolbox_module("project")
+    copy = _copy_of_8_9(tmp_path)
+    monkeypatch.chdir(copy)
+    reference = copy / "references" / "mart__team_day.py"
+    record = copy / "admin" / "workflows" / "promote" / "promoted.json"
+    record.write_text(json.dumps({"mart.team_day": {
+        "dev": "mart.alerts_per_job", "seeded": False, "files": {},
+        "reference": project_module._reference_hash(reference.read_text(encoding="utf-8")),
+        "dev_code": project_module._dev_code_hash(copy, "mart.alerts_per_job")}}),
+        encoding="utf-8")
+    _upgraded(copy, monkeypatch)
+    entry = json.loads(record.read_text(encoding="utf-8"))["mart.team_day"]
+    assert entry["reference"] == project_module._reference_hash(
+        reference.read_text(encoding="utf-8"))
+    assert entry["dev_code"] == project_module._dev_code_hash(copy, "mart.alerts_per_job")
+    monkeypatch.chdir(copy)
+    edited = "Edited by hand, which project.promote writes over: references/mart__team_day.py"
+    assert edited not in repr(project.check())

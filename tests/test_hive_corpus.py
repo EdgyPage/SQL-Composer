@@ -8,7 +8,9 @@ that builds a Statement, the edge cases in `hive_corpus_cases.py`, and about 200
 
 This test fails while the committed file differs from what the Toolbox writes today. Write it
 again only for a change that is meant to alter the output. Locally it writes the corpus again
-only when an input changed since it last passed; on CI, always (`generated_memo.py`).
+only when an input changed since it last passed; on CI, always (`generated_memo.py`). Each
+sqlglot CI tests has its own golden, the pin's and the newest tested's (Toolbox 8.10), and the
+test reads the one of the sqlglot it runs on; on any other sqlglot it is skipped, saying why.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ def test_the_committed_golden_is_what_the_toolbox_writes_today() -> None:
     memo = generated_memo.Memo("hive_corpus")
     if memo.is_unchanged():
         return
-    golden = hive_corpus.GOLDEN
+    golden = hive_corpus.golden_file()
     committed = golden.read_text(encoding="utf-8") if golden.exists() else ""
     assert hive_corpus.corpus_text() == committed, (
         f"tests/hive_corpus/{golden.name} differs from what the Toolbox writes today. If the "

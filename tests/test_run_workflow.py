@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import forget_the_projects_modules, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module, tree_state, unconnected_query
 
 import example_database
 from sqlglot_composer import project
@@ -25,8 +25,9 @@ QUERY = "SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'
 
 
 def answers(table: str) -> dict[str, object]:
-    """A table's answers: its own folder, and no Key, as job_runs names none here."""
-    return {"location": f"/data/{table}", "key": None}
+    """A table's answers: its own folder, no Key, as job_runs names none here, and its kind,
+    a Rebuilt table, as proposed for a query alone (Toolbox 8.10)."""
+    return {"location": f"/data/{table}", "key": None, "kind": "proposed"}
 
 
 @pytest.fixture
@@ -83,13 +84,29 @@ def test_it_stops_at_an_open_decision_and_goes_on_once_it_is_answered(started: P
     assert 'key=["event_id"],' in written
 
 
-def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
-    # The Example database keeps no write, so the compare finds no dev table to read.
+def test_a_compare_that_cant_read_its_dev_table_stops_nothing(started: Path) -> None:
+    # The Example database keeps no write, so the compare finds no dev table to read: a
+    # result that failed, which stops nothing (Toolbox 8.10, ticket 03).
     typed(started, "convert", "NAME = ''", "spare")
     typed(started, "convert", "HIVE = None", QUERY)
     typed(started, "convert", "DECISIONS = {}", {f"{DEV}.spare": answers("spare")})
+    said = run("convert")
+    assert f"{DEV}.spare: failed, couldn't compare" in said
+    assert "convert, spare: every step is done." in said
+    assert (started / "admin" / "workflows" / "convert" / "finished" / "spare").is_dir()
+
+
+def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
+    # A batch whose record names no table it wrote, as one edited by hand: its compare
+    # compares nothing, so the step ran and isn't done.
+    project.convert("spare", QUERY, query=example_database.query, database="ops")
+    record = started / "admin" / "workflows" / "convert" / "spare" / "written.json"
+    record.write_text(record.read_text(encoding="utf-8").replace(
+        f'"{DEV}.spare": null', ""), encoding="utf-8")
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "DECISIONS = {}", {f"{DEV}.spare": answers("spare")})
     stopped = run("convert")
-    assert "convert, spare: 7. Compare each table with its original" in stopped
+    assert "convert, spare: 6. Compare each table with its original" in stopped
     assert "Stopped: it ran, and isn't done, as it says above" in stopped
     assert 'Then save the notebook, and run "Run the rest", the cell under' in stopped
 
@@ -122,14 +139,14 @@ def test_a_names_cell_naming_several_batches_runs_each_and_a_stop_names_which(
     for name in ("first", "second"):
         project.convert(name, QUERY, query=example_database.query, database="ops")
     typed(started, "convert", "NAME = ''", ["first", "second"])
-    typed(started, "convert", "DECISIONS = {}",
-          {f"{DEV}.{name}": answers(name) for name in ("first", "second")})
+    # The first batch's Decisions are left open, so it stops at them.
+    typed(started, "convert", "DECISIONS = {}", {f"{DEV}.second": answers("second")})
     stopped = run("convert")
-    assert "convert, first: 7. Compare" in stopped
+    assert "first: 2. Answer each table's open Decisions" in stopped
     assert "convert, second" not in stopped
     checked = repr(project.check())
-    assert "convert.ipynb, first: 7. Compare" in checked
-    assert "convert.ipynb, second: 4. Create" in checked
+    assert "convert.ipynb, first: 2. Answer" in checked
+    assert "convert.ipynb, second: 3. Write" in checked
 
 
 def test_a_dry_run_sends_nothing_and_says_each_hive(started: Path,
@@ -378,9 +395,125 @@ def test_new_table_refuses_a_query_for_a_table_it_isnt_given(started: Path) -> N
         project.new_table(f"{DEV}.failed_jobs", queries={"other": QUERY})
 
 
-def test_new_table_from_a_query_refuses_a_source_with_no_table_reference(started: Path) -> None:
-    with pytest.raises(ValueError, match="which has no Table reference"):
+def test_new_table_from_a_query_adds_the_table_reference_of_a_source_with_none(
+        started: Path) -> None:
+    # Toolbox 8.10, ticket 02: written for you, as convert writes one, and said, its Key
+    # proposed for you to accept, the Reference sheet rebuilt.
+    said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY},
+                                  query=example_database.query))
+    assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
+            "was written from its DESCRIBE.") in said
+    assert "ops.job_runs: its Key proposed, (run_id)" in said
+    reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
+    assert '    key=None,  # TODO: proposed ["run_id"], checked' in reference
+    sheet = (started / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    assert "ops.job_runs,run_id," in sheet
+    assert (started / "tables" / f"{DEV}__failed_jobs").is_dir()
+    log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
+    assert "created references/ops__job_runs.py" in log
+
+
+def test_new_table_from_a_query_with_no_connection_is_refused_at_once(started: Path) -> None:
+    # Usability run W11: a table read with no Table reference, and a query whose notebook
+    # hasn't connected yet: nothing is written, and it says to fill in connect(...).
+    before = tree_state(started)
+    with pytest.raises(RuntimeError) as refused:
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY},
+                          query=unconnected_query(started))
+    said = " ".join(str(refused.value).split())
+    assert ("project.new_table(..., queries=...) wrote nothing: this notebook hasn't connected "
+            "to the warehouse yet, so your query couldn't send DESCRIBE ops.job_runs.") in said
+    assert tree_state(started) == before
+
+
+def test_convert_with_no_connection_stops_at_its_first_step_and_writes_no_batch(
+        started: Path) -> None:
+    # Usability run W11: the convert notebook run before its setup cell connected went on with
+    # every table skipped. It stops at step 1, saying to fill in connect(...), and writes
+    # nothing.
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+    before = tree_state(started)
+    stopped = repr(project.run_workflow("convert", query=unconnected_query(started)))
+    assert "convert, spare: 1. Convert the scripts" in stopped
+    assert "Stopped by what this says: mend it." in stopped
+    assert "this notebook hasn't connected to the warehouse yet" in " ".join(stopped.split())
+    assert "2. Answer each table's open Decisions" not in stopped
+    assert tree_state(started) == before
+
+
+def test_a_batch_that_made_no_saved_table_converts_again_when_its_notebook_runs_again(
+        started: Path) -> None:
+    # Usability run W11: once a DESCRIBE refused for another reason, as access not given yet,
+    # the batch made none of its tables, and its notebook run again went on from step 2; the
+    # user had to call convert(..., overwrite=True) from a script. Now step 1 isn't done
+    # while the batch made none of its tables, so the run stops there, and runs it again once
+    # mended.
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+
+    def refused(hive: str) -> object:
+        raise RuntimeError("Permission denied: ops.job_runs")
+
+    stopped = repr(project.run_workflow("convert", query=refused))
+    assert "ops.job_runs (DESCRIBE failed: RuntimeError: Permission denied" in stopped
+    assert "Stopped: it ran, and isn't done, as it says above" in stopped
+    assert not (started / "tables" / f"{DEV}__spare").exists()
+    went_on = run("convert")
+    assert "convert, spare: 1. Convert the scripts" in went_on
+    assert "Saved table in dev: done already" not in went_on
+    assert (started / "tables" / f"{DEV}__spare" / f"{DEV}__spare.ipynb").is_file()
+
+
+def test_a_dry_run_shows_the_describe_of_a_reference_it_would_add_and_writes_nothing(
+        started: Path) -> None:
+    # Toolbox 8.10, ticket 02's story 13: a dry run shows the DESCRIBE that would be sent and
+    # writes nothing, neither the Table reference nor what the step makes after it.
+    typed(started, "new_table", "TABLES = []", [f"{DEV}.failed_jobs"])
+    typed(started, "new_table", "QUERIES = {}", {"failed_jobs": QUERY})
+    asked = []
+
+    def query(hive: str) -> object:
+        asked.append(hive)
+        return example_database.query(hive)
+
+    said = repr(project.run_workflow("new_table", query=query, dry_run=True))
+    assert "would send: DESCRIBE ops.job_runs" in said
+    assert ("would add references/ops__job_runs.py, each from its DESCRIBE, then run this "
+            "step: a dry run writes neither") in said
+    assert not [hive for hive in asked if hive.startswith("DESCRIBE")]
+    assert not (started / "references" / "ops__job_runs.py").exists()
+    assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
+    # Run for real, it adds the reference and goes on.
+    assert "Added references/ops__job_runs.py" in run("new_table")
+
+
+def test_new_table_from_a_query_keeps_a_table_reference_there_already(started: Path) -> None:
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    reference = started / "references" / "ops__job_runs.py"
+    reference.write_text(reference.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}))
+    assert "Added references/" not in said
+    assert reference.read_text(encoding="utf-8").endswith("# mine\n")
+
+
+def test_new_table_from_a_query_needs_your_query_for_a_source_with_no_table_reference(
+        started: Path) -> None:
+    with pytest.raises(TypeError, match=r"needs query=(.|\n)*ops.job_runs"):
         project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY})
+    assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
+
+
+def test_new_table_from_a_query_refuses_a_source_whose_describe_fails(started: Path) -> None:
+    def query(hive: str) -> object:
+        if "ops.job_runs" in hive:
+            raise RuntimeError("Table not found: ops.job_runs")
+        return example_database.query(hive)
+
+    with pytest.raises(ValueError, match=(
+            r"ops.job_runs \(DESCRIBE failed: RuntimeError: Table not found: ops.job_runs\)")):
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}, query=query)
+    assert not (started / "references" / "ops__job_runs.py").exists()
     assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
 
 

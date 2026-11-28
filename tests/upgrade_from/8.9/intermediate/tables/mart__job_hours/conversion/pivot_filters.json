@@ -1,0 +1,7 @@
+{
+ "converted_as": "mart.job_hours",
+ "in_dev": "WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = 'finish') INSERT OVERWRITE TABLE mart.job_hours SELECT job_id, SUM(hours) AS sum_of_hours FROM run_hours WHERE (team = 'data') /* Pivot filter: slicer team */ GROUP BY job_id",
+ "slice": {},
+ "statement": "WITH job_events AS (\n  SELECT\n    job_id,\n    event_type,\n    dt,\n    minutes / 60 AS hours\n  FROM ops.job_events\n), run_hours AS (\n  SELECT\n    e.job_id,\n    o.team,\n    e.hours\n  FROM job_events AS e\n  LEFT JOIN ops.job_owners AS o\n    ON e.job_id = o.job_id AND e.dt = o.dt\n  WHERE\n    e.event_type = 'finish'\n)\nSELECT\n  job_id,\n  SUM(hours) AS sum_of_hours\nFROM run_hours\nWHERE\n  (\n    team = 'data'\n  ) /* Pivot filter: slicer team */\nGROUP BY\n  job_id;\n",
+ "written": "WITH job_events AS (SELECT job_id, event_type, dt, minutes / 60 AS hours FROM ops.job_events), run_hours AS (SELECT e.job_id, o.team, e.hours FROM job_events AS e LEFT JOIN ops.job_owners AS o ON e.job_id = o.job_id AND e.dt = o.dt WHERE e.event_type = 'finish') INSERT OVERWRITE TABLE mart.job_hours SELECT job_id, team, SUM(hours) AS sum_of_hours FROM run_hours GROUP BY job_id, team"
+}

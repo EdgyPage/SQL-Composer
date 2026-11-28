@@ -26,10 +26,13 @@ def _stop_import(what: str, why: str, fix: str) -> NoReturn:
 
 
 # The supported range: 30.19.0, where the executor dev's Example database runs on first counts
-# COUNT(DISTINCT ...) right, up to (not including) 31. CI runs the pin, _NEWEST_TESTED.
+# COUNT(DISTINCT ...) right, up to (not including) 31. CI runs the whole suite at the pin,
+# _PIN, the sqlglot requirements.txt installs and a fix names, and at _NEWEST_TESTED, above
+# which a note is printed (Toolbox 8.10, ticket 01).
 _LOWEST = (30, 19, 0)
 _BELOW = (31, 0, 0)
-_NEWEST_TESTED = (30, 23, 0)
+_PIN = (30, 23, 0)
+_NEWEST_TESTED = (30, 34, 0)
 
 
 # --- sqlglot --------------------------------------------------------------------------------
@@ -46,7 +49,7 @@ def _numbers(text: str) -> tuple[int, ...] | None:
 
 # Where sqlglot is missing or out of the range, the one the Toolbox is tested on.
 _INSTALL_TESTED = ("Install the sqlglot sqlglot Composer is tested on from a notebook cell "
-                   f'with %pip install "sqlglot=={_dotted(_NEWEST_TESTED)}", then restart '
+                   f'with %pip install "sqlglot=={_dotted(_PIN)}", then restart '
                    "the kernel.")
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 
@@ -71,7 +74,7 @@ def check_installed() -> None:
             what=f"sqlglot Composer needs sqlglot {_dotted(_LOWEST)} or newer, below "
             f"{_dotted(_BELOW)}, and this Python has sqlglot {found}.",
             why="sqlglot Composer works only with that range of sqlglot, and is tested on "
-            f"{_dotted(_NEWEST_TESTED)}. Another sqlglot can write Hive differently, so a "
+            f"{_dotted(_PIN)}. Another sqlglot can write Hive differently, so a "
             "Statement could come out wrong without anything saying so.",
             fix=f"{_INSTALL_TESTED} {_NO_INSTALLING}",
         )
@@ -84,12 +87,22 @@ def check_installed() -> None:
             "Statement could come out wrong.",
             fix="Install again the sqlglot version that sqlglot Composer is tested on, from "
             "a notebook cell with %pip install --force-reinstall "
-            f'"sqlglot=={_dotted(_NEWEST_TESTED)}", then restart the kernel. '
+            f'"sqlglot=={_dotted(_PIN)}", then restart the kernel. '
             f"{_NO_INSTALLING}",
         )
     if version > _NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version sqlglot Composer was tested on "
               f"({_dotted(_NEWEST_TESTED)}). Its behaviour checks passed.")
+
+
+def sort_array_class() -> type[exp.Func]:
+    """The sqlglot class Hive's SORT_ARRAY reads as: SortArray up to sqlglot 30.23.0, and from
+    30.24.0, which took SortArray out, ArraySort, which also says where its NULLs go (sqlglot's
+    commit 094509a). Asked of what sqlglot holds, never of its version number, and asked here
+    alone: each file that touches SORT_ARRAY calls this."""
+    from sqlglot import exp
+
+    return getattr(exp, "SortArray", exp.ArraySort)
 
 
 def _sqlglot_behaviour() -> list[str]:

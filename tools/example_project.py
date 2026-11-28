@@ -179,7 +179,7 @@ WORKBOOK_CONVERSIONS = {
         "mart.teams_pivot": {"name": "job_hours", "location": "/data/mart.db/job_hours",
                              "sources": {"ops.job_events": "proposed",
                                          "ops.job_owners": "proposed"},
-                             "pivot_filters": {"team": "fold"}}},
+                             "pivot_filters": {"team": "fold"}, "kind": "proposed"}},
         "one row per job and team: the hours its runs took.")],
 }
 # Each project's Scheduled runs (Toolbox 8.6), each made with the schedule Workflow (8.7), then
@@ -212,8 +212,8 @@ HOW = (
 CONVERTED_HOW = (
     "project.convert wrote this file from the workbook's PivotTable, its columns from the "
     "Hive the workbook gave; the convert Workflow's decisions cell then answered its name, its "
-    "location and its Pivot filter, and accepted its proposed Key. Its two TODO lines were "
-    "then filled in by hand: this docstring's first line and does_not_add_up."
+    "location and its Pivot filter, and accepted its proposed kind and Key. Its two TODO lines "
+    "were then filled in by hand: this docstring's first line and does_not_add_up."
 )
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"

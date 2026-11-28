@@ -1,9 +1,12 @@
-"""The seed's limits: a converted table that reads itself copies its original's rows once, and
-only the Partitions its SEED names. Toolbox 8.4, ticket 09.
+"""The seed's limits: a History table's Seed copies its original's rows once, and only the
+Partitions its SEED names. Toolbox 8.4, ticket 09, for a table that reads itself; since 8.10,
+ticket 05, for every History table.
 
 A limit is by partition column, any of its partition columns, a date or not: a value, that
 value or later; a range, {"from": ..., "to": ...}; a list, those values alone. A value may be
-a Run value's function.
+a Run value's function. Since 8.10 the months form, {"months": N}, is proposed where a
+partition column holds dates alone (tests/test_seed_widened.py); here the Example database
+can't list the originals' Partitions, so nothing is proposed, and the limits are answered.
 """
 
 from __future__ import annotations
@@ -69,8 +72,8 @@ def test_a_table_with_no_partitions_copies_everything() -> None:
 
 # --- Answered in the decisions cell -----------------------------------------------------------
 
-# Two tables that read themselves, one partitioned by a day and a team, one by a day alone, and
-# one that doesn't read itself.
+# Two tables that read themselves, so History tables, one partitioned by a day and a team, one
+# by a day alone, and one that doesn't, rewritten whole by each write, a Rebuilt table.
 SCRIPT = """CREATE TABLE IF NOT EXISTS ops_reports.log (run_id BIGINT, job_id BIGINT)
 PARTITIONED BY (dt STRING, team STRING);
 CREATE TABLE IF NOT EXISTS ops_reports.days (run_id BIGINT) PARTITIONED BY (dt STRING);
@@ -85,6 +88,9 @@ INSERT OVERWRITE TABLE ops_reports.flat SELECT j.job_id FROM ops.jobs j;
 """
 LOG_DEV, DAYS_DEV, FLAT_DEV = ("mart_dev.log_ops_reports", "mart_dev.days_ops_reports",
                                "mart_dev.flat_ops_reports")
+# Each table's kind accepted as proposed: History for the two that read themselves, Rebuilt
+# for flat, whose SEED its answer takes out.
+KINDS_ACCEPTED = {"all_tables": {"kind": "proposed"}}
 
 
 @pytest.fixture
@@ -107,41 +113,56 @@ def _reference(root: Path, table: str) -> str:
     return (root / "references" / f"{table.replace('.', '__')}.py").read_text(encoding="utf-8")
 
 
-def test_a_table_that_reads_itself_has_seed_limits_to_answer(converted: Path) -> None:
-    assert "SEED = {}" in _reference(converted, LOG_DEV)
+def _seed_sent(table: str) -> str:
+    """The Hive a dry run of the table's Seed would send last: its copy."""
+    said = project.seed_tables([table], query=example_database.query).lines
+    return [line for line in said if line.startswith("would send: ")][-1].removeprefix(
+        "would send: ")
+
+
+def test_a_history_tables_seed_limits_are_a_decision_and_a_rebuilt_table_has_none(
+        converted: Path) -> None:
+    assert ("SEED = {}  # TODO: nothing proposed: the Partitions of ops_reports.log couldn't "
+            "be read through your query") in _reference(converted, LOG_DEV)
+    project.write_decisions(KINDS_ACCEPTED, tables=[LOG_DEV, DAYS_DEV, FLAT_DEV])
     assert "SEED" not in _reference(converted, FLAT_DEV)
-    assert to_hive(project.load(LOG_DEV).seed()) == (
+    project.write_decisions({LOG_DEV: {"seed": {}}})
+    assert "\nSEED = {}\n" in _reference(converted, LOG_DEV)
+    assert _seed_sent(LOG_DEV) == (
         "INSERT OVERWRITE TABLE mart_dev.log_ops_reports PARTITION (dt, team) "
         "SELECT * FROM ops_reports.log")
 
 
 def test_a_tables_own_seed_answer_limits_its_seed(converted: Path) -> None:
     said = repr(project.write_decisions(
-        {LOG_DEV: {"seed": {"dt": {"from": "2026-09-24"}, "team": ["web"]}}}))
-    assert f"Wrote 1 answer into references/{LOG_DEV.replace('.', '__')}.py." in said
+        {LOG_DEV: {"kind": "proposed", "seed": {"dt": {"from": "2026-09-24"},
+                                                "team": ["web"]}}}))
+    assert f"Wrote 2 answers into references/{LOG_DEV.replace('.', '__')}.py." in said
     assert 'SEED = {"dt": {"from": "2026-09-24"}, "team": ["web"]}' in (
         _reference(converted, LOG_DEV))
-    assert to_hive(project.load(LOG_DEV).seed()).endswith(
+    assert _seed_sent(LOG_DEV).endswith(
         "SELECT * FROM ops_reports.log WHERE dt >= '2026-09-24' AND team IN ('web')")
 
 
 def test_all_tables_seed_limits_each_table_with_that_partition_column(converted: Path) -> None:
-    project.write_decisions({"all_tables": {"seed": {"team": ["web"], "dt": "2026-09-01"}}},
+    project.write_decisions({"all_tables": {"seed": {"team": ["web"], "dt": "2026-09-01"},
+                                            "kind": "proposed"}},
                             tables=[LOG_DEV, DAYS_DEV, FLAT_DEV])
     assert 'SEED = {"team": ["web"], "dt": "2026-09-01"}' in _reference(converted, LOG_DEV)
-    # days has no team: only its dt is limited. flat doesn't read itself: it has no seed.
+    # days has no team: only its dt is limited. flat is a Rebuilt table: it has no Seed.
     assert 'SEED = {"dt": "2026-09-01"}' in _reference(converted, DAYS_DEV)
     assert "SEED" not in _reference(converted, FLAT_DEV)
 
 
 def test_a_seed_answer_that_matches_nothing_is_refused(converted: Path) -> None:
+    project.write_decisions({FLAT_DEV: {"kind": "proposed"}})
     with pytest.raises(ValueError) as refused:
         project.write_decisions({LOG_DEV: {"seed": {"run_id": 5}},
                                  FLAT_DEV: {"seed": {"dt": "2026-09-24"}}})
     said = str(refused.value)
     assert f"{LOG_DEV}: seed: run_id is no partition column of {LOG_DEV}" in said
     assert f"{FLAT_DEV}: seed: {FLAT_DEV}'s Table reference has no SEED to limit" in said
-    assert "SEED = {}" in _reference(converted, LOG_DEV)
+    assert "SEED = {}  # TODO: nothing proposed" in _reference(converted, LOG_DEV)
 
 
 def test_a_run_value_limits_a_seed(converted: Path) -> None:
@@ -149,11 +170,12 @@ def test_a_run_value_limits_a_seed(converted: Path) -> None:
         "import datetime\n\n\ndef seed_start() -> datetime.date:\n"
         "    return datetime.date(2026, 9, 20)\n", encoding="utf-8")
     from building_blocks.run_values import seed_start
-    project.write_decisions({LOG_DEV: {"seed": {"dt": {"from": seed_start}}}})
+    project.write_decisions({LOG_DEV: {"kind": "history",
+                                       "seed": {"dt": {"from": seed_start}}}})
     reference = _reference(converted, LOG_DEV)
     assert "from building_blocks.run_values import seed_start  # a Run value" in reference
     assert 'SEED = {"dt": {"from": seed_start}}' in reference
-    assert to_hive(project.load(LOG_DEV).seed()).endswith("WHERE dt >= '2026-09-20'")
+    assert _seed_sent(LOG_DEV).endswith("WHERE dt >= '2026-09-20'")
     sys.modules.pop("building_blocks.run_values", None)
 
 
@@ -172,9 +194,9 @@ def test_all_tables_seed_naming_no_tables_column_is_refused(converted: Path) -> 
 
 
 def test_all_tables_seed_says_which_tables_it_was_written_into(converted: Path) -> None:
+    project.write_decisions({FLAT_DEV: {"kind": "proposed"}})
     said = repr(project.write_decisions(
         {"all_tables": {"seed": {"dt": "2026-09-01"}},
          DAYS_DEV: {"seed": {"dt": "2026-09-20"}}}, tables=[LOG_DEV, DAYS_DEV, FLAT_DEV]))
     assert (f"all_tables: seed: written into {LOG_DEV}, each for the partition columns it "
-            f"has; a table that doesn't read itself has no seed. {DAYS_DEV} keeps its own."
-            in said)
+            f"has; a Rebuilt table has no Seed. {DAYS_DEV} keeps its own." in said)

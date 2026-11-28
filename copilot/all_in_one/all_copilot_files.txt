@@ -4,12 +4,12 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.9: start here
+# Copilot files for sqlglot Composer 8.10: start here
 
 **Find the words you would type in the Index, load the file it names into a new chat, then
 follow the steps below in order.**
 
-sqlglot Composer 8.9 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
+sqlglot Composer 8.10 writes Hive, the SQL of your warehouse, from Python: you build a Statement from
 Clause functions, such as SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses
 one that would give a wrong number or read too much. These files teach Microsoft Copilot to
 write that Python, so you can ask it in plain words.
@@ -149,7 +149,7 @@ write that Python, so you can ask it in plain words.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.9)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -177,7 +177,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.9, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.10, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -245,8 +245,8 @@ something and see its rows.
 
 - project.start()
 - project.add_references(names, *, query=None)
-- project.new_table(name, template='saved_table', queries=None)
-- project.check()
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
+- project.check(*, query=None)
 - project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
@@ -331,7 +331,7 @@ rows = run_query(s, query)
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.9)
+# Copilot file 02: Table references (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -360,7 +360,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.9, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.10, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -434,7 +434,7 @@ table, or asks about a table's columns, partitions or Key.
 ## Names for this objective, with their arguments
 
 - project.add_references(names, *, query=None)
-- project.reference_from_logic(name)
+- project.reference_from_logic(name, *, query=None)
 - Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
@@ -495,7 +495,7 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.9)
+# Copilot file 03: building a Statement (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -683,7 +683,7 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.9)
+# Copilot file 04: joins (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -863,7 +863,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.9)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1045,14 +1045,13 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.9)
+# Copilot file 06: saving a table (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: write a Saved table from a Statement, in its Table notebook.
-Load this file when the user wants to save rows into a table of their own, write a day of
-it, add to it, or write the logic cell of a Table notebook.
+Objective: write a Saved table from a Statement, in its Table notebook. Load this file when
+the user saves rows into their own table, a day of it or more, or writes a logic cell.
 
 ## Patterns: when the user says X, do Y
 
@@ -1104,8 +1103,9 @@ it, add to it, or write the logic cell of a Table notebook.
   `run_execute(write(), execute)`.
 - **R9** Otherwise the next cell runs `show_hive([create(), write()])` and
   `run_query(preview(), query)`; `project.run_tables(execute=execute)` sends the writes.
-- **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
-  `export_hive()` cell writes <db>__<table>.hql beside it, to read.
+- **R10** `project.new_table(...)` (file 14) makes the notebook; its `export_hive()` cell
+  writes its .hql beside it.
+- **R11** Kind (file 14): `"history"` if a write keeps the rows there, else `"rebuilt"`.
 
 ## Always: rules A1 to A11
 
@@ -1143,7 +1143,7 @@ it, add to it, or write the logic cell of a Table notebook.
 
 ## Names for this objective, with their arguments
 
-- project.new_table(name, template='saved_table', queries=None)
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
@@ -1173,7 +1173,7 @@ s = statement(
 )
 ```
 
-### W2: the logic cell of mart.job_day_events (job_id, events, dt; Key job_id and dt)
+### W2: mart.job_day_events's logic cell (Key job_id and dt)
 
 ```python
 # logic
@@ -1227,7 +1227,7 @@ One ```python block the user can paste into a notebook cell, then a few plain se
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.9)
+# Copilot file 07: converting Hive (sqlglot Composer 8.10)
 
 **Find each Hive part in Patterns, write the code it names, then tick the Self-check. Add
 nothing the Hive doesn't hold.**
@@ -1286,6 +1286,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   table holds: a Run value, the value a function of theirs gives (file 17).
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
+- **R9** Each table's kind is a Decision (file 13): `"kind": "history"` if each write keeps
+  the rows there, as PARTITION (dt = ...) or INSERT INTO; `"rebuilt"` if it replaces the
+  table; `"proposed"` accepts it.
 
 ## Always: rules A1 to A11
 
@@ -1325,7 +1328,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.load(name)
-- project.check()
+- project.check(*, query=None)
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - derived(name, statement)
 - AS(expression, name)
@@ -1389,7 +1392,7 @@ One ```python block building the Statement `s`, then a line naming each part kep
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.9)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1489,7 +1492,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
-- project.check()
+- project.check(*, query=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.export_project_lineage()
 - export_lineage(*statements, to=None)
@@ -1556,7 +1559,7 @@ on what the Verdict means when it holds and when it doesn't.
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.9)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.10)
 
 **Find the message's What happened in Patterns, write the fix its rule gives, then tick the
 Self-check. Keep the user's columns, tables and days; add nothing else.**
@@ -1724,7 +1727,7 @@ The fixed code in one ```python block, then a sentence on what changed and why.
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.9)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -1892,7 +1895,7 @@ naming each hand-written piece.
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.9)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each formula in
 Patterns, then write the Hive its rule gives.**
@@ -2043,7 +2046,7 @@ FROM <database>.job_runs
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: Power Query into Hive (sqlglot Composer 8.9)
+# Copilot file 12: Power Query into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each Power Query step
 in Patterns, then write the Hive its rule gives.**
@@ -2178,13 +2181,13 @@ GROUP BY job_id HAVING COUNT(*) > 1
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.9)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database
-with sqlglot Composer 8.9, each step a cell of the convert Workflow's notebook, in order.
+with sqlglot Composer 8.10, each step a cell of the convert Workflow's notebook, in order.
 Load this file when the user asks to turn Hive into tables. File 16 promotes to prod; file
 14 covers new tables, Table references, upgrades and changes to a Saved table.
 
@@ -2255,11 +2258,11 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
 
 ## The steps of convert
@@ -2274,29 +2277,21 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                               query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-       to_seed = project.batch_tables(NAME, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no table of the batch reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.batch_tables(NAME), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
@@ -2353,12 +2348,12 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.9)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
-Objective: take the user through a job on their own Project with sqlglot Composer 8.9, each step a
+Objective: take the user through a job on their own Project with sqlglot Composer 8.10, each step a
 cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
 change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
@@ -2411,10 +2406,10 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
-- project.new_table(name, template='saved_table', queries=None)
-- project.reference_from_logic(name)
+- project.new_table(name, template='saved_table', queries=None, *, query=None)
+- project.reference_from_logic(name, *, query=None)
 - project.add_references(names, *, query=None)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 
@@ -2423,7 +2418,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-       project.new_table(TABLES, queries=QUERIES)
+       project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
@@ -2434,7 +2429,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-       project.reference_from_logic(TABLES)
+       project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -2452,6 +2447,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
+       print(project.seed_tables(TABLES, query=query, execute=execute))
        project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
@@ -2554,7 +2550,7 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 ===== 15_excel_workbook_steps.txt =====
 
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.9)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.10)
 
 **Follow the steps below in order, as written: give each piece its role from Patterns, write
 each final's Hive by files 11, 12, 20, 23 and 24, then tick the Self-check. Reply as Output says.**
@@ -2605,8 +2601,8 @@ file 11 (each formula's Hive), 12 (Power Query), 23 (totals) and, for a PivotTab
   table; it keeps the summary Table's own name.
 - **R2** A Total Row's final has a column for each Total Row cell holding a total, no other.
 - **R3** A Table with a formula column and no query loading it is a step if any other piece
-  reads it (a Table, query or PivotTable), else a final; its own formula columns reading its
-  own row don't count. A query loading a Table: the Table is a step if any other piece reads
+  reads it (a Table, query or PivotTable), else a final; its formula columns reading its own
+  row don't count. A query loading a Table: the Table is a step if any other piece reads
   it, else a final, its rows the query's.
 
 ## Rules: Hive that stays small
@@ -2718,13 +2714,13 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 
 ===== 16_workflows_promote.txt =====
 
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.9)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Add no step or call the user didn't ask for.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database with sqlglot Composer 8.9, each step a cell of the promote Workflow's notebook, in order.
+Database with sqlglot Composer 8.10, each step a cell of the promote Workflow's notebook, in order.
 Load this file when the user asks how to carry dev tables to prod. File 13 converts Hive into
 dev first; file 14 covers new tables, Table references, upgrades and changes to a Saved
 table.
@@ -2739,7 +2735,7 @@ table.
 | P4 | "no Decision is open" | `DECISIONS = {}` | R5 |
 | P5 | "put it at /data/...", "seed from D" | "location", "seed" answers | W2 |
 | P6 | "call the prod copy x" | `project.promote(TABLES, rename={...})` | R6 |
-| P7 | the compare hasn't passed | say to run it first, before any cell | R1 |
+| P7 | the compare failed or wasn't run | say what promote does, then the cells | R1 |
 | P8 | "the same answer for every prod copy" | "all_tables", file 17 | R7 |
 | P9 | "refreshing the Reference sheet" | its step's cell, the last | R3 |
 
@@ -2759,8 +2755,10 @@ table.
 
 ## Rules
 
-- **R1** **Promote a table only once its compare has passed** in the convert Workflow, or it
-  is written by the new_table Workflow (file 14). If the user hasn't said so, say so first.
+- **R1** **A table is promoted once its compare has run** in the convert Workflow, or once
+  the new_table Workflow (file 14) wrote it. A compare that failed, or wasn't compared, stops
+  nothing: promote promotes it, its report naming it first, "Warning: promoting ...". Promoting
+  is the user's call: say to read that table's conversion/compare.md first.
 - **R2** The names cell comes first, filled in: TABLES, the dev tables by full name, such as
   `["mart_dev.daily_job_runs"]`. Left `[]`, the run cells promote every finished table not
   promoted yet, or changed since; `project.promote([])` itself is refused.
@@ -2774,9 +2772,10 @@ table.
   answer the user gives; none open: `DECISIONS = {}`. A Decision is the user's.
 - **R6** Another name for the prod copy: `project.promote(TABLES,
   rename={"mart_dev.daily_fails": "fails"})`.
-- **R7** A prod copy that reads itself is seeded once, at step 5, every Partition unless its
-  own "seed" answer limits it: `{"seed": {"dt": {"from": "2026-09-01"}}}`; a dev seed answer
-  isn't carried over. "all_tables" answers every prod copy at once (file 17).
+- **R7** A History prod copy is seeded once, at step 5, before its write: it copies its dev
+  copy's original, or the dev copy where it has none, within the dev table's SEED, which
+  promote keeps; its own "seed" answer changes it: `{"seed": {"months": 3}}`. "all_tables"
+  answers every prod copy at once (file 17).
 - **R8** A prod copy keeps its dev table's TAGS, a Run value or a Hivevar among them; each
   Building block it imports is copied into building_blocks/prod/.
 - **R9** "Run up to your Decisions", then "Run the rest", run each to the first step only the
@@ -2784,11 +2783,11 @@ table.
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.promote(tables, *, rename=None)
 - project.promoted_tables(tables, seeded=False)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 
 ## The steps of promote
 
@@ -2809,22 +2808,13 @@ table.
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+       print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                                 execute=execute))
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
@@ -2867,13 +2857,13 @@ project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 - [ ] **C1** The names cell is first, TABLES by full name.
 - [ ] **C2** Each cell is one the steps list, with the user's names, as asked.
-- [ ] **C3** Each table promoted has a compare that passed, or the reply says to run it.
+- [ ] **C3** Each table whose compare failed, or didn't run, is named, with its compare.md.
 - [ ] **C4** Each Decision answered is in DECISIONS by the prod copy's name.
 - [ ] **C5** Each later step is named in words, unless every cell was asked.
 
 ===== 17_run_values_and_seed_limits.txt =====
 
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.9)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Answer only what the user gives; add no cell they didn't ask for.**
@@ -2898,8 +2888,9 @@ Workflow's other cells when asked.
 | P8 | "no columns name one row" | `"key": None` | R7 |
 | P9 | "every table's folder goes under /data/team" | `<folder>/<database>.db/<table>` | R8 |
 | P10 | "copy only its Partitions from D on" | `"seed": {"dt": {"from": D}}` | R9 |
+| P15 | "only its last N months" | `"seed": {"months": N}` | R9 |
 | P11 | "convert names the table mart_dev.x_mart" | the default name: `RENAME = {}` | R11 |
-| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 7 | R11 |
+| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 6 | R11 |
 | P13 | "I converted it ...", decisions and later cells | DECISIONS, step 3, those asked | W2 |
 | P14 | a Run value in a Statement | `run_value(...)`; `hive_date(day)` | R10 |
 
@@ -2913,7 +2904,8 @@ Workflow's other cells when asked.
 - **Run value**: what a function gives each time a Statement is built, written into the Hive
   as plain text: a `datetime.date` as '2026-09-24', a number as it is.
 - **Partition**: the rows of a table that share one value of each partition column.
-- **Seed**: step 5's one copy of the original's rows into a table that reads itself.
+- **Seed**: a History table's past rows, which each write keeps, copied from its original
+  once by step 5, before its write.
 
 ## Rules
 
@@ -2926,20 +2918,23 @@ Workflow's other cells when asked.
   period_end}}`. It lives in a Project file, imported at the top of the cell; one made in a
   cell, a lambda or a nested one is left unwritten.
 - **R4** The newest Partition of a table: `project.new_run_value("period_end",
-  latest_partition="ops.job_runs.dt")` writes `latest_partition(job_runs.dt, query)` in
-  building_blocks/run_values.py and registers it. Today: `today()` in UTC,
+  latest_partition="ops.job_runs.dt", query=query)` writes `latest_partition(job_runs.dt,
+  query)` in building_blocks/run_values.py and registers it, adding the table's Table
+  reference if it has none. Today: `today()` in UTC,
   `today(utc_offset_hours=-6)` six hours behind.
 - **R5** No Partition names it: the function runs a Statement of its own with run_query,
   each partitioned read bounded, and takes no argument (W1).
-- **R6** "all_tables" holds only "tags", "seed" and `"key": "proposed"`; a table's own answer
-  overwrites it, kind by kind. Any other Key, a type and a location go under each table.
+- **R6** "all_tables" holds only "tags", "seed", "kind" and `"key": "proposed"`; a table's
+  own answer overwrites it, answer by answer. Any other Key, a type and a location go under
+  each table.
 - **R7** Answer what the user gives, no more: `"key": None` if no columns name one row;
   `"key": "proposed"` only if they accept the proposed Keys.
 - **R8** A folder for every table: each table's own location under it,
   `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
-- **R9** "seed", by partition column: a value, **that value or later**; `{"from": ...,
+- **R9** "seed": `{"months": N}`, N months back from the newest Partition, `{"months": 1}`
+  proposed; or, by partition column, a value, **that value or later**; `{"from": ...,
   "to": ...}`, either end left out; a list, those values alone; numbers as numbers; a Run
-  value's function. A column left out is copied whole; no "seed", every Partition.
+  value's function. A column left out is copied whole. A Rebuilt table has none.
 - **R10** A Run value in a Statement the user writes: `run_value(function, *arguments)`. In
   Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
 - **R11** Give only the cells asked, never a step the user has run, such as convert. Asked
@@ -2947,18 +2942,19 @@ Workflow's other cells when asked.
   ["daily.hql"]` by name, `HIVE = None`, `DATABASE = "default"`, `RENAME = {}`, `STAGING =
   {}`, `PARTITIONS = []`; step 1, `project.convert(NAME, HIVE, files=FILES, query=query,
   database=DATABASE, rename=RENAME, staging=STAGING)`; the decisions cell and step 3; then
-  steps 4 to 7 (W3). The name the user says convert gives is its own: `RENAME = {}`.
+  steps 4 to 6 (W3). The name the user says convert gives is its own: `RENAME = {}`.
 
 ## Names for this objective, with their arguments
 
-- project.new_run_value(name, *, latest_partition)
+- project.new_run_value(name, *, latest_partition, query=None)
 - latest_partition(column, query=None)
 - today(utc_offset_hours=0)
 - hive_date(day)
 - run_value(function, *arguments, **keywords)
 - hivevar(name, *, default)
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
+- project.seed_tables(tables, *, query=None, execute=None)
 - project.register(name)
 
 ## Worked patterns
@@ -2986,7 +2982,7 @@ def last_good_day() -> datetime.date:
 ### W2: the decisions cell and step 3: PERIOD_END by period_end, Keys accepted, a seed
 
 ```python
-project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
+project.new_run_value("period_end", latest_partition="ops.job_runs.dt", query=query)
 from building_blocks.run_values import period_end
 
 DECISIONS = {
@@ -2998,20 +2994,13 @@ DECISIONS = {
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 ```
 
-### W3: convert's steps 4 to 7, a cell each: create, seed, write, compare
+### W3: convert's steps 4 to 6, a cell each: create, write (its Seed first), compare
 
 ```python
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
 
-to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no table of the batch reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
-
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
 project.compare_batch(NAME, query=query, partitions=PARTITIONS)
@@ -3023,7 +3012,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 2. **Function.** Write the function only if one is asked for and the user hasn't one (W1, or
    `project.new_run_value` at the top of the decisions cell). Then step 3.
 3. **Copy.** Write the cells asked, in order, with the user's names. Then step 4.
-4. **Name the rest** in words: each later step through step 7's compare. Then step 5.
+4. **Name the rest** in words: each later step through step 6's compare. Then step 5.
 5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
 ## Output
@@ -3035,14 +3024,14 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ## Self-check
 
 - [ ] **C1** Each Run value is answered by the function's name, imported at the cell's top.
-- [ ] **C2** "all_tables" holds only tags, seed and `"key": "proposed"`.
+- [ ] **C2** "all_tables" holds only tags, seed, kind and `"key": "proposed"`.
 - [ ] **C3** Each answer is one the user gave; each location is under their folder.
 - [ ] **C4** `RENAME = {}` unless the user asked for another name.
 - [ ] **C5** Only the cells asked are there, in order, none the user has run.
 
 ===== 18_scheduled_runs.txt =====
 
-# Copilot file 18: Scheduled runs (sqlglot Composer 8.9)
+# Copilot file 18: Scheduled runs (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the cells it names, filled in with the user's names,
 then tick the Self-check. Call only the logic functions the paste lists.**
@@ -3226,7 +3215,7 @@ def statements() -> dict[str, Statement]:
 
 ===== 19_metric_request.txt =====
 
-# Copilot file 19: Metric request (sqlglot Composer 8.9)
+# Copilot file 19: Metric request (sqlglot Composer 8.10)
 
 **Look each case up by its rule id and do what it says. Reply as Output says.**
 
@@ -3383,7 +3372,7 @@ A finished request, from a user's definitions of `ops.orders`:
 
 ===== 20_excel_pivot_tables.txt =====
 
-# Copilot file 20: PivotTables into Hive (sqlglot Composer 8.9)
+# Copilot file 20: PivotTables into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each PivotTable part
 in Patterns, then write the Hive its rule gives.**
@@ -3529,7 +3518,7 @@ the rows: `SELECT AVG(duration_mins) AS average_of_duration_mins FROM <database>
 
 ===== 21_growing_a_converted_pivot.txt =====
 
-# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.9)
+# Copilot file 21: growing a converted PivotTable (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the rule or worked pattern it names, change only the
 tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -3680,7 +3669,7 @@ def rows() -> list[Clause]:
 
 ===== 22_pivot_filters_at_scale.txt =====
 
-# Copilot file 22: Pivot filters at scale, and batched inserts (sqlglot Composer 8.9)
+# Copilot file 22: Pivot filters at scale, and batched inserts (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the rule or worked pattern it names, change only the
 tables, columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -3774,9 +3763,9 @@ the decisions cell), whose functions and rules it uses. Other add-ons: file 21.
 
 ## Names for this objective, with their arguments
 
-- project.write_decisions(answers, tables=None)
+- project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
-- project.new_run_value(name, *, latest_partition)
+- project.new_run_value(name, *, latest_partition, query=None)
 - hivevar(name, *, default)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
 - is_in(column, values)
@@ -3836,7 +3825,7 @@ def rows() -> list[Clause]:
 
 ===== 23_excel_totals.txt =====
 
-# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.9)
+# Copilot file 23: whole-column totals and Total Rows into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each whole-column total
 and Total Row in Patterns, then write the Hive its rule gives.**
@@ -3908,7 +3897,7 @@ FROM <database>.job_runs
 
 ===== 24_excel_pivot_filters.txt =====
 
-# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.9)
+# Copilot file 24: a PivotTable's Pivot filters into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps and write each PivotTable by
 file 20: find each Pivot filter in Patterns, then write the condition its rule gives.**

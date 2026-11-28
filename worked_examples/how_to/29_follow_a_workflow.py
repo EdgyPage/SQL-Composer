@@ -113,9 +113,10 @@ An answer is what its kind takes, as the decisions cell's comment shows: a folde
 as a list, a Script tag's day as Hive text. A tag may be answered by a Run value's function
 instead, one of your Project's, imported at the top of the decisions cell and given by its name,
 which the Toolbox calls each time the table is written. "all_tables" answers once for every
-table the notebook names, and a table's own answer overwrites it. A table that reads itself is
-seeded once from its original, every Partition unless its "seed" answer limits them. [Convert
-someone else's Hive](#convert_someone_elses_hive) shows each one.
+table the notebook names, and a table's own answer overwrites it. "kind" is Rebuilt or History,
+and a History table's "seed" limits its Seed. [Convert someone else's
+Hive](#convert_someone_elses_hive) shows each one, and [Load a History table's past
+days](#load_a_history_tables_past_days) the kind and the Seed.
 
 Done when `project.check()` says every step of the Workflow is done. Then check it worked,
 below.
@@ -136,9 +137,8 @@ flowchart TD
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its table's Table reference"]:::files_only
     s3[["4. Create each table in dev"]]:::warehouse_call
-    s4[["5. Seed each table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in dev"]]:::warehouse_call
-    s6[["7. Compare each table with its original"]]:::warehouse_call
+    s4[["5. Write each table in dev"]]:::warehouse_call
+    s5[["6. Compare each table with its original"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
@@ -147,9 +147,8 @@ flowchart TD
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing
-    t8("each seeded"):::thing
-    t9("each written in dev"):::thing
-    t10("each compared with its original"):::thing
+    t8("each written in dev"):::thing
+    t9("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -165,8 +164,6 @@ flowchart TD
     s4 --> t8
     t8 --> s5
     s5 --> t9
-    t9 --> s6
-    s6 --> t10
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -200,7 +197,7 @@ Its names cell, which you fill in and save first:
     # each staging table convert names, kept or folded, such as {"ops_reports.failed":
     # "keep"}: left out, a temporary or DROPped one is folded, any other kept
     STAGING = {}
-    # the Partitions for step 7 to compare besides the latest, each a dict, such as
+    # the Partitions for step 6 to compare besides the latest, each a dict, such as
     # [{"dt": "2026-09-23"}], each value with no quotes of its own: [] compares only the
     # latest Partition your dev table and its original both hold
     PARTITIONS = []
@@ -232,22 +229,26 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
-can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
-what it names and run it again. Each step's own cell follows, under Step by step:
+can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops
+nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("convert", query=query, execute=execute)
@@ -264,29 +265,21 @@ Its steps' own cells, in order:
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+    project.write_decisions(DECISIONS, tables=project.batch_tables(NAME),
+                            query=query)
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
     for table in project.batch_tables(NAME):
         run_execute(project.load(table).create(), execute)
 
-5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-   yours to run).
+5. Write each table in dev (it is a call to the warehouse, yours to run).
 
-    to_seed = project.batch_tables(NAME, seeded=True)
-    if not to_seed:
-        print("Seeded nothing: no table of the batch reads itself.")
-    else:
-        run_execute(hive_settings("dynamic_partitions"), execute)
-        for table in to_seed:
-            run_execute(project.load(table).seed(), execute)
-
-6. Write each table in dev (it is a call to the warehouse, yours to run).
-
+    print(project.seed_tables(project.batch_tables(NAME), query=query,
+                              execute=execute))
     project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-7. Compare each table with its original (it is a call to the warehouse, yours to run).
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
     project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
@@ -303,9 +296,8 @@ flowchart TD
     s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its prod table's Table reference"]:::files_only
     s3[["4. Create each table in prod"]]:::warehouse_call
-    s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
-    s5[["6. Write each table in prod"]]:::warehouse_call
-    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
+    s4[["5. Write each table in prod"]]:::warehouse_call
+    s5["6. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -313,9 +305,8 @@ flowchart TD
     t4("each answer in the decisions cell"):::thing
     t5("each with its location="):::thing
     t6("each made in prod"):::thing
-    t7("each seeded in prod"):::thing
-    t8("each written in prod"):::thing
-    t9("each in the Reference sheet"):::thing
+    t7("each written in prod"):::thing
+    t8("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -330,8 +321,6 @@ flowchart TD
     s4 --> t7
     t7 --> s5
     s5 --> t8
-    t8 --> s6
-    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -372,22 +361,26 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
-can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
-what it names and run it again. Each step's own cell follows, under Step by step:
+can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops
+nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("promote", query=query, execute=execute)
@@ -411,22 +404,13 @@ Its steps' own cells, in order:
     for table in project.promoted_tables(TABLES):
         run_execute(project.load(table).create(), execute)
 
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
+5. Write each table in prod (it is a call to the warehouse, yours to run).
 
-    to_seed = project.promoted_tables(TABLES, seeded=True)
-    if not to_seed:
-        print("Seeded nothing: no prod copy reads itself.")
-    else:
-        run_execute(hive_settings("dynamic_partitions"), execute)
-        for table in to_seed:
-            run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
+    print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                              execute=execute))
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
+6. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
     project.refresh_reference_sheet(project.promoted_tables(TABLES))
@@ -522,22 +506,26 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
-can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
-what it names and run it again. Each step's own cell follows, under Step by step:
+can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops
+nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("new_table", query=query, execute=execute)
@@ -547,7 +535,7 @@ Its steps' own cells, in order:
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
 
-    project.new_table(TABLES, queries=QUERIES)
+    project.new_table(TABLES, queries=QUERIES, query=query)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
@@ -558,7 +546,7 @@ Its steps' own cells, in order:
 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
    it for you).
 
-    project.reference_from_logic(TABLES)
+    project.reference_from_logic(TABLES, query=query)
 
 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 5. Write each answer into its table's Table reference (it changes only files, so
@@ -576,6 +564,7 @@ Its steps' own cells, in order:
 
     for table in TABLES:
         run_execute(project.load(table).create(), execute)
+    print(project.seed_tables(TABLES, query=query, execute=execute))
     project.run_tables(tables=TABLES, execute=execute)
 
 8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
@@ -650,22 +639,26 @@ Its decisions cell, under that, where you answer each open Decision:
     # accepts each table's proposed Key and gives each table holding PERIOD_END that
     # value. A table's location is placed under "location_root" in
     # admin/databases.py; answer "location" only for one it can't place.
+    # "kind" says whether each write replaces the whole table, "rebuilt", or keeps the
+    # rows already there, "history", as a daily table keeps each day: "proposed" accepts
+    # the kind proposed from its write, which project.check() names, and under
+    # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
-can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
-what it names and run it again. Each step's own cell follows, under Step by step:
+can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops
+nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("references", query=query, execute=execute)

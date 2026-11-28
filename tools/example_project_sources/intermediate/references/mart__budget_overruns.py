@@ -34,6 +34,19 @@ budget_overruns = Table(
     },
 )
 
+# Rebuilt or History: "rebuilt" if each write replaces the whole table; "history" if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day's Partition, so the table needs its past rows loaded first, its Seed. Answer
+# "kind" in the decisions cell: "proposed" accepts the kind proposed below.
+KIND = "history"  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer "seed" in the decisions cell: {"months": 1} loads one month back from
+# the newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {"from": ..., "to": ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {}  # TODO: nothing proposed: project.upgrade() reads no Partitions, so nothing says which partition column, if any, holds dates
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table's columns and conditions, written by hand below.
 # Import one beside the table, such as:

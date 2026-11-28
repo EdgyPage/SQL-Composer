@@ -47,7 +47,7 @@ Project 7.2 left:
 ...     Path(added).unlink()
 >>> shutil.rmtree("admin/workflows")
 >>> version = Path("admin/project_version.txt")  # -> Path
->>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.9", "7.2", 1),
+>>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.10", "7.2", 1),
 ...                        encoding="utf-8")
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
@@ -64,10 +64,19 @@ Nothing is refused meanwhile: your notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.2, and this Toolbox is 8.9: run step 1's cell of
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.10: run step 1's cell of
     admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no
     such notebook until its first Upgrade, so there project.upgrade() goes in
     admin/check_project.ipynb.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
 
 Done when `project.check()` names the version that last wrote the Project. Then step 3.
 
@@ -80,7 +89,7 @@ admin/check_project.ipynb, which imports `project` already; the Upgrade adds the
 notebook, for the next time.
 
 >>> print(project.upgrade())
-Upgraded the Project from 7.2 to 8.9.
+Upgraded the Project from 7.2 to 8.10.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
@@ -92,17 +101,24 @@ Upgraded the Project from 7.2 to 8.9.
 8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
 8.8: nothing to change by hand. admin/upgrade_8.8.md lists what it did.
 8.9: nothing to change by hand. admin/upgrade_8.9.md lists what it did.
+8.10: nothing to change by hand. admin/upgrade_8.10.md lists what it did.
 Read each step's checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md,
     admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md,
-    admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md and
-    admin/upgrade_8.9.md.
+    admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md, admin/upgrade_8.9.md
+    and admin/upgrade_8.10.md.
 
-Done when it prints "Upgraded the Project from 7.2 to 8.9.". Then step 4.
+8.10's step had nothing to change here: this copy holds each table's KIND already, as 8.10's
+Upgrade writes it. In a Project 8.9 last wrote, it writes each table's kind, Rebuilt or
+History, from its write, leaves open a kind it can't tell, and asks a History table with no
+SEED for one; its checklist says so, and `project.check()` names each it left open. Those are
+Decisions, not changes marked `# UPGRADE`: only promote waits on them.
+
+Done when it prints "Upgraded the Project from 7.2 to 8.10.". Then step 4.
 
 ### 4. Read each checklist
 
 Goal: know what the Upgrade did and what it left you. It ran the step from each version to the
-next, here ten, and wrote a checklist for each, which its last line names in order:
+next, here eleven, and wrote a checklist for each, which its last line names in order:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
@@ -154,11 +170,24 @@ worked, below.
 >>> print(project.check())
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
+
+It still names the kinds and the Seed the Example project leaves open, which step 2's check
+named too: Decisions, not `# UPGRADE` marks, so nothing waits on them but promote. [Load a
+History table's past days](#load_a_history_tables_past_days) says how to answer each.
 
 Run again, the Upgrade does nothing:
 
 >>> print(project.upgrade())
-The Project is at 8.9 already, as this Toolbox is: nothing to upgrade.
+The Project is at 8.10 already, as this Toolbox is: nothing to upgrade.
 
 Before you go on, check that:
 

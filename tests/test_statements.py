@@ -111,9 +111,13 @@ def test_arithmetic_refuses_what_isnt_a_number() -> None:
 
 def test_a_value_of_the_wrong_type_for_a_typed_column_is_refused() -> None:
     with pytest.raises(TypeError, match="a string column"):
-        equals(job_runs.dt, 20260925)
+        equals(job_runs.dt, True)
     with pytest.raises(TypeError, match="a int column"):
-        equals(job_runs.duration_mins, "30")
+        equals(job_runs.duration_mins, "thirty")
+    # Toolbox 8.10, ticket 09: a number and text that reads as one are compared as Hive
+    # compares them, as two numbers.
+    assert repr(equals(job_runs.dt, 20260925)) == "job_runs.dt = 20260925"
+    assert repr(equals(job_runs.duration_mins, "30")) == "job_runs.duration_mins = '30'"
 
 
 def test_numpy_and_pandas_values_become_plain_values() -> None:
@@ -192,6 +196,20 @@ def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str
     """So a call the Toolbox writes, Hive runs."""
     call = hive_function(name, *[job_runs.status] * count)
     to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
+
+
+@pytest.mark.parametrize(("extra", "written"), [
+    ((), "SORT_ARRAY(COLLECT_SET(job_runs.status)) AS x"),
+    ((True,), "SORT_ARRAY(COLLECT_SET(job_runs.status), TRUE) AS x"),
+    ((False,), "SORT_ARRAY(COLLECT_SET(job_runs.status), FALSE) AS x"),
+])
+def test_hive_function_writes_sort_array_as_given_on_either_sqlglot(extra: tuple[bool, ...],
+                                                                    written: str) -> None:
+    """Toolbox 8.10, ticket 01: sqlglot 30.24.0 reads SORT_ARRAY as ArraySort, which it won't
+    write descending as Hive; the Toolbox writes it as given, on either side of that change."""
+    listed = hive_function("collect_set", job_runs.status)
+    call = hive_function("sort_array", listed, *extra)
+    assert written in to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
 
 
 def test_hive_function_counts_min_and_max_as_one_argument() -> None:

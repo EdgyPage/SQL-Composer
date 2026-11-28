@@ -26,8 +26,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .notebooks import (LOGIC, first_line, read_cells, read_cells_if_readable, write_cell_text,
-                        write_notebook)
+from .notebooks import (LOGIC, cell_as_written, first_line, read_cells, read_cells_if_readable,
+                        write_cell_text, write_notebook)
 from .project_templates import CONNECT_LINES, CONNECT_PLACEHOLDER
 from .shared import counted
 
@@ -2474,7 +2474,276 @@ def to_8_9(upgrade: Upgrade) -> None:
     _record_the_lineage_state(upgrade)
 
 
+def to_8_10(upgrade: Upgrade) -> None:
+    """8.9 to 8.10: each Saved table has a kind, a Rebuilt table, which each write replaces
+    whole, or a History table, which each write keeps, on its Table reference's KIND line. So
+    each Table reference of a Table folder that has none gets one, its kind proposed from what
+    its logic's write() does to the rows already there, as convert and new_table propose it,
+    and written in as answered, since the table is written already; one with nothing proposed,
+    such as a write filling dt from its rows' own values, is left open, KIND = None, and named
+    in the checklist, a Decision promote waits on, which project.check() names. Every seed()
+    and SEED is kept as it is, and no Seed runs: the tables hold their Partitions already. A
+    History table with neither is asked for its SEED, an open Decision, named in the
+    checklist: nothing is proposed, as the months form needs a partition column whose every
+    value is a date, and the Upgrade reads no Partitions to find one. Each converted table's
+    checklist.md is written again as the view of its Decisions, its kind among them. Each
+    Workflow notebook is written again, each name given, each step cell you wrote in and an
+    answered decisions cell kept: their steps add a Table reference a table read lacks, a
+    History table's Seed runs in the write step, and no compare stops you.
+    admin/check_project.ipynb gains its cell that connects, given the connection the
+    Project's other notebooks give, and project.check(query=query), which warns of a History
+    table short of the days its Seed loads; its text cell is 8.10's. Each notebook's setup cell
+    ends in a newline, but a Scheduled run's, which the Upgrade leaves as it is. A prod copy's
+    record, and
+    an open batch's, follow each file this step changed that was still as promote or convert
+    wrote it. Last, the Lineage state is recorded as the Upgrade's. It needs no connection and
+    sends nothing."""
+    hashes = _recorded_files(upgrade.root)
+    promoted = _promoted_code_hashes(upgrade.root)
+    for name in _saved_tables_with_references(upgrade.root):
+        _write_kind(upgrade, name)
+        _ask_seed_limit(upgrade, name)
+    _write_checklists_again(upgrade)
+    _write_workflow_notebooks_again(upgrade)
+    _write_check_project_as_8_10(upgrade)
+    _end_each_setup_cell_in_a_newline(upgrade)
+    _rehash_records(upgrade, hashes)
+    _rehash_promoted_code(upgrade, promoted)
+    _record_the_lineage_state(upgrade)
+
+
+def _end_each_setup_cell_in_a_newline(upgrade: Upgrade) -> None:
+    """End each notebook's setup cell, the code cell importing from warehouse, in a newline, as
+    8.10 writes it, so a line you write at its end is a line of its own (usability run W11):
+    each notebook outside the Toolbox's folder, admin/removed/ and scheduled_runs/, whose
+    notebooks the Upgrade leaves as they are. Each other cell, and each output, is kept."""
+    for path in _searched_files(upgrade.root):
+        relative = path.relative_to(upgrade.root).as_posix()
+        if path.suffix != ".ipynb" or relative.startswith("scheduled_runs/"):
+            continue
+        texts = {}
+        for number, (kind, text) in enumerate(read_cells_if_readable(path) or [], 1):
+            written = cell_as_written(kind, text)[1]
+            if written != text:
+                texts[number] = written
+        if texts:
+            upgrade.rewrite_cells(relative, texts, f"ended the setup cell of {relative} in a "
+                                  "newline, so a line written at its end is a line of its own")
+
+
+def _saved_tables_with_references(root: Path) -> list[str]:
+    """Each Saved table of the Project that has its Table folder and its Table reference, by
+    its name, such as mart.team_day, dev tables and prod copies alike."""
+    from .project_files import REFERENCE  # project_files is read where it is needed
+
+    names = []
+    for folder in sorted((root / "tables").glob("*__*/")):
+        if REFERENCE.path(root, folder.name).is_file():
+            names.append(folder.name.replace("__", ".", 1))
+    return names
+
+
+# What the checklist says of a table whose kind 8.10's step wrote in, and of one it left open.
+KIND_WRITTEN_8_10 = ("wrote {table}'s kind, {kind}, proposed from its write, in "
+                     "{reference}: {why}")
+# A dev table's answer goes where its name does: promote's decisions cell names prod copies,
+# so it is no place for one, and project.write_decisions(...) takes any table by its name.
+KIND_LEFT_OPEN_8_10 = ("left {table}'s kind open in {reference}, as nothing was proposed: "
+                       "{why}. project.check() names it. Answer it, \"rebuilt\" or "
+                       "\"history\", by the table's name, in admin/check_project.ipynb with "
+                       "project.write_decisions({{\"{table}\": {{\"kind\": \"history\"}}}}), "
+                       "or in the decisions cell of the next Workflow notebook you run on the "
+                       "table; promote refuses it until you do")
+
+
+def _write_kind(upgrade: Upgrade, name: str) -> None:
+    """Write a Saved table's kind into its Table reference, as 8.10 does: proposed from its
+    write and written in as answered, or left open where nothing is proposed, above its SEED,
+    or above its Aliases, or at its end; nothing where it has a KIND line already."""
+    # Each of these imports this file, or what imports it, so each is read here.
+    from . import decisions
+    from .project import proposed_kind_of_logic
+    from .project_files import REFERENCE
+
+    path = REFERENCE.path(upgrade.root, name.replace(".", "__", 1))
+    text = path.read_text(encoding="utf-8")
+    if decisions.has_kind_line(text):
+        return
+    try:
+        kind, why = proposed_kind_of_logic(upgrade.root, name, "project.upgrade()")
+    # Whatever stops your logic is yours to mend in its notebook: the Upgrade goes on.
+    except Exception:  # noqa: BLE001
+        kind, why = None, ("its logic stops before its write() builds, so nothing says what "
+                           "it does to the rows already there")
+    block = decisions.kind_block(kind, why, answered=True)
+    relative = path.relative_to(upgrade.root).as_posix()
+    said = KIND_LEFT_OPEN_8_10.format(table=name, reference=relative, why=why)
+    if kind is not None:
+        said = KIND_WRITTEN_8_10.format(table=name, kind=kind, reference=relative, why=why)
+    upgrade.rewrite(relative, _text_with_block(text, block), said)
+
+
+# What 8.10's step writes on the SEED line it asks for, after "nothing proposed: ", and what
+# the checklist says of it (ticket 05's story 14: a History table is always asked about its
+# Seed). The months form is proposed only where a partition column's every value is a date,
+# which only SHOW PARTITIONS tells, so the Upgrade, which reads no Partitions, proposes none.
+SEED_ASKED_WHY_8_10 = ("project.upgrade() reads no Partitions, so nothing says which "
+                       "partition column, if any, holds dates")
+SEED_ASKED_8_10 = ("asked {table}'s Seed in {reference}: a History table written before 8.10 "
+                   "has no SEED, so its seed limits are an open Decision, nothing proposed, "
+                   "as the Upgrade reads no Partitions. project.check() names it. Answer "
+                   '"seed" for it by the table\'s name, such as {{"months": 1}} where a '
+                   "partition column holds dates, or {{}} for every Partition, in "
+                   "admin/check_project.ipynb with project.write_decisions({{\"{table}\": "
+                   "{{\"seed\": {{\"months\": 1}}}}}}), or in the decisions cell of the next "
+                   "Workflow notebook you run on the table; promote waits on it. No Seed "
+                   "ran: the table holds its Partitions already")
+
+
+def _ask_seed_limit(upgrade: Upgrade, name: str) -> None:
+    """Write a History table's SEED as 8.10 asks for it, where its Table reference has none
+    and its logic no seed() of 8.4's: an open Decision, nothing proposed, as the Upgrade reads
+    no Partitions to find a column of dates, above its Aliases. Nothing for any other table,
+    and no Seed runs."""
+    # Each of these imports this file, or what imports it, so each is read here.
+    from . import decisions
+    from .project_files import REFERENCE, table_notebook
+
+    stem = name.replace(".", "__", 1)
+    path = REFERENCE.path(upgrade.root, stem)
+    text = path.read_text(encoding="utf-8")
+    if (decisions.table_kind(text) != decisions.TableKind.HISTORY
+            or decisions.seed_partitions(text) is not None):
+        return
+    cells = read_cells_if_readable(upgrade.root / table_notebook(stem)) or []
+    if any("def seed(" in cell for kind, cell in cells if kind == "code"):
+        return  # its seed() of 8.4's is its Seed, sent as it was
+    block = decisions.seed_block(None, SEED_ASKED_WHY_8_10)
+    relative = path.relative_to(upgrade.root).as_posix()
+    upgrade.rewrite(relative, _text_with_block(text, block),
+                    SEED_ASKED_8_10.format(table=name, reference=relative))
+
+
+def _text_with_block(text: str, block: list[str]) -> str:
+    """A Table reference's text with `block` put in, as 8.10's convert puts its KIND: above
+    its SEED, with the comment above it, where it has one, as a table that reads itself has;
+    else above its Aliases heading; else at its end, after a blank line."""
+    from .tables import ALIASES_HEADING  # tables.py imports what imports this file
+
+    lines = text.split("\n")
+    seed = [number for number, line in enumerate(lines) if line.startswith("SEED = ")]
+    if seed:
+        above = seed[0]
+        while above > 0 and lines[above - 1].startswith("#"):
+            above -= 1
+        return "\n".join([*lines[:above], *block, "", *lines[above:]])
+    if ALIASES_HEADING in text:
+        at = text.index(ALIASES_HEADING)
+        return text[:at] + "\n".join(block) + "\n\n" + text[at:]
+    return text.rstrip("\n") + "\n\n" + "\n".join(block) + "\n"
+
+
+def _write_checklists_again(upgrade: Upgrade) -> None:
+    """Write each converted table's checklist.md again, as the view of its Decisions, its
+    kind among them, with the note on its Seed convert writes since 8.10, where it isn't as
+    this version writes it already."""
+    from .project import SEED_NOTE, checklists_written_again  # project.py imports this file
+
+    for relative, text in checklists_written_again(upgrade.root, SEED_NOTE).items():
+        upgrade.rewrite(relative, text)
+
+
+CHECK_PROJECT = "admin/check_project.ipynb"
+# check_project's cell calling check, as 8.0 to 8.9 wrote it, which 8.10 gives your query.
+CHECK_CELL_8_9 = "project.check()"
+
+
+def _write_check_project_as_8_10(upgrade: Upgrade) -> None:
+    """Write admin/check_project.ipynb as 8.10 does: its text cell 8.10's, its cell that
+    connects after the Project's path, given the connection the Project's other notebooks
+    give, or its line to fill in, and project.check() given query=query, each other cell of
+    yours kept. One that connects already, or calls check with query= already, keeps that."""
+    from .project import admin_notebook_cells  # project.py imports this file
+
+    path = upgrade.root / CHECK_PROJECT
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    if not cells:
+        return
+    fresh = admin_notebook_cells("check_project")
+    new_cells = list(cells)
+    if new_cells[0][0] == "markdown":
+        new_cells[0] = fresh[0]
+    for number, (kind, text) in enumerate(new_cells):
+        if kind == "code" and text == CHECK_CELL_8_9:
+            new_cells[number] = fresh[3]
+    if not _has_connect(new_cells):
+        connection = _connection_of_the_project(upgrade.root)
+        connect = (fresh[2][0], _filled(fresh[2][1], connection))
+        new_cells.insert(2, connect)
+    if new_cells != cells:
+        upgrade.rewrite_notebook(CHECK_PROJECT, new_cells,
+                                 f"wrote {CHECK_PROJECT} again: it connects, and gives "
+                                 "project.check() your query, to warn of each History table "
+                                 "short of the days its Seed loads")
+
+
+def _connection_of_the_project(root: Path) -> str | None:
+    """The lines the Project's Workflow notebooks give their connection with, in place of the
+    line to fill in, where each setup cell ends: those of the first that gives one; None where
+    none does."""
+    from . import workflows  # workflows.py imports this file, so it is read here
+
+    for path in [workflows.notebook_path(root, each) for each in workflows.WORKFLOWS]:
+        connection = _connection_given(path) if path.is_file() else None
+        if connection is not None:
+            return connection
+    return None
+
+
+def _promoted_code_hashes(root: Path) -> dict[str, tuple[str, str]]:
+    """Each prod copy's hashes of its Table reference and of its dev copy's code as they are
+    now, by the prod copy, for a step that changes Table references, so its record follows."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import _dev_code_hash, _reference_hash
+    from .project_files import REFERENCE
+    from .workflows import promoted_record
+
+    hashes = {}
+    for prod, entry in promoted_record(root).items():
+        reference = REFERENCE.path(root, prod.replace(".", "__", 1))
+        if reference.is_file() and isinstance(entry, dict) and "dev" in entry:
+            hashes[prod] = (_reference_hash(reference.read_text(encoding="utf-8")),
+                            _dev_code_hash(root, str(entry["dev"])))
+    return hashes
+
+
+def _rehash_promoted_code(upgrade: Upgrade, before: dict[str, tuple[str, str]]) -> None:
+    """Write promote's record again with each prod copy's new hash of its Table reference, and
+    of its dev copy's code, where this step changed one that was, before it, still as promote
+    recorded it, so check() reads neither as changed since the promote."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import _dev_code_hash, _reference_hash
+    from .project_files import REFERENCE
+    from .workflows import PROMOTED, promoted_record
+
+    record = promoted_record(upgrade.root)
+    changed = False
+    for prod, (reference_before, code_before) in before.items():
+        entry = record[prod]
+        text = REFERENCE.path(upgrade.root, prod.replace(".", "__", 1)).read_text(
+            encoding="utf-8")
+        now = {"reference": _reference_hash(text),
+               "dev_code": _dev_code_hash(upgrade.root, str(entry["dev"]))}
+        for key, hash_before in (("reference", reference_before), ("dev_code", code_before)):
+            if entry.get(key) == hash_before and now[key] != hash_before:
+                entry[key] = now[key]
+                changed = True
+    if changed:
+        # As promote writes its record.
+        upgrade.rewrite(PROMOTED.as_posix(), json.dumps(record, indent=1, sort_keys=True))
+
+
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
                                                "8.5": to_8_5, "8.6": to_8_6, "8.7": to_8_7,
-                                               "8.8": to_8_8, "8.9": to_8_9}
+                                               "8.8": to_8_8, "8.9": to_8_9, "8.10": to_8_10}

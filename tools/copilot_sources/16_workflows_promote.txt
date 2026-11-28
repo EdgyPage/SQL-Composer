@@ -19,7 +19,7 @@ table.
 | P4 | "no Decision is open" | `DECISIONS = {}` | R5 |
 | P5 | "put it at /data/...", "seed from D" | "location", "seed" answers | W2 |
 | P6 | "call the prod copy x" | `project.promote(TABLES, rename={...})` | R6 |
-| P7 | the compare hasn't passed | say to run it first, before any cell | R1 |
+| P7 | the compare failed or wasn't run | say what promote does, then the cells | R1 |
 | P8 | "the same answer for every prod copy" | "all_tables", file 17 | R7 |
 | P9 | "refreshing the Reference sheet" | its step's cell, the last | R3 |
 
@@ -39,8 +39,10 @@ table.
 
 ## Rules
 
-- **R1** **Promote a table only once its compare has passed** in the convert Workflow, or it
-  is written by the new_table Workflow (file 14). If the user hasn't said so, say so first.
+- **R1** **A table is promoted once its compare has run** in the convert Workflow, or once
+  the new_table Workflow (file 14) wrote it. A compare that failed, or wasn't compared, stops
+  nothing: promote promotes it, its report naming it first, "Warning: promoting ...". Promoting
+  is the user's call: say to read that table's conversion/compare.md first.
 - **R2** The names cell comes first, filled in: TABLES, the dev tables by full name, such as
   `["mart_dev.daily_job_runs"]`. Left `[]`, the run cells promote every finished table not
   promoted yet, or changed since; `project.promote([])` itself is refused.
@@ -54,9 +56,10 @@ table.
   answer the user gives; none open: `DECISIONS = {}`. A Decision is the user's.
 - **R6** Another name for the prod copy: `project.promote(TABLES,
   rename={"mart_dev.daily_fails": "fails"})`.
-- **R7** A prod copy that reads itself is seeded once, at step 5, every Partition unless its
-  own "seed" answer limits it: `{"seed": {"dt": {"from": "2026-09-01"}}}`; a dev seed answer
-  isn't carried over. "all_tables" answers every prod copy at once (file 17).
+- **R7** A History prod copy is seeded once, at step 5, before its write: it copies its dev
+  copy's original, or the dev copy where it has none, within the dev table's SEED, which
+  promote keeps; its own "seed" answer changes it: `{"seed": {"months": 3}}`. "all_tables"
+  answers every prod copy at once (file 17).
 - **R8** A prod copy keeps its dev table's TAGS, a Run value or a Hivevar among them; each
   Building block it imports is copied into building_blocks/prod/.
 - **R9** "Run up to your Decisions", then "Run the rest", run each to the first step only the
@@ -107,6 +110,6 @@ project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 - [ ] **C1** The names cell is first, TABLES by full name.
 - [ ] **C2** Each cell is one the steps list, with the user's names, as asked.
-- [ ] **C3** Each table promoted has a compare that passed, or the reply says to run it.
+- [ ] **C3** Each table whose compare failed, or didn't run, is named, with its compare.md.
 - [ ] **C4** Each Decision answered is in DECISIONS by the prod copy's name.
 - [ ] **C5** Each later step is named in words, unless every cell was asked.

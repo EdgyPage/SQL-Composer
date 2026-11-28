@@ -46,6 +46,7 @@ refusal, and every place that does the job calls it:
 | Hive written as an Unchecked expression's text: each brace doubled, a Hive variable as it is | `shared.unchecked_expression_text` |
 | One thing or a list of them, as a list: a list's or a tuple's items, or the thing alone | `shared.items_of` |
 | A list with its repeats dropped, in order | `list(dict.fromkeys(items))`, Python's own |
+| The number Hive reads text as, to compare it with a number, or None | `shared.number_read_from` |
 | A refusal, with its four parts | `refusals.refuse` |
 
 A new recurring job gets a row here and its function there, in the same change. Before writing

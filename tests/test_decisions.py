@@ -155,7 +155,7 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
     ({"OPS.JOB_RUN": {"key": None}}, "; did you mean ops.job_runs?"),
     ({"ops.job_runs": {"keys": ["run_id"]}},
      "ops.job_runs: 'keys' is no kind of answer; the decisions cell answers location, key, "
-     "types, tags, name, sources, pivot_filters and seed; did you mean key?"),
+     "types, tags, name, sources, pivot_filters, kind and seed; did you mean key?"),
     ({"ops.job_runs": {"tag": {"X": "1"}}}, "; did you mean tags?"),
     ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
      "ops.job_runs: types: run_idd is no column of ops.job_runs; did you mean run_id?"),
@@ -341,3 +341,109 @@ def test_a_tag_of_a_table_with_tags_names_them_when_none_is_close(started: Path)
     with pytest.raises(ValueError, match="tags: RUN_DAY is no Script tag of ops.job_runs; its "
                        "Script tags are END"):
         project.write_decisions({"ops.job_runs": {"tags": {"RUN_DAY": "'2026-10-31'"}}})
+
+
+# --- Rebuilt or History: each table's kind (Toolbox 8.10, ticket 04) -------------------------
+
+SELECTED = "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r"
+# Each write a script may make of mart.t, and the kind proposed for it from what the write
+# does to the rows already there, with why; None where the write doesn't say.
+WRITES = {
+    "drop, create and insert": (
+        "DROP TABLE IF EXISTS mart.t;\nCREATE TABLE mart.t (job_id BIGINT, runs BIGINT);\n"
+        f"INSERT INTO TABLE mart.t\n{SELECTED} GROUP BY r.job_id;\n",
+        "rebuilt", "its script drops it first, then writes it whole"),
+    "overwrite with no partition": (
+        f"INSERT OVERWRITE TABLE mart.t\n{SELECTED} GROUP BY r.job_id;\n",
+        "rebuilt", "its INSERT OVERWRITE names no Partition, so it replaces the whole table"),
+    "overwrite of one partition": (
+        "INSERT OVERWRITE TABLE mart.t PARTITION (dt = '2026-09-24')\n"
+        f"{SELECTED} WHERE r.dt = '2026-09-24' GROUP BY r.job_id;\n",
+        "history", "its INSERT OVERWRITE replaces one Partition, keeping the others"),
+    "insert into": (
+        f"INSERT INTO TABLE mart.t\n{SELECTED} GROUP BY r.job_id;\n",
+        "history", "its INSERT INTO adds rows to the ones it holds"),
+    "reads itself": (
+        "INSERT INTO TABLE mart.t\nSELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r\n"
+        "LEFT JOIN mart.t s ON s.job_id = r.job_id WHERE s.job_id IS NULL GROUP BY r.job_id;\n",
+        "history", "its write reads its own table, adding to the rows it holds"),
+    "dynamic overwrite": (
+        "INSERT OVERWRITE TABLE mart.t PARTITION (dt)\n"
+        "SELECT r.job_id, COUNT(*) AS runs, r.dt FROM ops.job_runs r\n"
+        "GROUP BY r.job_id, r.dt;\n",
+        None, "its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it "
+        "may replace every Partition or only some"),
+}
+
+
+def _converted_kind_line(root: Path, script: str) -> str:
+    """The KIND line of the one table convert makes of `script`."""
+    (root / "t.hql").write_text(script, encoding="utf-8")
+    project.convert("t", files=["t.hql"], query=example_database.query, database="ops")
+    reference = (root / "references" / "mart_dev__t_mart.py").read_text(encoding="utf-8")
+    (line,) = [line for line in reference.split("\n") if line.startswith("KIND = ")]
+    return line
+
+
+@pytest.fixture
+def placed(started: Path) -> Path:
+    """A Project whose Dev Database places each table under its location_root."""
+    databases = started / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8")
+                         .replace('"<DEV_DATABASE>"', '"mart_dev"')
+                         .replace('"<DEV_LOCATION_ROOT>"', '"/data/team"'), encoding="utf-8")
+    return started
+
+
+@pytest.mark.parametrize("write", list(WRITES))
+def test_each_write_proposes_its_tables_kind_saying_why(placed: Path, write: str) -> None:
+    script, proposed, why = WRITES[write]
+    line = _converted_kind_line(placed, script)
+    said = repr(project.check())
+    if proposed is None:
+        assert line == f"KIND = None  # TODO: nothing proposed: {why}"
+        assert ("mart_dev.t_mart: kind: Rebuilt or History table, nothing proposed, as "
+                f"{why}: answer") in said
+        assert ('        "kind": "<FILL IN>",  # "rebuilt" or "history": nothing proposed'
+                in said)
+    else:
+        assert line == f'KIND = "{proposed}"  # TODO: proposed {proposed}: {why}'
+        assert (f"mart_dev.t_mart: kind: proposed a {proposed.capitalize()} table, as {why}: "
+                'accept it with "proposed"') in said
+        assert f'        "kind": "{proposed}",  # proposed, as {why}' in said
+
+
+def test_a_proposed_kind_is_open_until_accepted_then_read_as_answered(placed: Path) -> None:
+    _converted_kind_line(placed, WRITES["overwrite of one partition"][0])
+    reference = placed / "references" / "mart_dev__t_mart.py"
+    assert decisions.table_kind(reference.read_text(encoding="utf-8")) is None
+    project.write_decisions({"mart_dev.t_mart": {"kind": "proposed"}})
+    text = reference.read_text(encoding="utf-8")
+    assert ('KIND = "history"  # answered, proposed history: its INSERT OVERWRITE replaces '
+            "one Partition, keeping the others") in text
+    assert decisions.table_kind(text) == decisions.TableKind.HISTORY
+    assert not decisions.open_decisions(text, "mart_dev.t_mart", (decisions.TABLE_KIND,))
+    # Answering again changes it, and check() never lists the answered line as # proposed.
+    project.write_decisions({"mart_dev.t_mart": {"kind": "rebuilt"}})
+    assert decisions.table_kind(reference.read_text(encoding="utf-8")) == "rebuilt"
+    assert "KIND = " not in repr(project.check())
+
+
+@pytest.mark.parametrize("kind, said", [
+    ("daily", "mart_dev.t_mart: kind: 'daily' is no kind of table: answer \"rebuilt\", "
+     "\"history\" or \"proposed\""),
+    ("proposed", "mart_dev.t_mart: kind: nothing was proposed for mart_dev.t_mart, so there "
+     "is nothing to accept: answer \"rebuilt\" or \"history\""),
+], ids=["no kind", "nothing proposed"])
+def test_a_kind_that_cant_be_written_is_refused(placed: Path, kind: str, said: str) -> None:
+    _converted_kind_line(placed, WRITES["dynamic overwrite"][0])
+    with pytest.raises(ValueError, match="wrote nothing") as refused:
+        project.write_decisions({"mart_dev.t_mart": {"kind": kind}})
+    assert said in str(refused.value)
+
+
+def test_a_table_with_no_kind_line_has_no_kind_to_answer(started: Path) -> None:
+    # A Table reference the references Workflow added has no kind: no write of yours makes it.
+    with pytest.raises(ValueError, match="ops.job_runs: kind: ops.job_runs has no kind to "
+                       "decide"):
+        project.write_decisions({"ops.job_runs": {"kind": "rebuilt"}})

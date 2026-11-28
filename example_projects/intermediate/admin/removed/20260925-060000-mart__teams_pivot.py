@@ -34,6 +34,12 @@ PIVOT_FILTERS = {
     "team": "fold",  # the slicer on team keeps data. "keep": 1 table, that selection; "fold": 1 table, every team; "batch": 1 table, a Partition per team; "tables": at least 2 tables, one per team the PivotTable's cache held (data and finance)
 }
 
+# Rebuilt or History: "rebuilt" if each write replaces the whole table; "history" if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day's Partition, so the table needs its past rows loaded first, its Seed. Answer
+# "kind" in the decisions cell: "proposed" accepts the kind proposed below.
+KIND = "rebuilt"  # answered, proposed rebuilt: it is a query alone, which each write writes whole
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table's columns and conditions, written by hand below.
 # Import one beside the table: from references.mart__teams_pivot import teams_pivot, <alias>

@@ -20,6 +20,7 @@ from sqlglot.optimizer import optimize
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
 
+from .engine import sort_array_class
 from .refusals import four_part_message, refuse
 from .shared import singular_or_plural, unchecked_expression_text
 from .trees import (
@@ -55,6 +56,18 @@ def _population_variance_hive(generator: sqlglot.Generator,
     return generator.func(variance.meta_get("hive_name", "VAR_POP"), variance.this)
 
 
+def _sort_array_hive(generator: sqlglot.Generator, sort: exp.Expression) -> str:
+    """Hive's SORT_ARRAY on a sqlglot from 30.24.0, which reads it as ArraySort: a second
+    argument written as the Hive held it, SORT_ARRAY(x, FALSE), as sqlglot up to 30.23.0 writes
+    it, where sqlglot's own Hive refuses it; any other, a comparator among them, as sqlglot's
+    own Hive writes it, or refuses it in its own words."""
+    ascending = sort.args.get("asc")
+    if ascending is None or sort.expression is not None:
+        sqlglots_own = sqlglot.Dialect.get_or_raise("hive").generator_class.TRANSFORMS
+        return sqlglots_own[exp.ArraySort](generator, sort)
+    return generator.func("SORT_ARRAY", sort.this, ascending)
+
+
 def _hive_with_hints() -> sqlglot.Dialect:
     """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
     reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed.
@@ -63,7 +76,11 @@ def _hive_with_hints() -> sqlglot.Dialect:
     whatever sqlglot version runs; and keeps each variance's meaning and Hive's name for it.
     sqlglot's Hive writes VAR_SAMP as VARIANCE, which Hive reads as the population variance,
     and VAR_POP as VARIANCE_POP, which Hive hasn't got; and reads VARIANCE as the sample one.
+    Where SORT_ARRAY reads as ArraySort, it writes SORT_ARRAY's second argument as given.
     """
+    sorting = {}
+    if sort_array_class() is exp.ArraySort:
+        sorting = {exp.ArraySort: _sort_array_hive}
     hive = type(sqlglot.Dialect.get_or_raise("hive"))()
     hive.parser_class = type("HiveVariances", (hive.parser_class,), {
         "FUNCTIONS": {**hive.parser_class.FUNCTIONS, "VARIANCE": _population_variance}})
@@ -73,6 +90,7 @@ def _hive_with_hints() -> sqlglot.Dialect:
             **hive.generator_class.TRANSFORMS,
             exp.Variance: _sample_variance_hive,
             exp.VariancePop: _population_variance_hive,
+            **sorting,
         },
     })
     # A string value's characters are escaped by the Toolbox's table, not sqlglot's own,
