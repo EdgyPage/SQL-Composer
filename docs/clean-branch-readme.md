@@ -1982,7 +1982,7 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      Table reference gets its kind, a `KIND` line: `"rebuilt"` or `"history"`, proposed from
      its write and written in as answered. Where nothing is proposed, as for a write that
      fills `dt` from its rows' own values, it stays open, `KIND = None`, and
-     `admin/upgrade_8.10.md` names the table: answer `"kind"` for it in a decisions cell
+     the Upgrade's checklist names the table: answer `"kind"` for it in a decisions cell
      before you promote it. No Seed runs and nothing is sent, since your tables hold their
      Partitions already, and each `seed()` and `SEED` is kept. Each Workflow notebook is
      written again, keeping each name you gave, each step cell you wrote in and your answered
