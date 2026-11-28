@@ -84,10 +84,26 @@ def test_it_stops_at_an_open_decision_and_goes_on_once_it_is_answered(started: P
     assert 'key=["event_id"],' in written
 
 
-def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
-    # The Example database keeps no write, so the compare finds no dev table to read.
+def test_a_compare_that_cant_read_its_dev_table_stops_nothing(started: Path) -> None:
+    # The Example database keeps no write, so the compare finds no dev table to read: a
+    # result that failed, which stops nothing (Toolbox 8.10, ticket 03).
     typed(started, "convert", "NAME = ''", "spare")
     typed(started, "convert", "HIVE = None", QUERY)
+    typed(started, "convert", "DECISIONS = {}", {f"{DEV}.spare": answers("spare")})
+    said = run("convert")
+    assert f"{DEV}.spare: failed, couldn't compare" in said
+    assert "convert, spare: every step is done." in said
+    assert (started / "admin" / "workflows" / "convert" / "finished" / "spare").is_dir()
+
+
+def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
+    # A batch whose record names no table it wrote, as one edited by hand: its compare
+    # compares nothing, so the step ran and isn't done.
+    project.convert("spare", QUERY, query=example_database.query, database="ops")
+    record = started / "admin" / "workflows" / "convert" / "spare" / "written.json"
+    record.write_text(record.read_text(encoding="utf-8").replace(
+        f'"{DEV}.spare": null', ""), encoding="utf-8")
+    typed(started, "convert", "NAME = ''", "spare")
     typed(started, "convert", "DECISIONS = {}", {f"{DEV}.spare": answers("spare")})
     stopped = run("convert")
     assert "convert, spare: 6. Compare each table with its original" in stopped
@@ -123,14 +139,14 @@ def test_a_names_cell_naming_several_batches_runs_each_and_a_stop_names_which(
     for name in ("first", "second"):
         project.convert(name, QUERY, query=example_database.query, database="ops")
     typed(started, "convert", "NAME = ''", ["first", "second"])
-    typed(started, "convert", "DECISIONS = {}",
-          {f"{DEV}.{name}": answers(name) for name in ("first", "second")})
+    # The first batch's Decisions are left open, so it stops at them.
+    typed(started, "convert", "DECISIONS = {}", {f"{DEV}.second": answers("second")})
     stopped = run("convert")
-    assert "convert, first: 6. Compare" in stopped
+    assert "first: 2. Answer each table's open Decisions" in stopped
     assert "convert, second" not in stopped
     checked = repr(project.check())
-    assert "convert.ipynb, first: 6. Compare" in checked
-    assert "convert.ipynb, second: 4. Create" in checked
+    assert "convert.ipynb, first: 2. Answer" in checked
+    assert "convert.ipynb, second: 3. Write" in checked
 
 
 def test_a_dry_run_sends_nothing_and_says_each_hive(started: Path,

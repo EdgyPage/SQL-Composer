@@ -415,16 +415,21 @@ execute: WITH job_events AS (
 Wrote 1 table, in order.
 >>> print(project.compare_batch("job_hours", query=query))
 mart.job_hours: failed, couldn't compare: The Example database couldn't run this Hive: it has no table mart.job_hours.
+The batch is finished, though not every table passed: mart.job_hours failed its compare. That stops nothing: ...
 
 mart.job_hours has no Partitions, so its compare reads every row: the names cell's
 PARTITIONS, which lists Partitions to compare beside the latest, is left as it is. The Example
 database holds no Dev Database, so here the compare couldn't read the dev table, and says it
-failed. At work, where the dev table is there, it compares the table's rows with its query's
-and writes tables/mart__job_hours/conversion/compare.md, whose "Every row" part says, once
-they match, `Passed: every row: it has no Partitions.` Once it passes, the batch is finished, and the promote Workflow carries the table to your Prod
-Database, as [Convert someone else's Hive](#convert_someone_elses_hive) shows.
+failed: a result that stops nothing, so the batch is finished all the same. At work, where
+the dev table is there, it compares the table's rows with its query's and writes
+tables/mart__job_hours/conversion/compare.md, whose "Every row" part says, once they match,
+`Passed: every row: it has no Partitions.`; one that fails has a warning at its top saying
+so, in plain words. The promote Workflow carries the table to your Prod Database, as [Convert
+someone else's Hive](#convert_someone_elses_hive) shows, naming it first if its compare
+didn't pass.
 
-Done when compare.md says "Passed:", at work; here, when the compare has run. Then step 11.
+Done when compare.md says "Passed:", or you have read its warning, at work; here, when the
+compare has run. Then step 11.
 
 ### 11. Or have Copilot write the Hive
 

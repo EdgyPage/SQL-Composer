@@ -445,12 +445,14 @@ def test_check_names_the_batchs_next_step_and_answering_the_decisions_moves_it_o
     assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Answer each table's open "
             "Decisions in the decisions cell") in said
     assert "mart_dev.failed_runs_ops_reports: location: the folder its files go in" in said
-    # Toolbox 8.10: each table's kind too, proposed from its write and accepted, and its seed
-    # limits, which nothing proposes where the Example database can't list the original's
-    # Partitions.
-    project.write_decisions({table: {"location": f"/data/{table}", "key": None,
-                                     "kind": "proposed", "seed": {}}
-                             for table in project.batch_tables("ops_reports")})
+    # Toolbox 8.10: each table's kind too, proposed from its write and accepted, and, under
+    # all_tables, the seed limits of each History one, which nothing proposes where the Example
+    # database can't list the original's Partitions.
+    project.write_decisions({"all_tables": {"seed": {}},
+                             **{table: {"location": f"/data/{table}", "key": None,
+                                        "kind": "proposed"}
+                                for table in project.batch_tables("ops_reports")}},
+                            tables=project.batch_tables("ops_reports"))
     assert "ops_reports: 4. Create each table in dev" in repr(project.check())
 
 

@@ -870,8 +870,11 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    Partition compared too, once your dev table holds it, then list it in `PARTITIONS` in the
    names cell, such as
    `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch too:
-   its `conversion/compare.md` keeps each Partition's result. Done when every result of each
-   table has passed; then step 6.
+   its `conversion/compare.md` keeps each Partition's result. A compare that fails, or a
+   query alone whose value only your program fills, which isn't compared, stops nothing: the
+   batch is finished all the same, and the warning at the top of that table's `compare.md`
+   says why, in plain words. Done when the batch is finished and you have read each warning;
+   then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: fill in PROD's
    `"database"` and `"location_root"` in `admin/databases.py`, then run the promote
    Workflow's cells top to bottom with `TABLES = []` left empty, which promotes every
@@ -879,8 +882,10 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    names cell's `[]` is read by the run cells, `project.run_workflow`, which work out those
    tables; `project.promote`, the call in step 1's own cell under Step by step, takes the
    tables by name, and refuses `project.promote([])`, naming the run cells. It carries each
-   to your Prod Database, keeping its name unless `rename=` gives it another. Done when each
-   is written in prod. What it carries, by the rules below:
+   to your Prod Database, keeping its name unless `rename=` gives it another; one whose
+   compare failed, or that wasn't compared, too, since promoting is your call: its report
+   names each first, as `Warning: promoting ...`. Done when each is written in prod. What it
+   carries, by the rules below:
    - If a prod copy was promoted before, it keeps that location; if not, it is placed under
      PROD's `"location_root"`; if that is not filled in, its location is a Decision, in the
      DECISIONS it prints.
@@ -895,7 +900,8 @@ How-to: [Convert someone else's Hive](../docs/how_to.html#convert_someone_elses_
 
 Before you go on, check:
 
-- Each table of the batch passed `project.compare_batch` before you promoted it.
+- Each table of the batch passed `project.compare_batch`, or you read the warning at the top
+  of its `compare.md` before you promoted it.
 - Each change you make to a promoted table is made in dev.
 
 ## The Workflows
@@ -935,8 +941,8 @@ The convert, promote, new_table and references notebooks read top to bottom, in 
    rules below:
    - If an answer was wrong, or a Decision is left open, it names it: mend it in the
      decisions cell, save, and run "Run the rest" again. You never go back up the notebook.
-   - If a step is refused, or a compare fails, it names why: mend what it names, then run
-     "Run the rest" again.
+   - If a step is refused, it names why: mend what it names, then run "Run the rest" again.
+     A compare that fails is no stop: its `compare.md` says why, first.
 
 How the rest of a notebook runs, by the rules below:
 
@@ -1866,7 +1872,8 @@ Before you go on, check:
   or you have read each difference.
 - Each final you keep converted from the workbook, or has its query saved as a .hql file, with
   no `<...>` left in it.
-- Each table the batch made has passed its compare in the convert notebook.
+- Each table the batch made has passed its compare in the convert notebook, or you have
+  read the warning at the top of its `compare.md`.
 
 ## Update
 
