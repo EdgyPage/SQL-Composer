@@ -326,6 +326,9 @@ Written 2026-11-27, once the user confirmed the plan ("Yes, write the tickets").
 - [06 check_project warns while a History table lacks its Seed's days](issues/06-check-project-warns-of-missing-days.md)
 - [07 The docs and the Example projects](issues/07-the-docs-and-example-projects.md)
 - [08 8.10: the Upgrade step and the raise](issues/08-eight-point-ten.md)
+- [09 A number and a string compared as Hive compares them, '1' with 1](issues/09-numbers-and-strings-hive-converts.md),
+  added 2026-11-28 from a bug the user met in the convert Workflow, all five answers taken as
+  recommended
 
 One at a time, by number, the user's habit; 01 first, since anyone on sqlglot 30.24.0 or newer
 is broken today. 01 to 04 block nothing of each other; 05 waits on 04, 06 on 05, 07 on 01 to
