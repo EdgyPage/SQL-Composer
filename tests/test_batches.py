@@ -17,6 +17,7 @@ import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
@@ -924,3 +925,34 @@ def test_a_read_before_the_create_in_its_script_reads_the_table_as_it_was(
     # It still reads the table as it was, which the Example database doesn't hold.
     assert ("mart_dev.before_it_ops_reports (it reads ops_reports.failed, which has no Table "
             "reference)") in said
+
+
+# --- A number and a string compared as Hive compares them (Toolbox 8.10, ticket 09) ---------
+
+
+@pytest.mark.parametrize(("where", "as_its_rows"), [
+    ("r.job_id = '3'", "c.job_id = 3"),
+    ("r.status = 1", "c.status = '1'"),
+], ids=["text_beside_a_number", "a_number_beside_text"])
+def test_a_number_compared_with_text_converts_is_written_and_compares(
+        started: Path, where: str, as_its_rows: str) -> None:
+    # The user met it in the convert Workflow: the Toolbox refused job_id = '3', a comparison
+    # Hive makes by reading '3' as 3, so the table couldn't be written.
+    dev = "mart_dev.script"
+    convert_script(started, "SELECT r.run_id, r.job_id FROM ops.job_runs r\n"
+                            f"WHERE r.dt = '2026-09-24' AND {where};\n")
+    assert "refused" not in checklist(started, dev)
+    scan = started / "tables" / "mart_dev__script" / "conversion" / "scan.md"
+    assert "Stopped" not in scan.read_text(encoding="utf-8")
+    # Its Hive is the original's: the value as given.
+    assert f"r.dt = '2026-09-24' AND {where}" in to_hive(project.load(dev).preview())
+    project.write_decisions({dev: {"location": "/data/dev/script"}})
+    project.run_tables(tables=[dev], execute=example_database.execute)
+    # The dev table holds the rows Hive gives, read here from the Example database.
+    rows = ("SELECT c.run_id, c.job_id FROM ops.job_runs c WHERE c.dt = '2026-09-24' AND "
+            f"{as_its_rows}")
+    assert len(example_database.query(rows)) == (1 if "job_id" in where else 0)
+
+    def query(hive: str) -> pd.DataFrame:
+        return example_database.query(hive.replace(dev, f"({rows})"))
+    assert f"{dev}: passed" in repr(project.compare_batch("script", query=query))

@@ -27,7 +27,13 @@ import pandas as pd
 
 from . import _FOLDER, describe, kinds
 from .decisions import GUESSED, PROPOSED, ROW_TODO
-from .shared import escaped_literal, in_words, python_literal, split_table_name
+from .shared import (
+    escaped_literal,
+    in_words,
+    number_read_from,
+    python_literal,
+    split_table_name,
+)
 from .writing import hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -361,8 +367,9 @@ def value_family(value: object) -> str | None:
     return _python_family(value)
 
 
-# For each column type family, the kinds of Python value it may be compared with; they are
-# also the families whose values can stand in one column, as first_match's values must.
+# For each column type family, the kinds of Python value of one kind with it: those that can
+# stand in one column, as first_match's values must, and that a value saved, or named as a
+# Partition, must be. A condition takes a number beside text too (_is_compared_as_numbers).
 COMPARABLE_VALUES = {
     "number": {"number"},
     "string": {"string", "date", "timestamp"},
@@ -373,16 +380,35 @@ COMPARABLE_VALUES = {
 
 
 def _check_type(value: bool | int | float | decimal.Decimal | str | datetime.date,
-                column: Column | None, call: str) -> None:
+                column: Column | None, call: str, in_condition: bool) -> None:
+    """Refuse a value of a kind its column can't be compared with, or, outside a condition,
+    can't hold. In a condition Hive compares a number and text as two numbers, as in job_id =
+    '3', so those pass, but for text that reads as no number, which matches no row."""
     family = type_family(column._type) if column is not None else None
     if family is None or _python_family(value) in COMPARABLE_VALUES[family]:
         return
+    if in_condition and _is_compared_as_numbers(value, family):
+        return
+    why = ("The warehouse would convert one side to the other's type, so the comparison "
+           "could quietly match nothing or the wrong rows, or stop with an error.")
+    if in_condition and family == "number" and isinstance(value, str):
+        why = ("Hive compares text with a number by reading the text as a number, and would "
+               f"read {value!r}, which isn't a number, as NULL, so the comparison would "
+               "match no row.")
     refuse(
         what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
-        why="The warehouse would convert one side to the other's type, so the comparison "
-        "could quietly match nothing or the wrong rows, or stop with an error.",
+        why=why,
         fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
     )
+
+
+def _is_compared_as_numbers(value: bool | int | float | decimal.Decimal | str | datetime.date,
+                            family: str) -> bool:
+    """Whether Hive compares the value with a column of the type family as two numbers: text
+    that reads as a number, '3', beside a number column, or a number beside a string column."""
+    if family == "number":
+        return isinstance(value, str) and number_read_from(value) is not None
+    return family == "string" and _python_family(value) == "number"
 
 
 def _example_of(family: str) -> str:
@@ -445,7 +471,7 @@ def literal(value: object, *, call: str, column: Column | None = None,
             fix="For several values use is_in(column, [...]); for a column pass the column.",
             given=value, call=call,
         )
-    _check_type(value, column, call)
+    _check_type(value, column, call, in_condition)
     if isinstance(value, bool):
         return Node("Boolean", this=value)
     if isinstance(value, str):

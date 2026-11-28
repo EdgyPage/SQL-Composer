@@ -1558,14 +1558,17 @@ run_query(not_test, query)</pre>
 </table></div>
 <p>Nothing stops this, since the Toolbox can&#x27;t know which columns may be NULL. To keep run 98, ask for the NULL rows too: <code>any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status))</code>.</p>
 <h5>A value of the wrong type</h5>
-<p><code>job_runs.job_id</code> holds numbers. Comparing it with text, as if <code>&quot;3&quot;</code> were 3, would leave the warehouse to convert one into the other, which can quietly match nothing. The Toolbox stops it:</p>
+<p><code>job_runs.job_id</code> holds numbers. Hive compares a number with text by reading the text as a number, so text such as <code>&quot;3&quot;</code> is fine: Hive reads it as 3, and the Toolbox writes it as you gave it, as Hive you already run may have it:</p>
 <pre class="python">equals(job_runs.job_id, &quot;3&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">job_runs.job_id = &#x27;3&#x27;</pre>
+<p>Text that reads as no number, such as <code>&quot;one&quot;</code>, Hive reads as NULL, which matches no row. The Toolbox stops it:</p>
+<pre class="python">equals(job_runs.job_id, &quot;one&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
-  What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with &#x27;3&#x27;.
-  Why it matters: The warehouse would convert one side to the other&#x27;s type, so the comparison could quietly match nothing or the wrong rows, or stop with an error.
+  What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with &#x27;one&#x27;.
+  Why it matters: Hive compares text with a number by reading the text as a number, and would read &#x27;one&#x27;, which isn&#x27;t one, as NULL, so the comparison would match no row.
   Usual fix:      Pass a value of the column&#x27;s own type, such as 42.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>Write the value in the column&#x27;s type: <code>equals(job_runs.job_id, 3)</code>.</p>
+<p>Write the number you meant: <code>equals(job_runs.job_id, 1)</code>. It works the other way too: a string column, such as <code>job_runs.status</code>, may be compared with a number, as in <code>equals(job_runs.status, 1)</code>, which matches the rows whose text reads as 1.</p>
 <h4>Next</h4>
 <ul><li>Count and add up per group, join tables without counting a row twice, and read what the Toolbox says when it stops a Statement: <a href="#count_join_and_stay_safe">Count, join and stay safe</a>.</li><li>Write the rare Hive the Toolbox has no function for, with your Table references in it: <a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#to_hive"><code>to_hive</code></a>, <a href="examples.html#show_hive"><code>show_hive</code></a>, <a href="examples.html#run_query"><code>run_query</code></a> and each Condition, such as <a href="examples.html#between"><code>between</code></a>, <a href="examples.html#is_in"><code>is_in</code></a> and <a href="examples.html#any_of"><code>any_of</code></a>, and the traps beside their fixes: <a href="examples.html#not_equals_drops_null"><code>not_equals</code> drops NULL</a> and <a href="examples.html#none_in_equals">None in <code>equals</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>first_look</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>at_least</code>, <code>between</code>, <code>is_in</code>, <code>contains</code>, <code>any_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.add_references</code></p>

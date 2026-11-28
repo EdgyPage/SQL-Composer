@@ -16,6 +16,11 @@ import re
 # variable's name, hivevar:run_day, is group 1 when they are doubled and group 2 when not.
 HIVE_VARIABLE = re.compile(r"\$\{\{([^{}]+)\}\}|\$\{([^{}]+)\}")
 
+# A number written as text, as Hive reads text to compare it with a number: '3', '-2.5',
+# '1e3', with spaces before or after it; its digits and spaces ASCII's alone.
+_NUMBER_TEXT = re.compile(r"\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*",
+                          re.ASCII)
+
 
 def in_words(items: list[str], last: str = "and") -> str:
     """Items as a sentence lists them: "a", "a and b", or "a, b and c"; with last="or",
@@ -90,3 +95,11 @@ def items_of(value: object) -> list[object]:
     if isinstance(value, (list, tuple)):
         return list(value)
     return [value]
+
+
+def number_read_from(text: str) -> float | None:
+    """The number Hive reads text as, to compare it with a number: 3.0 for "3", -2.5 for
+    "-2.5"; None for text that reads as no number, such as "one", which Hive reads as NULL."""
+    if _NUMBER_TEXT.fullmatch(text) is None:
+        return None
+    return float(text)

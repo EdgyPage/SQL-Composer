@@ -459,18 +459,27 @@ ask for the NULL rows too:
 
 ### A value of the wrong type
 
-`job_runs.job_id` holds numbers. Comparing it with text, as if `"3"` were 3, would leave the
-warehouse to convert one into the other, which can quietly match nothing. The Toolbox stops it:
+`job_runs.job_id` holds numbers. Hive compares a number with text by reading the text as a
+number, so text such as `"3"` is fine: Hive reads it as 3, and the Toolbox writes it as you
+gave it, as Hive you already run may have it:
 
 >>> equals(job_runs.job_id, "3")
+job_runs.job_id = '3'
+
+Text that reads as no number, such as `"one"`, Hive reads as NULL, which matches no row. The
+Toolbox stops it:
+
+>>> equals(job_runs.job_id, "one")
 Traceback (most recent call last):
 ...
 TypeError:
   What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with
-                  '3'.
+                  'one'.
 ...
 
-Write the value in the column's type: `equals(job_runs.job_id, 3)`.
+Write the number you meant: `equals(job_runs.job_id, 1)`. It works the other way too: a
+string column, such as `job_runs.status`, may be compared with a number, as in
+`equals(job_runs.status, 1)`, which matches the rows whose text reads as 1.
 
 ## Next
 

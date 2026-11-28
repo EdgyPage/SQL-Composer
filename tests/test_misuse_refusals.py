@@ -127,6 +127,10 @@ MISUSES = [
     pytest.param(lambda: mapped(job_runs.status, ["FAILED"]), TypeError,
                  "where a dict of values goes", id="mapped_a_list"),
     pytest.param(lambda: mapped(5, {"a": 1}), TypeError, "where a column goes", id="mapped_5"),
+    # Toolbox 8.10, ticket 09: text that reads as a number, "3", is compared as Hive compares
+    # it; text that reads as none is NULL to Hive.
+    pytest.param(lambda: equals(job_runs.job_id, "one"), TypeError,
+                 "would read 'one', which isn't a number, as NULL", id="equals_text_no_number"),
     pytest.param(lambda: mapped(job_runs.job_id, {"one": "nightly"}), TypeError,
                  "compares job_runs.job_id, a bigint column, with 'one'",
                  id="mapped_key_of_another_type"),
