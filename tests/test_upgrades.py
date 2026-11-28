@@ -109,6 +109,10 @@ AWAITING_ITS_STEP: tuple[str, ...] = (
     # 8.10's ticket 02: new_table's step 1 and convert's step 3 give your query, which adds a
     # Table reference a table read has none of.
     "admin/workflows/new_table/new_table.ipynb", "admin/workflows/convert/convert.ipynb",
+    # 8.10's ticket 06: check_project connects, and gives check() your query, which reads
+    # each History table's days. No Upgrade writes it again while you may have it open, as
+    # REWRITTEN_IN_8_0 says: ticket 08 decides whether 8.10's step marks it.
+    "admin/check_project.ipynb",
 )
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"

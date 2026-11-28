@@ -18,7 +18,9 @@ limits are.
 project.seed_tables runs it, in the step of each Workflow that writes the table, while the
 table holds no Partitions yet (no row, for one with none), so running the step again never
 loads twice. A day that fails doesn't stop it: its report lists each day not loaded, with the
-warehouse's error, and each that wrote no rows.
+warehouse's error, and each that wrote no rows. Afterwards project.check(query=query), as
+admin/check_project.ipynb runs it, warns of each History table still short of the days its
+Seed loads, or holding one with no rows, so a day the report named isn't forgotten.
 """
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ from .describe import printed_answer
 from .project_files import REFERENCE, table_stem
 from .refusals import callers_frame
 from .run_values import HIVE_DEFAULT_PARTITION, listed_text
-from .shared import counted, in_words
+from .shared import counted, in_words, singular_or_plural
 from .tables import Table, type_family
 from .unchecked import (
     SessionSettings,
@@ -51,7 +53,8 @@ from .unchecked import (
     seed_copy,
     tables_read_and_written,
 )
-from .workflows import BATCH_RECORD, BATCHES, FINISHED, SEED_SENT, promoted_record
+from .workflows import (BATCH_RECORD, BATCHES, FINISHED, SEED_SENT, promoted_record,
+                        write_times)
 
 if TYPE_CHECKING:  # project.py imports this file, so its names are for the hints alone
     import pandas as pd
@@ -62,18 +65,20 @@ if TYPE_CHECKING:  # project.py imports this file, so its names are for the hint
 @dataclass
 class SeedRun:
     """What one table's Seed needs and says: the table, its Table reference, your query and
-    execute (None for a dry run, which sends nothing), and its report's lines so far."""
+    execute (None for a dry run, which sends nothing), its report's lines so far, and the
+    Project action it runs in, which check() reads it from too."""
 
     name: str
     table: Table
     query: Callable[[str], pd.DataFrame]
     execute: Callable[[str], None] | None
     lines: list[str] = field(default_factory=list)
+    action: str = "project.seed_tables(...)"
 
     @property
     def call(self) -> str:
-        """The call each line of the Admin log names for this Seed."""
-        return f"project.seed_tables(...) of {self.name}"
+        """The call each line of the Admin log, and each refusal, names for this Seed."""
+        return f"{self.action} of {self.name}"
 
     def send(self, hive: str, said: str) -> None:
         """Send one Statement of the Seed through your execute, its Admin log entry headed
@@ -115,7 +120,10 @@ def listed_partitions(query: Callable[[str], pd.DataFrame], name: str,
 def date_partitions(listed: list[dict[str, str]]) -> list[str]:
     """Each partition column whose every value `listed` gives reads as a date, 2026-09-24 or
     20260924, Hive's Partition for no value passed over; none when nothing is listed."""
-    columns = list(dict.fromkeys(column for partition in listed for column in partition))
+    named: list[str] = []
+    for partition in listed:
+        named += list(partition)
+    columns = list(dict.fromkeys(named))
     found = []
     for column in columns:
         values = [partition.get(column, "") for partition in listed
@@ -307,7 +315,7 @@ def _copied(run: SeedRun, source: str, said: str, limits: dict[str, object]) -> 
         run.send(seed_copy(run.table, source, resolved)._text, "Seed")
     # The warehouse's error is the Seed's to report: the write after it still runs.
     except Exception as error:  # noqa: BLE001
-        run.lines.append(f"  Not loaded: {_first_line(error)}")
+        run.lines.append(f"  Not loaded: {_error_first_line(error)}")
         return run.lines
     if run.execute is not None:
         run.lines.append(_loaded_line(run, source, resolved))
@@ -348,7 +356,7 @@ def _loaded_line(run: SeedRun, source: str, limits: dict[str, object]) -> str:
     return said + "."
 
 
-def _first_line(error: Exception) -> str:
+def _error_first_line(error: Exception) -> str:
     """The first line of what an error says, the warehouse's or a refusal's."""
     lines = [line.strip() for line in str(error).strip().split("\n") if line.strip()]
     return lines[0] if lines else type(error).__name__
@@ -545,7 +553,7 @@ def _one_day_sent(run: SeedRun, written: str, days: DaysToRun) -> dict[str, str]
     except Exception as error:  # noqa: BLE001
         if run.execute is None:
             raise
-        return {written: _first_line(error)}
+        return {written: _error_first_line(error)}
     return {}
 
 
@@ -563,7 +571,7 @@ def _days_report(run: SeedRun, days: DaysToRun, failed: dict[str, str]) -> list[
     kept."""
     counts = {}
     if days.column is not None:
-        counts = _rows_by_day(run, days)
+        counts = _rows_by_day(run, days.column, days.written)
     no_rows = [day for day in days.written if day not in failed and days.column is not None
                and not counts.get(day)]
     loaded = len(days.written) - len(failed) - len(no_rows)
@@ -575,14 +583,194 @@ def _days_report(run: SeedRun, days: DaysToRun, failed: dict[str, str]) -> list[
     return lines
 
 
-def _rows_by_day(run: SeedRun, days: DaysToRun) -> dict[str, int]:
-    """How many rows the table holds on each day of `days`, by the day as its column writes
-    it, read through your query."""
-    column = days.column
+def _rows_by_day(run: SeedRun, column: str, written: list[str]) -> dict[str, int]:
+    """How many rows the table holds on each day of `written`, oldest first, by the day as its
+    partition column of dates, `column`, writes it, read through your query."""
     quoted = type_family(run.table._columns.get(column)) != "number"
-    first, last = days.written[0], days.written[-1]
+    first, last = written[0], written[-1]
     if quoted:
         first, last = f"'{first}'", f"'{last}'"
     counts = run.query(f"SELECT {column}, COUNT(*) AS row_count FROM {run.name} "
                        f"WHERE {column} >= {first} AND {column} <= {last} GROUP BY {column}")
     return {str(row[0]): int(row[1]) for row in counts.itertuples(index=False)}
+
+
+# --- The days a Seed loads, checked: check()'s Warning (Toolbox 8.10, ticket 06) -----------
+
+# The Project action that reads them, as a refusal of what your query gave back names it.
+CHECK_ACTION = "project.check(query=...)"
+# How many of the days a History table lacks its Warning names, before counting the rest.
+DAYS_NAMED = 5
+
+
+def missing_days_lines(root: Path, names: list[str],
+                       query: Callable[[str], pd.DataFrame]) -> list[str]:
+    """What check() says of the History tables among `names` short of the days their Seed
+    loads: a Warning for each, naming how many and which, the first few and a count of the
+    rest, a day it holds with no rows among them; then one line naming each whose Partitions
+    your query couldn't read, with what it said. It blocks nothing. A table never written is
+    passed over, as its Seed runs at its first write, and so is one whose days can't be told:
+    no partition column of dates, or a write that reads no today."""
+    warnings, unread, query_said = [], [], ""
+    for name in names:
+        run = _history_table_to_check(root, name, query)
+        if run is None:
+            continue
+        try:
+            warning = _missing_days_warning(root, run)
+        # What your query said, the warehouse's error or a refusal of what it gave back, is
+        # said once, below the Warnings: check() goes on, as it blocks nothing.
+        except Exception as error:  # noqa: BLE001
+            unread.append(name)
+            query_said = query_said or _error_first_line(error).removeprefix(
+                "What happened:").strip()
+            continue
+        if warning:
+            warnings.append(warning)
+    if unread:
+        its = singular_or_plural(len(unread), "its", "their")
+        warnings.append(f"Not checked for the days {its} Seed loads: {in_words(unread)}, as "
+                        f"your query couldn't read {its} Partitions. Your query said: "
+                        f"{query_said}")
+    return warnings
+
+
+def _history_table_to_check(root: Path, name: str, query: Callable[[str], pd.DataFrame]
+                            ) -> SeedRun | None:
+    """A History table check() reads the days of: partitioned, its SEED answered, and written
+    at least once, as admin/sent.csv records; None for any other."""
+    from . import project  # project.py imports this file
+
+    path = root / REFERENCE.shown(table_stem(name))
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    seeded = any(decisions.kind_of(line) == decisions.SEED_LIMIT
+                 for line in decisions.code_of(text).split("\n"))
+    if (decisions.table_kind(text) != decisions.TableKind.HISTORY or not seeded
+            or decisions.open_decisions(text, name, (decisions.SEED_LIMIT,))
+            or not write_times(root, name)):
+        return None
+    try:
+        table = project.table_reference(name)
+    # A Table reference that doesn't load has no days to check: its own refusal says why
+    # wherever it is imported.
+    except Exception:  # noqa: BLE001
+        return None
+    if not table._partitioned_by:
+        return None
+    return SeedRun(name, table, query, None, action=CHECK_ACTION)
+
+
+def _missing_days_warning(root: Path, run: SeedRun) -> str | None:
+    """The Warning for a History table lacking days its Seed loads, or holding them with no
+    rows; None for one holding every day, or whose days can't be told."""
+    partitions_held = listed_partitions(run.query, run.name, run.call)
+    if not partitions_held:
+        return None  # no Partition yet: its Seed runs at its next write
+    days = _days_seed_loads(root, run)
+    if days is None:
+        return None
+    column, expected = days
+    counts = _rows_by_day(run, column, expected)
+    missing = [day for day in expected if not counts.get(day)]
+    if not missing:
+        return None
+    days_held = {partition.get(column) for partition in partitions_held}
+    shown = [f"{day} (no rows)" if day in days_held else day for day in missing]
+    named = in_words(shown)
+    if len(shown) > DAYS_NAMED:
+        named = f"{', '.join(shown[:DAYS_NAMED])} and {len(shown) - DAYS_NAMED} more"
+    return (f"Warning: {run.name} lacks {len(missing)} of the {counted(len(expected), 'day')} "
+            f"its Seed loads: {named}. That stops nothing, but what reads it finds no rows "
+            "for those days until each is written.")
+
+
+def _days_seed_loads(root: Path, run: SeedRun) -> tuple[str, list[str]] | None:
+    """The table's partition column of dates and each day its Seed loads, oldest first, as
+    written, counted as the Seed counts them, from the same source: each day its source holds
+    within its SEED, for a Seed copied; each day its write is run for, for one run as of each
+    day. None where they can't be told."""
+    from . import project  # project.py imports this file
+
+    try:
+        limits = dict(project.run_logic(root, f"from references.{table_stem(run.name)} "
+                                        "import SEED", "seed_limits")["SEED"])
+        source, _ = source_to_copy(root, run.name)
+        if source is not None:
+            return _days_copied_from(run, source, limits)
+        days, _ = _days_to_run(run, limits)
+    # A SEED or a logic that stops, which check() names as failing logic, or a source your
+    # query can't list: nothing tells which days its Seed loads.
+    except Exception:  # noqa: BLE001
+        return None
+    if days is None or days.column is None or not days.written:
+        return None
+    return days.column, days.written
+
+
+def _days_copied_from(run: SeedRun, source: str, limits: dict[str, object]
+                      ) -> tuple[str, list[str]] | None:
+    """For a Seed copied from `source`: its partition column of dates, and each day `source`
+    holds that `limits` keep, the months form counted back from its newest; None where it has
+    no one column of dates the table is partitioned by too."""
+    listed = listed_partitions(run.query, source, run.call)
+    columns = date_partitions(listed)
+    if len(columns) != 1 or columns[0] not in run.table._partitioned_by:
+        return None
+    column = columns[0]
+    values = [partition[column] for partition in listed
+              if partition.get(column) not in (None, HIVE_DEFAULT_PARTITION)]
+    months = limits.pop(decisions.MONTHS, None)
+    if months is not None:
+        newest = max(values, key=day_written)
+        start = months_before(day_written(newest), int(months))
+        limits[column] = {"from": written_like(start, newest), "to": newest}
+    days = set()
+    for partition in listed:
+        if partition.get(column) not in values:
+            continue
+        if all(_is_kept_by(partition.get(each), limit) for each, limit in limits.items()):
+            days.add(partition[column])
+    if not days:
+        return None
+    return column, sorted(days, key=day_written)
+
+
+def _is_kept_by(value: str | None, limit: object) -> bool:
+    """Whether a partition column's value, as SHOW PARTITIONS lists it, is one a seed limit
+    keeps, as seed_copy's WHERE keeps it: a value, it or later; a range, within it, both ends
+    included; a list, one of them. A Run value's function is called first, as seed_copy calls
+    it."""
+    if value is None:
+        return False
+    if isinstance(limit, dict):
+        return (("from" not in limit or _ordering(value, limit["from"]) >= 0)
+                and ("to" not in limit or _ordering(value, limit["to"]) <= 0))
+    if isinstance(limit, (list, tuple)):
+        return any(_ordering(value, each) == 0 for each in limit)
+    return _ordering(value, limit) >= 0
+
+
+def _ordering(value: str, limit: object) -> int:
+    """-1, 0 or 1 as `value` comes before `limit`, is the same, or comes after: as days where
+    both are, 20260924 the same as 2026-09-24; as numbers where both are; else as text."""
+    if callable(limit):
+        limit = limit()
+    if isinstance(limit, datetime.date):
+        limit = limit.isoformat()
+    one, other = _comparable(value), _comparable(str(limit))
+    if type(one) is not type(other):
+        one, other = value, str(limit)
+    return (one > other) - (one < other)
+
+
+def _comparable(text: str) -> datetime.date | float | str:
+    """A value as it is put in order: a day, a number, or text."""
+    day = day_written(text.strip())
+    if day is not None:
+        return day
+    try:
+        return float(text)
+    except ValueError:
+        return text

@@ -141,18 +141,29 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 </pre></details></section>
 <section class="file"><h3 id="starter/admin/check_project.ipynb"><code>admin/check_project.ipynb</code></h3>
 <div class="md"><h3>Check the Project</h3>
-<p>Reports, and changes nothing: a Table folder, Table reference, Building block or Scheduled run no Project action made (one made by hand), and one the registry lists that isn&#x27;t there, and the next step of each Workflow you have started, in <code>workflows/</code>. <code>project.do_next()</code> runs the steps it can for you. Adopt one made by hand with <code>project.register(...)</code>, given its table&#x27;s name, or the Building block&#x27;s or Scheduled run&#x27;s.</p></div>
+<p>Reports, and changes nothing: a Table folder, Table reference, Building block or Scheduled run no Project action made (one made by hand), and one the registry lists that isn&#x27;t there, and the next step of each Workflow you have started, in <code>workflows/</code>. Through your query, from the cell that connects, it also warns of each History table that lacks days its Seed loads, or holds one with no rows, naming them; a Warning stops nothing. <code>project.do_next()</code> runs the steps it can for you. Adopt one made by hand with <code>project.register(...)</code>, given its table&#x27;s name, or the Building block&#x27;s or Scheduled run&#x27;s.</p></div>
 <p class="label">Code cell 1</p><pre>import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project: one up from admin/
 
 from sqlglot_composer import project</pre>
 <p class="muted">It shows nothing.</p>
-<p class="label">Code cell 2</p><pre>project.check()</pre>
+<p class="label">Code cell 2</p><pre>from warehouse import connect, query
+
+# Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+# its top, before it calls query or execute: write yours in the line below and delete its #,
+# such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+# such as team_connection.py, is imported by these lines, written in that line&#x27;s place:
+#     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+#     from team_connection import conn
+#     connect(conn)
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+<p class="muted">It shows nothing.</p>
+<p class="label">Code cell 3</p><pre>project.check(query=query)  # and a History table lacking days its Seed loads</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
-<p class="label">Code cell 3</p><pre>project.do_next()  # runs the next steps it can of each Workflow you have started</pre>
+<p class="label">Code cell 4</p><pre>project.do_next()  # runs the next steps it can of each Workflow you have started</pre>
 <p class="label">It gives</p><pre class="out">No Workflow has a step left: each Workflow you started is done, or you have started none. To start one, name what it works on in the names cell of its notebook, in admin/workflows/, and save it.</pre>
-<p class="label">Code cell 4</p><pre># project.register(&quot;mart.your_table&quot;)
+<p class="label">Code cell 5</p><pre># project.register(&quot;mart.your_table&quot;)
 # project.register(&quot;your_block&quot;)</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="starter/admin/check_references.ipynb"><code>admin/check_references.ipynb</code></h3>
@@ -3203,21 +3214,32 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 </pre></details></section>
 <section class="file"><h3 id="intermediate/admin/check_project.ipynb"><code>admin/check_project.ipynb</code></h3>
 <div class="md"><h3>Check the Project</h3>
-<p>Reports, and changes nothing: a Table folder, Table reference, Building block or Scheduled run no Project action made (one made by hand), and one the registry lists that isn&#x27;t there, and the next step of each Workflow you have started, in <code>workflows/</code>. <code>project.do_next()</code> runs the steps it can for you. Adopt one made by hand with <code>project.register(...)</code>, given its table&#x27;s name, or the Building block&#x27;s or Scheduled run&#x27;s.</p></div>
+<p>Reports, and changes nothing: a Table folder, Table reference, Building block or Scheduled run no Project action made (one made by hand), and one the registry lists that isn&#x27;t there, and the next step of each Workflow you have started, in <code>workflows/</code>. Through your query, from the cell that connects, it also warns of each History table that lacks days its Seed loads, or holds one with no rows, naming them; a Warning stops nothing. <code>project.do_next()</code> runs the steps it can for you. Adopt one made by hand with <code>project.register(...)</code>, given its table&#x27;s name, or the Building block&#x27;s or Scheduled run&#x27;s.</p></div>
 <p class="label">Code cell 1</p><pre>import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project: one up from admin/
 
 from sqlglot_composer import project</pre>
 <p class="muted">It shows nothing.</p>
-<p class="label">Code cell 2</p><pre>project.check()</pre>
+<p class="label">Code cell 2</p><pre>from warehouse import connect, query
+
+# Your connection to the warehouse. Each notebook runs on its own, so each connects here, at
+# its top, before it calls query or execute: write yours in the line below and delete its #,
+# such as connect(your_library.connect(...)). A connection kept in a file outside the Project,
+# such as team_connection.py, is imported by these lines, written in that line&#x27;s place:
+#     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+#     from team_connection import conn
+#     connect(conn)
+connect(conn)  # conn: your team&#x27;s connection; here, the Example database&#x27;s</pre>
+<p class="muted">It shows nothing.</p>
+<p class="label">Code cell 3</p><pre>project.check(query=query)  # and a History table lacking days its Seed loads</pre>
 <p class="label">It gives</p><pre class="out">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.
 Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/job_hours/.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
-<p class="label">Code cell 3</p><pre>project.do_next()  # runs the next steps it can of each Workflow you have started</pre>
+<p class="label">Code cell 4</p><pre>project.do_next()  # runs the next steps it can of each Workflow you have started</pre>
 <p class="label">It gives</p><pre class="out">  schedule: every step is done.</pre>
-<p class="label">Code cell 4</p><pre># project.register(&quot;mart.your_table&quot;)
+<p class="label">Code cell 5</p><pre># project.register(&quot;mart.your_table&quot;)
 # project.register(&quot;your_block&quot;)</pre>
 <p class="muted">It shows nothing.</p></section>
 <section class="file"><h3 id="intermediate/admin/check_references.ipynb"><code>admin/check_references.ipynb</code></h3>

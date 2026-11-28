@@ -137,7 +137,10 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 8.8, ticket 02: the Lineage state, recorded by hand.
                  "record_lineage_state",
                  # Toolbox 8.8, ticket 05: what changed in it, as a page and its twin.
-                 "export_lineage_difference"]
+                 "export_lineage_difference",
+                 # Toolbox 8.10, ticket 05: each History table's past rows, its Seed, loaded
+                 # once before its first write (listed here by ticket 06).
+                 "seed_tables"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

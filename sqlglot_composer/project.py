@@ -210,7 +210,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "reference_from_logic", "new_run_value", "new_scheduled_run",
            "remove_scheduled_run", "build_run", "export_project_lineage",
            "export_run_lineage", "export_run_hive", "describe_logic",
-           "record_lineage_state", "export_lineage_difference"]
+           "record_lineage_state", "export_lineage_difference", "seed_tables"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -513,10 +513,13 @@ ADMIN_NOTEBOOKS = {
         "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
         "reference, Building block or Scheduled run no Project action made (one made by "
         "hand), and one the registry lists that isn't there, and the next step of each "
-        "Workflow you have started, in `workflows/`. `project.do_next()` runs the steps it can "
-        "for you. Adopt one made by hand with `project.register(...)`, given its table's name, "
-        "or the Building block's or Scheduled run's.",
-        ["project.check()",
+        "Workflow you have started, in `workflows/`. Through your query, from the cell that "
+        "connects, it also warns of each History table that lacks days its Seed loads, or "
+        "holds one with no rows, naming them; a Warning stops nothing. `project.do_next()` "
+        "runs the steps it can for you. Adopt one made by hand with `project.register(...)`, "
+        "given its table's name, or the Building block's or Scheduled run's.",
+        [f"from warehouse import connect, query\n{CONNECT_LINES}",
+         "project.check(query=query)  # and a History table lacking days its Seed loads",
          "project.do_next()  # runs the next steps it can of each Workflow you have started",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
     ),
@@ -2049,7 +2052,7 @@ def _register_one(name: str, frame: FrameType) -> ProjectReport:
                           *databases_report])
 
 
-def check() -> ProjectReport:
+def check(*, query: Callable[[str], pd.DataFrame] | None = None) -> ProjectReport:
     """Report what the registry gets wrong, and the call that mends each.
 
     >>> from sqlglot_composer import project
@@ -2095,11 +2098,24 @@ def check() -> ProjectReport:
     and records nothing itself. A Project from 8.8 on, which holds admin/lineage.ipynb, is also
     told when it has no recording yet.
 
+    Given your query, as admin/check_project.ipynb gives it, check() also reads, through it,
+    the Partitions of each History table written at least once, and gives a Warning, which
+    blocks nothing, for each that lacks days its Seed loads, or holds one with no rows:
+    "Warning: mart.job_day_facts lacks 3 of the 31 days its Seed loads: 2026-10-04, ...",
+    the first five named and the rest counted. The days are counted as its Seed counts them,
+    by its SEED, from the same source: each day its Original holds within its SEED, for a
+    Seed copied, or each day its write is run as of, for one with no Original. It goes quiet
+    once each day is written. A table whose Partitions your query can't read is named, with
+    what your query said. Without your query, it reads nothing of the warehouse.
+
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
     remove_table, remove_reference, remove_block or remove_scheduled_run.
     """
     root = _project_root("project.check()")
+    if query is not None:
+        need_warehouse_call(seeding.CHECK_ACTION, "query", query,
+                            "It reads the Partitions of each History table through it.")
     registry = Registry(root)
     lines = _registry_mismatch_lines(root, registry)
     if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
@@ -2127,7 +2143,10 @@ def check() -> ProjectReport:
         lines = ["Every Table folder, Table reference, Building block and Scheduled run is "
                  "registered, and each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
-    return ProjectReport([*lines, *_lineage_state_lines(root, registry),
+    missing_days = []
+    if query is not None:
+        missing_days = seeding.missing_days_lines(root, registry.in_force(TABLE_FOLDER), query)
+    return ProjectReport([*lines, *missing_days, *_lineage_state_lines(root, registry),
                           *_finished_batch_lines(root), *_proposed_line_lines(root),
                           *_conversion_note_lines(root)])
 

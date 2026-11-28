@@ -1625,6 +1625,138 @@ def test_new_table_runs_its_write_as_of_each_past_day_through_the_runner(
     assert sorted(set(started.warehouse.rows_of(prod)["dt"])) == EVENT_DAYS
 
 
+# --- check_project warns while a History table lacks its Seed's days (8.10, ticket 06) -------
+
+
+def _check_project(started: Started) -> str:
+    """admin/check_project.ipynb run top to bottom, its connect(...) filled in: what its
+    check() cell printed."""
+    notebook = started.root / "admin" / "check_project.ipynb"
+    printed = _run_cells(started, notebook, [1, 2, 3])
+    assert "project.check(query=query)" in notebook_runner.code_cells(notebook)[2]
+    return printed
+
+
+def _missing_days_warnings(said: str) -> list[str]:
+    """Each Warning check() gave of a table lacking days its Seed loads, on one line."""
+    return [line for line in said.split("\n")
+            if line.startswith("Warning: ") and "days its Seed loads" in line]
+
+
+def _seeded_daily_events(started: Started) -> None:
+    """The daily load converted to its end, its Seed a copy of the 14 days its Original holds,
+    2026-09-11 to 2026-09-24, within the month up to its newest."""
+    journey = _daily_load(started)
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS={"all_tables": {"kind": "proposed"}})
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    assert sorted(set(started.warehouse.rows_of(DAILY_EVENTS)["dt"])) == EVENT_DAYS
+
+
+def _drop_days(started: Started, table: str, days: list[str]) -> None:
+    for day in days:
+        started.warehouse.execute(f"ALTER TABLE {table} DROP PARTITION (dt = '{day}')")
+
+
+def test_check_project_warns_of_the_days_a_seeded_table_lacks(started: Started) -> None:
+    _seeded_daily_events(started)
+    # Whole, it gives no Warning.
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+    _drop_days(started, DAILY_EVENTS, ["2026-09-13", "2026-09-20"])
+    assert _missing_days_warnings(repr(project.check(query=started.warehouse.query))) == [
+        f"Warning: {DAILY_EVENTS} lacks 2 of the 14 days its Seed loads: 2026-09-13 and "
+        "2026-09-20. That stops nothing, but what reads it finds no rows for those days "
+        "until each is written."]
+    # Without your query, check() reads nothing of the warehouse, and says nothing of them.
+    assert not _missing_days_warnings(repr(project.check()))
+
+
+def test_check_project_counts_an_empty_day_as_missing(started: Started) -> None:
+    _seeded_daily_events(started)
+    _drop_days(started, DAILY_EVENTS, ["2026-09-15"])
+    # Hive keeps a Partition a write gave no rows: SHOW PARTITIONS still lists it.
+    asked = started.warehouse.query
+
+    def listing_an_empty_day(hive: str) -> pd.DataFrame:
+        found = asked(hive)
+        if hive == f"SHOW PARTITIONS {DAILY_EVENTS}":
+            found = pd.DataFrame({"partition": sorted([*found["partition"], "dt=2026-09-15"])})
+        return found
+
+    assert _missing_days_warnings(repr(project.check(query=listing_an_empty_day))) == [
+        f"Warning: {DAILY_EVENTS} lacks 1 of the 14 days its Seed loads: 2026-09-15 (no rows)."
+        " That stops nothing, but what reads it finds no rows for those days until each is "
+        "written."]
+
+
+def test_check_project_reads_every_seed_limit_alike(started: Started) -> None:
+    _seeded_daily_events(started)
+    _drop_days(started, DAILY_EVENTS, ["2026-09-12", "2026-09-21"])
+    # A value: that day or later; a day dropped before it is no day its Seed loads.
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": "2026-09-20"}}})
+    assert _missing_days_warnings(repr(project.check(query=started.warehouse.query))) == [
+        f"Warning: {DAILY_EVENTS} lacks 1 of the 5 days its Seed loads: 2026-09-21. That stops"
+        " nothing, but what reads it finds no rows for those days until each is written."]
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": {"from": "2026-09-11",
+                                                            "to": "2026-09-13"}}}})
+    assert "lacks 1 of the 3 days its Seed loads: 2026-09-12." in repr(
+        project.check(query=started.warehouse.query))
+    project.write_decisions({DAILY_EVENTS: {"seed": {"dt": ["2026-09-11", "2026-09-24"]}}})
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+
+
+def test_check_project_gives_a_rebuilt_table_no_warning(started: Started) -> None:
+    _seeded_daily_events(started)
+    project.write_decisions({DAILY_EVENTS: {"kind": "rebuilt"}})
+    _drop_days(started, DAILY_EVENTS, ["2026-09-13", "2026-09-20"])
+    assert not _missing_days_warnings(repr(project.check(query=started.warehouse.query)))
+
+
+def test_check_project_says_when_its_query_cant_list_a_tables_partitions(
+        started: Started) -> None:
+    _seeded_daily_events(started)
+
+    def not_connected(hive: str) -> pd.DataFrame:
+        raise RuntimeError("\n  What happened:  No connection: call connect(...) first.\n"
+                           "  Why it matters: ...")
+
+    said = repr(project.check(query=not_connected))
+    assert (f"Not checked for the days its Seed loads: {DAILY_EVENTS}, as your query couldn't "
+            "read its Partitions. Your query said: No connection: call connect(...) first."
+            ) in said
+
+
+def test_check_project_warns_until_a_seeds_missing_days_are_written(started: Started) -> None:
+    # The new table whose write targets yesterday, its Seed run as of each day of the month up
+    # to ops.job_events' newest: the days before ops.job_events' first, 2026-09-15, which it
+    # lacks, and 2026-09-20, which the warehouse refused, are missing.
+    _run_references(started, "ops.job_events", ["event_id"])
+    _source_missing_a_day_and_failing_on_another(started)
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    journey.run_to(1)
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         _fill_with_yesterday_in_hive, "# logic")
+    journey.run_to(4)
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history"}})
+    journey.run_to()
+    assert _missing_days_warnings(_check_project(started)) == [
+        f"Warning: {NEW_DAILY_EVENTS} lacks 20 of the 32 days its Seed loads: 2026-08-24, "
+        "2026-08-25, 2026-08-26, 2026-08-27, 2026-08-28 and 15 more. That stops nothing, but "
+        "what reads it finds no rows for those days until each is written."]
+    # Each missing day written, as a load of the user's writes it, the Warning is gone.
+    loaded = set(started.warehouse.rows_of(NEW_DAILY_EVENTS)["dt"])
+    first = datetime.date(2026, 8, 24)
+    for each in range(32):
+        day = (first + datetime.timedelta(days=each)).isoformat()
+        if day not in loaded:
+            started.warehouse.execute(
+                f"INSERT INTO TABLE {NEW_DAILY_EVENTS} PARTITION (dt = '{day}') "
+                "SELECT j.job_id, 0 AS events FROM ops.jobs j")
+    assert not _missing_days_warnings(_check_project(started))
+
+
 # --- references -------------------------------------------------------------------------------
 
 

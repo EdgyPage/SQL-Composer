@@ -2443,27 +2443,28 @@ def day_on_column(hive: str, column: str) -> datetime.date | None:
     except sqlglot.errors.SqlglotError:
         return None
     for tree in trees:
-        given = [each for partition in tree.find_all(exp.Partition)
-                 for each in partition.expressions if isinstance(each, exp.EQ)]
+        given = []
+        for partition in tree.find_all(exp.Partition):
+            given += [each for each in partition.expressions if isinstance(each, exp.EQ)]
         for compared in [*given, *tree.find_all(exp.EQ)]:
             if compared.this.name.lower() != column.lower():
                 continue
-            day = _day_of(compared.expression)
+            day = _day_given_by(compared.expression)
             if day is not None:
                 return day
     return None
 
 
-def _day_of(node: exp.Expression) -> datetime.date | None:
+def _day_given_by(node: exp.Expression) -> datetime.date | None:
     """The day a piece of Hive gives, where it is a date written as text, or date_add or
     date_sub of one by a whole number of days; None where it is anything else."""
     if isinstance(node, (exp.Paren, exp.Cast)):
-        return _day_of(node.this)
+        return _day_given_by(node.this)
     if isinstance(node, exp.Literal) and node.is_string:
         return day_written(node.this)
     if not isinstance(node, (exp.TsOrDsAdd, exp.DateAdd, exp.DateSub)):
         return None
-    day, days = _day_of(node.this), _whole_number_of(node.expression)
+    day, days = _day_given_by(node.this), _whole_number_of(node.expression)
     if day is None or days is None:
         return None
     if isinstance(node, exp.DateSub):
