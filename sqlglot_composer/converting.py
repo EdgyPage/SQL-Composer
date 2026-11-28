@@ -2439,7 +2439,7 @@ def day_on_column(hive: str, column: str) -> datetime.date | None:
     date_add or date_sub of one, as date_sub('2026-09-25', 1) gives 2026-09-24. None where it
     holds no day it can work out."""
     try:
-        trees = [tree for tree in sqlglot.parse(hive, read="hive") if tree is not None]
+        trees = read_hive(hive)
     except sqlglot.errors.SqlglotError:
         return None
     for tree in trees:
