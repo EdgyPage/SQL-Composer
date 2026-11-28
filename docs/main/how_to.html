@@ -118,6 +118,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <li data-for="schedule_a_run"><a href="#schedule_a_run">31. Schedule a run</a></li>
 <li data-for="find_what_changed_a_column"><a href="#find_what_changed_a_column">32. Find what changed a column</a></li>
 <li data-for="convert_an_excel_workbook"><a href="#convert_an_excel_workbook">33. Convert an Excel workbook</a></li>
+<li data-for="load_a_history_tables_past_days"><a href="#load_a_history_tables_past_days">34. Load a History table&#x27;s past days</a></li>
 </ul>
 </div>
 </nav>
@@ -3231,7 +3232,7 @@ runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x
 <h4>Goal</h4>
 <p>Keep a Statement&#x27;s rows in a Saved table: a real table in the warehouse that your Project writes, and that other Statements then read like any other table. A Statement is one query; a Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. <code>project.new_table</code> makes the table&#x27;s Table folder, the folder that holds everything about one Saved table, with a Table notebook in it, the notebook whose cells create and write the table, made from the saved_table Template, the empty shape of such a notebook. It also makes the table&#x27;s Table reference, the file that describes the table&#x27;s columns. You fill in both, try the notebook&#x27;s steps, and from then on <code>project.run_tables</code> writes the table with the Project&#x27;s other Saved tables.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If a result is slow to work out, save it in a Saved table: working it out once is cheaper than working it out again every time someone asks.</li><li>If many notebooks and dashboards read a result, save it in a Saved table, so each reads the rows already worked out.</li><li>If you need each Partition&#x27;s rows kept as they were when they were written, save them in a Saved table. A Partition is a slice of a table: the rows that share one value of each column the table is partitioned by, such as one day.</li><li>If you only need the rows once, run the Statement with <code>run_query</code> instead, as <a href="#build_and_run_a_first_statement">Build and run a first statement</a> shows.</li></ul>
+<ul><li>If a result is slow to work out, save it in a Saved table: working it out once is cheaper than working it out again every time someone asks.</li><li>If many notebooks and dashboards read a result, save it in a Saved table, so each reads the rows already worked out.</li><li>If you need each Partition&#x27;s rows kept as they were when they were written, save them in a Saved table. A Partition is a slice of a table: the rows that share one value of each column the table is partitioned by, such as one day.</li><li>If each write keeps the days already there, replacing one day&#x27;s Partition, the table is a History table, and a new one needs its past days loaded once: <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> shows how.</li><li>If you only need the rows once, run the Statement with <code>run_query</code> instead, as <a href="#build_and_run_a_first_statement">Build and run a first statement</a> shows.</li></ul>
 <p>The Example database, the small made-up tables this page runs on, can be read but not written to. So on this page each write shows its Hive, ready to paste, and a write that is sent goes to warehouse.py&#x27;s execute, which here calls the Example database&#x27;s execute: it prints the write&#x27;s first line and changes nothing. At work, the same calls send it to your warehouse, through your own execute.</p>
 <h4>Steps</h4>
 <h5>1. Set up the Project the last how-to left</h5>
@@ -4159,7 +4160,7 @@ int(rows[&quot;alerts&quot;].sum())</pre>
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Open the notebook that is there instead. To start a table again, archive its folder first, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h4>Next</h4>
-<ul><li>Follow a Saved table&#x27;s columns back to the tables it reads, and write a table that reads another: <a href="#follow_lineage">Follow lineage</a>.</li><li>See it beside every other table&#x27;s columns, and keep the Project tidy: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Rewrite some of its Partitions, such as last week&#x27;s: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>How a Saved table is stored, and its Key: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> and <a href="#keys">Keys</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
+<ul><li>Follow a Saved table&#x27;s columns back to the tables it reads, and write a table that reads another: <a href="#follow_lineage">Follow lineage</a>.</li><li>See it beside every other table&#x27;s columns, and keep the Project tidy: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Rewrite some of its Partitions, such as last week&#x27;s: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>A table that keeps its days, its past days loaded first: <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a>.</li><li>How a Saved table is stored, and its Key: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> and <a href="#keys">Keys</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>export_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="follow_lineage">
@@ -6331,8 +6332,11 @@ registry[[&quot;kind&quot;, &quot;table&quot;, &quot;removed_at&quot;]]</pre>
 </table></div>
 <p>Done when the registry has six rows, none removed. Then step 3.</p>
 <h5>3. Check the registry against the files</h5>
-<p>Goal: know whether the registry and the files agree. <code>project.check()</code>, which the admin notebook admin/check_project.ipynb runs, compares the registry with the files, and changes nothing:</p>
+<p>Goal: know whether the registry and the files agree. <code>project.check()</code> compares the registry with the files, and changes nothing:</p>
 <pre class="python">project.check()</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
+<p>The admin notebook admin/check_project.ipynb runs it given your query, which also reads the days each History table holds, a table whose writes keep its past days: it warns of each day the table&#x27;s Seed, its past days loaded once, should have loaded and it lacks. The warning stops nothing; <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> shows it. This Project has no History table, so it says the same:</p>
+<pre class="python">project.check(query=query)</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference, Building block and Scheduled run is registered, and each one registered is there.</pre>
 <p>Done when it says every one is registered and there. Then step 4.</p>
 <h5>4. Adopt a file made by hand with project.register</h5>
@@ -6969,7 +6973,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <h5>Editing the Reference sheet by hand</h5>
 <p>Each refresh writes the sheet again from the Table references, so a change typed into the CSV file is gone the next time. Write a description in the Table reference&#x27;s <code>descriptions={...}</code>, and an Alias below its Table(...) call, then refresh: the file is where it lives, and the sheet only shows it.</p>
 <h4>Next</h4>
-<ul><li>Start the Intermediate how-tos, from the Intermediate Example project, such as <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>Move a Saved table that shares its folder: <a href="#move_a_saved_table_to_its_own_folder">Move a Saved table to its own folder</a>.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#check_key"><code>check_key</code></a> entries.</li></ul>
+<ul><li>Start the Intermediate how-tos, from the Intermediate Example project, such as <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>A History table&#x27;s past days, and the warning <code>project.check(query=query)</code> gives while one is missing: <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a>.</li><li>Move a Saved table that shares its folder: <a href="#move_a_saved_table_to_its_own_folder">Move a Saved table to its own folder</a>.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#check_key"><code>check_key</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>check_table_reference</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code>, <code>project.new_block</code>, <code>project.add_references</code>, <code>project.remove_reference</code>, <code>project.register</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code></p>
 </section>
 <section class="entry" id="convert_someone_elses_hive">
@@ -7014,7 +7018,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <h4>Goal</h4>
 <p>Turn scripts of Hive someone else wrote, with their temporary tables, their FROMs with several INSERTs, their incremental INSERTs and their Script tags, into your own code. Hive is the SQL your warehouse runs. You end with a Saved table, a real table your own Statements write, in your Dev Database for each table the scripts write; your Dev Database is the database where you may create and write tables of your own. Each Saved table&#x27;s notebook builds the same query from the Toolbox&#x27;s functions, is compared with the table it copies, its original, and is then promoted to your Prod Database, the database others read your finished tables from. That is a Conversion, and the convert Workflow, an ordered list of steps in a notebook of its own, takes you through it, step by step. What no Toolbox function writes yet stays Hive, at the smallest size it can, so you get the rest converted rather than none of it.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If you inherit Hive that works but that you can&#x27;t maintain, such as a nightly job another team wrote or a folder of scripts that has grown for years, convert it as the steps below do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev, before promoting it.</li><li>If one script writes a table another reads, convert both in one batch, as step 3 does.</li><li>If a Script tag stands for a day that changes each run, such as the latest day a table holds, answer it with a Run value, the value a function of yours gives at each write, as step 8 does.</li><li>If a History table, which each write adds to, has years of rows you don&#x27;t need, limit its Seed, the one copy of the original&#x27;s past rows before its first write, as step 6 does.</li><li>If several tables share an answer, such as accepting each one&#x27;s proposed Key, give it once under &quot;all_tables&quot;, as step 6 does.</li><li>If the scripts are simple and read none of each other&#x27;s tables, convert each as a batch of its own, as One batch per script, below, says.</li><li>If your Database settings aren&#x27;t filled in yet, do <a href="#set_your_database_settings">Set your Database settings</a> first: each table is placed under DEV&#x27;s &quot;location_root&quot;, so its folder is no Decision.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li><li>If you have not yet written a Saved table of your own, read <a href="#save_a_table">Save a table</a> first.</li></ul>
+<ul><li>If you inherit Hive that works but that you can&#x27;t maintain, such as a nightly job another team wrote or a folder of scripts that has grown for years, convert it as the steps below do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev, before promoting it.</li><li>If one script writes a table another reads, convert both in one batch, as step 3 does.</li><li>If a Script tag stands for a day that changes each run, such as the latest day a table holds, answer it with a Run value, the value a function of yours gives at each write, as step 8 does.</li><li>If a History table, which each write adds to, has years of rows you don&#x27;t need, limit its Seed, the one copy of the original&#x27;s past rows before its first write, as step 6 does. <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> shows the Seed of a table with no original.</li><li>If several tables share an answer, such as accepting each one&#x27;s proposed Key, give it once under &quot;all_tables&quot;, as step 6 does.</li><li>If the scripts are simple and read none of each other&#x27;s tables, convert each as a batch of its own, as One batch per script, below, says.</li><li>If your Database settings aren&#x27;t filled in yet, do <a href="#set_your_database_settings">Set your Database settings</a> first: each table is placed under DEV&#x27;s &quot;location_root&quot;, so its folder is no Decision.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li><li>If you have not yet written a Saved table of your own, read <a href="#save_a_table">Save a table</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from the Project the story leaves</h5>
 <p>Goal: a Project to convert into. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout. Work in your own Project. This page uses a copy of the Starter Example project, which the download&#x27;s Example projects page shows file by file, made in the folder the page runs in by <code>example_project(&quot;starter&quot;)</code>, a line you leave out in your own Project. It is much like the one the how-tos before this one build, and its Dev Database, DEV&#x27;s &quot;database&quot; in admin/databases.py, is mart (yours is any database you own, such as mart_dev). Fill in DEV&#x27;s &quot;location_root&quot;, the folder its tables&#x27; files go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
@@ -8055,7 +8059,7 @@ Promoted mart.alerts_by_severity_ops_reports to mart_prod.alerts_by_severity_ops
 Promoted mart.alerted_runs_ops_reports to mart_prod.alerted_runs_ops_reports: tables/mart_prod__alerted_runs_ops_reports/ and references/mart_prod__alerted_runs_ops_reports.py.
 Promoted mart.fail_history to mart_prod.fail_history: tables/mart_prod__fail_history/ and references/mart_prod__fail_history.py.
 Copied 1 Building block to prod, which the prod tables import: building_blocks/prod/run_values.py.
-Next: run the promote Workflow&#x27;s next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, seed each that reads itself, and write each.</pre>
+Next: run the promote Workflow&#x27;s next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, then write each, each History table&#x27;s Seed first.</pre>
 <p class="label">It writes 18 files</p>
 <pre class="file">admin/admin_log.md
 admin/lineage/lineage_state.csv
@@ -8130,7 +8134,7 @@ except ValueError as refused:
     print(str(refused).strip().splitlines()[0])</pre>
 <p class="label">Python prints</p><pre class="output">What happened:  Nothing was sent: the Statement holds a Run value that failed, __main__.no_day() raised ConnectionError: no connection to the warehouse.</pre>
 <h5>all_tables, in full</h5>
-<ul><li>It loads first, then each table&#x27;s own answer overwrites it, kind by kind and, for &quot;tags&quot;, tag by tag: <code>{&quot;all_tables&quot;: {&quot;tags&quot;: {&quot;RUN_DAY&quot;: run_day, &quot;TEAM&quot;: &quot;&#x27;ops&#x27;&quot;}}, &quot;mart_dev.web_fails&quot;: {&quot;tags&quot;: {&quot;TEAM&quot;: &quot;&#x27;web&#x27;&quot;}}}</code> answers mart_dev.web_fails&#x27;s RUN_DAY with run_day and its TEAM with &#x27;web&#x27;, and each other table&#x27;s with run_day and &#x27;ops&#x27;.</li><li>It takes &quot;key&quot;, only as &quot;proposed&quot;, &quot;tags&quot; and &quot;seed&quot;. &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key as if typed; a table with none keeps its Key open, named in the report. Any other Key, and a type, is each table&#x27;s own: under &quot;all_tables&quot; it is refused, naming the tables to answer it for.</li><li>&quot;location_root&quot; is refused: it is a Database setting since 8.5, given in DEV and PROD in admin/databases.py, as <a href="#set_your_database_settings">Set your Database settings</a> shows.</li><li>A tag no table holds is refused; a table without it is passed over, and the report says so.</li><li>It needs the notebook&#x27;s tables, which each Workflow&#x27;s step 3 cell gives with <code>tables=</code>.</li></ul>
+<ul><li>It loads first, then each table&#x27;s own answer overwrites it, kind by kind and, for &quot;tags&quot;, tag by tag: <code>{&quot;all_tables&quot;: {&quot;tags&quot;: {&quot;RUN_DAY&quot;: run_day, &quot;TEAM&quot;: &quot;&#x27;ops&#x27;&quot;}}, &quot;mart_dev.web_fails&quot;: {&quot;tags&quot;: {&quot;TEAM&quot;: &quot;&#x27;web&#x27;&quot;}}}</code> answers mart_dev.web_fails&#x27;s RUN_DAY with run_day and its TEAM with &#x27;web&#x27;, and each other table&#x27;s with run_day and &#x27;ops&#x27;.</li><li>It takes &quot;key&quot;, only as &quot;proposed&quot;, &quot;tags&quot;, &quot;seed&quot; and &quot;kind&quot;. &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key as if typed; a table with none keeps its Key open, named in the report. &quot;kind&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed kind, and leaves a table with none open, named in the report. Any other Key, and a type, is each table&#x27;s own: under &quot;all_tables&quot; it is refused, naming the tables to answer it for.</li><li>&quot;location_root&quot; is refused: it is a Database setting since 8.5, given in DEV and PROD in admin/databases.py, as <a href="#set_your_database_settings">Set your Database settings</a> shows.</li><li>A tag no table holds is refused; a table without it is passed over, and the report says so.</li><li>It needs the notebook&#x27;s tables, which each Workflow&#x27;s step 3 cell gives with <code>tables=</code>.</li></ul>
 <h5>Seed limits, in full</h5>
 <p>&quot;seed&quot; limits the Partitions the seed copies, by partition column, each column on its own:</p>
 <ul><li>a value, <strong>that value or later</strong>, never that one alone: <code>{&quot;dt&quot;: &quot;2026-09-01&quot;}</code>;</li><li>a range, either end left out as you like: <code>{&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;, &quot;to&quot;: &quot;2026-06-30&quot;}}</code>;</li><li>a list, those values alone, one value alone as a list of one: <code>{&quot;region&quot;: [&quot;US&quot;, &quot;CA&quot;]}</code>.</li></ul>
@@ -8161,7 +8165,7 @@ except ValueError as refused:
 <h5>Promoting a table whose compare didn&#x27;t pass</h5>
 <p>promote promotes a table whose compare failed, or that wasn&#x27;t compared, naming it first, since promoting is your call: prod may then get rows that differ from the original&#x27;s. Read the warning at the top of its conversion/compare.md, and fix the table in dev, or check its rows yourself, before you promote it.</p>
 <h4>Next</h4>
-<ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
+<ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a>: a History table&#x27;s kind and Seed, for a table with no original.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>max_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>latest_partition</code>, <code>run_value</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code>, <code>project.new_run_value</code>, <code>project.seed_tables</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
@@ -19982,7 +19986,7 @@ from warehouse import connect, query, execute</pre>
 <p>Done when each name the cell asks for is filled in and saved. Then step 5.</p>
 <h5>5. Run its steps in order</h5>
 <p>Goal: the Workflow&#x27;s end goal reached. Run its run cells, as its Workflow&#x27;s section below shows them, or each step&#x27;s cell in turn in their place. At a step that is a decision, yours to make, make it: write your answer to each open Decision in the decisions cell and save it, or read what the step before printed. Then run on.</p>
-<p>An answer is what its kind takes, as the decisions cell&#x27;s comment shows: a folder as text, a Key as a list, a Script tag&#x27;s day as Hive text. A tag may be answered by a Run value&#x27;s function instead, one of your Project&#x27;s, imported at the top of the decisions cell and given by its name, which the Toolbox calls each time the table is written. &quot;all_tables&quot; answers once for every table the notebook names, and a table&#x27;s own answer overwrites it. A table that reads itself is seeded once from its original, every Partition unless its &quot;seed&quot; answer limits them. <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows each one.</p>
+<p>An answer is what its kind takes, as the decisions cell&#x27;s comment shows: a folder as text, a Key as a list, a Script tag&#x27;s day as Hive text. A tag may be answered by a Run value&#x27;s function instead, one of your Project&#x27;s, imported at the top of the decisions cell and given by its name, which the Toolbox calls each time the table is written. &quot;all_tables&quot; answers once for every table the notebook names, and a table&#x27;s own answer overwrites it. &quot;kind&quot; says whether each write replaces the whole table, a Rebuilt table, or keeps the rows already there, a History table, whose past rows are loaded once, its Seed, before its first write, as its &quot;seed&quot; answer limits them. <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows each one, and <a href="#load_a_history_tables_past_days">Load a History table&#x27;s past days</a> the kind and the Seed.</p>
 <p>Done when <code>project.check()</code> says every step of the Workflow is done. Then check it worked, below.</p>
 <p>The Workflows, for steps 2 to 5:</p>
 <h5>The convert Workflow</h5>
@@ -20090,7 +20094,7 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops nothing. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
 <pre class="python"># Run the rest: the same call, run again once you have answered: it goes
 # on from where it stopped, and stops again at a refusal, a compare that
 # failed or a Decision left open.
@@ -20191,7 +20195,7 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops nothing. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
 <pre class="python"># Run the rest: the same call, run again once you have answered: it goes
 # on from where it stopped, and stops again at a refusal, a compare that
 # failed or a Decision left open.
@@ -20301,7 +20305,7 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops nothing. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
 <pre class="python"># Run the rest: the same call, run again once you have answered: it goes
 # on from where it stopped, and stops again at a refusal, a compare that
 # failed or a Decision left open.
@@ -20395,7 +20399,7 @@ project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal or a Decision left open; a compare that failed stops nothing. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
 <pre class="python"># Run the rest: the same call, run again once you have answered: it goes
 # on from where it stopped, and stops again at a refusal, a compare that
 # failed or a Decision left open.
@@ -23151,6 +23155,1020 @@ What happened:  The Example database couldn&#x27;t run this Hive: it has no tabl
 <h4>Next</h4>
 <ul><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: the same Workflow from Hive scripts, with Script tags, seeds and promotion.</li><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li></ul>
 <p class="names">Toolbox names used: <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.write_decisions</code></p>
+</section>
+<section class="entry" id="load_a_history_tables_past_days">
+<h3>34. Load a History table&#x27;s past days <span class="badge intermediate">Intermediate</span></h3>
+<div class="tables">
+<p class="label">The Example database's tables it reads: open one to see its columns and first rows</p>
+<details class="table" data-table="ops.job_events"><summary><code>ops.job_events</code>: 5 columns, partitioned by dt, 57 rows</summary>
+<p class="label">Its columns and their types</p><div class="scroll"><table class="result">
+<tr><th>column</th><th>type</th><th>what it holds</th></tr>
+<tr><td>event_id</td><td>bigint</td><td></td></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>event_type</td><td>string</td><td>start / finish / retry / fail</td></tr>
+<tr><td>minutes</td><td>int</td><td>minutes since the run started</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div><p class="label">Its first 5 rows of 57</p><div class="scroll"><table class="result">
+<tr><th>event_id</th><th>job_id</th><th>event_type</th><th>minutes</th><th>dt</th></tr>
+<tr><td>1</td><td>1</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>2</td><td>1</td><td>finish</td><td>12</td><td>2026-09-11</td></tr>
+<tr><td>3</td><td>2</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+<tr><td>4</td><td>2</td><td>finish</td><td>18</td><td>2026-09-11</td></tr>
+<tr><td>5</td><td>3</td><td>start</td><td>0</td><td>2026-09-11</td></tr>
+</table></div>
+</details>
+</div>
+<h4>Goal</h4>
+<p>Make a table that keeps its days usable from its first day. A table&#x27;s kind says what each of its writes does to the rows already there. A Rebuilt table is replaced whole by each write. A History table keeps the rows already there, and each write adds rows or replaces some, such as one day&#x27;s Partition, the rows that share one value of its partition column. A new History table, in dev or in prod, holds only the days its writes have added since it was made, so the Toolbox loads its past days once, before its first write: its Seed. The kind is a Decision, one thing about one table only you decide: new_table and convert propose it from the table&#x27;s write, and you accept it or answer it in a Workflow notebook&#x27;s decisions cell. SEED, in the table&#x27;s Table reference, the file that describes its columns, says how far back its Seed goes: <code>{&quot;months&quot;: 1}</code>, the month up to the newest day, is proposed. The step that writes the table runs its Seed for you, and <code>project.check(query=query)</code> warns while a day it should have loaded is missing.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>If each write of a table replaces one day&#x27;s Partition, or adds rows, answer its kind &quot;history&quot;, as step 5 does: its Seed loads its past days.</li><li>If each write replaces the whole table, answer &quot;rebuilt&quot;: its first write is complete, and it has no Seed.</li><li>If a kind is proposed, accept it with &quot;proposed&quot;; if nothing is proposed, as for a write that fills its Partitions from its rows&#x27; own values, PARTITION (dt), answer it yourself, as step 5 does.</li><li>If you want more days, answer &quot;seed&quot; with more months, such as <code>{&quot;months&quot;: 3}</code>, or with a range, as Seed limits, in full, in <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> says.</li><li>If <code>project.upgrade()</code> left a table&#x27;s kind open, answer it the same way, in the decisions cell of the Workflow you run next on that table.</li><li>If the table is converted from someone else&#x27;s Hive, its Seed copies its original&#x27;s rows in place of running its write: <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows it.</li></ul>
+<h4>Steps</h4>
+<h5>1. Start from the Intermediate Example project</h5>
+<p>Goal: a Project whose tables read a table of days. Work in your own Project, at its top. This page works in a copy of the Intermediate Example project, which the download&#x27;s Example projects page shows file by file: <code>example_project(&quot;intermediate&quot;)</code> makes that copy in the folder the page runs in, a line you leave out in your own Project. Fill in DEV&#x27;s &quot;location_root&quot; in admin/databases.py, the folder your Dev Database&#x27;s tables go under, as <a href="#set_your_database_settings">Set your Database settings</a> shows; this page stands in for your edit:</p>
+<pre class="python">from pathlib import Path
+example_project(&quot;intermediate&quot;)</pre>
+<p class="label">It writes 110 files</p>
+<pre class="file">README.md
+admin/admin_log.md
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/databases.py
+admin/lineage.ipynb
+admin/lineage/20260925-080000-difference.html
+admin/lineage/20260925-080000-difference.md
+admin/lineage/lineage_state.csv
+admin/new_block.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove.ipynb
+admin/removed/20260925-060000-mart__teams_pivot.py
+admin/removed/20260925-060000-mart__teams_pivot/conversion/checklist.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/in_dev.hql
+admin/removed/20260925-060000-mart__teams_pivot/conversion/scan.md
+admin/removed/20260925-060000-mart__teams_pivot/conversion/statement.hql
+admin/removed/20260925-060000-mart__teams_pivot/mart__teams_pivot.ipynb
+admin/run_tables.ipynb
+admin/scheduled_runs.ipynb
+admin/sent.csv
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/templates/scheduled_run.py
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/job_hours/batch.md
+admin/workflows/convert/finished/job_hours/scripts/job_hours.hql
+admin/workflows/convert/finished/job_hours/written.json
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/convert/job_hours.xlsx
+admin/workflows/convert/team_failures.hql
+admin/workflows/new_table/new_table.ipynb
+admin/workflows/promote/promote.ipynb
+admin/workflows/references/references.ipynb
+admin/workflows/schedule/schedule.ipynb
+admin/workflows/upgrade/upgrade.ipynb
+building_blocks/costs_per_job.py
+building_blocks/days_rewritten.py
+building_blocks/events_per_job.py
+building_blocks/owner_on_day.py
+references/mart.py
+references/mart__budget_overruns.py
+references/mart__job_day_costs.py
+references/mart__job_day_facts.py
+references/mart__job_events_checks.py
+references/mart__job_hours.py
+references/mart__job_notes.py
+references/mart__team_days.py
+references/mart__team_failures.py
+references/ops.py
+references/ops__job_events.py
+references/ops__job_owners.py
+references/ops__region_budgets.py
+references/ops__region_costs.py
+references/ops__team_notes.py
+references/reference_sheet.csv
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.html
+scheduled_runs/weekly_team/lineage/20260925-060000-weekly_team.md
+scheduled_runs/weekly_team/weekly_team.hql
+scheduled_runs/weekly_team/weekly_team.ipynb
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
+tables/mart__budget_overruns/mart__budget_overruns.ipynb
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
+tables/mart__job_day_costs/mart__job_day_costs.ipynb
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
+tables/mart__job_day_facts/mart__job_day_facts.ipynb
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
+tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_hours/conversion/checklist.md
+tables/mart__job_hours/conversion/compare.md
+tables/mart__job_hours/conversion/in_dev.hql
+tables/mart__job_hours/conversion/pivot_filters.json
+tables/mart__job_hours/conversion/scan.md
+tables/mart__job_hours/conversion/statement.hql
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.html
+tables/mart__job_hours/lineage/20260925-060000-mart__job_hours.md
+tables/mart__job_hours/mart__job_hours.hql
+tables/mart__job_hours/mart__job_hours.ipynb
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
+tables/mart__job_notes/mart__job_notes.ipynb
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
+tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
+tables/mart__team_failures/conversion/in_dev.hql
+tables/mart__team_failures/conversion/scan.md
+tables/mart__team_failures/conversion/statement.hql
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
+tables/mart__team_failures/mart__team_failures.ipynb
+warehouse.py</pre>
+<pre class="python">from sqlglot_composer import project
+from warehouse import connect, execute, query
+connect(conn)
+databases = Path(&quot;admin/databases.py&quot;)
+_ = databases.write_text(databases.read_text(encoding=&quot;utf-8&quot;).replace(
+    &#x27;&quot;&lt;DEV_LOCATION_ROOT&gt;&quot;&#x27;, &#x27;&quot;/data/dev&quot;&#x27;), encoding=&quot;utf-8&quot;)</pre>
+<p class="label">It writes admin/databases.py</p>
+<pre class="python">&quot;&quot;&quot;databases - the settings of the two Databases you own: DEV, where
+you build and check tables, and PROD, where tables other people rely on are written. Set each
+once; the Workflows read them.
+
+&quot;database&quot; is the Database&#x27;s name, such as &quot;mart_dev&quot;. &quot;location_root&quot; is the folder its
+tables&#x27; files go under: a table with no folder of its own goes in
+&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;, such as /data/your_team/dev/mart_dev.db/daily_runs.
+Any other setting is yours, such as &quot;run_as&quot;, the account your connection runs as: give it
+in both, each its own value, and database_settings(&quot;mart_dev&quot;) gives DEV&#x27;s to your code.
+&quot;&quot;&quot;
+
+DEV = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot;/data/dev&quot;}
+PROD = {&quot;database&quot;: &quot;&lt;PROD_DATABASE&gt;&quot;, &quot;location_root&quot;: &quot;&lt;PROD_LOCATION_ROOT&gt;&quot;}</pre>
+<p>Done when <code>connect(conn)</code> runs without an error. Then step 2.</p>
+<h5>2. Read each table&#x27;s kind</h5>
+<p>Goal: know what each kind looks like, answered and open. Each Table reference holds its kind on its KIND line, and a History table its SEED line:</p>
+<pre class="python">for path in sorted(Path(&quot;references&quot;).glob(&quot;mart__*.py&quot;)):
+    for line in path.read_text(encoding=&quot;utf-8&quot;).splitlines():
+        if line.startswith((&quot;KIND = &quot;, &quot;SEED = &quot;)):
+            print(f&quot;{path.stem}: {line}&quot;)</pre>
+<p class="label">Python prints</p><pre class="output">mart__budget_overruns: KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+mart__job_day_costs: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+mart__job_day_facts: KIND = &quot;history&quot;  # answered, nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+mart__job_day_facts: SEED = {&quot;months&quot;: 1}
+mart__job_events_checks: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+mart__job_hours: KIND = &quot;rebuilt&quot;  # answered, proposed rebuilt: it is a query alone, which each write writes whole
+mart__job_notes: KIND = &quot;rebuilt&quot;  # answered, proposed rebuilt: its INSERT OVERWRITE names no Partition, so it replaces the whole table
+mart__team_days: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+mart__team_failures: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some</pre>
+<p>What each line says:</p>
+<ul><li>A kind is proposed from what the write does, never from what its query works out. mart.budget_overruns writes PARTITION (region = &#x27;eu&#x27;), one Partition, keeping the others: History. mart.job_notes names no Partition, so each write replaces the whole table: Rebuilt. mart.job_hours is a query alone: Rebuilt.</li><li>&quot;answered&quot; marks a kind made, the proposal and why kept after it. <code># TODO:</code> marks one still open: <code>None</code>, where nothing was proposed.</li><li>A write that fills its Partitions from its rows&#x27; own values, PARTITION (dt), may replace every Partition or only some, so nothing is proposed. mart.job_day_facts writes its last 3 days that way and keeps the rest: it was answered &quot;history&quot;, with a SEED of one month.</li></ul>
+<p>Done when you can tell an answered KIND from an open one. Then step 3.</p>
+<h5>3. Make a table that writes yesterday</h5>
+<p>Goal: a History table whose write works out its day from today. Run the new_table Workflow&#x27;s first step for mart.job_day_events, each job&#x27;s events on one day:</p>
+<pre class="python">project.new_table(&quot;mart.job_day_events&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">Made tables/mart__job_day_events/: mart__job_day_events.ipynb and lineage/, from
+admin/templates/saved_table.py.
+Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 179 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: wrote references/mart__team_failures.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260925-080000-difference.html; wrote admin/lineage/20260925-080000-difference.md
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_events&quot;)`
+- Tables named: mart.job_day_events
+- Files: created tables/mart__job_day_events/ (mart__job_day_events.ipynb, lineage/); created references/mart__job_day_events.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="label">It writes references/mart__job_day_events.py</p>
+<pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.
+
+project.reference_from_logic(&quot;mart.job_day_events&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
+
+Why: TODO: who reads this table, and why it is saved rather than worked out each time.
+
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
+&quot;&quot;&quot;
+
+from sqlglot_composer import Table
+
+job_day_events = Table(
+    &quot;mart.job_day_events&quot;,
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=&quot;/data/dev/mart.db/job_day_events&quot;,  # under its Database&#x27;s location_root, in admin/databases.py
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__job_day_events import job_day_events, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_day_events.&lt;column&gt;
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_day_events.&lt;column&gt;, &lt;value&gt;)</pre>
+<p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<p class="note">It writes <code>tables/mart__job_day_events/mart__job_day_events.ipynb</code> too.</p>
+<p>Its write reads yesterday, worked out from today each time the table is written, so a write run each morning writes the day before. <code>last_n_days(job_events.dt, 1)</code> is that day; on this page today is 2026-09-25:</p>
+<pre class="python">from sqlglot_composer import last_n_days, today
+from references.ops__job_events import job_events
+today()</pre>
+<p class="label">Python shows</p><pre class="output">datetime.date(2026, 11, 28)</pre>
+<pre class="python">last_n_days(job_events.dt, 1)</pre>
+<p class="label">Python shows</p><pre class="output">job_events.dt = &#x27;2026-09-24&#x27;</pre>
+<p>Fill in its notebook&#x27;s logic with it:</p>
+<p class="label">The file <code>tables/mart__job_day_events/mart__job_day_events.ipynb</code>, after you fill it in</p>
+<pre class="python"># %% [markdown]
+# # mart.job_day_events
+#
+# Each job&#x27;s events on one day, yesterday&#x27;s, written each day into that day&#x27;s Partition.
+
+# %%
+# 1. The Project and your query
+import pathlib
+import sys
+sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
+
+from sqlglot_composer import show_hive
+from warehouse import connect, query
+
+# %%
+# logic
+# 2. The logic: imports, the rows it reads, and functions only
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, count_rows,
+    create_table, last_n_days, statement,
+)
+from references.mart__job_day_events import job_day_events  # this table&#x27;s own Table reference
+from references.ops__job_events import job_events
+
+# The rows write() reads: yesterday&#x27;s, worked out from today each time it is written.
+READS = last_n_days(job_events.dt, 1)
+
+# This table&#x27;s partition columns, in the order its SELECT gives them, last.
+PARTITIONED_BY = [&quot;dt&quot;]
+
+
+def create() -&gt; Statement:
+    &quot;&quot;&quot;Step 1: create mart.job_day_events from its Table reference, if it isn&#x27;t there yet.&quot;&quot;&quot;
+    return create_table(job_day_events, may_exist=True)
+
+
+def rows() -&gt; list[Clause]:
+    &quot;&quot;&quot;The clauses preview and write share: each job&#x27;s events on the day READS picks.&quot;&quot;&quot;
+    return [
+        SELECT(job_events.job_id, AS(count_rows(), &quot;events&quot;), job_events.dt),
+        FROM(job_events),
+        WHERE(READS),
+        GROUP_BY(job_events.job_id, job_events.dt),
+    ]
+
+
+def preview() -&gt; Statement:
+    &quot;&quot;&quot;Step 2: the rows write() would save, as a SELECT to run and check first.&quot;&quot;&quot;
+    return statement(*rows())
+
+
+def write() -&gt; Statement:
+    &quot;&quot;&quot;Step 3: save yesterday&#x27;s rows, replacing that day&#x27;s Partition alone.&quot;&quot;&quot;
+    return statement(INSERT_OVERWRITE(job_day_events), *rows())
+
+# %%
+# 3. Try it: the Hive of each step
+show_hive([create(), write()])</pre>
+<p>Done when the notebook&#x27;s logic is saved. Then step 4.</p>
+<h5>4. Write its Table reference from the logic</h5>
+<p>Goal: its Table reference, with its kind and its Seed to answer. The Workflow&#x27;s step 3 writes it from the logic, through your query, which reads the Partitions of the table the write reads its days from:</p>
+<pre class="python">print(project.reference_from_logic(&quot;mart.job_day_events&quot;, query=query))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote references/mart__job_day_events.py from its logic: job_id, events and dt, partitioned by dt.
+Its Key, proposed from its logic: job_id and dt.
+mart.job_day_events: 2 TODO lines left in references/mart__job_day_events.py, which wait on nothing: fill each in when you like.
+  line 1: mart.job_day_events - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+Answer each open Decision in the new_table Workflow&#x27;s decisions cell: mart.job_day_events: kind: Rebuilt or History table, nothing proposed, as its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some: answer &quot;rebuilt&quot; if each write replaces the whole table, &quot;history&quot; if it keeps the rows already there.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 187 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: wrote references/mart__team_failures.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260925-080000-difference.html; wrote admin/lineage/20260925-080000-difference.md
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_events&quot;)`
+- Tables named: mart.job_day_events
+- Files: created tables/mart__job_day_events/ (mart__job_day_events.ipynb, lineage/); created references/mart__job_day_events.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.reference_from_logic(&quot;mart.job_day_events&quot;)`
+- Tables named: mart.job_day_events
+- Files: wrote references/mart__job_day_events.py from its logic
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="label">It writes references/mart__job_day_events.py</p>
+<pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_day_events = Table(
+    &quot;mart.job_day_events&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;events&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;job_id&quot;, &quot;dt&quot;],  # proposed from its logic; if it is wrong, answer &quot;key&quot; in the decisions cell
+    location=&quot;/data/dev/mart.db/job_day_events&quot;,  # under its Database&#x27;s location_root, in admin/databases.py
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)
+
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;months&quot;: 1}  # proposed: dt holds dates in ops.job_events
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__job_day_events import job_day_events, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_day_events.events
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_day_events.events, &lt;value&gt;)</pre>
+<pre class="python">reference = Path(&quot;references/mart__job_day_events.py&quot;)
+for line in reference.read_text(encoding=&quot;utf-8&quot;).splitlines():
+    if line.startswith((&quot;KIND = &quot;, &quot;SEED = &quot;)):
+        print(line)</pre>
+<p class="label">Python prints</p><pre class="output">KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+SEED = {&quot;months&quot;: 1}  # proposed: dt holds dates in ops.job_events</pre>
+<p>Its write fills dt from its rows, so no kind is proposed, and its kind is the one Decision open. SEED is proposed already, marked <code># proposed</code>, which blocks nothing: dt holds dates in ops.job_events, the table it reads its days from, so a month of them is proposed. Above each line, its comment says what it takes.</p>
+<p>Done when the KIND line is open and the SEED line proposed. Then step 5.</p>
+<h5>5. Answer its kind and its Seed</h5>
+<p>Goal: the table a History table, its Seed a month. Write each answer in the new_table Workflow notebook&#x27;s decisions cell, DECISIONS, by the table&#x27;s name; this page stands in for the cell and for its step, which writes each answer into the Table reference:</p>
+<pre class="python">DECISIONS = {&quot;mart.job_day_events&quot;: {&quot;kind&quot;: &quot;history&quot;, &quot;seed&quot;: {&quot;months&quot;: 1}}}
+print(project.write_decisions(DECISIONS, tables=[&quot;mart.job_day_events&quot;]))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__job_day_events.py.
+mart.job_day_events: 2 TODO lines left in references/mart__job_day_events.py, which wait on nothing: fill each in when you like.
+  line 1: mart.job_day_events - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+Each Decision of mart.job_day_events is made.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 195 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, scheduled_runs/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: wrote references/mart__team_failures.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;job_hours&quot;, ...)`
+- Tables named: mart.teams_pivot
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.teams_pivot
+- Files: wrote references/mart__teams_pivot.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_hours
+- Files: wrote references/mart__job_hours.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch(&quot;job_hours&quot;)`
+- Tables named: mart.job_hours
+- Files: wrote tables/mart__job_hours/conversion/compare.md; moved admin/workflows/convert/job_hours/ to admin/workflows/convert/finished/job_hours/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_scheduled_run(&quot;weekly_team&quot;)`
+- Files: created scheduled_runs/weekly_team/ (weekly_team.ipynb)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.record_lineage_state()`
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 08:00:00, Project action
+
+- Call: `project.export_lineage_difference()`
+- Files: wrote admin/lineage/20260925-080000-difference.html; wrote admin/lineage/20260925-080000-difference.md
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_events&quot;)`
+- Tables named: mart.job_day_events
+- Files: created tables/mart__job_day_events/ (mart__job_day_events.ipynb, lineage/); created references/mart__job_day_events.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.reference_from_logic(&quot;mart.job_day_events&quot;)`
+- Tables named: mart.job_day_events
+- Files: wrote references/mart__job_day_events.py from its logic
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.job_day_events
+- Files: wrote references/mart__job_day_events.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="label">It writes references/mart__job_day_events.py</p>
+<pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_day_events = Table(
+    &quot;mart.job_day_events&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;events&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;job_id&quot;, &quot;dt&quot;],  # proposed from its logic; if it is wrong, answer &quot;key&quot; in the decisions cell
+    location=&quot;/data/dev/mart.db/job_day_events&quot;,  # under its Database&#x27;s location_root, in admin/databases.py
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)
+
+# Rebuilt or History: &quot;rebuilt&quot; if each write replaces the whole table; &quot;history&quot; if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
+# &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
+KIND = &quot;history&quot;  # answered, nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;months&quot;: 1}
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__job_day_events import job_day_events, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = job_day_events.events
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(job_day_events.events, &lt;value&gt;)</pre>
+<pre class="python">for line in reference.read_text(encoding=&quot;utf-8&quot;).splitlines():
+    if line.startswith((&quot;KIND = &quot;, &quot;SEED = &quot;)):
+        print(line)</pre>
+<p class="label">Python prints</p><pre class="output">KIND = &quot;history&quot;  # answered, nothing proposed: its INSERT OVERWRITE fills dt from its rows&#x27; own values, PARTITION (dt), so it may replace every Partition or only some
+SEED = {&quot;months&quot;: 1}</pre>
+<p>The answers, by their kind:</p>
+<ul><li>&quot;kind&quot;: &quot;history&quot;, since each write replaces one day and keeps the rest. Where a kind is proposed, &quot;proposed&quot; accepts it, and under &quot;all_tables&quot; it accepts each table&#x27;s.</li><li>&quot;seed&quot;: <code>{&quot;months&quot;: 1}</code> loads the calendar month up to the newest day the table it reads holds, both ends included, by its partition column whose every value is a date. Left unanswered, the proposal is used all the same; answered, it loses its <code># proposed</code> mark. <code>{&quot;months&quot;: 3}</code> loads three.</li></ul>
+<p>Done when it says <code>Each Decision of mart.job_day_events is made.</code> Then step 6.</p>
+<h5>6. See the days its Seed loads</h5>
+<p>Goal: the Seed&#x27;s days seen before anything is sent. The new_table Workflow&#x27;s write step starts with <code>project.seed_tables</code>, which, given no execute, sends nothing and shows what it would send. A table with no original runs its own write once for each day, oldest first, as of the day after, so <code>last_n_days</code> gives that day as yesterday:</p>
+<pre class="python">said = repr(project.seed_tables([&quot;mart.job_day_events&quot;], query=query))  # -&gt; str
+print(&quot;\n&quot;.join(said.splitlines()[:14]))</pre>
+<p class="label">Python prints</p><pre class="output">mart.job_day_events: no Seed: its write reads no today, CURRENT_DATE or a Run value of today(), so each day&#x27;s run would write the same rows: its first write loads them.</pre>
+<p>The same write follows for each day to 2026-09-24, 32 in all: ops.job_events&#x27; newest day is 2026-09-24, and the month before it starts on 2026-08-24. Each run is the write&#x27;s own Hive, its day alone changed, so each writes the one Partition a run on the morning after writes.</p>
+<p>A write whose day is typed in has no Seed of this kind: each run would write the same rows. mart.job_day_facts reads <code>DAY = &quot;2026-09-24&quot;</code>, so its first write loads its days:</p>
+<pre class="python">print(project.seed_tables([&quot;mart.job_day_facts&quot;], query=query))</pre>
+<p class="label">Python prints</p><pre class="output">mart.job_day_facts: no Seed: its write reads no today, CURRENT_DATE or a Run value of today(), so each day&#x27;s run would write the same rows: its first write loads them.</pre>
+<p>Done when the first line names the days from 2026-08-24 to 2026-09-24. Then step 7.</p>
+<h5>7. Write the table, its Seed first</h5>
+<p>Goal: the table&#x27;s past days in the warehouse, then its first write. The new_table Workflow&#x27;s write step, given your execute, sends the Seed, then the table&#x27;s write. Its cell is these two calls; at work you run that cell:</p>
+<pre class="python">print(project.seed_tables([&quot;mart.job_day_events&quot;], query=query, execute=execute))
+project.run_tables(tables=[&quot;mart.job_day_events&quot;], execute=execute)</pre>
+<p>The Example database can&#x27;t be written to, so this page sends neither. At work, the report starts with the line step 6 shows, then says what was loaded, such as <code>Seeded mart.job_day_events: 30 days loaded of 32.</code>, then a line for each day that wasn&#x27;t:</p>
+<ul><li>a day the warehouse refused, with the first line of its error, such as <code>dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: ...</code>;</li><li>a day that wrote no rows, its empty Partition kept, such as <code>dt = 2026-09-15: no rows, its empty Partition kept</code>.</li></ul>
+<p>A day that fails doesn&#x27;t stop the rest. The Seed runs only while the table holds no Partition, so the step run again loads nothing twice: it says <code>mart.job_day_events: no Seed: it holds rows already, so it was seeded, or written, before.</code></p>
+<p>Done when the report says how many days were loaded. Then step 8.</p>
+<h5>8. Check the days it holds</h5>
+<p>Goal: a missing day you can&#x27;t forget. admin/check_project.ipynb runs <code>project.check</code>, given your query, which reads the days each History table holds once it is written, and warns of each its Seed should have loaded and it lacks, or holds with no rows. It stops nothing. Here mart.job_day_events is not written yet, so it is passed over, and the Example database holds no mart table, so the check says it couldn&#x27;t read mart.job_day_facts&#x27;s Partitions:</p>
+<pre class="python">said = repr(project.check(query=query))  # -&gt; str
+print(next(line for line in said.splitlines() if line.startswith(&quot;Not checked&quot;)))</pre>
+<p class="label">Python prints</p><pre class="output">Not checked for the days its Seed loads: mart.job_day_facts, as your query couldn&#x27;t read its Partitions. Your query said: The Example database has no table &#x27;mart.job_day_facts&#x27;.</pre>
+<p>At work, step 7&#x27;s two days give a Warning, until each is written: <code>Warning: mart.job_day_events lacks 2 of the 32 days its Seed loads: 2026-09-15 (no rows) and 2026-09-20. That stops nothing, but what reads it finds no rows for those days until each is written.</code> Write a missing day as you write any day, with a write as of the day after it. <code>project.check()</code>, with no query, reads nothing of the warehouse, and gives no such Warning.</p>
+<p>Done when the check names each History table it couldn&#x27;t read, or warns of the days one lacks. Then check it worked, below.</p>
+<h4>Check it worked</h4>
+<p>Before you go on, check that:</p>
+<ul><li>references/mart__job_day_events.py says <code>KIND = &quot;history&quot; # answered, ...</code> and <code>SEED = {&quot;months&quot;: 1}</code>;</li><li>the Seed&#x27;s first line, step 6&#x27;s, names dt from 2026-08-24 to 2026-09-24;</li><li>at work, the Seed&#x27;s report says how many days were loaded, and names each day not loaded;</li><li>at work, <code>project.check(query=query)</code> gives no Warning for the table, or you have written each day it names.</li></ul>
+<h4>Common mistakes</h4>
+<h5>Answering &quot;rebuilt&quot; for a table of days</h5>
+<p>A table answered Rebuilt has no Seed, so a daily table answered so starts with one day, and nothing warns that the rest are missing. If each write replaces one day and keeps the rest, answer &quot;history&quot;.</p>
+<h5>Typing the day in</h5>
+<p>A write that reads <code>&quot;2026-09-24&quot;</code> writes that day on every run, so its Seed can&#x27;t run it for each past day, and says so, as mart.job_day_facts&#x27;s does in step 6. Work the day out from today, with <code>last_n_days</code>, or with a Run value, a function of yours that the Toolbox calls each time the table is written, starting from <code>today()</code>.</p>
+<h5>Expecting the Seed to run again</h5>
+<p>The Seed runs once, while the table holds no Partition. To load a day it missed, write that day, as <code>project.check(query=query)</code> names it, rather than seeding again.</p>
+<h4>Next</h4>
+<ul><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: a converted table&#x27;s Seed, copied from its original, and Seed limits by partition column.</li><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, the new_table Workflow&#x27;s among them.</li></ul>
+<p class="names">Toolbox names used: <code>last_n_days</code>, <code>today</code>, <code>project.new_table</code>, <code>project.check</code>, <code>project.write_decisions</code>, <code>project.reference_from_logic</code>, <code>project.seed_tables</code></p>
 </section>
 </main>
 <script>

@@ -95,7 +95,7 @@ something and see its rows.
 - project.start()
 - project.add_references(names, *, query=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
-- project.check()
+- project.check(*, query=None)
 - project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)

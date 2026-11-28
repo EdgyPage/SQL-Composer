@@ -342,10 +342,13 @@ def _how_to_steps() -> list[str]:
                   "imported at the top of the decisions cell and given by its name, which the "
                   "Toolbox calls each time the table is written. \"all_tables\" answers once "
                   "for every table the notebook names, and "
-                  "a table's own answer overwrites it. A table that reads itself is seeded "
-                  "once from its original, every Partition unless its \"seed\" answer limits "
-                  "them. [Convert someone else's Hive](#convert_someone_elses_hive) shows each "
-                  "one."), "",
+                  "a table's own answer overwrites it. \"kind\" says whether each write "
+                  "replaces the whole table, a Rebuilt table, or keeps the rows already there, "
+                  "a History table, whose past rows are loaded once, its Seed, before its first "
+                  "write, as its \"seed\" answer limits them. [Convert someone else's "
+                  "Hive](#convert_someone_elses_hive) shows each one, and [Load a History "
+                  "table's past days](#load_a_history_tables_past_days) the kind and the "
+                  "Seed."), "",
         *_wrapped("Done when `project.check()` says every step of the Workflow is done. Then "
                   "check it worked, below."), "",
         "The Workflows, for steps 2 to 5:", ""]
@@ -403,9 +406,9 @@ def _intended_path_lines(workflow: Workflow) -> list[str]:
             *_wrapped(f'And "{workflows.RUN_THE_REST}", the same call as '
                       f'"{workflows.RUN_UP_TO_DECISIONS}", run again once you have answered: '
                       "it goes on from where the first stopped, and it too stops at the first "
-                      "step only you can do, so it can stop again, at a refusal, a compare "
-                      "that failed or a Decision left open. Mend what it names and run it "
-                      "again. Each step's own cell follows, under Step by step:"), "",
+                      "step only you can do, so it can stop again, at a refusal or a Decision "
+                      "left open; a compare that failed stops nothing. Mend what it names and "
+                      "run it again. Each step's own cell follows, under Step by step:"), "",
             *[f"    {line}" for line in the_rest.split("\n")]]
 
 

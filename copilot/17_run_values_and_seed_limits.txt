@@ -23,8 +23,9 @@ Workflow's other cells when asked.
 | P8 | "no columns name one row" | `"key": None` | R7 |
 | P9 | "every table's folder goes under /data/team" | `<folder>/<database>.db/<table>` | R8 |
 | P10 | "copy only its Partitions from D on" | `"seed": {"dt": {"from": D}}` | R9 |
+| P15 | "only its last N months" | `"seed": {"months": N}` | R9 |
 | P11 | "convert names the table mart_dev.x_mart" | the default name: `RENAME = {}` | R11 |
-| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 7 | R11 |
+| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 6 | R11 |
 | P13 | "I converted it ...", decisions and later cells | DECISIONS, step 3, those asked | W2 |
 | P14 | a Run value in a Statement | `run_value(...)`; `hive_date(day)` | R10 |
 
@@ -38,7 +39,8 @@ Workflow's other cells when asked.
 - **Run value**: what a function gives each time a Statement is built, written into the Hive
   as plain text: a `datetime.date` as '2026-09-24', a number as it is.
 - **Partition**: the rows of a table that share one value of each partition column.
-- **Seed**: step 5's one copy of the original's rows into a table that reads itself.
+- **Seed**: a History table's past rows, which each write keeps, copied from its original
+  once by step 5, before its write.
 
 ## Rules
 
@@ -57,15 +59,17 @@ Workflow's other cells when asked.
   `today(utc_offset_hours=-6)` six hours behind.
 - **R5** No Partition names it: the function runs a Statement of its own with run_query,
   each partitioned read bounded, and takes no argument (W1).
-- **R6** "all_tables" holds only "tags", "seed" and `"key": "proposed"`; a table's own answer
-  overwrites it, kind by kind. Any other Key, a type and a location go under each table.
+- **R6** "all_tables" holds only "tags", "seed", "kind" and `"key": "proposed"`; a table's
+  own answer overwrites it, answer by answer. Any other Key, a type and a location go under
+  each table.
 - **R7** Answer what the user gives, no more: `"key": None` if no columns name one row;
   `"key": "proposed"` only if they accept the proposed Keys.
 - **R8** A folder for every table: each table's own location under it,
   `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
-- **R9** "seed", by partition column: a value, **that value or later**; `{"from": ...,
+- **R9** "seed": `{"months": N}`, the N months up to the newest Partition, `{"months": 1}`
+  proposed; or, by partition column, a value, **that value or later**; `{"from": ...,
   "to": ...}`, either end left out; a list, those values alone; numbers as numbers; a Run
-  value's function. A column left out is copied whole; no "seed", every Partition.
+  value's function. A column left out is copied whole. A Rebuilt table has none.
 - **R10** A Run value in a Statement the user writes: `run_value(function, *arguments)`. In
   Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
 - **R11** Give only the cells asked, never a step the user has run, such as convert. Asked
@@ -73,7 +77,7 @@ Workflow's other cells when asked.
   ["daily.hql"]` by name, `HIVE = None`, `DATABASE = "default"`, `RENAME = {}`, `STAGING =
   {}`, `PARTITIONS = []`; step 1, `project.convert(NAME, HIVE, files=FILES, query=query,
   database=DATABASE, rename=RENAME, staging=STAGING)`; the decisions cell and step 3; then
-  steps 4 to 7 (W3). The name the user says convert gives is its own: `RENAME = {}`.
+  steps 4 to 6 (W3). The name the user says convert gives is its own: `RENAME = {}`.
 
 ## Names for this objective, with their arguments
 
@@ -85,6 +89,7 @@ Workflow's other cells when asked.
 - hivevar(name, *, default)
 - project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
+- project.seed_tables(tables, *, query=None, execute=None)
 - project.register(name)
 
 ## Worked patterns
@@ -124,20 +129,13 @@ DECISIONS = {
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 ```
 
-### W3: convert's steps 4 to 7, a cell each: create, seed, write, compare
+### W3: convert's steps 4 to 6, a cell each: create, write (its Seed first), compare
 
 ```python
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
 
-to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no table of the batch reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
-
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
 project.compare_batch(NAME, query=query, partitions=PARTITIONS)
@@ -149,7 +147,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 2. **Function.** Write the function only if one is asked for and the user hasn't one (W1, or
    `project.new_run_value` at the top of the decisions cell). Then step 3.
 3. **Copy.** Write the cells asked, in order, with the user's names. Then step 4.
-4. **Name the rest** in words: each later step through step 7's compare. Then step 5.
+4. **Name the rest** in words: each later step through step 6's compare. Then step 5.
 5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
 ## Output
@@ -161,7 +159,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ## Self-check
 
 - [ ] **C1** Each Run value is answered by the function's name, imported at the cell's top.
-- [ ] **C2** "all_tables" holds only tags, seed and `"key": "proposed"`.
+- [ ] **C2** "all_tables" holds only tags, seed, kind and `"key": "proposed"`.
 - [ ] **C3** Each answer is one the user gave; each location is under their folder.
 - [ ] **C4** `RENAME = {}` unless the user asked for another name.
 - [ ] **C5** Only the cells asked are there, in order, none the user has run.

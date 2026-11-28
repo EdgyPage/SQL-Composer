@@ -595,12 +595,18 @@ Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writ
 5. **Write its Table reference.** Goal: the stand-in replaced. Action: run the step
    `project.reference_from_logic`, which writes it from the logic you wrote: its columns and
    types from `preview()`, its partition columns from the logic's `PARTITIONED_BY`, its Key,
-   and its location, placed under DEV's `"location_root"`. Done when its file in
+   and its location, placed under DEV's `"location_root"`. It also writes its kind, `KIND`,
+   Rebuilt or History, proposed from its write, a Decision you answer in the Workflow's
+   decisions cell, and for a History table its Seed, `SEED`, its past days loaded once before
+   its first write, as [Load a History table's past
+   days](../docs/how_to.html#load_a_history_tables_past_days) shows. Done when its file in
    `references/` lists those columns; then step 6.
 6. **Write it.** Goal: its rows in the warehouse. Action: run
    `project.run_tables(execute=execute)`, which writes every Saved table, each after the tables
    it reads, sending the Session setting below first. With no execute, it prints each write's
-   Hive in order and sends nothing. Done when it has sent each write; then step 7.
+   Hive in order and sends nothing. The new_table Workflow's write step runs
+   `project.seed_tables` before it, which loads each History table's Seed once, while the
+   table holds no Partition. Done when it has sent each write; then step 7.
 7. **Write its Hive file.** Goal: the table's Hive to read at a glance. Action: run its
    notebook's Hive cell, `export_hive()`, which writes it into `<db>__<table>.hql` beside the
    notebook: `create()`, then `write()`, in the order they are sent. Done when the file is
@@ -704,6 +710,10 @@ Goal: every file the registry lists is there, and every file there is registered
    - It also lists each line still marked `# proposed`, which blocks nothing, as below, where
      section 2's proposals are left as add_references wrote them: keep each by taking off its
      comment, or change it, and it goes from the list.
+   - If you run `admin/check_project.ipynb`, it gives `project.check` your query, and also
+     warns of each History table, one whose writes keep its past days, that lacks a day its
+     Seed should have loaded, or holds it with no rows. The warning stops nothing: write each
+     day it names.
 
 ```python
 >>> project.check()
@@ -851,18 +861,26 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      `NOT IN (SELECT run_id FROM ...)`, the column the `NOT IN` reads, `{"key": ["run_id"]}`.
    - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
      or answer `"location"` for that table.
-   - If a table reads itself, its seed copies every Partition of its original unless you
-     limit it, by partition column: `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those
-     from 2026-01-01 on; a list, `{"region": ["US", "CA"]}`, those values alone. A single
-     value, `{"dt": "2026-01-01"}`, means **that value or later**.
+   - If each write of a table replaces the whole table, it is a **Rebuilt table**; if each
+     keeps the rows already there, replacing one day's Partition or adding rows, it is a
+     **History table**. That is its kind, a Decision proposed from its write: accept it with
+     `{"kind": "proposed"}`, under the table or `"all_tables"`. If nothing is proposed, as for
+     a write that fills its Partitions from its rows' own values, `PARTITION (dt)`, answer
+     `"rebuilt"` or `"history"`.
+   - If a table is a History table, its **Seed** copies its original's past rows into it
+     once, before its first write: `{"seed": {"months": 1}}`, proposed where a partition column
+     holds dates, copies the month up to the newest Partition; by partition column,
+     `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those from 2026-01-01 on, and a list,
+     `{"region": ["US", "CA"]}`, those values alone. A single value, `{"dt": "2026-01-01"}`,
+     means **that value or later**. A Rebuilt table has no Seed.
    - If an answer was wrong, answer it again and run "Run the rest" again: it writes the
      answers in, writes each table, and compares each. Each table is made and seeded already,
      so those steps stay done.
 5. **Run the rest.** Goal: each table written in dev and compared. Action: run the cell "Run
    the rest", under the decisions cell: it writes your answers in, creates each table in dev,
-   seeds each whose write reads its own table (copy its **original**'s rows in once, the
-   original being the table the script writes, so its first write doesn't start from
-   nothing, each Partition or those its `"seed"` answer names), writes each, and compares each
+   seeds each History table (copies its **original**'s rows in once, the original being the
+   table the script writes, so its first write doesn't start from nothing, the Partitions
+   its `"seed"` answer names), writes each, and compares each
    with the table it copies, `project.compare_batch`. A partitioned table is compared on the
    latest Partition both tables hold; `compare.md` says how many other Partitions both hold
    were not compared. To see which they are, run `query("SHOW PARTITIONS mart.team_fails")`

@@ -27,6 +27,8 @@ so you get the rest converted rather than none of it.
   step 8 does.
 - If a History table, which each write adds to, has years of rows you don't need, limit its
   Seed, the one copy of the original's past rows before its first write, as step 6 does.
+  [Load a History table's past days](#load_a_history_tables_past_days) shows the Seed of a
+  table with no original.
 - If several tables share an answer, such as accepting each one's proposed Key, give it once
   under "all_tables", as step 6 does.
 - If the scripts are simple and read none of each other's tables, convert each as a batch of
@@ -486,7 +488,7 @@ Warning: promoting mart.alerted_runs_ops_reports, which failed its compare: tabl
 Warning: promoting mart.fail_history, which failed its compare: tables/mart__fail_history/conversion/compare.md says why.
 Promoted mart.alerts_by_severity_ops_reports to mart_prod.alerts_by_severity_ops_reports: tables/mart_prod__alerts_by_severity_ops_reports/ and references/mart_prod__alerts_by_severity_ops_reports.py.
 ...
-Next: run the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, seed each that reads itself, and write each.
+Next: run the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: create each table in prod, then write each, each History table's Seed first.
 
 At work, open admin/workflows/promote/promote.ipynb, leave its names cell's `TABLES = []`,
 and run its cells top to bottom, as the convert notebook's: left [], "Run up to your
@@ -608,8 +610,10 @@ What happened:  Nothing was sent: the Statement holds a Run value that failed, .
   by tag: `{"all_tables": {"tags": {"RUN_DAY": run_day, "TEAM": "'ops'"}},
   "mart_dev.web_fails": {"tags": {"TEAM": "'web'"}}}` answers mart_dev.web_fails's RUN_DAY
   with run_day and its TEAM with 'web', and each other table's with run_day and 'ops'.
-- It takes "key", only as "proposed", "tags" and "seed". "key": "proposed" accepts each
-  table's proposed Key as if typed; a table with none keeps its Key open, named in the report.
+- It takes "key", only as "proposed", "tags", "seed" and "kind". "key": "proposed" accepts
+  each table's proposed Key as if typed; a table with none keeps its Key open, named in the
+  report. "kind": "proposed" accepts each table's proposed kind, and leaves a table with none
+  open, named in the report.
   Any other Key, and a type, is each table's own: under "all_tables" it is refused, naming the
   tables to answer it for.
 - "location_root" is refused: it is a Database setting since 8.5, given in DEV and PROD in
@@ -744,6 +748,8 @@ yourself, before you promote it.
 ## Next
 
 - [Follow a Workflow](#follow_a_workflow): every Workflow's steps, drawn and listed.
+- [Load a History table's past days](#load_a_history_tables_past_days): a History table's
+  kind and Seed, for a table with no original.
 - [Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references):
   the Unchecked pieces a Conversion leaves, and how to replace them.
 """  # noqa: E501 - the Hive it converts and the files it shows, line for line

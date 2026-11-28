@@ -27,6 +27,12 @@ team_day = Table(
     },
 )
 
+# Rebuilt or History: "rebuilt" if each write replaces the whole table; "history" if
+# each write keeps the rows already there, adding rows or replacing some, such as one
+# day's Partition, so the table needs its past rows loaded first, its Seed. Answer
+# "kind" in the decisions cell: "proposed" accepts the kind proposed below.
+KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some
+
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table's columns and conditions, written by hand below.
 # Import one beside the table, such as:

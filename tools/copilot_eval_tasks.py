@@ -142,9 +142,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 project.write_decisions(DECISIONS)
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
-run_execute(hive_settings("dynamic_partitions"), execute)
-for table in project.batch_tables(NAME, seeded=True):
-    run_execute(project.load(table).seed(), execute)
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 project.compare_batch(NAME, query=query)
 '''
@@ -1014,13 +1012,8 @@ project.promote(TABLES)
 project.write_decisions(DECISIONS)
 for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)
-to_seed = project.promoted_tables(TABLES, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no prod copy reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
+print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                          execute=execute))
 project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 project.refresh_reference_sheet(project.promoted_tables(TABLES))
 ''', tables=("job_runs",), workflow="promote",
@@ -1035,13 +1028,8 @@ project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)
-to_seed = project.promoted_tables(TABLES, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no prod copy reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
+print(project.seed_tables(project.promoted_tables(TABLES), query=query,
+                          execute=execute))
 project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 ''', tables=("job_runs",), workflow="promote",
          files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
@@ -1102,28 +1090,25 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 '''),
     Task("T48", "17", "dev",
          "I converted fail_log.hql as the batch named log (NAME = \"log\"): "
-         "mart_dev.fail_log_mart reads itself, so the convert notebook seeds it from "
-         "mart.fail_log, which holds years of days. Copy only its Partitions from 2026-09-24 "
-         "on. No columns name one row of it, and its folder is "
-         "/data/team/mart_dev.db/fail_log. Give the decisions cell, answered, then each "
-         "step's cell from writing the answers in through the seed.",
+         "mart_dev.fail_log_mart reads itself, so its proposed kind is a History table, "
+         "which I accept, and the convert notebook seeds it from mart.fail_log, which holds "
+         "years of days. Copy only its Partitions from 2026-09-24 on. No columns name one row "
+         "of it, and its folder is /data/team/mart_dev.db/fail_log. Give the decisions cell, "
+         "answered, then each step's cell from writing the answers in through its write, its "
+         "Seed first.",
          "workflow", '''NAME = "log"
 DECISIONS = {"mart_dev.fail_log_mart": {
     "location": "/data/team/mart_dev.db/fail_log",
     "key": None,
+    "kind": "proposed",
     "seed": {"dt": {"from": "2026-09-24"}},
 }}
 
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
-to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no table of the batch reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 ''', tables=("job_runs",), workflow="convert",
          files={"admin/workflows/convert/fail_log.hql": FAIL_LOG},
          originals=FAIL_LOG,
@@ -1157,13 +1142,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
-to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no table of the batch reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ''', tables=("job_runs",), workflow="convert",

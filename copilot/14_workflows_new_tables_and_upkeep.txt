@@ -56,7 +56,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.reference_from_logic(name, *, query=None)

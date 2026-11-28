@@ -4,7 +4,7 @@ Written again each time its Decisions are written: don't tick or edit it. Answer
 
 ## Open Decisions
 
-None: each Decision in references/mart__team_failures.py is made.
+- kind: Rebuilt or History table, nothing proposed, as its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some: answer "rebuilt" if each write replaces the whole table, "history" if it keeps the rows already there, in references/mart__team_failures.py
 
 ## Notes, which block nothing
 

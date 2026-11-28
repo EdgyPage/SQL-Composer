@@ -246,7 +246,7 @@ something and see its rows.
 - project.start()
 - project.add_references(names, *, query=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
-- project.check()
+- project.check(*, query=None)
 - project.do_next(workflow=None)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
@@ -1050,9 +1050,8 @@ s = statement(
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
 
-Objective: write a Saved table from a Statement, in its Table notebook.
-Load this file when the user wants to save rows into a table of their own, write a day of
-it, add to it, or write a Table notebook's logic cell.
+Objective: write a Saved table from a Statement, in its Table notebook. Load this file to
+save rows into the user's own table, a day of it or more, or to write a logic cell.
 
 ## Patterns: when the user says X, do Y
 
@@ -1071,8 +1070,8 @@ it, add to it, or write a Table notebook's logic cell.
 
 ## Terms
 
-- **Saved table**: a table of the user's that a Statement writes; its Table reference (file
-  02) lists its columns, Partitions, Key and location.
+- **Saved table**: a table of the user's that a Statement writes, described by its Table
+  reference (file 02).
 - **Partition**: the rows sharing one value of each partition column. **Key**: the columns
   whose values name one row.
 - **Table notebook**: tables/<db>__<table>/<db>__<table>.ipynb; its **logic cell**, first
@@ -1088,24 +1087,27 @@ it, add to it, or write a Table notebook's logic cell.
   there: INSERT_INTO; a rerun adds them twice.
 - **R3** One named Partition: `INSERT_OVERWRITE(t, partition={"dt": day})`, its column left
   out of SELECT.
-- **R4** A table with a Key gets one row per Key, by GROUP_BY over the Key or
-  SELECT_DISTINCT, or the write is refused. `unproven_key=True` only if the user says why.
+- **R4** A table with a Key gets one row per Key, by GROUP_BY over it or SELECT_DISTINCT,
+  or the write is refused. `unproven_key=True` only if the user says why.
 - **R5** The logic cell has W2's shape, `PARTITIONED_BY = []` for none, and calls no
   run_query or run_execute.
-- **R6** Asked for `rows(day)`: rows takes `day` and bounds its read with
-  `equals(t.dt, day)`; a constant `DAY = "2026-09-24"` sits above; `preview()` returns
-  `statement(*rows(DAY))` and `write()` `statement(INSERT_OVERWRITE(t), *rows(DAY))`.
+- **R6** Asked for `rows(day)`: rows takes `day`, its read `equals(t.dt, day)`, under a
+  constant `DAY = "2026-09-24"`; `preview()` is `statement(*rows(DAY))`, `write()`
+  `statement(INSERT_OVERWRITE(t), *rows(DAY))`.
 - **R7** Several days a run, or a Scheduled run's period (file 18):
   `rows(first_day, last_day)` bounds its read with `between(...)`;
   `write_days(first_day, last_day)` is `statement(INSERT_OVERWRITE(t), *rows(first_day,
   last_day))`; `write()` takes nothing and returns `write_days(...)` with its own days.
-- **R8** Sent by hand: `run_execute(create(), execute)` once, then
+- **R8** Sent by hand: `run_execute(create(), execute)`, then
   `run_execute(hive_settings("dynamic_partitions"), execute)`, then
   `run_execute(write(), execute)`.
 - **R9** Otherwise the next cell runs `show_hive([create(), write()])` and
   `run_query(preview(), query)`; `project.run_tables(execute=execute)` sends the writes.
-- **R10** `project.new_table("mart.job_day_events")` (file 14) makes the notebook; its
-  `export_hive()` cell writes <db>__<table>.hql beside it.
+- **R10** `project.new_table(...)` (file 14) makes the notebook; its `export_hive()` cell
+  writes its .hql beside it.
+- **R11** Its kind is a Decision (file 14): `"kind": "history"` if each write keeps the
+  rows there (R2's INSERT_INTO, R3); `"rebuilt"` if it replaces the table; `"proposed"`
+  accepts it.
 
 ## Always: rules A1 to A11
 
@@ -1144,7 +1146,6 @@ it, add to it, or write a Table notebook's logic cell.
 ## Names for this objective, with their arguments
 
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
-- project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
@@ -1173,7 +1174,7 @@ s = statement(
 )
 ```
 
-### W2: the logic cell of mart.job_day_events (job_id, events, dt; Key job_id and dt)
+### W2: mart.job_day_events's logic cell (Key job_id and dt)
 
 ```python
 # logic
@@ -1216,7 +1217,7 @@ def write() -> Statement:
 
 ## Output
 
-One ```python block the user can paste into a notebook cell, then a few plain sentences.
+One ```python block to paste into a notebook cell, then a few plain sentences.
 
 ## Self-check
 
@@ -1286,6 +1287,9 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
   table holds: a Run value, the value a function of theirs gives (file 17).
 - **R8** Only if the user asks for a Hivevar, `${hivevar:NAME}` left for their scheduler:
   `hivevar("NAME", default="'2026-09-24'")`, imported.
+- **R9** Each table's kind is a Decision (file 13): `"kind": "history"` if each write keeps
+  the rows there, as `PARTITION (dt = ...)` or INSERT INTO; `"rebuilt"` if it replaces the
+  table; `"proposed"` accepts it.
 
 ## Always: rules A1 to A11
 
@@ -1325,7 +1329,7 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.load(name)
-- project.check()
+- project.check(*, query=None)
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - derived(name, statement)
 - AS(expression, name)
@@ -1489,7 +1493,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
-- project.check()
+- project.check(*, query=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.export_project_lineage()
 - export_lineage(*statements, to=None)
@@ -2255,7 +2259,7 @@ Load this file when the user asks to turn Hive into tables. File 16 promotes to 
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
@@ -2403,7 +2407,7 @@ change to a Saved table. File 13 converts Hive, file 16 promotes to prod.
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
 - project.reference_from_logic(name, *, query=None)
@@ -2769,9 +2773,10 @@ table.
   answer the user gives; none open: `DECISIONS = {}`. A Decision is the user's.
 - **R6** Another name for the prod copy: `project.promote(TABLES,
   rename={"mart_dev.daily_fails": "fails"})`.
-- **R7** A prod copy that reads itself is seeded once, at step 5, every Partition unless its
-  own "seed" answer limits it: `{"seed": {"dt": {"from": "2026-09-01"}}}`; a dev seed answer
-  isn't carried over. "all_tables" answers every prod copy at once (file 17).
+- **R7** A History prod copy is seeded once, at step 5, before its write: it copies its dev
+  copy's original, or the dev copy where it has none, within the dev table's SEED, which
+  promote keeps; its own "seed" answer changes it: `{"seed": {"months": 3}}`. "all_tables"
+  answers every prod copy at once (file 17).
 - **R8** A prod copy keeps its dev table's TAGS, a Run value or a Hivevar among them; each
   Building block it imports is copied into building_blocks/prod/.
 - **R9** "Run up to your Decisions", then "Run the rest", run each to the first step only the
@@ -2779,7 +2784,7 @@ table.
 
 ## Names for this objective, with their arguments
 
-- project.check()
+- project.check(*, query=None)
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.promote(tables, *, rename=None)
 - project.promoted_tables(tables, seeded=False)
@@ -2884,8 +2889,9 @@ Workflow's other cells when asked.
 | P8 | "no columns name one row" | `"key": None` | R7 |
 | P9 | "every table's folder goes under /data/team" | `<folder>/<database>.db/<table>` | R8 |
 | P10 | "copy only its Partitions from D on" | `"seed": {"dt": {"from": D}}` | R9 |
+| P15 | "only its last N months" | `"seed": {"months": N}` | R9 |
 | P11 | "convert names the table mart_dev.x_mart" | the default name: `RENAME = {}` | R11 |
-| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 7 | R11 |
+| P12 | "convert it ... through the compare", every step | names cell, steps 1 to 6 | R11 |
 | P13 | "I converted it ...", decisions and later cells | DECISIONS, step 3, those asked | W2 |
 | P14 | a Run value in a Statement | `run_value(...)`; `hive_date(day)` | R10 |
 
@@ -2899,7 +2905,8 @@ Workflow's other cells when asked.
 - **Run value**: what a function gives each time a Statement is built, written into the Hive
   as plain text: a `datetime.date` as '2026-09-24', a number as it is.
 - **Partition**: the rows of a table that share one value of each partition column.
-- **Seed**: step 5's one copy of the original's rows into a table that reads itself.
+- **Seed**: a History table's past rows, which each write keeps, copied from its original
+  once by step 5, before its write.
 
 ## Rules
 
@@ -2918,15 +2925,17 @@ Workflow's other cells when asked.
   `today(utc_offset_hours=-6)` six hours behind.
 - **R5** No Partition names it: the function runs a Statement of its own with run_query,
   each partitioned read bounded, and takes no argument (W1).
-- **R6** "all_tables" holds only "tags", "seed" and `"key": "proposed"`; a table's own answer
-  overwrites it, kind by kind. Any other Key, a type and a location go under each table.
+- **R6** "all_tables" holds only "tags", "seed", "kind" and `"key": "proposed"`; a table's
+  own answer overwrites it, answer by answer. Any other Key, a type and a location go under
+  each table.
 - **R7** Answer what the user gives, no more: `"key": None` if no columns name one row;
   `"key": "proposed"` only if they accept the proposed Keys.
 - **R8** A folder for every table: each table's own location under it,
   `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
-- **R9** "seed", by partition column: a value, **that value or later**; `{"from": ...,
+- **R9** "seed": `{"months": N}`, the N months up to the newest Partition, `{"months": 1}`
+  proposed; or, by partition column, a value, **that value or later**; `{"from": ...,
   "to": ...}`, either end left out; a list, those values alone; numbers as numbers; a Run
-  value's function. A column left out is copied whole; no "seed", every Partition.
+  value's function. A column left out is copied whole. A Rebuilt table has none.
 - **R10** A Run value in a Statement the user writes: `run_value(function, *arguments)`. In
   Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
 - **R11** Give only the cells asked, never a step the user has run, such as convert. Asked
@@ -2934,7 +2943,7 @@ Workflow's other cells when asked.
   ["daily.hql"]` by name, `HIVE = None`, `DATABASE = "default"`, `RENAME = {}`, `STAGING =
   {}`, `PARTITIONS = []`; step 1, `project.convert(NAME, HIVE, files=FILES, query=query,
   database=DATABASE, rename=RENAME, staging=STAGING)`; the decisions cell and step 3; then
-  steps 4 to 7 (W3). The name the user says convert gives is its own: `RENAME = {}`.
+  steps 4 to 6 (W3). The name the user says convert gives is its own: `RENAME = {}`.
 
 ## Names for this objective, with their arguments
 
@@ -2946,6 +2955,7 @@ Workflow's other cells when asked.
 - hivevar(name, *, default)
 - project.write_decisions(answers, tables=None, *, query=None)
 - project.batch_tables(name, seeded=False)
+- project.seed_tables(tables, *, query=None, execute=None)
 - project.register(name)
 
 ## Worked patterns
@@ -2985,20 +2995,13 @@ DECISIONS = {
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 ```
 
-### W3: convert's steps 4 to 7, a cell each: create, seed, write, compare
+### W3: convert's steps 4 to 6, a cell each: create, write (its Seed first), compare
 
 ```python
 for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)
 
-to_seed = project.batch_tables(NAME, seeded=True)
-if not to_seed:
-    print("Seeded nothing: no table of the batch reads itself.")
-else:
-    run_execute(hive_settings("dynamic_partitions"), execute)
-    for table in to_seed:
-        run_execute(project.load(table).seed(), execute)
-
+print(project.seed_tables(project.batch_tables(NAME), query=query, execute=execute))
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
 project.compare_batch(NAME, query=query, partitions=PARTITIONS)
@@ -3010,7 +3013,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 2. **Function.** Write the function only if one is asked for and the user hasn't one (W1, or
    `project.new_run_value` at the top of the decisions cell). Then step 3.
 3. **Copy.** Write the cells asked, in order, with the user's names. Then step 4.
-4. **Name the rest** in words: each later step through step 7's compare. Then step 5.
+4. **Name the rest** in words: each later step through step 6's compare. Then step 5.
 5. **Check.** Tick each Self-check line; fix any that fails, then reply as Output says.
 
 ## Output
@@ -3022,7 +3025,7 @@ project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ## Self-check
 
 - [ ] **C1** Each Run value is answered by the function's name, imported at the cell's top.
-- [ ] **C2** "all_tables" holds only tags, seed and `"key": "proposed"`.
+- [ ] **C2** "all_tables" holds only tags, seed, kind and `"key": "proposed"`.
 - [ ] **C3** Each answer is one the user gave; each location is under their folder.
 - [ ] **C4** `RENAME = {}` unless the user asked for another name.
 - [ ] **C5** Only the cells asked are there, in order, none the user has run.

@@ -4,7 +4,7 @@ Written again each time its Decisions are written: don't tick or edit it. Answer
 
 ## Open Decisions
 
-- kind: proposed a Rebuilt table, as it is a query alone, which each write writes whole: accept it with "proposed", or answer "rebuilt" if each write replaces the whole table, "history" if it keeps the rows already there, in references/mart__job_hours.py
+None: each Decision in references/mart__job_hours.py is made.
 
 ## Notes, which block nothing
 

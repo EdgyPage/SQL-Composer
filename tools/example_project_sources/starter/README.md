@@ -36,7 +36,9 @@ Each notebook's logic cell sets `READS`, the rows its `write()` reads, as the Te
 | `mart.team_day` | `equals(daily_job_runs.dt, "2026-09-24")`: the day mart.daily_job_runs saved |
 
 Each write fills the Partitions of the dt its rows hold, so to write another day, change the
-day in `READS`.
+day in `READS`. A write that fills dt from its rows' own values gets no kind proposed,
+Rebuilt or History, so each Table reference's `KIND` line is left open, `KIND = None`, a
+Decision to answer before the table is promoted.
 
 ## Every file of this Project
 
@@ -56,7 +58,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that made a Table folder, a Table reference or a Building block added a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing |
 | `references/ops__jobs.py`, `references/ops__job_runs.py` and `references/ops__run_alerts.py` | `project.add_references([...], query=query)` | their TODO lines, and Aliases: `minutes` and `failed` for ops.job_runs, read by the Building block, and `high` for ops.run_alerts, read by mart.alerts_per_job's notebook |
-| `references/mart__alerts_per_severity.py`, `references/mart__daily_job_runs.py`, `references/mart__alerts_per_job.py` and `references/mart__team_day.py` | `project.new_table(...)` | their `<...>` and TODO lines |
+| `references/mart__alerts_per_severity.py`, `references/mart__daily_job_runs.py`, `references/mart__alerts_per_job.py` and `references/mart__team_day.py` | `project.new_table(...)` | their `<...>` and TODO lines; each `KIND` line left open, as nothing was proposed |
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/runs_per_job.py`, a Building block | `project.new_block("runs_per_job")` | its `<...>` and TODO lines |

@@ -5,8 +5,8 @@ key each join and count relies on, where it has one, is checked as the Statement
 
 project.convert wrote this file from the workbook's PivotTable, its columns from the Hive the
 workbook gave; the convert Workflow's decisions cell then answered its name, its location and
-its Pivot filter, and accepted its proposed Key. Its two TODO lines were then filled in by hand:
-this docstring's first line and does_not_add_up.
+its Pivot filter, and accepted its proposed kind and Key. Its two TODO lines were then filled in
+by hand: this docstring's first line and does_not_add_up.
 """
 from sqlglot_composer import Table
 
@@ -49,7 +49,7 @@ PIVOT_FILTERS = {
 # each write keeps the rows already there, adding rows or replacing some, such as one
 # day's Partition, so the table needs its past rows loaded first, its Seed. Answer
 # "kind" in the decisions cell: "proposed" accepts the kind proposed below.
-KIND = "rebuilt"  # TODO: proposed rebuilt: it is a query alone, which each write writes whole
+KIND = "rebuilt"  # answered, proposed rebuilt: it is a query alone, which each write writes whole
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table's columns and conditions, written by hand below.

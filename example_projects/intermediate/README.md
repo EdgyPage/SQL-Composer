@@ -67,6 +67,16 @@ those tables read. `mart.job_events_checks` checks only the dt its `READS` names
 the rows in on the day it runs, and a check written again later would hide what was missing
 then.
 
+Each Saved table's Table reference holds its kind on its `KIND` line: a Rebuilt table, which
+each write replaces whole, or a History table, which each write keeps, adding rows or replacing
+some. Where the write says, the kind is proposed from it and answered: `mart.budget_overruns`,
+which replaces one region's Partition, is a History table, and `mart.job_notes` and
+`mart.job_hours`, written whole, are Rebuilt. A write that fills dt from its rows' own values
+gets no proposal, so its kind is left open, `KIND = None`, to answer before the table is
+promoted. `mart.job_day_facts`'s was answered History by hand, with a Seed, its past days
+loaded once before its first write, of one month: `SEED = {"months": 1}`, as how-to "Load a
+History table's past days" shows.
+
 ## Every file of this Project
 
 The file map of Start a Project, the first step of the download's README, filled in: each
@@ -86,9 +96,9 @@ file, the Project action that made it, and what was filled in by hand.
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that made or archived a Table folder, a Table reference, a Building block or a Conversion folder added a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing |
 | `references/ops__job_events.py`, `references/ops__job_owners.py`, `references/ops__region_costs.py`, `references/ops__region_budgets.py` and `references/ops__team_notes.py` | `project.add_references([...], query=query)` | their TODO lines, and an Alias, `ends_a_run`, the events that end a run, for ops.job_events, read by `building_blocks/events_per_job.py` |
-| `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines |
-| `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location= and TODO lines, its Key proposed by convert |
-| `references/mart__job_hours.py` | `project.convert("job_hours", ...)`, then the convert Workflow's decisions step, `project.write_decisions(...)`, which renamed it and folded its Pivot filter | its two TODO lines; its name, location, Pivot filter and Key answered in the decisions cell |
+| `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines; each `KIND` line, its kind proposed from its write and answered, or left open where nothing was proposed; `mart.job_day_facts`'s answered History, with its `SEED` |
+| `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location= and TODO lines, its Key proposed by convert, its `KIND` left open, as nothing was proposed |
+| `references/mart__job_hours.py` | `project.convert("job_hours", ...)`, then the convert Workflow's decisions step, `project.write_decisions(...)`, which renamed it and folded its Pivot filter | its two TODO lines; its name, location, Pivot filter, kind and Key answered in the decisions cell |
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |

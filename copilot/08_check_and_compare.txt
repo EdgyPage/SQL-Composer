@@ -98,7 +98,7 @@ whether a table's Key holds, what is left to do in the Project, or where a colum
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)
 - check_key(t, *, query=None, where=None, reads_all_partitions=False)
 - check_table_reference(t, *, query=None)
-- project.check()
+- project.check(*, query=None)
 - project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.export_project_lineage()
 - export_lineage(*statements, to=None)

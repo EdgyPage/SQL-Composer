@@ -7472,8 +7472,8 @@ def _promote_next_line(root: Path, prods: list[str]) -> str:
         first = (f"Next: fill in location= in {in_words(unplaced)}'s Table reference, which "
                  "has none, then run")
     return (f"{first} the promote Workflow's next steps, in "
-            "admin/workflows/promote/promote.ipynb: create each table in prod, seed each that "
-            "reads itself, and write each.")
+            "admin/workflows/promote/promote.ipynb: create each table in prod, then write each, "
+            "each History table's Seed first.")
 
 
 def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict[str, object]],

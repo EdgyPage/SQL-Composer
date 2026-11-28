@@ -38,7 +38,7 @@ PIVOT_FILTERS = {
 # each write keeps the rows already there, adding rows or replacing some, such as one
 # day's Partition, so the table needs its past rows loaded first, its Seed. Answer
 # "kind" in the decisions cell: "proposed" accepts the kind proposed below.
-KIND = "rebuilt"  # TODO: proposed rebuilt: it is a query alone, which each write writes whole
+KIND = "rebuilt"  # answered, proposed rebuilt: it is a query alone, which each write writes whole
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table's columns and conditions, written by hand below.
