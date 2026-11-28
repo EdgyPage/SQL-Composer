@@ -58,7 +58,7 @@ RUN_THE_CHECK_CELL = ("Run the cell below, `project.check()`: it names each open
                       "prints a whole `DECISIONS` to paste over the decisions cell's")
 FIDDLING = "fiddling"
 KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
-# How a write step's text opens, since its Seed runs first (Toolbox 8.10): what
+# How a dev write step's text opens, since its Seed runs first (Toolbox 8.10): what
 # project.seed_tables does.
 SEED_ACTION = ("run the cell below. `project.seed_tables` first loads each History table's "
                "past rows, its Seed, once, while it holds no Partitions yet, through your "
@@ -67,6 +67,14 @@ SEED_ACTION = ("run the cell below. `project.seed_tables` first loads each Histo
                "them. Its report lists each day not loaded, with the warehouse's error, and "
                "each that wrote no rows. A Rebuilt table has no Seed, and running the cell "
                "again loads nothing twice.")
+# The same for promote's write step, whose prod copies copy their Seed from dev's side.
+PROD_SEED_ACTION = ("run the cell below. `project.seed_tables` first loads each History "
+                    "table's past rows, its Seed, once, while it holds no Partitions yet, "
+                    "through your query and execute: copied from its dev copy's original, or, "
+                    "where the dev copy has none, from the dev copy itself, the days you "
+                    "checked there, as SEED in its Table reference picks them. Its report "
+                    "lists what it loaded. A Rebuilt table has no Seed, and running the cell "
+                    "again loads nothing twice.")
 
 # Each Workflow's folder in a Project, and the file naming the user's two Databases.
 WORKFLOWS_FOLDER = Path("admin") / "workflows"
@@ -1432,7 +1440,7 @@ PROMOTE = Workflow(
              goal="each prod copy's rows written in your Prod Database, each History table's "
              "past rows loaded first, its Seed: from its dev copy's original, or, where that "
              "has none, from its dev copy",
-             action=SEED_ACTION + " Then `project.run_tables` sends each prod copy's "
+             action=PROD_SEED_ACTION + " Then `project.run_tables` sends each prod copy's "
              "`write()` through your execute.",
              done_when="admin/sent.csv records each prod copy written since it was last "
              "promoted"),
@@ -1877,6 +1885,13 @@ NOTEBOOK_TERMS = {
                 "workbook, the rows the query gives.",
     "reads itself": "a table whose own script reads it, such as a running total, seeded once "
                     "from its original before its first write.",
+    "Rebuilt table": "a Saved table each write replaces whole, so its first write leaves it "
+                     "complete.",
+    "History table": "a Saved table each write keeps, adding rows or replacing some, such as "
+                     "one day's Partition, so a new copy needs its past rows loaded first.",
+    "Seed": "a History table's past rows, loaded once before its first write: copied from "
+            "its original, or written by its own write as of each past day, as SEED in its "
+            "Table reference picks them.",
     "staging table": "a table one script makes and a later one reads, folded into the table "
                      "that reads it or kept as a Saved table of its own.",
     "batch": "the scripts converted together, under one name.",

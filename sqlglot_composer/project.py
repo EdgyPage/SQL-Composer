@@ -174,8 +174,8 @@ from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_f
 from .run_values import Hivevar, filled_query
 from .running import tables_read_by, to_hive
 from .script_tags import FoundTag, tag_name, tags_in
-from .shared import (counted, escaped_literal, in_words, items_of, python_literal,
-                     singular_or_plural, split_table_name)
+from .shared import (counted, escaped_literal, in_words, items_of, possessive,
+                     python_literal, singular_or_plural, split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
                      proposed_key_from_rows, table_reference_text, write_table_reference)
@@ -2103,7 +2103,9 @@ def check(*, query: Callable[[str], pd.DataFrame] | None = None) -> ProjectRepor
     fails, passed over in looking for a loop, with what stops it, a typo Python can't read
     among them, though not one whose logic cell still holds a <...> from its Template, at the
     line Python stops on; whether the Lineage state is behind, which the next paragraph says
-    more of;
+    more of; each table whose kind, Rebuilt or History, or whose Seed is open in its Table
+    reference, as project.upgrade() to 8.10 leaves a write that fills dt from its rows' own
+    values, which promote refuses until you answer it, with where to answer it;
     each batch the convert Workflow finished, as done; and last, since they block nothing, each
     line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
     it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
@@ -2117,14 +2119,18 @@ def check(*, query: Callable[[str], pd.DataFrame] | None = None) -> ProjectRepor
     told when it has no recording yet.
 
     Given your query, as admin/check_project.ipynb gives it, check() also reads, through it,
-    the Partitions of each History table written at least once, and gives a Warning, which
-    blocks nothing, for each that lacks days its Seed loads, or holds one with no rows:
-    "Warning: mart.job_day_facts lacks 3 of the 31 days its Seed loads: 2026-10-04, ...",
-    the first five named and the rest counted. The days are counted as its Seed counts them,
-    by its SEED, from the same source: each day its Original holds within its SEED, for a
-    Seed copied, or each day its write is run as of, for one with no Original. It goes quiet
-    once each day is written. A table whose Partitions your query can't read is named, with
-    what your query said. Without your query, it reads nothing of the warehouse.
+    the Partitions of each History table with a Seed that admin/sent.csv records as written
+    at least once, and gives a Warning, which blocks nothing, for each that lacks days its
+    Seed loads, or holds one with no rows:
+    "Warning: mart.job_day_events lacks 2 of the 31 days its Seed loads: 2026-09-15 (no rows)
+    and 2026-09-20. ...", the first five named and the rest counted. The days are counted as
+    its Seed counts them, by its SEED, from the same source: each day its Original holds
+    within its SEED, for a Seed copied, or each past day its write is run as of, for one with
+    no Original. It goes quiet once each day is written. A table never written is passed
+    over, as its Seed runs at its first write; so is one with no Seed, as a table with no
+    Original whose write reads no today, such as one that reads a day typed in, has none. A
+    table whose Partitions your query can't read is named, with what your query said.
+    Without your query, it reads nothing of the warehouse.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -2164,7 +2170,8 @@ def check(*, query: Callable[[str], pd.DataFrame] | None = None) -> ProjectRepor
     missing_days = []
     if query is not None:
         missing_days = seeding.missing_days_lines(root, registry.in_force(TABLE_FOLDER), query)
-    return ProjectReport([*lines, *missing_days, *_lineage_state_lines(root, registry),
+    return ProjectReport([*lines, *_open_kind_lines(root), *missing_days,
+                          *_lineage_state_lines(root, registry),
                           *_finished_batch_lines(root), *_proposed_line_lines(root),
                           *_conversion_note_lines(root)])
 
@@ -2202,6 +2209,32 @@ def _lineage_state_lines(root: Path, registry: Registry) -> list[str]:
     # a Table reference among them, so the record cell comes first, cell 5 beside it.
     return [f"{behind} Record it with {record_cell}; a Table notebook's cell 5, "
             "export_hive(), records the whole Project too."]
+
+
+def _open_kind_lines(root: Path) -> list[str]:
+    """What check() says of each Table reference whose kind, Rebuilt or History, or whose Seed
+    is still open (Toolbox 8.10): each one, with its file and what it asks, under a line
+    saying what waits on it and how to answer it, since a table project.upgrade() left open
+    may be in no Workflow, whose next step would name it."""
+    found = []
+    for path in table_references(root):
+        name = REFERENCE.name_of(path.stem)
+        text = path.read_text(encoding="utf-8")
+        for decision in decisions.open_decisions(text, name, (decisions.TABLE_KIND,
+                                                              decisions.SEED_LIMIT)):
+            what, proposal = "kind", decision.subject
+            if decision.kind == decisions.SEED_LIMIT:
+                what, proposal = "seed", decision.proposal
+            proposed = f"proposed {proposal}" if proposal else "nothing proposed"
+            found.append(f"  {REFERENCE.shown(path.stem)}: {possessive(name)} {what}, "
+                         f"{proposed}")
+    if not found:
+        return []
+    return ["Open in a Table reference, which only promote waits on: each table's kind, "
+            "Rebuilt or History, or its Seed, below. Answer each by the table's name in the "
+            "decisions cell of the Workflow you run next on it, or in "
+            'admin/check_project.ipynb, such as project.write_decisions({"mart.x": {"kind": '
+            '"history"}}).', *found]
 
 
 def _proposed_line_lines(root: Path) -> list[str]:
@@ -3220,11 +3253,18 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     <BLANKLINE>
     DECISIONS = {
         "mart_dev.failed_runs": {
-            "location": "<FILL IN>",  # its folder, such as "/data/your_team/mart_dev.db/..."
-            "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no columns...
+            "location": "<FILL IN>",  # its folder, such as
+                "/data/your_team/mart_dev.db/failed_runs"
+            "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no columns
+                name one row
+            "kind": "rebuilt",  # proposed, as it is a query alone, which each write writes
+                whole: keep it to accept it, or answer "history"
         },
     }
     <BLANKLINE>
+
+    Each line of DECISIONS answers one Decision: "kind" is the table's, a Rebuilt table, which
+    each write replaces whole, as here, or a History table, which each write keeps.
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -3299,9 +3339,12 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     which keeps the original's rows, marked `# CONVERSION:` at its line. Its Table reference
     takes its columns, types and Partitions from its CREATE, or from its query and DESCRIBE of
     the original, and STORED AS and LOCATION from its CREATE; a table the scripts create and
-    never write gets its Table reference alone. A table whose write reads itself, as an
-    incremental INSERT does, gets seed() in its notebook, which copies the original's rows into
-    its dev copy once, before its first write. Its folder's conversion/ keeps statement.hql,
+    never write gets its Table reference alone. Each table's kind, KIND in its Table
+    reference, is proposed from its write: a History table, which each write keeps, as an
+    INSERT OVERWRITE of one Partition or an incremental INSERT does, has its Seed, its
+    original's rows copied into its dev copy once, before its first write, by
+    project.seed_tables in the convert Workflow's write step, as SEED picks them; a Rebuilt
+    table has none. Its folder's conversion/ keeps statement.hql,
     each statement of its write as its script wrote it; in_dev.hql, the Hive its logic was built
     from; scan.md, what it found and how the two compare; and checklist.md, written again
     each time, which lists its open Decisions, what only you can decide, such as its location=,
@@ -4241,7 +4284,7 @@ def _workbook_decision_blocks(files: _BatchFiles, script: str, dev: str) -> list
 SEED_NOTE = ("If it is a History table, which each write adds to, its copy in dev starts "
              "with none of the past rows its original holds. So the convert Workflow's write "
              "step first loads them, its Seed, once, copied from its original: SEED, in its "
-             "Table reference, picks which, such as {\"months\": 1}, the month up to the "
+             "Table reference, picks which, such as {\"months\": 1}, one month back from the "
              "newest Partition. To load others, answer \"seed\" in the decisions cell, such as "
              "{\"dt\": {\"from\": \"2026-01-01\"}}. A table with no Partitions copies every "
              "row. A Rebuilt table has no Seed. The write step's report says what its Seed "
@@ -5861,7 +5904,7 @@ def _months_problems(said: str, limits: dict[str, object]) -> list[str]:
                                           and not isinstance(months, bool) and months >= 1):
         return []
     return [f'{said}: months is {months!r}: give a whole number of months, 1 or more, such as '
-            '{"months": 1}, the month up to the newest Partition']
+            '{"months": 1}, one month back from the newest Partition']
 
 
 def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
@@ -8874,7 +8917,7 @@ def reference_from_logic(name: str | list[str], *,
     rows already there, as project.convert proposes one; a write() filling its Partitions from
     its rows' own values, as the Template's does, has none proposed. Its seed limits, SEED,
     which past rows its Seed loads if it is a History table, are proposed too, read through
-    your `query`: {"months": 1}, the month up to the newest Partition of the first table its
+    your `query`: {"months": 1}, one month back from the newest Partition of the first table its
     preview() reads whose one partition column holds dates alone; with no query, or no such
     table, they are a Decision left to you. It writes
     over only the file new_table wrote, whose columns are still <COLUMNS>: a Table reference
@@ -9233,7 +9276,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
 
 def seed_tables(tables: str | list[str], *, query: Callable[[str], pd.DataFrame] | None = None,
                 execute: Callable[[str], None] | None = None) -> ProjectReport:
-    """Load each History table's past rows, its Seed, once, before its first write.
+    """Load the past days of each table that keeps its rows, before its first write.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -9243,34 +9286,46 @@ def seed_tables(tables: str | list[str], *, query: Callable[[str], pd.DataFrame]
     >>> project.seed_tables([], query=query)
     No table to seed.
 
-    A History table keeps the rows each write adds, so a new copy of one, in dev or prod,
-    holds only what its writes have added since it was made: its Seed loads its past rows
-    first, so it is usable from its first day. The step of each Workflow that writes the table
-    runs it for you, before its write, in convert's, promote's and new_table's notebooks, so no
-    cell of yours sends it. A table is seeded only while it holds no Partition, or no row for
-    one with none, read through your query, so a step run again never loads twice; and only a
-    History table, as its KIND line answers it: a Rebuilt table has no Seed.
+    A History table is a Saved table whose writes keep the rows already there, each adding
+    rows or replacing some, such as one day's Partition; a Rebuilt table is one each write
+    replaces whole. A new copy of a History table, in dev or prod, holds only what its writes
+    have added since it was made, so its Seed loads its past rows first, so it is usable from
+    its first day. The step of each Workflow that writes the table runs it for you, before its
+    write, in convert's, promote's and new_table's notebooks, so no cell of yours sends it. A
+    table is seeded only while it holds no Partition, or, for a table with no partition
+    columns, no row, read through your query, so a step run again never loads twice; and only
+    a History table, as its KIND line answers it: a Rebuilt table has no Seed.
 
     Its SEED, in its Table reference, which the decisions cell answers under "seed", picks
-    which past rows: {"months": 1}, proposed, loads the calendar month up to the newest
-    Partition, by the one partition column whose every value reads as a date, 2026-09-24 or
-    20260924, each kept as written; or, by partition column, a value, that value
-    or later, a range {"from": ..., "to": ...}, or a list, those values alone; {} loads every
-    Partition. A table converted from another's Hive copies those Partitions from its
-    Original. One with none, as new_table makes, runs its own write once for each day, oldest
+    which past rows: {"months": 1}, proposed, loads one calendar month back from the newest
+    Partition, both ends included, so from a newest of 2026-09-24 the days 2026-08-24 to
+    2026-09-24, by the one partition column whose every value reads as a date, 2026-09-24 or
+    20260924, each kept as written; or, by partition column, a value, that value or later, a
+    range {"from": ..., "to": ...}, or a list, those values alone; {} loads every Partition.
+
+    A table converted from another's Hive copies those Partitions from its Original. A table
+    with no Original, as new_table makes, runs its own write once for each past day, oldest
     first, as of that day: the day goes wherever the write reads today, CURRENT_DATE in its
-    Hive or today() in a Run value, so a write that targets yesterday is run as of the day
-    after; its logic is never changed, so each run writes the Partition a scheduled write
-    would. A History table with no Partitions copies its Original whole, or, with none, runs
-    its write as of each day of the months up to today. A prod copy copies its dev copy's
-    Original, or, where that has none, the dev copy, within the same SEED.
+    Hive, or today() in its logic, which last_n_days and a Run value starting from today()
+    count from, as the Seed loads its logic again for each day; so a write that targets
+    yesterday is run as of the day after. Its logic is never changed, so each run writes the
+    Partition a scheduled write would. It never runs the write as of today, as the write after
+    the Seed is that run, so no day is written twice. A write that reads no today, such as one
+    reading a day typed in, has no Seed: each day's run would write the same rows. A History
+    table with no partition columns copies its Original whole, or, with no Original, runs its
+    write as of each day of the months before today. A prod copy copies its dev copy's
+    Original, or, where the dev copy has none, the dev copy, within the same SEED.
 
     It prints nothing itself: its report says what each table's Seed loaded, each day loaded,
     each run of days in a row as one range, each day not loaded, with the warehouse's error,
     and each that wrote no rows, "no rows", its empty Partition kept. A day that fails
-    doesn't stop it. Each Statement is sent through your execute, with an entry in the Admin
-    log; with no execute it sends nothing, and the report shows each Statement it would send,
-    a dry run. A table seeded before 8.10 keeps its seed(), sent as it was.
+    doesn't stop it. For a table whose write reads yesterday, it starts
+    "mart.job_day_events: its Seed, its write run as of each past day, oldest first, dt from
+    2026-08-24 to 2026-09-23, each run as of the day after:", and ends "Seeded
+    mart.job_day_events: 29 days loaded of 31, ...". Each Statement is sent through your
+    execute, with an entry in the Admin log; with no execute it sends nothing, and the report
+    shows each Statement it would send, a dry run, as how-to "Load a History table's past
+    days" shows. A table seeded before 8.10 keeps its seed(), sent as it was.
     """
     call = seeding.SEED_ACTION
     root = _project_root(call)

@@ -2481,10 +2481,11 @@ def to_8_10(upgrade: Upgrade) -> None:
     its logic's write() does to the rows already there, as convert and new_table propose it,
     and written in as answered, since the table is written already; one with nothing proposed,
     such as a write filling dt from its rows' own values, is left open, KIND = None, and named
-    in the checklist, a Decision promote waits on. Every seed() and SEED is kept as
-    it is, and no Seed runs: the tables hold their Partitions already. A History table with
-    neither is asked for its SEED, an open Decision proposed as {"months": 1}, the month every
-    History table's Seed is proposed, named in the checklist. Each converted table's
+    in the checklist, a Decision promote waits on, which project.check() names. Every seed()
+    and SEED is kept as it is, and no Seed runs: the tables hold their Partitions already. A
+    History table with neither is asked for its SEED, an open Decision, named in the
+    checklist: nothing is proposed, as the months form needs a partition column whose every
+    value is a date, and the Upgrade reads no Partitions to find one. Each converted table's
     checklist.md is written again as the view of its Decisions, its kind among them. Each
     Workflow notebook is written again, each name given, each step cell you wrote in and an
     answered decisions cell kept: their steps add a Table reference a table read lacks, a
@@ -2523,10 +2524,14 @@ def _saved_tables_with_references(root: Path) -> list[str]:
 # What the checklist says of a table whose kind 8.10's step wrote in, and of one it left open.
 KIND_WRITTEN_8_10 = ("wrote {table}'s kind, {kind}, proposed from its write, in "
                      "{reference}: {why}")
+# A dev table's answer goes where its name does: promote's decisions cell names prod copies,
+# so it is no place for one, and project.write_decisions(...) takes any table by its name.
 KIND_LEFT_OPEN_8_10 = ("left {table}'s kind open in {reference}, as nothing was proposed: "
-                       "{why}. Answer \"kind\" for it, \"rebuilt\" or \"history\", in the "
-                       "decisions cell of a Workflow notebook naming it, such as promote's, "
-                       "which refuses it until you do")
+                       "{why}. project.check() names it. Answer it, \"rebuilt\" or "
+                       "\"history\", by the table's name, in admin/check_project.ipynb with "
+                       "project.write_decisions({{\"{table}\": {{\"kind\": \"history\"}}}}), "
+                       "or in the decisions cell of the next Workflow notebook you run on the "
+                       "table; promote refuses it until you do")
 
 
 def _write_kind(upgrade: Upgrade, name: str) -> None:
@@ -2556,21 +2561,28 @@ def _write_kind(upgrade: Upgrade, name: str) -> None:
     upgrade.rewrite(relative, _text_with_block(text, block), said)
 
 
-# What 8.10's step writes on the SEED line it asks for, after "proposed: ", and what the
-# checklist says of it (ticket 05's story 14: a History table is always asked about its Seed).
-SEED_ASKED_WHY_8_10 = ("every History table's Seed is proposed the month up to its newest "
-                       "Partition, and project.upgrade() reads no Partitions to check it")
+# What 8.10's step writes on the SEED line it asks for, after "nothing proposed: ", and what
+# the checklist says of it (ticket 05's story 14: a History table is always asked about its
+# Seed). The months form is proposed only where a partition column's every value is a date,
+# which only SHOW PARTITIONS tells, so the Upgrade, which reads no Partitions, proposes none.
+SEED_ASKED_WHY_8_10 = ("project.upgrade() reads no Partitions, so nothing says which "
+                       "partition column, if any, holds dates")
 SEED_ASKED_8_10 = ("asked {table}'s Seed in {reference}: a History table written before 8.10 "
-                   "has no SEED, so its seed limits are an open Decision, proposed as "
-                   '{{"months": 1}}. Answer "seed" for it in the decisions cell of a Workflow '
-                   "notebook naming it, such as promote's, which waits on it. No Seed ran: "
-                   "the table holds its Partitions already")
+                   "has no SEED, so its seed limits are an open Decision, nothing proposed, "
+                   "as the Upgrade reads no Partitions. project.check() names it. Answer "
+                   '"seed" for it by the table\'s name, such as {{"months": 1}} where a '
+                   "partition column holds dates, or {{}} for every Partition, in "
+                   "admin/check_project.ipynb with project.write_decisions({{\"{table}\": "
+                   "{{\"seed\": {{\"months\": 1}}}}}}), or in the decisions cell of the next "
+                   "Workflow notebook you run on the table; promote waits on it. No Seed "
+                   "ran: the table holds its Partitions already")
 
 
 def _ask_seed_limit(upgrade: Upgrade, name: str) -> None:
     """Write a History table's SEED as 8.10 asks for it, where its Table reference has none
-    and its logic no seed() of 8.4's: an open Decision, proposed as {"months": 1}, above its
-    Aliases. Nothing for any other table, and no Seed runs."""
+    and its logic no seed() of 8.4's: an open Decision, nothing proposed, as the Upgrade reads
+    no Partitions to find a column of dates, above its Aliases. Nothing for any other table,
+    and no Seed runs."""
     # Each of these imports this file, or what imports it, so each is read here.
     from . import decisions
     from .project_files import REFERENCE, table_notebook
@@ -2584,7 +2596,7 @@ def _ask_seed_limit(upgrade: Upgrade, name: str) -> None:
     cells = read_cells_if_readable(upgrade.root / table_notebook(stem)) or []
     if any("def seed(" in cell for kind, cell in cells if kind == "code"):
         return  # its seed() of 8.4's is its Seed, sent as it was
-    block = decisions.asked_seed_block(dict(decisions.PROPOSED_MONTHS), SEED_ASKED_WHY_8_10)
+    block = decisions.seed_block(None, SEED_ASKED_WHY_8_10)
     relative = path.relative_to(upgrade.root).as_posix()
     upgrade.rewrite(relative, _text_with_block(text, block),
                     SEED_ASKED_8_10.format(table=name, reference=relative))

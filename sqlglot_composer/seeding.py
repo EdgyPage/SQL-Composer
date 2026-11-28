@@ -3,20 +3,24 @@
 A History table keeps the rows each write adds, so a new copy of one, in dev or prod, holds
 only what its writes have added since it was made: its Seed loads the past rows first, so it
 is usable from its first day. Its limit, SEED in its Table reference, picks which:
-{"months": N}, the N calendar months up to the newest Partition its source holds, both ends
+{"months": N}, N calendar months back from the newest Partition its source holds, both ends
 included, by its column of dates, the one partition column whose every value SHOW PARTITIONS
 lists reads as a date; or, by partition column, a value, a range or a list, as 8.4's seed
 limits are.
 
 - With an Original, the Seed copies the Original's rows, as seed_copy writes it. In prod it
-  copies from the dev copy's Original, or, for a table with none, from the dev copy itself.
+  copies from the dev copy's Original, or, for a table with no Original, from the dev copy
+  itself.
 - With none, it runs the table's own write once for each past day, oldest first, as of that
-  day: the day goes wherever the write reads today, CURRENT_DATE in its Hive or today() in a
-  Run value, so a write that targets yesterday runs as of the day after. Only the run's today
-  changes, never the logic, so each run writes the one Partition a scheduled write writes.
+  day: the day goes wherever the write reads today, CURRENT_DATE in its Hive, or today() in
+  its logic, as last_n_days and a Run value count from it, so a write that targets yesterday
+  runs as of the day after. Only the run's today changes, never the logic, so each run writes
+  the one Partition a scheduled write writes. It never runs the write as of today: that run is
+  the table's first write, which follows the Seed, so no day is written twice.
 
 project.seed_tables runs it, in the step of each Workflow that writes the table, while the
-table holds no Partitions yet (no row, for one with none), so running the step again never
+table holds no Partitions yet (no row, for a table with no partition columns), so running
+the step again never
 loads twice. A day that fails doesn't stop it: its report lists each day not loaded, with the
 warehouse's error, and each that wrote no rows. Afterwards project.check(query=query), as
 admin/check_project.ipynb runs it, warns of each History table still short of the days its
@@ -64,6 +68,13 @@ if TYPE_CHECKING:  # project.py imports this file, so its names are for the hint
 
 # The Project action that sends a Seed, as each refusal and line of the Admin log names it.
 SEED_ACTION = "project.seed_tables(...)"
+# Why a table with no Original whose write reads no today has no Seed: a run as of each past
+# day would write the same rows. What reads today is anything that counts from today(), as
+# the Seed sets it for each day it runs: last_n_days, a Run value, or CURRENT_DATE in Hive.
+NO_TODAY_READ = ("its write reads no today, as nothing in it counts from today(): not "
+                 "last_n_days, a Run value starting from today(), nor CURRENT_DATE in its "
+                 "Hive. So each day's run would write the same rows, and its first write "
+                 "loads them")
 
 
 @dataclass
@@ -450,9 +461,14 @@ def _run_as_of_each_day(run: SeedRun, logic: TableLogic, limits: dict[str, objec
         return [f"{run.name}: no Seed: {why}."]
     where = f"{days.column} from {days.written[0]} to {days.written[-1]}"
     if days.column is None:
-        where = f"{days.written[0]} to {days.written[-1]}"
-    run.lines.append(f"{run.name}: its Seed, its write run as of each day, oldest first, "
-                     f"{where}:")
+        where = f"from {days.written[0]} to {days.written[-1]}"
+    as_of = "each run as of that day"
+    if days.days_after == 1:
+        as_of = "each run as of the day after"
+    elif days.days_after > 1:
+        as_of = f"each run as of {days.days_after} days after"
+    run.lines.append(f"{run.name}: its Seed, its write run as of each past day, oldest first, "
+                     f"{where}, {as_of}:")
     _send_settings(run, logic)
     failed = {}
     for written in days.written:
@@ -464,11 +480,11 @@ def _run_as_of_each_day(run: SeedRun, logic: TableLogic, limits: dict[str, objec
 
 def _days_to_run(run: SeedRun, limits: dict[str, object]) -> tuple[DaysToRun | None, str]:
     """The days `limits` picks for a Seed run as of each day, and how far after each its run is
-    run as of; None, and why, where there are none to run."""
+    run as of; None, and why, where there are none to run. A day whose run would be as of
+    today is left out: that run is the table's first write, which follows the Seed."""
     as_of_today = _write_as_of(run, today())
     if not _reads_today(run, as_of_today):
-        return None, ("its write reads no today, CURRENT_DATE or a Run value of today(), so "
-                      "each day's run would write the same rows: its first write loads them")
+        return None, NO_TODAY_READ
     if not run.table._partitioned_by:
         return _days_up_to_today(limits)
     found, why = date_source(run.query, [each for each in as_of_today.reads
@@ -479,24 +495,33 @@ def _days_to_run(run: SeedRun, limits: dict[str, object]) -> tuple[DaysToRun | N
     if target is None:
         return None, (f"none of its partition columns, {in_words(run.table._partitioned_by)},"
                       f" is {found.column}, the partition column of dates of {found.table}")
-    written = _days_limited(limits, target, found.values)
-    if not written:
-        return None, f"its SEED, {decisions.seed_python(limits)}, picks no day to run"
     as_of = day_written(max(found.values, key=day_written))
     day = day_on_column(_write_as_of(run, as_of).hive, found.column)
     days_after = 0 if day is None else (as_of - day).days
+    picked = _days_limited(limits, target, found.values)
+    # The day a run as of today writes is the first write's, which follows the Seed.
+    last_past_day = today() - datetime.timedelta(days=days_after + 1)
+    written = [each for each in picked
+               if day_written(each) is not None and day_written(each) <= last_past_day]
+    if not written:
+        why = f"its SEED, {decisions.seed_python(limits)}, picks no day to run"
+        if picked:
+            why = (f"its SEED, {decisions.seed_python(limits)}, picks no day before the one "
+                   "its first write writes")
+        return None, why
     return DaysToRun(written, target, days_after), ""
 
 
 def _days_up_to_today(limits: dict[str, object]) -> tuple[DaysToRun | None, str]:
     """The days a Seed of a table with no Partitions and no Original runs its write as of:
-    each day of its months form, counted back from today."""
+    each day of its months form, counted back from today, up to yesterday, as the run as of
+    today is the table's first write, which follows the Seed."""
     months = limits.get(decisions.MONTHS)
     if months is None:
         return None, ("it has no Partitions and no Original, so only the months form, "
                       '{"months": N}, says which days to run its write as of')
-    end = today()
-    start = months_before(end, int(months))
+    end = today() - datetime.timedelta(days=1)
+    start = months_before(today(), int(months))
     written = [(start + datetime.timedelta(days=each)).isoformat()
                for each in range((end - start).days + 1)]
     return DaysToRun(written, None, 0), ""
@@ -745,7 +770,10 @@ def _history_table_to_check(root: Path, name: str, query: Callable[[str], pd.Dat
 
 def _missing_days_warning(root: Path, run: SeedRun) -> str | None:
     """The Warning for a History table lacking days its Seed loads, or holding them with no
-    rows; None for one holding every day, or whose days can't be told."""
+    rows; None for one holding every day, or whose days can't be told, and for one that has no
+    Seed, whose Partitions are never read."""
+    if not _has_a_seed(root, run):
+        return None
     partitions_held = listed_partitions(run.query, run.name, run.call)
     if not partitions_held:
         return None  # no Partition yet: its Seed runs at its next write
@@ -765,6 +793,19 @@ def _missing_days_warning(root: Path, run: SeedRun) -> str | None:
     return (f"Warning: {run.name} lacks {len(missing)} of the {counted(len(expected), 'day')} "
             f"its Seed loads: {named}. That stops nothing, but what reads it finds no rows "
             "for those days until each is written.")
+
+
+def _has_a_seed(root: Path, run: SeedRun) -> bool:
+    """Whether a History table has a Seed, read from its files alone: an Original to copy, or
+    a write that reads today, to run as of each past day. One whose logic stops has none to
+    tell: check() names its failing logic apart."""
+    if source_to_copy(root, run.name)[0] is not None:
+        return True
+    try:
+        return _reads_today(run, _write_as_of(run, today()))
+    # A logic that stops, which check() names as failing logic: no Seed can be told from it.
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _days_seed_loads(root: Path, run: SeedRun) -> tuple[str, list[str]] | None:

@@ -94,3 +94,60 @@ For ticket 08:
 
 Left: the beginner reader and the usability scenario haven't run (this implementer spawns no
 agent); CHANGES.md and the version are ticket 08's.
+
+## Beginner reader
+
+Run 2026-11-28 on how-to 34 and the texts 8.10 changed, at 0db88e08; the user: fix "All 24".
+Each stop, fixed or answered (the report stays local; behaviour fixes test-first):
+
+- **A** (stuck; 7 repeats it) fixed, behaviour: check(query=) reads a History table's
+  Partitions only when it has a Seed (an Original, or a write that reads today), so
+  mart.job_day_facts, whose day is typed in, is passed over, never "Not checked"; check()'s
+  docstring example names mart.job_day_events. Tests:
+  `test_check_project_passes_over_a_history_table_that_has_no_seed` and
+  `tests/test_check_open_kinds.py`.
+- **B** (stuck; 11 repeats it) fixed, behaviour: to_8_10 asks a History table with no SEED
+  with nothing proposed, `SEED = {}  # TODO: nothing proposed: project.upgrade() reads no
+  Partitions, ...`, as spec 05 proposes the months form only where SHOW PARTITIONS finds a
+  column of dates; `decisions.asked_seed_block` is gone; an open SEED's question names the
+  months form. mart.budget_overruns (region alone) shows it.
+- **C** (stuck; 14 repeats it) answered and reworded: last_n_days does read today (the Seed
+  loads the logic again under `run_as_of`); the no-Seed message, seed_tables' docstring and
+  how-to 34 step 3 name last_n_days and Run values, and warn off Python's date.today().
+- 1 fixed: seed_tables' first line no longer leans on "History table" and "Seed".
+- 2 fixed: convert's docstring says each History table is seeded by seed_tables in the write
+  step.
+- 3 fixed: convert's example DECISIONS shows its "kind" line whole.
+- 4 fixed: "with none" spelled out (no partition columns, no Original); "the months before
+  today".
+- 5 fixed: "one calendar month back from the newest", with dates, in docstrings, SEED's
+  comment, messages, how-tos 09 and 34, the README, Copilot file 17 and CHANGES.
+- 6 fixed: seed_tables' docstring shows a Seed's first and last report lines.
+- 8 fixed: equals' docstring shows `equals(job_runs.status, 1)`.
+- 9 fixed: how-to 34's Goal defines each word in a list, one at a time.
+- 10 fixed: how-to 34 step 1 says what `conn` is.
+- 12 answered: how-to 34 step 2 says what `# TODO:`, `# answered,` and `# proposed` mean; with
+  B fixed no `# TODO: proposed` is left.
+- 13 fixed, behaviour: check() names each kind and Seed left open in a Table reference, saying
+  only promote waits on them and where to answer; how-tos 10, 28, 32 and 34 show it, and 28
+  says why 8.10's line is "nothing to change by hand".
+- 15 answered: how-to 34 step 4 and When you'd use it: "rebuilt" takes the SEED line out.
+- 16 answered: why `repr(...)`, in steps 2 and 6.
+- 17 fixed, behaviour: a Seed run as of each past day never runs as of today, which is the
+  first write's run, so no day is written twice (an append would have doubled it); its first
+  line names the dt days and "each run as of the day after". 31 days now, not 32.
+- 18 fixed: step 7 shows the cell's three lines, create() first.
+- 19 fixed: step 7's report is one report; the run-of-days line is shown as another table's.
+- 20 answered: step 8 says check() reads only a table admin/sent.csv records as written.
+- 21 fixed: Rebuilt table, History table and Seed in NOTEBOOK_TERMS, so each Workflow
+  notebook's Terms define them.
+- 22 fixed: promote's write step has its own PROD_SEED_ACTION (the dev copy's original, else
+  the dev copy).
+- 23 answered: a dev table's kind goes in admin/check_project.ipynb with
+  project.write_decisions(...), or the next Workflow notebook naming it, never promote's cell
+  (to_8_10's checklist, CHANGES, README).
+- 24 fixed: CHANGES says any Project from 7.1 on upgrades straight to 8.10.
+
+Choices the specs didn't settle: 17's rule (the Seed leaves today's run to the first write,
+for a table with no partition columns too) and 13's check() block (kind and Seed only, every
+Table reference, one short line each). The copied Seed (with an Original) is unchanged.

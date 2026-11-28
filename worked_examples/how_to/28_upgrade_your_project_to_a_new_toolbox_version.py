@@ -68,6 +68,15 @@ The Project was last written by Toolbox 7.2, and this Toolbox is 8.10: run step 
     admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no
     such notebook until its first Upgrade, so there project.upgrade() goes in
     admin/check_project.ipynb.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
 
 Done when `project.check()` names the version that last wrote the Project. Then step 3.
 
@@ -97,6 +106,12 @@ Read each step's checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md
     admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md, admin/upgrade_8.5.md,
     admin/upgrade_8.6.md, admin/upgrade_8.7.md, admin/upgrade_8.8.md, admin/upgrade_8.9.md
     and admin/upgrade_8.10.md.
+
+8.10's step had nothing to change here: this copy holds each table's KIND already, as 8.10's
+Upgrade writes it. In a Project 8.9 last wrote, it writes each table's kind, Rebuilt or
+History, from its write, leaves open a kind it can't tell, and asks a History table with no
+SEED for one; its checklist says so, and `project.check()` names each it left open. Those are
+Decisions, not changes marked `# UPGRADE`: only promote waits on them.
 
 Done when it prints "Upgraded the Project from 7.2 to 8.10.". Then step 4.
 
@@ -155,6 +170,19 @@ worked, below.
 >>> print(project.check())
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
+
+It still names the kinds and the Seed the Example project leaves open, which step 2's check
+named too: Decisions, not `# UPGRADE` marks, so nothing waits on them but promote. [Load a
+History table's past days](#load_a_history_tables_past_days) says how to answer each.
 
 Run again, the Upgrade does nothing:
 

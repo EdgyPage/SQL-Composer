@@ -4,33 +4,45 @@ For: Intermediate
 
 ## Goal
 
-Make a table that keeps its days usable from its first day. A table's kind says what each of
-its writes does to the rows already there. A Rebuilt table is replaced whole by each write. A
-History table keeps the rows already there, and each write adds rows or replaces some, such as
-one day's Partition, the rows that share one value of its partition column. A new History
-table, in dev or in prod, holds only the days its writes have added since it was made, so the
-Toolbox loads its past days once, before its first write: its Seed. The kind is a Decision,
-one thing about one table only you decide: new_table and convert propose it from the table's
-write, and you accept it or answer it in a Workflow notebook's decisions cell. SEED, in the
-table's Table reference, the file that describes its columns, says how far back its Seed
-goes: `{"months": 1}`, the month up to the newest day, is proposed. The step that writes the
-table runs its Seed for you, and `project.check(query=query)` warns while a day it should
-have loaded is missing.
+Make a table that keeps its days usable from its first day. The words this page uses, one at a
+time:
+
+- A table's **kind** says what each of its writes does to the rows already there.
+- A **Rebuilt table** is replaced whole by each write, so its first write leaves it complete.
+- A **History table** keeps the rows already there: each write adds rows, or replaces some,
+  such as one day's **Partition**, the rows that share one value of its partition column.
+- A new History table, in dev or in prod, holds only the days its writes have added since it
+  was made, so the Toolbox loads its past days once, before its first write: its **Seed**.
+- The kind is a **Decision**, one thing about one table only you decide. new_table and
+  convert propose it from the table's write; you accept it, or answer it, in a Workflow
+  notebook's decisions cell.
+- The table's **Table reference**, the file in references/ that describes its columns, holds
+  its kind on its KIND line, and, for a History table, how far back its Seed goes on its
+  SEED line: `{"months": 1}`, one calendar month back from the newest day, is proposed.
+
+The step that writes the table runs its Seed for you, and `project.check(query=query)` warns
+while a day it should have loaded is missing.
 
 ## When you'd use it
 
 - If each write of a table replaces one day's Partition, or adds rows, answer its kind
   "history", as step 5 does: its Seed loads its past days.
 - If each write replaces the whole table, answer "rebuilt": its first write is complete, and
-  it has no Seed.
+  it has no Seed. Answered "rebuilt", a table's SEED line is taken out, even one proposed
+  while its kind was open, as step 4's is.
 - If a kind is proposed, accept it with "proposed"; if nothing is proposed, as for a write that
   fills its Partitions from its rows' own values, PARTITION (dt), answer it yourself, as step
   5 does.
 - If you want more days, answer "seed" with more months, such as `{"months": 3}`, or with a
   range, as Seed limits, in full, in [Convert someone else's
   Hive](#convert_someone_elses_hive) says.
-- If `project.upgrade()` left a table's kind open, answer it the same way, in the decisions
-  cell of the Workflow you run next on that table.
+- If `project.check()` names a kind or Seed left open, as `project.upgrade()` leaves some,
+  answer it by the table's name in the decisions cell of the Workflow you run next on that
+  table, or from admin/check_project.ipynb with `project.write_decisions(...)`, as step 2
+  shows.
+- If your write works its day out from today, with `last_n_days`, a Run value starting from
+  `today()`, or CURRENT_DATE in Hive, its Seed runs it as of each past day, as step 6 shows;
+  if it reads a day typed in, it has no Seed.
 - If the table is converted from someone else's Hive, its Seed copies its original's rows in
   place of running its write: [Convert someone else's Hive](#convert_someone_elses_hive) shows
   it.
@@ -48,12 +60,16 @@ settings](#set_your_database_settings) shows; this page stands in for your edit:
 
 >>> from pathlib import Path
 >>> example_project("intermediate")
->>> from sqlglot_composer import project
+>>> from sqlglot_composer import project, run_execute
 >>> from warehouse import connect, execute, query
 >>> connect(conn)
 >>> databases = Path("admin/databases.py")
 >>> _ = databases.write_text(databases.read_text(encoding="utf-8").replace(
 ...     '"<DEV_LOCATION_ROOT>"', '"/data/dev"'), encoding="utf-8")
+
+`conn` is the Example database's connection on this page, made-up tables the Toolbox's makers
+keep, which the download doesn't hold. At work it is your team's connection, as each
+notebook's `connect(...)` line gives it.
 
 Done when `connect(conn)` runs without an error. Then step 2.
 
@@ -67,7 +83,7 @@ on its KIND line, and a History table its SEED line:
 ...         if line.startswith(("KIND = ", "SEED = ")):
 ...             print(f"{path.stem}: {line}")
 mart__budget_overruns: KIND = "history"  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
-mart__budget_overruns: SEED = {"months": 1}  # TODO: proposed: every History table's Seed is proposed the month up to its newest Partition, and project.upgrade() reads no Partitions to check it
+mart__budget_overruns: SEED = {}  # TODO: nothing proposed: project.upgrade() reads no Partitions, so nothing says which partition column, if any, holds dates
 mart__job_day_costs: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some
 mart__job_day_facts: KIND = "history"  # answered, nothing proposed: its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some
 mart__job_day_facts: SEED = {"months": 1}
@@ -83,13 +99,42 @@ What each line says:
   mart.budget_overruns writes PARTITION (region = 'eu'), one Partition, keeping the
   others: History. mart.job_notes names no Partition, so each write replaces the whole table:
   Rebuilt. mart.job_hours is a query alone: Rebuilt.
-- "answered" marks a kind made, the proposal and why kept after it. `# TODO:` marks one still
-  open: `None`, where nothing was proposed.
+- A line's comment says which of three it is. `# TODO:` marks a Decision still open, which
+  promote waits on: `KIND = None` is a kind with nothing proposed. `# answered,` marks a kind
+  made: what follows it is what was proposed when it was asked, kept for the record, so
+  `answered, nothing proposed` means you answered it yourself, since nothing was proposed.
+  `# proposed`, as step 4 shows, marks a proposal the Toolbox made and uses as it is, which
+  blocks nothing. A line with no comment, as mart.job_day_facts's SEED, is an answer you
+  wrote.
 - A write that fills its Partitions from its rows' own values, PARTITION (dt), may replace
   every Partition or only some, so nothing is proposed. mart.job_day_facts writes its last 3
   days that way and keeps the rest: it was answered "history", with a SEED of one month.
 - mart.budget_overruns was written before 8.10, so it had no SEED: `project.upgrade()` asked
-  for one, proposed as one month, still open, `# TODO: proposed`, until you answer "seed".
+  for one. It reads no Partitions, so it proposed nothing, and the table is partitioned by
+  region alone, which holds no dates: `{"months": 1}` can't apply, and `{}`, every region,
+  is the answer that fits.
+
+The four `KIND = None` and that SEED block nothing in dev: your notebooks still write those
+tables, and only promote refuses them, as each Decision is made before a table reaches prod.
+`project.check()` names each, with where to answer it:
+
+>>> project.check()
+Every Table folder, Table reference, Building block and Scheduled run is registered, and each
+    one registered is there.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
+Done: each convert batch below.
+  admin/workflows/convert/convert.ipynb, job_hours: every table the batch wrote passed its
+    compare, and its folder is admin/workflows/convert/finished/job_hours/.
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
+    compare, and its folder is admin/workflows/convert/finished/team_failures/.
 
 Done when you can tell an answered KIND from an open one. Then step 3.
 
@@ -107,10 +152,17 @@ Its write reads yesterday, worked out from today each time the table is written,
 run each morning writes the day before. `last_n_days(job_events.dt, 1)` is that day; on this
 page today is 2026-09-25:
 
->>> from sqlglot_composer import last_n_days
+>>> from sqlglot_composer import last_n_days, today
 >>> from references.ops__job_events import job_events
 >>> last_n_days(job_events.dt, 1)
 job_events.dt = '2026-09-24'
+
+The day is worked out when the logic runs, so READS below holds 2026-09-24 today. That is no
+fixed day: `last_n_days` counts from the Toolbox's `today()`, and the Seed runs your logic
+again for each past day with `today()` set to that day, so READS is worked out again for each.
+A Run value starting from `today()`, or CURRENT_DATE in Hive, counts the same way. Python's own
+date.today(), from its datetime module, doesn't: it gives the computer's day whatever the Seed asks, so use
+`today()`.
 
 Fill in its notebook's logic with it:
 
@@ -195,9 +247,11 @@ KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its ro
 SEED = {"months": 1}  # proposed: dt holds dates in ops.job_events
 
 Its write fills dt from its rows, so no kind is proposed, and its kind is the one Decision
-open. SEED is proposed already, marked `# proposed`, which blocks nothing: dt holds dates in
-ops.job_events, the table it reads its days from, so a month of them is proposed. Above each
-line, its comment says what it takes.
+open. SEED is proposed already, though the kind is still open: dt holds dates in
+ops.job_events, the table it reads its days from, so a month of them is proposed, marked
+`# proposed`, which blocks nothing. What happens to it hangs on the kind you answer next:
+answered "history", it stays, a proposal used as it is; answered "rebuilt", the SEED line is
+taken out, as a Rebuilt table has no Seed. Above each line, its comment says what it takes.
 
 Done when the KIND line is open and the SEED line proposed. Then step 5.
 
@@ -222,10 +276,12 @@ The answers, by their kind:
 
 - "kind": "history", since each write replaces one day and keeps the rest. Where a kind is
   proposed, "proposed" accepts it, and under "all_tables" it accepts each table's.
-- "seed": `{"months": 1}` loads the calendar month up to the newest day the table it reads
-  holds, both ends included, by its partition column whose every value is a date. Left
-  unanswered, the proposal is used all the same; answered, it loses its `# proposed` mark.
-  `{"months": 3}` loads three.
+- "seed": `{"months": 1}` loads one calendar month back from the newest day the table it reads
+  holds, both ends included, by its partition column whose every value is a date: from
+  ops.job_events' newest, 2026-09-24, the days 2026-08-24 to 2026-09-24, but for a day the
+  table's first write writes, which step 6 leaves to it. `{"months": 3}` loads three months.
+  Left unanswered, the proposal is used all the same, as any line marked `# proposed` is;
+  answered, it loses its mark.
 
 Done when it says `Each Decision of mart.job_day_events is made.` Then step 6.
 
@@ -233,12 +289,13 @@ Done when it says `Each Decision of mart.job_day_events is made.` Then step 6.
 
 Goal: the Seed's days seen before anything is sent. The new_table Workflow's write step starts
 with `project.seed_tables`, which, given no execute, sends nothing and shows what it would
-send. A table with no original runs its own write once for each day, oldest first, as of the
-day after, so `last_n_days` gives that day as yesterday:
+send. A table with no original runs its own write once for each past day, oldest first. The
+days the report names are the dt days written, and each is run as of the day after it, so
+`last_n_days` gives that day as yesterday:
 
 >>> said = repr(project.seed_tables(["mart.job_day_events"], query=query))  # -> str
 >>> print("\\n".join(said.splitlines()[:14]))
-mart.job_day_events: its Seed, its write run as of each day, oldest first, dt from 2026-08-24 to 2026-09-24:
+mart.job_day_events: its Seed, its write run as of each past day, oldest first, dt from 2026-08-24 to 2026-09-23, each run as of the day after:
 would send: SET hive.exec.dynamic.partition=true
 would send: SET hive.exec.dynamic.partition.mode=nonstrict
 would send: INSERT OVERWRITE TABLE mart.job_day_events PARTITION(dt)
@@ -253,41 +310,50 @@ would send: GROUP BY
 would send:   job_events.job_id,
 would send:   job_events.dt
 
-The same write follows for each day to 2026-09-24, 32 in all: ops.job_events' newest day is
-2026-09-24, and the month before it starts on 2026-08-24. Each run is the write's own Hive,
-its day alone changed, so each writes the one Partition a run on the morning after writes.
+As in step 2, `repr(...)` gives the report as a str, so this page prints its first 14 lines.
+The same write follows for each day to 2026-09-23, 31 in all: ops.job_events' newest day is
+2026-09-24, and the month back from it starts on 2026-08-24. 2026-09-24 is left out: its run
+would be as of today, 2026-09-25, and that run is the table's first write, step 7's, which
+follows the Seed, so no day is written twice. Each run is the write's own Hive, its day alone
+changed, so each writes the one Partition a run on the morning after writes.
 
 A write whose day is typed in has no Seed of this kind: each run would write the same rows.
 mart.job_day_facts reads `DAY = "2026-09-24"`, so its first write loads its days:
 
 >>> print(project.seed_tables(["mart.job_day_facts"], query=query))
-mart.job_day_facts: no Seed: its write reads no today, CURRENT_DATE or a Run value of today(), so each day's run would write the same rows: its first write loads them.
+mart.job_day_facts: no Seed: its write reads no today, as nothing in it counts from today(): not last_n_days, a Run value starting from today(), nor CURRENT_DATE in its Hive. So each day's run would write the same rows, and its first write loads them.
 
-Done when the first line names the days from 2026-08-24 to 2026-09-24. Then step 7.
+Done when the first line names the days from 2026-08-24 to 2026-09-23. Then step 7.
 
 ### 7. Write the table, its Seed first
 
 Goal: the table's past days in the warehouse, then its first write. The new_table Workflow's
-write step, given your execute, sends the Seed, then the table's write. Its cell is these two
-calls; at work you run that cell:
+write step, given your execute, creates the table, sends the Seed, then the table's write. Its
+cell is these three lines, for each table its names cell's TABLES names, here
+mart.job_day_events; at work you run that cell:
 
+    run_execute(project.load("mart.job_day_events").create(), execute)
     print(project.seed_tables(["mart.job_day_events"], query=query, execute=execute))
     project.run_tables(tables=["mart.job_day_events"], execute=execute)
 
-The Example database can't be written to, so this page sends neither. At work, the report
-starts with the line step 6 shows, then says how many days were loaded and which, each run
-of days in a row as one range, such as `Seeded mart.job_day_events: 30 days loaded of 32, dt
-from 2026-08-24 to 2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to
-2026-09-24.`, then a line for each day that wasn't:
+The Example database can't be written to, so this page sends none of them. At work, the
+report starts with the line step 6 shows, then says how many days were loaded and which, each
+run of days in a row as one range, then a line for each day that wasn't. Say ops.job_events
+held no rows on 2026-09-15, and the warehouse refused 2026-09-20's run. The report ends with
+these three lines, one report:
 
-- a day the warehouse refused, with the first line of its error, such as
-  `dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: ...`;
-- a day that wrote no rows, its empty Partition kept, such as
-  `dt = 2026-09-15: no rows, its empty Partition kept`, or a run of such days in a row, as
-  `dt from 2026-08-24 to 2026-08-30: no rows, each empty Partition kept`.
+- `Seeded mart.job_day_events: 29 days loaded of 31, dt from 2026-08-24 to 2026-09-14, from
+  2026-09-16 to 2026-09-19 and from 2026-09-21 to 2026-09-23.`
+- `dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: ...`, a day the
+  warehouse refused, with the first line of its error;
+- `dt = 2026-09-15: no rows, its empty Partition kept`, a day that wrote no rows.
 
-A day that fails doesn't stop the rest. The Seed runs only while the table holds no
-Partition, so the step run again loads nothing twice: it says
+Where several days in a row wrote no rows, in another table's report, one line names them
+all, such as `dt from 2026-08-24 to 2026-08-30: no rows, each empty Partition kept`.
+
+A day that fails doesn't stop the rest. Then the table's first write, as of today, writes
+2026-09-24. The Seed runs only while the table holds no Partition, so the step run again
+loads nothing twice: it says
 `mart.job_day_events: no Seed: it holds rows already, so it was seeded, or written, before.`
 
 Done when the report names the days loaded. Then step 8.
@@ -295,23 +361,31 @@ Done when the report names the days loaded. Then step 8.
 ### 8. Check the days it holds
 
 Goal: a missing day you can't forget. admin/check_project.ipynb runs `project.check`, given
-your query, which reads the days each History table holds once it is written, and warns of
-each its Seed should have loaded and it lacks, or holds with no rows. It stops nothing. Here
-mart.job_day_events is not written yet, so it is passed over, and the Example database holds
-no mart table, so the check says it couldn't read mart.job_day_facts's Partitions:
+your query, which reads the days each History table with a Seed holds, once admin/sent.csv
+records it written, and warns of each day its Seed should have loaded and it lacks, or holds
+with no rows. It stops nothing. On this page neither History table with SEED answered is read:
+
+- mart.job_day_events isn't written yet: admin/sent.csv, which records each Statement your
+  execute sent, holds no write of it, since this page sent none. Its Seed runs at its first
+  write, so there is nothing to check before.
+- mart.job_day_facts is written, but has no Seed, as step 6 shows: there are no days to count
+  for it, so its Partitions are never read.
+
+So the check gives no Warning, and no line saying a table's days couldn't be read:
 
 >>> said = repr(project.check(query=query))  # -> str
->>> print(next(line for line in said.splitlines() if line.startswith("Not checked")))
-Not checked for the days its Seed loads: mart.job_day_facts, as your query couldn't read its Partitions. Your query said: The Example database has no table 'mart.job_day_facts'.
+>>> [line for line in said.splitlines() if line.startswith(("Warning", "Not checked"))]
+[]
 
-At work, step 7's two days give a Warning, until each is written:
-`Warning: mart.job_day_events lacks 2 of the 32 days its Seed loads: 2026-09-15 (no rows) and
-2026-09-20. That stops nothing, but what reads it finds no rows for those days until each is
-written.` Write a missing day as you write any day, with a write as of the day after it.
-`project.check()`, with no query, reads nothing of the warehouse, and gives no such Warning.
+At work, once step 7 has run, the two days its report named give a Warning, until each is
+written: `Warning: mart.job_day_events lacks 2 of the 31 days its Seed loads: 2026-09-15 (no
+rows) and 2026-09-20. That stops nothing, but what reads it finds no rows for those days until
+each is written.` Write a missing day as you write any day, with a write as of the day after
+it. A table whose Partitions your query couldn't read is named on a line starting `Not checked
+for the days its Seed loads:`, with what your query said. `project.check()`, with no query,
+reads nothing of the warehouse, and gives no such Warning.
 
-Done when the check names each History table it couldn't read, or warns of the days one
-lacks. Then check it worked, below.
+Done when the check gives no Warning you haven't dealt with. Then check it worked, below.
 
 ## Check it worked
 
@@ -319,10 +393,11 @@ Before you go on, check that:
 
 - references/mart__job_day_events.py says `KIND = "history"  # answered, ...` and
   `SEED = {"months": 1}`;
-- the Seed's first line, step 6's, names dt from 2026-08-24 to 2026-09-24;
+- the Seed's first line, step 6's, names dt from 2026-08-24 to 2026-09-23;
 - at work, the Seed's report names the days loaded, and each day not loaded;
 - at work, `project.check(query=query)` gives no Warning for the table, or you have written
-  each day it names.
+  each day it names;
+- `project.check()` names no kind or Seed left open for a table you will promote.
 
 ## Common mistakes
 
@@ -337,7 +412,8 @@ answer "history".
 A write that reads `"2026-09-24"` writes that day on every run, so its Seed can't run it for
 each past day, and says so, as mart.job_day_facts's does in step 6. Work the day out from
 today, with `last_n_days`, or with a Run value, a function of yours that the Toolbox calls
-each time the table is written, starting from today().
+each time the table is written, starting from `today()`, never from Python's
+date.today().
 
 ### Expecting the Seed to run again
 

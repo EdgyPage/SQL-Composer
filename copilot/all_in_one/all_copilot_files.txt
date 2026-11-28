@@ -2931,7 +2931,7 @@ Workflow's other cells when asked.
   `"key": "proposed"` only if they accept the proposed Keys.
 - **R8** A folder for every table: each table's own location under it,
   `<folder>/<database>.db/<table>`: "/data/team/mart_dev.db/daily_fails_mart".
-- **R9** "seed": `{"months": N}`, the N months up to the newest Partition, `{"months": 1}`
+- **R9** "seed": `{"months": N}`, N months back from the newest Partition, `{"months": 1}`
   proposed; or, by partition column, a value, **that value or later**; `{"from": ...,
   "to": ...}`, either end left out; a list, those values alone; numbers as numbers; a Run
   value's function. A column left out is copied whole. A Rebuilt table has none.

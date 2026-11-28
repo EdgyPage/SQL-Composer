@@ -111,6 +111,15 @@ recorded it yet:
 >>> print(project.check())
 Every Table folder, Table reference, Building block and Scheduled run is registered, and each
     one registered is there.
+Open in a Table reference, which only promote waits on: each table's kind, Rebuilt or
+    History, or its Seed, below. Answer each by the table's name in the decisions cell of the
+    Workflow you run next on it, or in admin/check_project.ipynb, such as
+    project.write_decisions({"mart.x": {"kind": "history"}}).
+  references/mart__budget_overruns.py: mart.budget_overruns' seed, nothing proposed
+  references/mart__job_day_costs.py: mart.job_day_costs' kind, nothing proposed
+  references/mart__job_events_checks.py: mart.job_events_checks' kind, nothing proposed
+  references/mart__team_days.py: mart.team_days' kind, nothing proposed
+  references/mart__team_failures.py: mart.team_failures' kind, nothing proposed
 The Lineage state is behind: 3 columns' logic differs from its last recording, in
     mart.job_day_facts, mart.team_days and weekly_team.week_totals. Record it with
     project.record_lineage_state(), in admin/lineage.ipynb; a Table notebook's cell 5,

@@ -206,7 +206,13 @@ def equals(column: Column,
     job_runs.job_id = '3'
 
     Text that reads as no number, such as "one", is refused, since Hive reads it as NULL. A
-    string column may be compared with a number the same way. To find missing values use
+    string column may be compared with a number the same way, Hive reading each row's text as
+    a number, so it matches the rows whose text reads as that number:
+
+    >>> equals(job_runs.status, 1)
+    job_runs.status = 1
+
+    To find missing values use
     is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL.
     """
     return _comparison("equals", "EQ", column, value)

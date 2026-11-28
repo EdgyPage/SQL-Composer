@@ -1575,14 +1575,19 @@ def test_new_table_runs_its_write_as_of_each_past_day(started: Started,
     capsys.readouterr()
     journey.run_to()
     printed = capsys.readouterr().out
-    # A month up to ops.job_events' newest day, 2026-09-24, each run as of the day after.
-    loaded = [day for day in EVENT_DAYS if day not in ("2026-09-15", "2026-09-20")]
+    # A month back from ops.job_events' newest day, 2026-09-24, each run as of the day after,
+    # but the run as of today, 2026-09-25, which is the table's first write: the Seed leaves
+    # 2026-09-24 to it, so no day is written twice (the beginner reader's stop 17). The
+    # stand-in warehouse reads CURRENT_DATE as this computer's own today, so here the first
+    # write adds no row of these days.
+    loaded = [day for day in EVENT_DAYS
+              if day not in ("2026-09-15", "2026-09-20", "2026-09-24")]
     _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, loaded)
-    assert (f"{NEW_DAILY_EVENTS}: its Seed, its write run as of each day, oldest first, dt "
-            "from 2026-08-24 to 2026-09-24:") in printed
+    assert (f"{NEW_DAILY_EVENTS}: its Seed, its write run as of each past day, oldest first, "
+            "dt from 2026-08-24 to 2026-09-23, each run as of the day after:") in printed
     # Each day loaded is listed, each run of days in a row as one range.
-    assert (f"Seeded {NEW_DAILY_EVENTS}: 12 days loaded of 32, dt from 2026-09-11 to "
-            "2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to 2026-09-24."
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 11 days loaded of 31, dt from 2026-09-11 to "
+            "2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to 2026-09-23."
             in printed)
     assert ("  dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: a file of "
             "ops.job_events dt=2026-09-20 can't be read") in printed
@@ -1593,19 +1598,21 @@ def test_new_table_runs_its_write_as_of_each_past_day(started: Started,
     # writes it.
     runs = [hive for hive in started.warehouse.executed
             if hive.startswith(f"INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}")]
-    assert "DATE_ADD('2026-09-25', 1 * -1)" in runs[-2]
+    assert "DATE_ADD('2026-09-24', 1 * -1)" in runs[-2]
     assert "DATE_ADD(CURRENT_DATE, 1 * -1)" in runs[-1]
+    assert not any("'2026-09-25'" in run for run in runs), "the Seed ran as of today"
     # The step run again sends no Seed.
     sent = len(runs)
     journey.run_again(7)
     assert f"{NEW_DAILY_EVENTS}: no Seed: it holds rows already" in capsys.readouterr().out
     assert len([hive for hive in started.warehouse.executed
                 if hive.startswith(f"INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}")]) == sent + 1
-    # Promoted, its prod copy has no Original: it copies its dev copy's Partitions.
+    # Promoted, its prod copy has no Original: it copies its dev copy's Partitions, a month
+    # back from the newest its dev copy holds, 2026-09-23 here.
     prod = _promote(started, [NEW_DAILY_EVENTS])[0]
     assert _seeds_sent(started.warehouse, prod) == [
         f"INSERT OVERWRITE TABLE {prod} PARTITION (dt) SELECT * FROM {NEW_DAILY_EVENTS} "
-        "WHERE dt >= '2026-08-24' AND dt <= '2026-09-24'"]
+        "WHERE dt >= '2026-08-23' AND dt <= '2026-09-23'"]
 
 
 def test_new_table_runs_its_write_as_of_each_past_day_through_the_runner(
@@ -1628,8 +1635,8 @@ def test_new_table_runs_its_write_as_of_each_past_day_through_the_runner(
     assert f"would send: INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}" in dry_run
     said = journey.run_workflow()
     assert "new_table: every step is done." in said
-    assert (f"Seeded {NEW_DAILY_EVENTS}: 14 days loaded of 32, dt from 2026-09-11 to "
-            "2026-09-24." in said)
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 13 days loaded of 31, dt from 2026-09-11 to "
+            "2026-09-23." in said)
     _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, EVENT_DAYS)
     # Promoted, prod's Partitions are dev's.
     prod = _promote_through_the_runner(started, [NEW_DAILY_EVENTS])[0]
@@ -1737,6 +1744,35 @@ def test_check_project_says_when_its_query_cant_list_a_tables_partitions(
             ) in said
 
 
+def test_check_project_passes_over_a_history_table_that_has_no_seed(
+        started: Started, capsys: pytest.CaptureFixture[str]) -> None:
+    # A History table with no Original whose write reads a day typed in has no Seed, since each
+    # day's run would write the same rows: check() has no days to count for it, so it never
+    # reads its Partitions, and never says it couldn't (the beginner reader's stop A).
+    _run_references(started, "ops.job_events", ["event_id"])
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[NEW_DAILY_EVENTS])
+    journey.run_to(1)
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, NEW_DAILY_EVENTS),
+                         lambda text: _fill_daily_events_logic(
+                             text, 'equals(job_events.dt, "2026-09-24")'), "# logic")
+    journey.run_to(4)
+    journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history", "seed": {"months": 1}}})
+    capsys.readouterr()
+    journey.run_to()
+    assert (f"{NEW_DAILY_EVENTS}: no Seed: its write reads no today"
+            in capsys.readouterr().out)
+
+    def not_connected(hive: str) -> pd.DataFrame:
+        raise RuntimeError("\n  What happened:  No connection: call connect(...) first.\n"
+                           "  Why it matters: ...")
+
+    said = repr(project.check(query=not_connected))
+    assert "Not checked for the days" not in said
+    assert not _missing_days_warnings(said)
+
+
 def test_check_project_warns_until_a_seeds_missing_days_are_written(started: Started) -> None:
     # The new table whose write targets yesterday, its Seed run as of each day of the month up
     # to ops.job_events' newest: the days before ops.job_events' first, 2026-09-15, which it
@@ -1753,7 +1789,7 @@ def test_check_project_warns_until_a_seeds_missing_days_are_written(started: Sta
     journey.paste_decisions({NEW_DAILY_EVENTS: {"kind": "history"}})
     journey.run_to()
     assert _missing_days_warnings(_check_project(started)) == [
-        f"Warning: {NEW_DAILY_EVENTS} lacks 20 of the 32 days its Seed loads: 2026-08-24, "
+        f"Warning: {NEW_DAILY_EVENTS} lacks 20 of the 31 days its Seed loads: 2026-08-24, "
         "2026-08-25, 2026-08-26, 2026-08-27, 2026-08-28 and 15 more. That stops nothing, but "
         "what reads it finds no rows for those days until each is written."]
     # Each missing day written, as a load of the user's writes it, the Warning is gone.

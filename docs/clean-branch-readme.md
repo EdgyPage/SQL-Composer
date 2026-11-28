@@ -869,7 +869,7 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      `"rebuilt"` or `"history"`.
    - If a table is a History table, its **Seed** copies its original's past rows into it
      once, before its first write: `{"seed": {"months": 1}}`, proposed where a partition column
-     holds dates, copies the month up to the newest Partition; by partition column,
+     holds dates, copies one month back from the newest Partition; by partition column,
      `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those from 2026-01-01 on, and a list,
      `{"region": ["US", "CA"]}`, those values alone. A single value, `{"dt": "2026-01-01"}`,
      means **that value or later**. A Rebuilt table has no Seed.
@@ -1982,9 +1982,12 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      Table reference gets its kind, a `KIND` line: `"rebuilt"` or `"history"`, proposed from
      its write and written in as answered. Where nothing is proposed, as for a write that
      fills `dt` from its rows' own values, it stays open, `KIND = None`, and
-     the Upgrade's checklist names the table: answer `"kind"` for it in a decisions cell
-     before you promote it. No Seed runs and nothing is sent, since your tables hold their
-     Partitions already, and each `seed()` and `SEED` is kept. Each Workflow notebook is
+     the Upgrade's checklist and `project.check()` name the table: answer `"kind"` for it by
+     its dev name before you promote it, in `admin/check_project.ipynb` with
+     `project.write_decisions({"mart.x": {"kind": "history"}})`. A History table with no
+     `SEED` is asked for one the same way, nothing proposed. No Seed runs and nothing is sent,
+     since your tables hold their Partitions already, and each `seed()` and `SEED` is
+     kept. Each Workflow notebook is
      written again, keeping each name you gave, each step cell you wrote in and your answered
      decisions cell, and `admin/check_project.ipynb` connects and runs
      `project.check(query=query)`, which warns of a History table short of its Seed's days.

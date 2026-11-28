@@ -155,7 +155,7 @@ Toolbox function writes yet, as its conversion/scan.md says. Its write reads its
 an incremental INSERT does, so in dev it would start from nothing. All three are History
 tables, each write keeping the rows already there, so each has a Seed: its past rows, copied
 from its original once, before its first write. Which of the original's Partitions it copies
-is SEED, in its Table reference: at work, `{"months": 1}`, the month up to the newest, is
+is SEED, in its Table reference: at work, `{"months": 1}`, one month back from the newest, is
 proposed; here the Example database can't list the originals' Partitions, so it is a Decision
 you answer in step 6.
 
@@ -179,10 +179,11 @@ conversion/checklist.md lists its open Decisions, and project.check() names each
   holds: accept it with "proposed", or answer "rebuilt" if each write replaces the whole
   table, "history" if it keeps the rows already there, in references/mart__fail_history.py
 - seed: which past rows its Seed loads, if it is a History table, nothing proposed, as the
-  Partitions of ops_reports.fail_history couldn't be read through your query: answer by
-  partition column, a value, that value or later, such as {"dt": "2026-09-01"}, a range
-  {"from": ..., "to": ...} or a list, or {} for every Partition, in
-  references/mart__fail_history.py
+  Partitions of ops_reports.fail_history couldn't be read through your query: answer
+  {"months": 1}, one calendar month back from the newest Partition, where a partition
+  column's every value is a date; or, by partition column, a value, that value or later,
+  such as {"dt": "2026-09-01"}, a range {"from": ..., "to": ...} or a list; or {} for every
+  Partition, in references/mart__fail_history.py
 
 Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is.
 project.check() says where it stands and how to answer it. A tag that stands alone, as
@@ -638,7 +639,7 @@ gives one. A limit on a column that isn't one of the table's partition columns i
 is one for a Rebuilt table, which has no Seed. Under "all_tables", a limit applies only to
 the tables with that partition column; the notebook's step 3 report and the Seed's report
 say what was sent. `{"months": 2}` limits the partition column of dates to the 2 calendar
-months up to the newest Partition the original holds.
+months back from the newest Partition the original holds, both ends included.
 
 The seed copies once, and each write after it reads what its own WHERE says. If a write
 reads a window of days, such as the day before RUN_DAY through RUN_DAY, and the seed starts

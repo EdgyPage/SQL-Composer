@@ -14,22 +14,27 @@ Toolbox works on sqlglot 30.24.0 and later.
 - **Copy in 8.10's `sqlglot_composer` folder**, as the README's Update says, **restart your
   notebook's kernel**, so Python reads the new folder, then **run `project.upgrade()`**, step
   1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.10.md`. A
-  Project last written at 8.3 to 8.8 upgrades straight to 8.10 the same way, each step in turn.
+  Project any older version last wrote, from 7.1 on, upgrades straight to 8.10 the same way,
+  each step in turn, as how-to "Upgrade your Project to a new Toolbox version" shows from 7.2.
 - **Each table gets its kind.** Each Table reference of a Saved table gains a `KIND` line,
   its kind proposed from what its `write()` does to the rows already there and written in as
   answered, since the table is written already: `"rebuilt"` where each write replaces the
   whole table, `"history"` where it replaces one Partition or adds rows. Where nothing is
   proposed, as for a write that fills `dt` from its rows' own values, `PARTITION (dt)`, the
-  kind is left open, `KIND = None`, and `admin/upgrade_8.10.md` names the table: answer
-  `"kind"` for it, `"rebuilt"` or `"history"`, in a decisions cell before you promote it, as
-  promote refuses a table whose kind is open.
+  kind is left open, `KIND = None`, and `admin/upgrade_8.10.md` and `project.check()` name
+  the table. Before you promote it, answer `"kind"` for it, `"rebuilt"` or `"history"`, by
+  the dev table's name: in `admin/check_project.ipynb`, with
+  `project.write_decisions({"mart.x": {"kind": "history"}})`, or in the decisions cell of the
+  next Workflow notebook you run on the table, as promote refuses a table whose kind is open.
+  promote's own decisions cell names prod copies, so it is no place for it.
 - **No Seed runs, and every `seed()` and `SEED` is kept.** Your tables hold their Partitions
   already, so the Upgrade loads nothing, and sends nothing. A History table whose Table
   reference has no `SEED`, as one converted before 8.10 whose write doesn't read itself, is
-  asked for one: its `SEED` is an open Decision, proposed as `{"months": 1}`, the month up to
-  the newest Partition, and `admin/upgrade_8.10.md` names the table. Answer `"seed"` for it in
-  a decisions cell before you promote it, as promote waits on it: the decisions cell
-  `project.check()` prints holds the proposal, to keep or change.
+  asked for one: its `SEED` is an open Decision, `SEED = {}  # TODO: nothing proposed`, since
+  the months form needs a partition column whose every value is a date and the Upgrade reads
+  no Partitions to find one. `admin/upgrade_8.10.md` and `project.check()` name the table.
+  Answer `"seed"` for it the same way, before you promote it, as promote waits on it:
+  `{"months": 1}` where a partition column holds dates, or `{}` for every Partition.
 - **Every Workflow notebook is written again**, each name you gave, each step cell you wrote
   in and your answered decisions cell kept, the notebook as it was kept in `admin/removed/`:
   their write steps run the Seed, new_table's first step and convert's decisions step add a
@@ -54,13 +59,17 @@ Toolbox works on sqlglot 30.24.0 and later.
 - **The Seed, widened.** Every History table loads its past rows once, before its first
   write, in the step that writes it: copied from its original, or, for a table with none, by
   running its own write as of each past day, oldest first, so each day writes the Partition
-  folder a scheduled write writes. `"seed": {"months": N}` limits it to the N calendar months
-  up to the newest Partition, proposed as 1; the value, range and list forms stay. Its report
+  folder a scheduled write writes. `"seed": {"months": N}` limits it to N calendar months
+  back from the newest Partition, both ends included, proposed as 1; the value, range and list forms stay. Its report
   lists the days loaded, each run of days in a row as one range, each day not loaded, with
   the warehouse's error, and each with no rows, and a rerun
-  loads nothing twice. In prod, a table with no original copies the days you checked in dev.
-  `project.check(query=query)` warns while a History table lacks days its Seed loads. The
-  how-to "Load a History table's past days" shows it.
+  loads nothing twice. A Seed run as of each past day never runs as of today: that run is the
+  table's first write, which follows it, so no day is written twice. A write that reads no
+  today, such as one reading a day typed in, has no Seed of that kind. In prod, a table with
+  no original copies the days you checked in dev. `project.check(query=query)` warns while a
+  History table with a Seed lacks days its Seed loads, and `project.check()` names each kind
+  and Seed left open, which promote waits on. The how-to "Load a History table's past days"
+  shows it.
 - **Table references added for you.** new_table with `QUERIES`, `project.new_run_value(...)`
   and the `"sources"` Decision add the Table reference of a table they read that has none,
   from its DESCRIBE through your query, as convert does, saying what they added, where 8.9

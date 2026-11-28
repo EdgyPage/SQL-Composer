@@ -216,14 +216,14 @@ TAGS_START = "TAGS = {"
 SEED_START = "SEED = {"
 SEED_LINE = re.compile(r"^SEED = (?P<value>\{.*\})(?:  # (?:TODO: )?(?P<what>(?:proposed|"
                        r"nothing proposed): (?P<why>[^{}]+)))?$")
-# The months form of a seed limit (Toolbox 8.10): {"months": N} loads the N calendar months up
-# to the newest Partition its source holds, both ends included, on the partition column whose
-# every value is a date.
+# The months form of a seed limit (Toolbox 8.10): {"months": N} loads N calendar months back
+# from the newest Partition its source holds, both ends included, on the partition column
+# whose every value is a date.
 MONTHS = "months"
 SEED_COMMENT = (
     "# The Seed: if this is a History table, the past rows loaded once, before its first",
-    '# write. Answer "seed" in the decisions cell: {"months": 1} loads the month up to the',
-    "# newest Partition, by the partition column whose every value is a date; or, by",
+    '# write. Answer "seed" in the decisions cell: {"months": 1} loads one month back from',
+    "# the newest Partition, by the partition column whose every value is a date; or, by",
     '# partition column, a value, that value or later, a range {"from": ..., "to": ...}, or a',
     "# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.",
 )
@@ -350,9 +350,10 @@ def seed_question(why: str, proposal: str = "") -> str:
     Seed loads, saying why nothing was proposed, or, as project.upgrade() asks it of a table
     written before 8.10, the limit proposed, as Python, and why (Toolbox 8.10). `why` is its
     SEED line's comment after "nothing proposed: " or "proposed: "."""
-    forms = ('by partition column, a value, that value or later, such as {"dt": '
-             '"2026-09-01"}, a range {"from": ..., "to": ...} or a list, or {} for every '
-             "Partition")
+    forms = ('{"months": 1}, one calendar month back from the newest Partition, where a '
+             "partition column's every value is a date; or, by partition column, a value, "
+             'that value or later, such as {"dt": "2026-09-01"}, a range {"from": ..., '
+             '"to": ...} or a list; or {} for every Partition')
     if proposal:
         return (f"seed: which past rows its Seed loads, proposed {proposal}, as {why}: "
                 f"answer it to accept it, or answer {forms}")
@@ -569,13 +570,6 @@ def seed_block(proposal: dict[str, object] | None, why: str) -> list[str]:
     if proposal is None:
         return [*SEED_COMMENT, f"SEED = {{}}  # TODO: {NOTHING_PROPOSED}: {why}"]
     return [*SEED_COMMENT, f"SEED = {seed_python(proposal)}  # proposed: {why}"]
-
-
-def asked_seed_block(proposal: dict[str, object], why: str) -> list[str]:
-    """The lines of a table's seed limits as project.upgrade() to 8.10 writes them for a
-    History table written before 8.10 that has none: `proposal` proposed, and why, an open
-    Decision still, to accept or answer in the decisions cell. `why` holds no brace."""
-    return [*SEED_COMMENT, f"SEED = {seed_python(proposal)}  # TODO: proposed: {why}"]
 
 
 def _without_seed_block(text: str) -> str:
