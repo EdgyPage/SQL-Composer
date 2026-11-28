@@ -12,7 +12,8 @@
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
   pinned to the version requirements-dev.txt pins;
 - sqlglot's pin in requirements-dev.txt falls inside the range engine.py supports, and CI runs
-  the tests at the pin.
+  the tests at the pin and at the newest version engine.py says it is tested on, each of which
+  keeps its own snapshot and Hive corpus golden, and no other version does.
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ from types import ModuleType
 
 import pytest
 
+import hive_corpus
+import snapshot_recorder
 import toolbox_registry
 import sqlglot_composer
 from conftest import toolbox_folder
@@ -383,11 +386,17 @@ def test_requirements_pins_the_versions_dev_tests_on() -> None:
     assert _requirements() == {name: dev[name] for name in _requirements()}
 
 
+def _matrix() -> list[str]:
+    """The sqlglot versions dev.yml's matrix runs the Toolbox's job at, as written."""
+    library = toolbox_registry.LIBRARY
+    matrix = re.search(rf"^\s+{library}: \[(.*)\]$", _job(), re.MULTILINE).group(1)
+    return [v.strip().strip('"') for v in matrix.split(",")]
+
+
 def test_ci_runs_at_sqlglots_pin_and_at_the_newest_it_is_tested_on() -> None:
     # Toolbox 8.10, ticket 01: a second job, above the pin, so a break there shows on a push.
     job, library = _job(), toolbox_registry.LIBRARY
-    matrix = re.search(rf"^\s+{library}: \[(.*)\]$", job, re.MULTILINE).group(1)
-    versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
+    versions = {_version(v) for v in _matrix()}
     assert versions == {_pin(), _engine()._NEWEST_TESTED}
     assert 'python-version: "3.13"' in job
     assert f'pip install "{library}==${{{{ matrix.{library} }}}}"' in _steps(job)
@@ -396,3 +405,17 @@ def test_ci_runs_at_sqlglots_pin_and_at_the_newest_it_is_tested_on() -> None:
 
 def test_ci_runs_the_tests() -> None:
     assert _steps(_job())[-1] == "python -m pytest"
+
+
+def test_each_sqlglot_ci_tests_keeps_a_snapshot_and_a_golden_and_no_other_does() -> None:
+    # Toolbox 8.10: a few texts differ between the two sqlglots CI tests, so each keeps its
+    # own, and engine.py's _PIN and _NEWEST_TESTED say which they are. The user (2026-11-28):
+    # "test for both."
+    engine = _engine()
+    tested = [".".join(str(n) for n in v) for v in (engine._PIN, engine._NEWEST_TESTED)]
+    assert sorted(_matrix()) == sorted(tested)
+    for files in (snapshot_recorder.snapshot_files(), hive_corpus.golden_files()):
+        assert sorted(files) == sorted(tested)
+        folder = {path.parent for path in files.values()}.pop()
+        assert sorted(path.name for path in folder.iterdir() if path.is_file()) == sorted(
+            path.name for path in files.values())

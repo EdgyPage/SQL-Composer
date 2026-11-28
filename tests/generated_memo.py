@@ -99,7 +99,8 @@ class Memo:
         if not isinstance(memo_json, dict) or memo_json.get("inputs") != self.inputs:
             return False
         made = set(memo_json.get("snapshot", []))
-        if not snapshot_recorder.WRITING and not made <= snapshot_recorder.known_hashes():
+        known = snapshot_recorder.known_hashes()  # None on a sqlglot with no snapshot
+        if not snapshot_recorder.WRITING and known is not None and not made <= known:
             return False  # the snapshot changed since: the test checks its texts again
         snapshot_recorder.hashes_made_in_this_run.update(made)
         return True

@@ -5,9 +5,11 @@ diff:
 
     python tools/hive_corpus.py
 
-`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. It is
-written only at the sqlglot pin in requirements-dev.txt, since another sqlglot writes some Hive
-differently.
+`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. Each
+sqlglot CI tests keeps its own golden, since another sqlglot can write some Hive differently
+(Toolbox 8.10): `sqlglot_composer.txt` for the pin, engine.py's `_PIN`, and
+`sqlglot_composer-<version>.txt` for `_NEWEST_TESTED`, such as `sqlglot_composer-30.34.0.txt`.
+This writes the one for the sqlglot it runs on, and none on another sqlglot.
 
 The file pins, for each case under a stable id, what the Toolbox shows through its public
 names:
@@ -30,7 +32,6 @@ from __future__ import annotations
 import contextlib
 import doctest
 import io
-import re
 import sys
 import tempfile
 from collections.abc import Callable
@@ -43,6 +44,7 @@ import toolbox_registry  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
+import snapshot_recorder  # noqa: E402
 import sqlglot_composer  # noqa: E402
 import example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
@@ -50,13 +52,10 @@ from sqlglot_composer.describe import StandIn  # noqa: E402
 from sqlglot_composer.tables import Table, is_unchecked  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
-# Where the golden corpus is committed.
-GOLDEN = ROOT / "tests" / "hive_corpus" / f"{toolbox_registry.FOLDER}.txt"
+# Where each sqlglot's golden corpus is committed.
+GOLDEN_FOLDER = ROOT / "tests" / "hive_corpus"
 # The command that writes the golden.
 COMMAND = "python tools/hive_corpus.py"
-
-PIN = re.search(r"^sqlglot==(\S+)$",
-                (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
 # The exception types a Toolbox refusal comes as; is_refusal tells a refusal from a bug.
 REFUSAL_TYPES = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused, TypeError,
                  ValueError)
@@ -319,13 +318,28 @@ def corpus_text() -> str:
     return header + "\n".join(blocks)
 
 
-def cannot_write() -> str | None:
-    """Why this Python can't write the golden, or None when it can."""
-    import sqlglot
+def golden_files() -> dict[str, Path]:
+    """Each sqlglot CI tests, by its version, as the snapshot's recorder reads them from
+    engine.py, with its golden: the pin's named for the Toolbox's folder, the newest tested's
+    for its version too."""
+    pin, newest = snapshot_recorder.versions_ci_tests()
+    folder = toolbox_registry.FOLDER
+    return {pin: GOLDEN_FOLDER / f"{folder}.txt",
+            newest: GOLDEN_FOLDER / f"{folder}-{newest}.txt"}
 
-    if sqlglot.__version__ != PIN:
-        return (f"the golden is written at the sqlglot pin, {PIN}, and this is "
-                f"{sqlglot.__version__}: another sqlglot writes some Hive differently")
+
+def golden_file() -> Path | None:
+    """The golden of the sqlglot this Python has, or None where CI tests no such sqlglot."""
+    return golden_files().get(snapshot_recorder.sqlglot_version())
+
+
+def cannot_write() -> str | None:
+    """Why this Python can't write a golden, or None when it can."""
+    if golden_file() is None:
+        pin, newest = snapshot_recorder.versions_ci_tests()
+        return (f"a golden is written at each sqlglot CI tests, {pin} and {newest}, and this "
+                f"is {snapshot_recorder.sqlglot_version()}: another sqlglot can write some "
+                "Hive differently")
     return None
 
 
@@ -335,10 +349,12 @@ def main() -> int:
         print(f"Nothing was written: {reason}.")
         return 1
     text = corpus_text()
-    GOLDEN.parent.mkdir(parents=True, exist_ok=True)
-    with open(GOLDEN, "w", encoding="utf-8", newline="\n") as file:
+    golden = golden_file()
+    golden.parent.mkdir(parents=True, exist_ok=True)
+    with open(golden, "w", encoding="utf-8", newline="\n") as file:
         file.write(text)
-    print(f"Wrote {GOLDEN.relative_to(ROOT)}: {text.count(chr(10) + CASE_MARK)} cases.")
+    print(f"Wrote {golden.relative_to(ROOT).as_posix()}: "
+          f"{text.count(chr(10) + CASE_MARK)} cases.")
     return 0
 
 

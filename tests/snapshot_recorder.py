@@ -14,16 +14,22 @@ it:
   each prints;
 - `example_database.query`, dev's Example database's, every set of rows, as CSV.
 
-Each is kept as a short hash in `tests/snapshot/known.txt`. Before it is hashed, the run's temp
-folders are written as `<tmp>` everywhere; in a message, printed text or report, its times and
-memory addresses are written as `<time>` and `<address>` too, but never in Hive or rows, where a
-changed time would be a real change. A test that makes a text the file doesn't know fails,
-showing it. A run of the whole suite also fails on a hash no test made: something a user saw
-is gone.
+Each is kept as a short hash in the snapshot of the sqlglot the run is on. CI runs the whole
+suite at two, engine.py's `_PIN` and `_NEWEST_TESTED`, and a few texts differ between them, so
+each keeps its own (Toolbox 8.10; the user: "test for both"): `tests/snapshot/known.txt` for
+the pin, and `tests/snapshot/known-<version>.txt`, such as `known-30.34.0.txt`, for the newest
+tested. A run on any other sqlglot checks no snapshot, and says why in one line at its end.
 
-Writing the file again is a deliberate act, which its commit message says, never part of a
-refactor: run the whole suite, every test passing, with `SNAPSHOT_WRITE=1` set. A run of part
-of the suite, or one with a failure, is refused, since it would write only what it made.
+Before a text is hashed, the run's temp folders are written as `<tmp>` everywhere; in a
+message, printed text or report, its times and memory addresses are written as `<time>` and
+`<address>` too, but never in Hive or rows, where a changed time would be a real change. A test
+that makes a text the snapshot doesn't know fails, showing it. A run of the whole suite also
+fails on a hash no test made: something a user saw is gone.
+
+Writing a snapshot again is a deliberate act, which its commit message says, never part of a
+refactor: run the whole suite, every test passing, with `SNAPSHOT_WRITE=1` set, on the sqlglot
+whose snapshot it is; it writes that one file. A run of part of the suite, one with a failure,
+or one on a sqlglot CI doesn't test is refused, since it would write only what it made.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ import builtins
 import functools
 import hashlib
 import importlib
+import importlib.metadata
 import os
 import re
 import sys
@@ -42,8 +49,9 @@ from types import ModuleType
 
 import pandas as pd
 
-KNOWN = Path(__file__).resolve().parent / "snapshot" / "known.txt"
 TESTS = Path(__file__).resolve().parent
+# Where each sqlglot's snapshot is kept.
+SNAPSHOT = TESTS / "snapshot"
 WRITING = os.environ.get("SNAPSHOT_WRITE") == "1"
 # A time as the Toolbox writes one: 2026-10-30 17:51, or 20261030-175142 in a folder's name.
 TIME = re.compile(r"\d{4}-\d{2}-\d{2}[ T_]\d{2}[:\-.]\d{2}([:\-.]\d{2}(\.\d+)?)?"
@@ -75,7 +83,7 @@ def text_as_kept(kind: str, text: str) -> str:
 
 
 def hash_of(kind: str, text: str) -> str:
-    """The short hash known.txt keeps for one text."""
+    """The short hash a snapshot keeps for one text."""
     return hashlib.sha256(text_as_kept(kind, text).encode("utf-8")).hexdigest()[:20]
 
 
@@ -141,21 +149,69 @@ def install(toolbox: Callable[[str], ModuleType], basetemp: str) -> None:
     record_each_printed(toolbox("tables").Verdict)
 
 
-def known_hashes() -> set[str]:
-    """The hashes known.txt holds."""
-    if not KNOWN.exists():
+def versions_ci_tests() -> tuple[str, str]:
+    """The sqlglots CI runs the whole suite at, as engine.py names them: its pin, then the
+    newest it is tested on."""
+    # Imported here, not at the top: conftest imports the Toolbox after the offline trap.
+    from sqlglot_composer import engine
+
+    pin, newest = (".".join(str(n) for n in version)
+                   for version in (engine._PIN, engine._NEWEST_TESTED))
+    return pin, newest
+
+
+def snapshot_files() -> dict[str, Path]:
+    """Each sqlglot CI tests, by its version, with its snapshot: known.txt for the pin, and a
+    file named for its version for the newest tested."""
+    pin, newest = versions_ci_tests()
+    return {pin: SNAPSHOT / "known.txt", newest: SNAPSHOT / f"known-{newest}.txt"}
+
+
+def sqlglot_version() -> str:
+    """The version of the sqlglot this run is on, as its installed metadata says: a shared
+    file of tests/ imports no sqlglot of its own (test_suite_layout.py)."""
+    return importlib.metadata.version("sqlglot")
+
+
+def snapshot_file() -> Path | None:
+    """The snapshot of the sqlglot this run is on, or None where CI tests no such sqlglot."""
+    return snapshot_files().get(sqlglot_version())
+
+
+def snapshot_name(file: Path) -> str:
+    """A snapshot's file as a message names it, from the repo's top."""
+    return f"tests/snapshot/{file.name}"
+
+
+def known_hashes() -> set[str] | None:
+    """The hashes the snapshot of this run's sqlglot holds, or None where it has none."""
+    file = snapshot_file()
+    if file is None:
+        return None
+    if not file.exists():
         return set()
-    return set(KNOWN.read_text(encoding="utf-8").split())
+    return set(file.read_text(encoding="utf-8").split())
 
 
-def take_unknown_texts(known: set[str]) -> list[str]:
-    """Take what this test made, keep each hash for the run, and give back each text known.txt
-    doesn't know, with the kind of place that made it: none, when the file is being written."""
+def why_no_snapshot_is_checked() -> str | None:
+    """Why this run checks no snapshot, in one line, or None where it checks one."""
+    if snapshot_file() is not None:
+        return None
+    pin, newest = versions_ci_tests()
+    return (f"No snapshot was checked: tests/snapshot/ keeps one for each sqlglot CI tests, "
+            f"{pin} and {newest}, and this is {sqlglot_version()}, which can write some texts "
+            "differently.")
+
+
+def take_unknown_texts(known: set[str] | None) -> list[str]:
+    """Take what this test made, keep each hash for the run, and give back each text the
+    snapshot doesn't know, with the kind of place that made it: none, when the snapshot is
+    being written, or where this sqlglot has none (`known` is None)."""
     found = []
     for kind, text in texts_made_by_this_test:
         digest = hash_of(kind, text)
         hashes_made_in_this_run.add(digest)
-        if digest not in known and not WRITING:
+        if known is not None and digest not in known and not WRITING:
             found.append(f"A {kind} text:\n{text_as_kept(kind, text)}")
     texts_made_by_this_test.clear()
     return found
@@ -170,24 +226,32 @@ def is_the_whole_suite(args: list[str], keyword: str, markers: str, failed: int)
 
 def finish_the_run(whole: bool) -> str | None:
     """At a run's end, with every test's hashes in hashes_made_in_this_run, every worker's
-    included: with SNAPSHOT_WRITE=1, write known.txt for a `whole` run, and otherwise give why
-    the run fails; without it, for a `whole` run, give why the run fails when a hash known.txt
-    holds no test made, since something a user saw is gone. None where the run passes."""
+    included: with SNAPSHOT_WRITE=1, write this sqlglot's snapshot for a `whole` run, and
+    otherwise give why the run fails; without it, for a `whole` run, give why the run fails
+    when a hash the snapshot holds no test made, since something a user saw is gone. None where
+    the run passes, as it does without SNAPSHOT_WRITE=1 where this sqlglot has no snapshot."""
+    file = snapshot_file()
+    if file is None:
+        if not WRITING:
+            return None
+        pin, newest = versions_ci_tests()
+        return (f"SNAPSHOT_WRITE=1 writes a snapshot only on a sqlglot CI tests, {pin} or "
+                f"{newest}, and this is {sqlglot_version()}.")
     if WRITING:
         if not whole:
-            return ("tests/snapshot/known.txt: SNAPSHOT_WRITE=1 writes it only from a run of "
+            return (f"{snapshot_name(file)}: SNAPSHOT_WRITE=1 writes it only from a run of "
                     "the whole suite in which every test passed.")
-        write_known()
+        write_snapshot(file)
         return None
     gone = known_hashes() - hashes_made_in_this_run
     if whole and gone:
-        return (f"tests/snapshot/known.txt: {len(gone)} of its texts no test made: something "
+        return (f"{snapshot_name(file)}: {len(gone)} of its texts no test made: something "
                 "the Toolbox showed its user is gone.")
     return None
 
 
-def write_known() -> None:
-    """known.txt, as this run made it: one hash per line, sorted."""
-    KNOWN.parent.mkdir(exist_ok=True)
-    KNOWN.write_text("".join(f"{digest}\n" for digest in sorted(hashes_made_in_this_run)),
-                     encoding="utf-8")
+def write_snapshot(file: Path) -> None:
+    """The snapshot `file`, as this run made it: one hash per line, sorted."""
+    file.parent.mkdir(exist_ok=True)
+    file.write_text("".join(f"{digest}\n" for digest in sorted(hashes_made_in_this_run)),
+                    encoding="utf-8")
