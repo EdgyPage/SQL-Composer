@@ -301,6 +301,19 @@ Round 4, the user: "all your recommendations".
 
 Every branch is settled; the tickets wait on the user's confirming the plan below.
 
+Later, 2026-11-28, on the snapshot once CI ran the whole suite at both sqlglots (30.34.0 types
+`explode(array(1, 2))` as int where 30.23.0 writes a guessed string), the user: "test for
+both. If it's easier, pin a breaker version of sqlglot to say what tests should test for."
+Built: each sqlglot CI tests keeps its own snapshot, `tests/snapshot/known.txt` for the pin and
+`tests/snapshot/known-30.34.0.txt` for `_NEWEST_TESTED`, and its own Hive corpus golden,
+`tests/hive_corpus/sqlglot_composer.txt` and `sqlglot_composer-30.34.0.txt` (the same today).
+The recorder and `tools/hive_corpus.py` pick the file of the sqlglot they run on, and
+`SNAPSHOT_WRITE=1` writes that one only; any other sqlglot checks neither, saying why in one
+line. `test_each_sqlglot_ci_tests_keeps_a_snapshot_and_a_golden_and_no_other_does` holds the
+files, dev.yml's matrix and engine.py's `_PIN` and `_NEWEST_TESTED` to one another. The new
+snapshot starts as a copy of known.txt; both are written again from whole-suite runs once
+tickets 07 and 08 merge.
+
 ## Tickets
 
 Written 2026-11-27, once the user confirmed the plan ("Yes, write the tickets").
