@@ -1,4 +1,4 @@
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.9)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**

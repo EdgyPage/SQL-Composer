@@ -153,8 +153,8 @@ TRIPPING_POINTS: dict[str, tuple[str, ...]] = {
         "`PARTITIONS`.",
         "A Script tag, `<PARM=\"NAME\"/>`, is a Decision: answer it under `\"tags\"`, as Hive "
         "text or a Run value's function.",
-        "A table that reads itself is seeded once from its original: a `\"seed\"` answer "
-        "limits the Partitions it copies.",
+        "A History table is seeded once from its original, before its first write: a "
+        "`\"seed\"` answer, such as `{\"months\": 1}`, limits the Partitions it copies.",
     ),
     "promote": (
         "Fill in `PROD` in `admin/databases.py` first: each prod table's location is placed "

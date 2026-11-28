@@ -208,7 +208,8 @@ def seed_lines(root: Path, name: str, query: Callable[[str], pd.DataFrame],
                execute: Callable[[str], None] | None) -> list[str]:
     """One table's Seed, sent through your execute, or, with none, shown as a dry run: its
     report's lines. Only a History table that holds no Partitions yet, or no row for one with
-    none, is seeded; a table seeded before 8.10 keeps its seed()."""
+    none, is seeded; a table seeded before 8.10 keeps its seed(), and one whose Table reference
+    has no SEED loads the proposed {"months": 1}."""
     from . import project  # project.py imports this file
 
     text = (root / REFERENCE.shown(table_stem(name))).read_text(encoding="utf-8")
@@ -226,12 +227,27 @@ def seed_lines(root: Path, name: str, query: Callable[[str], pd.DataFrame],
     if decisions.open_decisions(text, name, (decisions.SEED_LIMIT,)):
         return [f"{name}: no Seed: its SEED is still open. Answer \"seed\" in the decisions "
                 "cell, write the answers in, and run this step again."]
-    limits = project.run_logic(root, f"from references.{table_stem(name)} import SEED",
-                               "seed_limits")["SEED"]
+    no_seed_line = []
+    limits = dict(decisions.PROPOSED_MONTHS)
+    if decisions.seed_partitions(text) is None:
+        no_seed_line = [_no_seed_line_said(name, limits)]
+    else:
+        limits = project.run_logic(root, f"from references.{table_stem(name)} import SEED",
+                                   "seed_limits")["SEED"]
     source, said = source_to_copy(root, name)
     if source is not None:
-        return _copied(run, source, said, dict(limits))
-    return _run_as_of_each_day(run, logic, dict(limits))
+        return [*no_seed_line, *_copied(run, source, said, dict(limits))]
+    return [*no_seed_line, *_run_as_of_each_day(run, logic, dict(limits))]
+
+
+def _no_seed_line_said(name: str, limits: dict[str, object]) -> str:
+    """What the Seed of a History table whose Table reference has no SEED says first, as a
+    table converted before 8.10 whose write doesn't read itself has none: it loads the limit
+    every History table's Seed is proposed, one month."""
+    return (f"{name}: its Table reference has no SEED, as a table converted before 8.10 whose "
+            "write doesn't read itself has none, so its Seed loads the limit proposed for "
+            f"every History table, {decisions.seed_python(limits)}. To load others, add a "
+            'SEED line above its Aliases, such as SEED = {"months": 3}.')
 
 
 def _why_no_seed(kind: decisions.TableKind | None) -> str:

@@ -235,11 +235,11 @@ Its decisions cell, under that, where you answer each open Decision:
     # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
@@ -247,8 +247,8 @@ can do, so it can stop again, at a refusal or a Decision left open; a compare th
 nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("convert", query=query, execute=execute)
@@ -367,11 +367,11 @@ Its decisions cell, under that, where you answer each open Decision:
     # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
@@ -379,8 +379,8 @@ can do, so it can stop again, at a refusal or a Decision left open; a compare th
 nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("promote", query=query, execute=execute)
@@ -512,11 +512,11 @@ Its decisions cell, under that, where you answer each open Decision:
     # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
@@ -524,8 +524,8 @@ can do, so it can stop again, at a refusal or a Decision left open; a compare th
 nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("new_table", query=query, execute=execute)
@@ -645,11 +645,11 @@ Its decisions cell, under that, where you answer each open Decision:
     # "all_tables" accepts each table's.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
-    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
-    # of this cell, the import it prints under it, and run the cell once: it writes the
-    # function into building_blocks/run_values.py. And "seed", such as
-    # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
-    # copies: how-to 09 shows both.
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt",
+    # query=query) at the top of this cell, the import it prints under it, and run the cell
+    # once: it writes the function into building_blocks/run_values.py. And "seed", such as
+    # {"months": 1}, limits the past rows a History table's Seed loads before its first
+    # write: how-to 09 shows both, and how-to 34 the Seed.
 
 And "Run the rest", the same call as "Run up to your Decisions", run again once you have
 answered: it goes on from where the first stopped, and it too stops at the first step only you
@@ -657,8 +657,8 @@ can do, so it can stop again, at a refusal or a Decision left open; a compare th
 nothing. Mend what it names and run it again. Each step's own cell follows, under Step by step:
 
     # Run the rest: the same call, run again once you have answered: it goes
-    # on from where it stopped, and stops again at a refusal, a compare that
-    # failed or a Decision left open.
+    # on from where it stopped, and stops again at a refusal or a Decision left
+    # open; a compare that failed stops nothing.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("references", query=query, execute=execute)

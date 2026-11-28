@@ -2,6 +2,81 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.10
+
+8.10 asks of each table whether it is a Rebuilt table or a History table, and loads a History
+table's past days once, before its first write, so a new copy of it is usable from its first
+day. Workflows add a Table reference you lack for you, a compare never stops you, and the
+Toolbox works on sqlglot 30.24.0 and later.
+
+### To update from 8.9
+
+- **Copy in 8.10's `sqlglot_composer` folder**, as the README's Update says, **restart your
+  notebook's kernel**, so Python reads the new folder, then **run `project.upgrade()`**, step
+  1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.10.md`. A
+  Project last written at 8.3 to 8.8 upgrades straight to 8.10 the same way, each step in turn.
+- **Each table gets its kind.** Each Table reference of a Saved table gains a `KIND` line,
+  its kind proposed from what its `write()` does to the rows already there and written in as
+  answered, since the table is written already: `"rebuilt"` where each write replaces the
+  whole table, `"history"` where it replaces one Partition or adds rows. Where nothing is
+  proposed, as for a write that fills `dt` from its rows' own values, `PARTITION (dt)`, the
+  kind is left open, `KIND = None`, and `admin/upgrade_8.10.md` names the table: answer
+  `"kind"` for it, `"rebuilt"` or `"history"`, in a decisions cell before you promote it, as
+  promote refuses a table whose kind is open.
+- **No Seed runs, and every `seed()` and `SEED` is kept.** Your tables hold their Partitions
+  already, so the Upgrade loads nothing, and sends nothing. A History table whose Table
+  reference has no `SEED`, as one converted before 8.10 whose write doesn't read itself, loads
+  the one month every History table is proposed, `{"months": 1}`, when its Seed runs, as in
+  prod after its next promote; to load others, add a `SEED` line above its Aliases, such as
+  `SEED = {"months": 3}`.
+- **Every Workflow notebook is written again**, each name you gave, each step cell you wrote
+  in and your answered decisions cell kept, the notebook as it was kept in `admin/removed/`:
+  their write steps run the Seed, new_table's first step and convert's decisions step add a
+  Table reference a table reads that you lack, and their text says no compare stops you.
+  Each converted table's `checklist.md` is written again, its kind among its Decisions.
+- **`admin/check_project.ipynb` connects**, with the connection your Workflow notebooks give,
+  and runs `project.check(query=query)`, which warns of each History table short of the days
+  its Seed loads. A Warning stops nothing.
+- **Your Scheduled runs keep their paths.** The Upgrade moves, renames, deletes and rewrites
+  nothing under `scheduled_runs/`.
+- **The Upgrade records the Lineage state**, as `project.upgrade()`, each change it finds
+  marked `toolbox`. It needs no `connect(...)` and sends nothing.
+
+### What's new
+
+- **Rebuilt and History tables.** Each table convert and new_table write has a kind, a
+  Decision proposed from its write: a Rebuilt table, which each write replaces whole, such as
+  a DROP and CREATE or an `INSERT OVERWRITE` with no `PARTITION`, or a History table, which
+  each write keeps, such as an `INSERT OVERWRITE ... PARTITION (dt = ...)` or an `INSERT
+  INTO`. Accept it with `"kind": "proposed"` in the decisions cell, or answer `"rebuilt"` or
+  `"history"`; a dynamic `PARTITION (dt)` gets no proposal.
+- **The Seed, widened.** Every History table loads its past rows once, before its first
+  write, in the step that writes it: copied from its original, or, for a table with none, by
+  running its own write as of each past day, oldest first, so each day writes the Partition
+  folder a scheduled write writes. `"seed": {"months": N}` limits it to the N calendar months
+  up to the newest Partition, proposed as 1; the value, range and list forms stay. Its report
+  lists each day not loaded, with the warehouse's error, and each with no rows, and a rerun
+  loads nothing twice. In prod, a table with no original copies the days you checked in dev.
+  `project.check(query=query)` warns while a History table lacks days its Seed loads. The
+  how-to "Load a History table's past days" shows it.
+- **Table references added for you.** new_table with `QUERIES`, `project.new_run_value(...)`
+  and the `"sources"` Decision add the Table reference of a table they read that has none,
+  from its DESCRIBE through your query, as convert does, saying what they added, where 8.9
+  sent you to the references Workflow first.
+- **Compares that never stop you.** A query alone with Script tags, Hivevars or Run values is
+  compared once each is filled with the value its dev table was written with; one whose value
+  only your program knows is listed as not compared, and why. No compare result stops the
+  batch, or promote: `compare.md` says each failed or skipped table first, in plain words, and
+  promote names each table it promotes that didn't pass, as promoting is your call.
+
+### Fixed
+
+- **SORT_ARRAY on sqlglot 30.24.0 and later.** sqlglot 30.24.0 merged its `SortArray` into
+  `ArraySort`, so every Conversion stopped with an error there. 8.10 reads both: `SORT_ARRAY(x,
+  TRUE)` loses its `TRUE`, `SORT_ARRAY(x, FALSE)` is kept as written with its finding, and
+  Spark's `ARRAY_SORT(x)` becomes `SORT_ARRAY(x)`, on 30.23.0 and on 30.34.0 alike, which CI
+  now tests too.
+
 ## 8.9
 
 8.9 converts an Excel workbook full of formulas, Power Query and PivotTables into Saved tables,

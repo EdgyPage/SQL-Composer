@@ -1,4 +1,4 @@
-# Copilot file 20: PivotTables into Hive (sqlglot Composer 8.9)
+# Copilot file 20: PivotTables into Hive (sqlglot Composer 8.10)
 
 **Use this file as reference while you follow file 15's steps: find each PivotTable part
 in Patterns, then write the Hive its rule gives.**

@@ -1978,6 +1978,16 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      marked `toolbox` in the `change` column of `admin/lineage/lineage_state.csv`, and the
      Lineage difference, written from `admin/lineage.ipynb`, shows it apart from your own
      changes.
+   - If your Project was at 8.9, the 8.10 Upgrade carries it to 8.10. Each Saved table's
+     Table reference gets its kind, a `KIND` line: `"rebuilt"` or `"history"`, proposed from
+     its write and written in as answered. Where nothing is proposed, as for a write that
+     fills `dt` from its rows' own values, it stays open, `KIND = None`, and
+     `admin/upgrade_8.10.md` names the table: answer `"kind"` for it in a decisions cell
+     before you promote it. No Seed runs and nothing is sent, since your tables hold their
+     Partitions already, and each `seed()` and `SEED` is kept. Each Workflow notebook is
+     written again, keeping each name you gave, each step cell you wrote in and your answered
+     decisions cell, and `admin/check_project.ipynb` connects and runs
+     `project.check(query=query)`, which warns of a History table short of its Seed's days.
    - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
      each `"database"` and `"location_root"` in place of its `<...>`, such as
      `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
