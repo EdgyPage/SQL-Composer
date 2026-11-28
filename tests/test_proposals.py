@@ -108,8 +108,10 @@ def test_check_names_each_proposed_line_left_until_it_is_accepted(converted: Pat
             in said)
     project.write_decisions({"all_tables": {"key": "proposed"}}, tables=BATCH)
     # Since 8.10 the Table references convert added from DESCRIBE have their lines proposed
-    # too, as the references Workflow proposes them: only the batch's are accepted here.
-    assert "references/mart_dev__" not in repr(project.check())
+    # too, as the references Workflow proposes them: only the batch's are accepted here. Each
+    # kind and Seed left open is named apart, by file alone, with no line (Toolbox 8.10).
+    assert not [line for line in repr(project.check()).split("\n")
+                if line.startswith("  references/mart_dev__") and ", line " in line]
 
 
 def test_one_proposed_key_is_not_offered_for_every_table() -> None:
