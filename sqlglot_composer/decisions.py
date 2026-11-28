@@ -1220,12 +1220,16 @@ def _answered_kind(line: str, kind: object) -> tuple[str | None, str]:
     return f'KIND = "{kind}"  # {ANSWERED_KIND}{found["what"]}', ANSWERS[TABLE_KIND]
 
 
-def kind_block(proposal: TableKind | None, why: str) -> list[str]:
+def kind_block(proposal: TableKind | None, why: str, *, answered: bool = False) -> list[str]:
     """The lines of a table's kind, as convert and new_table write it into its Table reference:
     the kind proposed from its write and why, or, with none, why nothing is, an open Decision
-    either way."""
+    either way. With `answered`, as project.upgrade() writes it for a table written before
+    8.10, a kind proposed is written in as answered; one with none stays open."""
     if proposal is None:
         return [*KIND_COMMENT, f"KIND = None  # TODO: {NOTHING_PROPOSED}: {why}"]
+    if answered:
+        return [*KIND_COMMENT,
+                f'KIND = "{proposal}"  # {ANSWERED_KIND}proposed {proposal}: {why}']
     return [*KIND_COMMENT, f'KIND = "{proposal}"  # TODO: proposed {proposal}: {why}']
 
 

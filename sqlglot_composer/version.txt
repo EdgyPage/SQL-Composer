@@ -1,1 +1,1 @@
-sqlglot Composer 8.9
+sqlglot Composer 8.10

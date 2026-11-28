@@ -2918,7 +2918,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.9.
+    Upgraded the Project from 7.1 to 8.10.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2931,10 +2931,12 @@ def upgrade() -> ProjectReport:
     8.7: nothing to change by hand. admin/upgrade_8.7.md lists what it did.
     8.8: nothing to change by hand. admin/upgrade_8.8.md lists what it did.
     8.9: nothing to change by hand. admin/upgrade_8.9.md lists what it did.
+    8.10: nothing to change by hand. admin/upgrade_8.10.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
         admin/upgrade_8.4.md, admin/upgrade_8.5.md, admin/upgrade_8.6.md,
-        admin/upgrade_8.7.md, admin/upgrade_8.8.md and admin/upgrade_8.9.md.
+        admin/upgrade_8.7.md, admin/upgrade_8.8.md, admin/upgrade_8.9.md and
+        admin/upgrade_8.10.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -5970,17 +5972,21 @@ def _nearest_or_all(name: str, names: list[str], what: str) -> str:
     return _nearest(name, names) or f"; its {what} are {in_words(names)}"
 
 
-def checklists_written_again(root: Path) -> dict[str, str]:
+def checklists_written_again(root: Path, note: str | None = None) -> dict[str, str]:
     """Each converted table's checklist.md, by its path in the Project, as this version writes
-    it, the view of its Decisions, its notes kept: each that differs from the file there, for an
-    Upgrade to write, keeping the file as it was."""
+    it, the view of its Decisions, its notes kept, and `note` added last to each that lacks it,
+    as 8.10's Upgrade adds the Seed's: each that differs from the file there, for an Upgrade
+    to write, keeping the file as it was."""
     texts = {}
     for checklist in sorted((root / "tables").glob(f"*/{CONVERSION}/{CHECKLIST}")):
         text = checklist.read_text(encoding="utf-8")
         table = _checklist_table(text)
         if table is None:
             continue
-        rewritten = _checklist_text(root, table, _notes_of(text), _decisions_notebook_of(text))
+        notes = _notes_of(text)
+        if note is not None and note not in notes:
+            notes.append(note)
+        rewritten = _checklist_text(root, table, notes, _decisions_notebook_of(text))
         if rewritten != text:
             texts[checklist.relative_to(root).as_posix()] = rewritten
     return texts
@@ -8885,19 +8891,28 @@ def _kind_block_of_logic(root: Path, name: str, call: str) -> list[str]:
     """The kind block of a table's Table reference, its kind proposed from what its logic's
     write() does to the rows already there, as project.convert proposes one from its write
     (Toolbox 8.10): its logic is run again, its Table reference just written from it, so its
-    write() builds on the columns that reference lists. Nothing is proposed where write()
+    write() builds on the columns that reference lists."""
+    return decisions.kind_block(*proposed_kind_of_logic(root, name, call))
+
+
+def proposed_kind_of_logic(root: Path, name: str, call: str
+                           ) -> tuple[decisions.TableKind | None, str]:
+    """The kind proposed for a Saved table from what its logic's write() does to the rows
+    already there, and why, as project.convert proposes one from its write (Toolbox 8.10), for
+    new_table's Table reference and for project.upgrade() to 8.10, a write() of several
+    Statements, as one per region, read as one script. Nothing is proposed where write()
     doesn't build yet, as before its location is answered."""
     try:
         # Its preview() said each warning already: building write() says none again.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             namespace = _logic_namespace(root, name, table_notebook(table_stem(name)), call)
-            hive = to_hive(namespace["write"]())
+            hive = ";\n".join(to_hive(each) for each in items_of(namespace["write"]()))
     # What stops write() is the logic's to mend, as its notebook's cells say.
     except (GuardRefused, LoadRefused, ValueError, TypeError):
-        return decisions.kind_block(None, "its write() doesn't build yet, so nothing says what "
-                                    "it does to the rows already there")
-    return decisions.kind_block(*converting.proposed_kind_of_hive(hive, name))
+        return None, ("its write() doesn't build yet, so nothing says what it does to the rows "
+                      "already there")
+    return converting.proposed_kind_of_hive(hive, name)
 
 
 def _preview_of(namespace: dict[str, object], name: str, call: str) -> Statement:

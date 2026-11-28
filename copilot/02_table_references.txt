@@ -1,4 +1,4 @@
-# Copilot file 02: Table references (sqlglot Composer 8.9)
+# Copilot file 02: Table references (sqlglot Composer 8.10)
 
 **Find the request in Patterns, copy the worked pattern it names, change only the tables,
 columns and values, then tick the Self-check. Add nothing the user didn't ask for.**
@@ -27,7 +27,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.9, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.10, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.

@@ -60,6 +60,10 @@ PRIVATE_SEAMS = {
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",
     # The Toolbox reaches these across its own files.
     ("project", "_hash"): "8.6's Upgrade step hashes a file as promote and convert record it",
+    ("project", "_reference_hash"): "8.10's Upgrade step hashes a prod Table reference as "
+    "promote records it",
+    ("project", "_dev_code_hash"): "8.10's Upgrade step hashes a dev table's code as promote "
+    "records it",
 }
 
 # Keywords of a public function nothing passes: empty since ticket 16 added

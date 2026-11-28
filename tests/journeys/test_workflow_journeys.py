@@ -1857,8 +1857,9 @@ def _check_no_todo_left(started: Started, table: str, key: str) -> None:
 
 
 # Each version whose Upgrade step marks nothing in any Project, as 8.9's writes the convert
-# notebook again and records: the upgrade journey starts before it, so its step 2 has marks.
-MARKS_NOTHING = ("8.9",)
+# notebook again and records, and 8.10's gives each table its kind, leaving one with none
+# proposed open, a Decision: the upgrade journey starts before them, so its step 2 has marks.
+MARKS_NOTHING = ("8.9", "8.10")
 
 @pytest.fixture
 def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
