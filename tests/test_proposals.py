@@ -107,7 +107,9 @@ def test_check_names_each_proposed_line_left_until_it_is_accepted(converted: Pat
     assert (f"  references/mart_dev__daily_close_mart.py, line 12: {PROPOSED_LINE.strip()}"
             in said)
     project.write_decisions({"all_tables": {"key": "proposed"}}, tables=BATCH)
-    assert "Proposed by the Toolbox" not in repr(project.check())
+    # Since 8.10 the Table references convert added from DESCRIBE have their lines proposed
+    # too, as the references Workflow proposes them: only the batch's are accepted here.
+    assert "references/mart_dev__" not in repr(project.check())
 
 
 def test_one_proposed_key_is_not_offered_for_every_table() -> None:

@@ -1900,6 +1900,41 @@ def test_8_10_writes_each_kind_proposed_as_answered_and_names_each_left_open(
         decisions.TABLE_KIND]
 
 
+def test_8_10_asks_each_history_table_with_no_seed_for_its_seed_limit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    # Ticket 05's story 14: a History table is always asked about its Seed. One written before
+    # 8.10 has no SEED, so the Upgrade asks for it, proposed as every History table's is, an
+    # open Decision; it runs no Seed, as the table holds its Partitions already.
+    decisions = toolbox_module("decisions")
+    copy = _copy_of_8_9(tmp_path, "intermediate")
+    sent_before = (copy / "admin" / "sent.csv").read_bytes()
+    # A converted table answered History by hand before the Upgrade, so its checklist asks too.
+    converted = copy / "references" / "mart__team_failures.py"
+    converted.write_text(converted.read_text(encoding="utf-8")
+                         + '\nKIND = "history"  # answered, nothing proposed: mine\n',
+                         encoding="utf-8")
+    _upgraded(copy, monkeypatch)
+    asked = ('SEED = {"months": 1}  # TODO: proposed: every History table\'s Seed is proposed '
+             "the month up to its newest Partition, and project.upgrade() reads no Partitions "
+             "to check it")
+    for table in ("mart.budget_overruns", "mart.team_failures"):
+        reference = copy / "references" / f"{table.replace('.', '__')}.py"
+        text = reference.read_text(encoding="utf-8")
+        assert [line for line in text.split("\n") if line.startswith("SEED = ")] == [asked]
+        (seed,) = decisions.open_decisions(text, table, (decisions.SEED_LIMIT,))
+        assert seed.proposal == '{"months": 1}'
+        assert (f"- asked {table}'s Seed in references/{table.replace('.', '__')}.py: "
+                in _checklist_8_10(copy))
+    checklist = (copy / "tables" / "mart__team_failures" / "conversion" / "checklist.md"
+                 ).read_text(encoding="utf-8")
+    assert 'seed: which past rows its Seed loads, proposed {"months": 1}, as ' in checklist
+    # A Rebuilt table, a kind left open and a SEED there already are left as they were.
+    for rebuilt in ("mart__job_notes", "mart__team_days"):
+        assert "SEED" not in (copy / "references" / f"{rebuilt}.py").read_text(
+            encoding="utf-8")
+    assert (copy / "admin" / "sent.csv").read_bytes() == sent_before
+
+
 def test_8_10_keeps_a_seed_and_a_kind_already_there_and_goes_on_past_a_logic_that_stops(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
     copy = _copy_of_8_9(tmp_path)

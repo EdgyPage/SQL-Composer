@@ -413,6 +413,29 @@ def test_new_table_from_a_query_adds_the_table_reference_of_a_source_with_none(
     assert "created references/ops__job_runs.py" in log
 
 
+def test_a_dry_run_shows_the_describe_of_a_reference_it_would_add_and_writes_nothing(
+        started: Path) -> None:
+    # Toolbox 8.10, ticket 02's story 13: a dry run shows the DESCRIBE that would be sent and
+    # writes nothing, neither the Table reference nor what the step makes after it.
+    typed(started, "new_table", "TABLES = []", [f"{DEV}.failed_jobs"])
+    typed(started, "new_table", "QUERIES = {}", {"failed_jobs": QUERY})
+    asked = []
+
+    def query(hive: str) -> object:
+        asked.append(hive)
+        return example_database.query(hive)
+
+    said = repr(project.run_workflow("new_table", query=query, dry_run=True))
+    assert "would send: DESCRIBE ops.job_runs" in said
+    assert ("would add references/ops__job_runs.py, each from its DESCRIBE, then run this "
+            "step: a dry run writes neither") in said
+    assert not [hive for hive in asked if hive.startswith("DESCRIBE")]
+    assert not (started / "references" / "ops__job_runs.py").exists()
+    assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
+    # Run for real, it adds the reference and goes on.
+    assert "Added references/ops__job_runs.py" in run("new_table")
+
+
 def test_new_table_from_a_query_keeps_a_table_reference_there_already(started: Path) -> None:
     project.add_references(["ops.job_runs"], query=example_database.query)
     reference = started / "references" / "ops__job_runs.py"

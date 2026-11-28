@@ -800,6 +800,24 @@ def new_table(name: str | list[str], template: str = "saved_table",
     return _report_once_recorded(ProjectReport([*added, *report.lines]), "new_table", name)
 
 
+def references_new_table_adds(names: str | list[str], queries: dict[str, str]) -> list[str]:
+    """Each table a query of `queries` reads that has no Table reference, which new_table
+    adds from its DESCRIBE before it makes anything, refusing first what new_table refuses:
+    for project.run_workflow's dry run, which says the DESCRIBE it would send and writes
+    nothing (Toolbox 8.10, ticket 02)."""
+    return _refuse_queries_it_cant_make(names, queries)
+
+
+def references_write_decisions_adds(answers: dict[str, object]) -> list[str]:
+    """Each table a "sources" answer of `answers` gives that has no Table reference, which
+    write_decisions adds from its DESCRIBE before it writes any answer: for
+    project.run_workflow's dry run, which writes nothing (Toolbox 8.10, ticket 02)."""
+    root = _project_root("project.write_decisions(...)")
+    by_table = {table: answer for table, answer in answers.items() if isinstance(answer, dict)}
+    return [table for table in _sources_given(by_table)
+            if not REFERENCE.path(root, table_stem(table)).is_file()]
+
+
 def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> list[str]:
     """Refuse queries= before any table is made: one naming a table the names don't, names
     sharing one table's name, a table outside the Dev Database, or Hive that isn't one query.
@@ -2586,7 +2604,10 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
       and write Table references;
     - each step that changes only files, such as promote's first, which writes the prod Table
       folders, up to the first step that would send. After that, such a step is named with its
-      call, "would run: ...", and not run.
+      call, "would run: ...", and not run. One that would add a Table reference for you, as
+      new_table's first step does for a table its query reads, or convert's answers step for
+      a "sources" answer, isn't run either: it says the DESCRIBE it would send, and writes
+      nothing.
 
     So a dry run of a new batch converts it and writes each answer of the decisions cell in; it
     stops, as a run does, at a Decision still open. Run one before you send anything for the
@@ -3182,6 +3203,10 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     Converted failed_runs: 1 script, 1 statement, into 1 Saved table in mart_dev:
     mart_dev.failed_runs.
     Added Table references, from DESCRIBE: references/ops__job_runs.py.
+    ops.job_runs: its Key proposed, (run_id), checked with check_key:
+      ops.job_runs: the key (run_id) holds where job_runs.dt IN ('2026-09-23',
+      '2026-09-24').
+    To accept it, write in the decisions cell: "ops.job_runs": {"key": ["run_id"]}
     admin/workflows/convert/failed_runs/batch.md lists each statement, in the order they run,
     and what it became.
     Next: answer each table's open Decisions in the decisions cell of
@@ -3413,6 +3438,9 @@ class _BatchFiles:
         # Each Table reference written from a workbook source's own columns, a Table's or a
         # plain range's, which DESCRIBE couldn't give.
         self.source_references: list[str] = []
+        # What it proposed for each Table reference it added from DESCRIBE (Toolbox 8.10):
+        # its Key, to accept, as the references Workflow proposes one.
+        self.proposals: list[str] = []
         # The Workbook check of each workbook it read (ticket 09), which batch.md and the
         # report end with.
         self.workbook_checks: list[WorkbookCheck] = []
@@ -3569,6 +3597,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
         )
     added, skipped = _write_missing_references(call, root, ordered, names, query)
     files = _BatchFiles(root, index, overwrite, made_for, workbooks)
+    files.proposals = _write_proposals_of_added(root, ordered, names, added, query)
     files.source_references = _write_source_references(root, files.workbooks, skipped)
     skipped += _finals_not_converted(files.workbooks.every_final())
     made, created_only = [], []
@@ -3907,15 +3936,34 @@ def _write_missing_references(call: str, root: Path,
                               ) -> tuple[list[str], list[str]]:
     """Write a Table reference, from DESCRIBE, for each table the batch reads as it was that
     has none: the files written, and each table skipped, with why."""
-    read = []
-    for each in ordered:
-        in_dev = converting.names_by_then(ordered, each, names)
-        read += [table for table in each.reads if table not in in_dev]
-    missing = [table for table in dict.fromkeys(read)
+    missing = [table for table in _tables_read_as_they_were(ordered, names)
                if not REFERENCE.path(root, REFERENCE.stem(table)).exists()]
     if not missing:
         return [], []
     return _write_references_from_describe(call, root, missing, query)
+
+
+def _write_proposals_of_added(root: Path, ordered: list[converting.BatchStatement],
+                              names: dict[str, str], added: list[str],
+                              query: Callable[[str], pd.DataFrame] | None) -> list[str]:
+    """Write into each Table reference convert added, `added`, by its file, the Key proposed
+    for it, as the references Workflow proposes one (Toolbox 8.10, ticket 02): what it says
+    of each, as _write_proposals says it."""
+    tables = [table for table in _tables_read_as_they_were(ordered, names)
+              if REFERENCE.shown(REFERENCE.stem(table)) in added]
+    if not tables:
+        return []
+    return _write_proposals(root, tables, query)
+
+
+def _tables_read_as_they_were(ordered: list[converting.BatchStatement],
+                              names: dict[str, str]) -> list[str]:
+    """Each table the batch reads as it was, not its own copy in dev, by its name, once."""
+    read = []
+    for each in ordered:
+        in_dev = converting.names_by_then(ordered, each, names)
+        read += [table for table in each.reads if table not in in_dev]
+    return list(dict.fromkeys(read))
 
 
 def database_settings(name: str) -> dict[str, str]:
@@ -4981,6 +5029,7 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                      f"it: {in_words(created_only)}.")
     if added:
         lines.append(f"Added Table references, from DESCRIBE: {in_words(added)}.")
+        lines += files.proposals
     if files.fresh:
         lines.append("Kept as you changed them, a fresh copy of each written for you to "
                      f"compare: {in_words(files.fresh)}.")
@@ -9216,14 +9265,14 @@ def seed_tables(tables: str | list[str], *, query: Callable[[str], pd.DataFrame]
     its write as of each day of the months up to today. A prod copy copies its dev copy's
     Original, or, where that has none, the dev copy, within the same SEED.
 
-    It prints nothing itself: its report says what each table's Seed loaded, each day not
-    loaded, with the warehouse's error, and each that wrote no rows, "no rows", its empty
-    Partition kept. A day that fails doesn't stop it. Each Statement is sent through your
-    execute, with an entry in the Admin log; with no execute it sends nothing, and the report
-    shows each Statement it would send, a dry run. A table seeded before 8.10 keeps its seed(),
-    sent as it was.
+    It prints nothing itself: its report says what each table's Seed loaded, each day loaded,
+    each run of days in a row as one range, each day not loaded, with the warehouse's error,
+    and each that wrote no rows, "no rows", its empty Partition kept. A day that fails
+    doesn't stop it. Each Statement is sent through your execute, with an entry in the Admin
+    log; with no execute it sends nothing, and the report shows each Statement it would send,
+    a dry run. A table seeded before 8.10 keeps its seed(), sent as it was.
     """
-    call = "project.seed_tables(...)"
+    call = seeding.SEED_ACTION
     root = _project_root(call)
     need_warehouse_call(call, "query", query, "It reads what each table holds, and the "
                         "Partitions of what it copies or reads, through your query.")

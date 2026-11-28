@@ -74,6 +74,21 @@ def test_months_count_back_calendar_months_both_ends_included() -> None:
     assert seeding.months_before(datetime.date(2026, 1, 15), 1) == datetime.date(2025, 12, 15)
 
 
+def test_the_months_form_is_one_range_from_the_newest_value() -> None:
+    # The Seed's copy, the days it runs a write for, and check()'s count all take it from here.
+    assert seeding.months_range(["20260911", "20260924", "20260913"], 1) == {
+        "from": "20260824", "to": "20260924"}
+    assert seeding.months_range(["2026-03-31"], 1) == {"from": "2026-02-28", "to": "2026-03-31"}
+
+
+def test_a_report_writes_each_run_of_days_in_a_row_as_one_range() -> None:
+    assert seeding.days_in_words(["2026-09-11", "2026-09-12", "2026-09-13", "2026-09-15",
+                                  "2026-09-17", "2026-09-18"]) == (
+        "from 2026-09-11 to 2026-09-13, 2026-09-15 and from 2026-09-17 to 2026-09-18")
+    assert seeding.days_in_words(["20260930", "20261001"]) == "from 20260930 to 20261001"
+    assert seeding.days_in_words(["2026-09-24"]) == "2026-09-24"
+
+
 def test_a_months_limit_counts_back_from_the_newest_partition(started: Path) -> None:
     table = _convert(started, _copy_into(
         "job_events", "t.event_id, t.job_id, t.event_type, t.minutes, t.dt", "dt"))

@@ -67,6 +67,7 @@ on its KIND line, and a History table its SEED line:
 ...         if line.startswith(("KIND = ", "SEED = ")):
 ...             print(f"{path.stem}: {line}")
 mart__budget_overruns: KIND = "history"  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+mart__budget_overruns: SEED = {"months": 1}  # TODO: proposed: every History table's Seed is proposed the month up to its newest Partition, and project.upgrade() reads no Partitions to check it
 mart__job_day_costs: KIND = None  # TODO: nothing proposed: its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some
 mart__job_day_facts: KIND = "history"  # answered, nothing proposed: its INSERT OVERWRITE fills dt from its rows' own values, PARTITION (dt), so it may replace every Partition or only some
 mart__job_day_facts: SEED = {"months": 1}
@@ -87,6 +88,8 @@ What each line says:
 - A write that fills its Partitions from its rows' own values, PARTITION (dt), may replace
   every Partition or only some, so nothing is proposed. mart.job_day_facts writes its last 3
   days that way and keeps the rest: it was answered "history", with a SEED of one month.
+- mart.budget_overruns was written before 8.10, so it had no SEED: `project.upgrade()` asked
+  for one, proposed as one month, still open, `# TODO: proposed`, until you answer "seed".
 
 Done when you can tell an answered KIND from an open one. Then step 3.
 
@@ -272,19 +275,22 @@ calls; at work you run that cell:
     project.run_tables(tables=["mart.job_day_events"], execute=execute)
 
 The Example database can't be written to, so this page sends neither. At work, the report
-starts with the line step 6 shows, then says what was loaded, such as
-`Seeded mart.job_day_events: 30 days loaded of 32.`, then a line for each day that wasn't:
+starts with the line step 6 shows, then says how many days were loaded and which, each run
+of days in a row as one range, such as `Seeded mart.job_day_events: 30 days loaded of 32, dt
+from 2026-08-24 to 2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to
+2026-09-24.`, then a line for each day that wasn't:
 
 - a day the warehouse refused, with the first line of its error, such as
   `dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: ...`;
 - a day that wrote no rows, its empty Partition kept, such as
-  `dt = 2026-09-15: no rows, its empty Partition kept`.
+  `dt = 2026-09-15: no rows, its empty Partition kept`, or a run of such days in a row, as
+  `dt from 2026-08-24 to 2026-08-30: no rows, each empty Partition kept`.
 
 A day that fails doesn't stop the rest. The Seed runs only while the table holds no
 Partition, so the step run again loads nothing twice: it says
 `mart.job_day_events: no Seed: it holds rows already, so it was seeded, or written, before.`
 
-Done when the report says how many days were loaded. Then step 8.
+Done when the report names the days loaded. Then step 8.
 
 ### 8. Check the days it holds
 
@@ -314,7 +320,7 @@ Before you go on, check that:
 - references/mart__job_day_events.py says `KIND = "history"  # answered, ...` and
   `SEED = {"months": 1}`;
 - the Seed's first line, step 6's, names dt from 2026-08-24 to 2026-09-24;
-- at work, the Seed's report says how many days were loaded, and names each day not loaded;
+- at work, the Seed's report names the days loaded, and each day not loaded;
 - at work, `project.check(query=query)` gives no Warning for the table, or you have written
   each day it names.
 

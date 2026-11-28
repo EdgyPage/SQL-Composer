@@ -322,7 +322,7 @@ class Decision:
         if self.kind == TABLE_KIND:
             return kind_question(self.subject, self.where)
         if self.kind == SEED_LIMIT:
-            return seed_question(self.where)
+            return seed_question(self.where, self.proposal)
         return (f"sources: {self.subject}, proposed as the database table {self.where} "
                 'samples: keep it with "proposed", or answer the table it samples')
 
@@ -345,14 +345,29 @@ def kind_question(proposal: str, why: str) -> str:
     return f"kind: Rebuilt or History table, nothing proposed, as {why}: answer {answer}"
 
 
-def seed_question(why: str) -> str:
+def seed_question(why: str, proposal: str = "") -> str:
     """What an open seed limit asks, as check() names it: which past rows a History table's
-    Seed loads, nothing proposed, saying why (Toolbox 8.10). `why` is its SEED line's comment
-    after "nothing proposed: "."""
+    Seed loads, saying why nothing was proposed, or, as project.upgrade() asks it of a table
+    written before 8.10, the limit proposed, as Python, and why (Toolbox 8.10). `why` is its
+    SEED line's comment after "nothing proposed: " or "proposed: "."""
+    forms = ('by partition column, a value, that value or later, such as {"dt": '
+             '"2026-09-01"}, a range {"from": ..., "to": ...} or a list, or {} for every '
+             "Partition")
+    if proposal:
+        return (f"seed: which past rows its Seed loads, proposed {proposal}, as {why}: "
+                f"answer it to accept it, or answer {forms}")
     return ("seed: which past rows its Seed loads, if it is a History table, nothing "
-            f"proposed, as {why}: answer by partition column, a value, that value or later, "
-            'such as {"dt": "2026-09-01"}, a range {"from": ..., "to": ...} or a list, or {} '
-            "for every Partition")
+            f"proposed, as {why}: answer {forms}")
+
+
+def seed_proposal(line: str) -> str:
+    """The seed limits an open SEED line proposes, as Python, such as '{"months": 1}', as
+    project.upgrade() writes one for a History table that had none; "" for one with nothing
+    proposed, or one made."""
+    found = SEED_LINE.match(line)
+    if found is None or not is_open(line) or not (found["what"] or "").startswith("proposed"):
+        return ""
+    return found["value"]
 
 
 def _kind_words(kind: str) -> str:
@@ -554,6 +569,13 @@ def seed_block(proposal: dict[str, object] | None, why: str) -> list[str]:
     if proposal is None:
         return [*SEED_COMMENT, f"SEED = {{}}  # TODO: {NOTHING_PROPOSED}: {why}"]
     return [*SEED_COMMENT, f"SEED = {seed_python(proposal)}  # proposed: {why}"]
+
+
+def asked_seed_block(proposal: dict[str, object], why: str) -> list[str]:
+    """The lines of a table's seed limits as project.upgrade() to 8.10 writes them for a
+    History table written before 8.10 that has none: `proposal` proposed, and why, an open
+    Decision still, to accept or answer in the decisions cell. `why` holds no brace."""
+    return [*SEED_COMMENT, f"SEED = {seed_python(proposal)}  # TODO: proposed: {why}"]
 
 
 def _without_seed_block(text: str) -> str:
@@ -819,6 +841,8 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
                                             tag_set_up(line))
             if kind == KEY and PROPOSED_FROM_QUERY_AGAIN in line:
                 where = KEY_FROM_QUERY
+            if kind == SEED_LIMIT:
+                proposal = seed_proposal(line)
             still_open.append(Decision(table, kind, _subject_of(kind, line), where, quoted,
                                        proposal, set_up))
     return still_open
@@ -1441,7 +1465,7 @@ def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
         return (TAG, decision.subject, decision.quoted)
     if decision.kind == TABLE_KIND and not decision.subject:
         return (TABLE_KIND, "", False)
-    if decision.kind == SEED_LIMIT:
+    if decision.kind == SEED_LIMIT and not decision.proposal:
         return (SEED_LIMIT, "", False)
     return None
 
@@ -1553,10 +1577,15 @@ def _kind_lines(kinds: list[Decision]) -> list[str]:
 
 
 def _seed_lines(seeds: list[Decision]) -> list[str]:
-    """The line of one table's "seed" in DECISIONS to paste, for its open seed limit:
-    <FILL IN>, saying why nothing was proposed and how an answer is written."""
+    """The line of one table's "seed" in DECISIONS to paste, for its open seed limit: its
+    proposal, where project.upgrade() proposed one, to keep or change; else <FILL IN>, saying
+    why nothing was proposed and how an answer is written."""
     if not seeds:
         return []
+    if seeds[0].proposal:
+        return [f'        "{SEED}": {seeds[0].proposal},  # proposed, as {seeds[0].where}: '
+                'keep it to accept it, or write another, such as {"dt": {"from": '
+                '"2026-09-01"}}']
     return [f'        "{SEED}": "{FILL_IN}",  # nothing proposed, as {seeds[0].where}: by '
             'partition column, such as {"dt": {"from": "2026-09-01"}}, or {} for every '
             'Partition; none for a "rebuilt" kind']

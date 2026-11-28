@@ -5961,7 +5961,7 @@ def __dir__() -&gt; list[str]:
     return list(_TABLES)
 </pre></details></section>
 <section class="file"><h3 id="intermediate/references/mart__budget_overruns.py"><code>references/mart__budget_overruns.py</code></h3>
-<details><summary>Show its 53 lines</summary><pre>&quot;&quot;&quot;mart.budget_overruns - one row per job and region: its budget and days over it.
+<details><summary>Show its 60 lines</summary><pre>&quot;&quot;&quot;mart.budget_overruns - one row per job and region: its budget and days over it.
 
 Why: its notebook saves, for each region, how often each job&#x27;s daily cost went over its
 budget there, so whoever pays for a region reads its own Partition without adding up every
@@ -6002,6 +6002,13 @@ budget_overruns = Table(
 # day&#x27;s Partition, so the table needs its past rows loaded first, its Seed. Answer
 # &quot;kind&quot; in the decisions cell: &quot;proposed&quot; accepts the kind proposed below.
 KIND = &quot;history&quot;  # answered, proposed history: its INSERT OVERWRITE replaces one Partition, keeping the others
+
+# The Seed: if this is a History table, the past rows loaded once, before its first
+# write. Answer &quot;seed&quot; in the decisions cell: {&quot;months&quot;: 1} loads the month up to the
+# newest Partition, by the partition column whose every value is a date; or, by
+# partition column, a value, that value or later, a range {&quot;from&quot;: ..., &quot;to&quot;: ...}, or a
+# list, those values alone; {} loads every Partition. A Rebuilt table has no Seed.
+SEED = {&quot;months&quot;: 1}  # TODO: proposed: every History table&#x27;s Seed is proposed the month up to its newest Partition, and project.upgrade() reads no Partitions to check it
 
 # --- Aliases ------------------------------------------------------------------------------
 # Your own names for this table&#x27;s columns and conditions, written by hand below.

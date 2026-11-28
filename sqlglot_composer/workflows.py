@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import decisions
-from .project_files import SCHEDULED_RUN, table_stem
+from .project_files import REFERENCE, SCHEDULED_RUN, table_stem
 from .run_values import hivevar
 from .shared import escaped_literal, in_words, split_table_name
 from .unchecked import SENT
@@ -485,8 +485,27 @@ def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
 def write_the_batch_decisions(inputs: dict[str, object], calls: Calls) -> list[str]:
     """Convert's step that writes each answer, as write_the_decisions does, given your query,
     which writes the Table reference of a table a "sources" answer gives that has none
-    (Toolbox 8.10). It reads DESCRIBE only, and writes files, so a dry run runs it too."""
+    (Toolbox 8.10). It writes files only, so a dry run runs it too, but where it would add a
+    Table reference: then a dry run says the DESCRIBE it would send, and writes nothing."""
+    from . import project  # project.py imports this file
+
+    if calls.dry_run:
+        answers = inputs.get(DECISIONS)
+        missing = project.references_write_decisions_adds(
+            answers if isinstance(answers, dict) else {})
+        if missing:
+            return say_references_would_be_added(missing, calls)
     return write_the_decisions_through(inputs, calls.query).lines
+
+
+def say_references_would_be_added(missing: list[str], calls: Calls) -> list[str]:
+    """What a dry run of a step that would add the Table reference of each of `missing` says,
+    in place of running it: the DESCRIBE it would send for each through your query, and that
+    it writes nothing, so the file steps after it are only named."""
+    files = [REFERENCE.shown(table_stem(table)) for table in missing]
+    lines = calls.say_would_send([f"would send: DESCRIBE {table}" for table in missing])
+    return [*lines, f"would add {in_words(files)}, each from its DESCRIBE, then run this step: "
+            "a dry run writes neither"]
 
 
 def write_the_decisions_through(inputs: dict[str, object],
@@ -1097,9 +1116,15 @@ def make_table_folders(inputs: dict[str, object]) -> ProjectReport:
 def make_table_folders_reading(inputs: dict[str, object], calls: Calls) -> list[str]:
     """project.new_table, as make_table_folders runs it, given your query, which writes the
     Table reference of a table a query of QUERIES reads that has none (Toolbox 8.10). It
-    reads DESCRIBE only, and writes files, so a dry run runs it too."""
+    writes files only, so a dry run runs it too, but where it would add a Table reference:
+    then a dry run says the DESCRIBE it would send, and writes nothing."""
     from . import project  # project.py imports this file
 
+    if calls.dry_run:
+        missing = project.references_new_table_adds(names_in(inputs, "TABLES"),
+                                                     queries_given(inputs))
+        if missing:
+            return say_references_would_be_added(missing, calls)
     return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs),
                              query=calls.query).lines
 

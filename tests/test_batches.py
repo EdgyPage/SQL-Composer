@@ -139,6 +139,15 @@ def test_each_table_the_batch_creates_is_a_saved_table_in_dev(started: Path,
     assert not (started / "references" / "mart_dev__job_runs_ops.py").exists()
 
 
+def test_a_table_reference_convert_adds_has_its_key_proposed(started: Path, batch: str) -> None:
+    # Toolbox 8.10, ticket 02: every reference added for you has its Key proposed, to accept,
+    # as the references Workflow proposes one; convert's own too.
+    added = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
+    (key_line,) = [line for line in added.split("\n") if line.strip().startswith("key=")]
+    assert key_line.startswith('    key=None,  # TODO: proposed ["run_id"], checked')
+    assert '"""ops.job_runs - One row per run_id."""' in added
+
+
 def test_a_statement_that_reads_a_created_table_reads_its_dev_copy(started: Path,
                                                                     batch: str) -> None:
     fails = logic(started, "mart_dev.fails_per_job_ops_reports")

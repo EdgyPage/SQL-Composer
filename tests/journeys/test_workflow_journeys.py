@@ -1346,12 +1346,17 @@ def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
     journey.type_names(TABLES=[table], QUERIES={"job_counts": JOB_COUNTS},
                        DECISIONS={"all_tables": {"kind": "proposed"}})
     sent = list(started.warehouse.executed)
+    # A dry run shows the DESCRIBE of the reference it would add, and writes nothing (ticket
+    # 02's story 13), so the steps after it, which read what it writes, are only named.
     dry_run = journey.run_workflow(dry_run=True)
-    assert "would send: CREATE" in dry_run
+    assert "would send: DESCRIBE ops.job_runs" in dry_run
     assert started.warehouse.executed == sent, "a dry run sent something"
+    assert not (started.root / "references" / "ops__job_runs.py").exists()
+    assert not (started.root / "tables" / "mart_dev__job_counts").exists()
+    said = journey.run_workflow()
     assert ("Added references/ops__job_runs.py: ops.job_runs had no Table reference, so it "
-            "was written from its DESCRIBE.") in dry_run
-    assert "new_table: every step is done." in journey.run_workflow()
+            "was written from its DESCRIBE.") in said
+    assert "new_table: every step is done." in said
     _check_made_from_its_query(started, table)
     _promote_through_the_runner(started, [table])
 
@@ -1465,7 +1470,8 @@ def test_convert_a_daily_load_seeds_its_month_through_the_runner(started: Starte
     assert not _seeds_sent(started.warehouse, DAILY_EVENTS), "a dry run sent a Seed"
     said = journey.run_workflow()
     assert "convert, weekly: every step is done." in said
-    assert (f"Seeded {DAILY_EVENTS}: 14 Partitions loaded, dt from 2026-08-24 to 2026-09-24."
+    # The days it holds, as loaded, a run of days written as one range.
+    assert (f"Seeded {DAILY_EVENTS}: 14 Partitions loaded, dt from 2026-09-11 to 2026-09-24."
             in said)
     assert _sorted_rows(started.warehouse, DAILY_EVENTS) == _sorted_rows(started.warehouse,
                                                                          "mart.daily_events")
@@ -1574,11 +1580,15 @@ def test_new_table_runs_its_write_as_of_each_past_day(started: Started,
     _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, loaded)
     assert (f"{NEW_DAILY_EVENTS}: its Seed, its write run as of each day, oldest first, dt "
             "from 2026-08-24 to 2026-09-24:") in printed
-    assert f"Seeded {NEW_DAILY_EVENTS}: 12 days loaded of 32." in printed
+    # Each day loaded is listed, each run of days in a row as one range.
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 12 days loaded of 32, dt from 2026-09-11 to "
+            "2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to 2026-09-24."
+            in printed)
     assert ("  dt = 2026-09-20: not loaded: Error while compiling statement: FAILED: a file of "
             "ops.job_events dt=2026-09-20 can't be read") in printed
     assert "  dt = 2026-09-15: no rows, its empty Partition kept" in printed
-    assert "  dt = 2026-08-24: no rows, its empty Partition kept" in printed
+    assert "  dt from 2026-08-24 to 2026-09-10: no rows, each empty Partition kept" in printed
+    assert "  dt = 2026-08-24: no rows" not in printed
     # Each run was the write's own Hive, its today alone written in, date_sub as the Toolbox
     # writes it.
     runs = [hive for hive in started.warehouse.executed
@@ -1618,7 +1628,8 @@ def test_new_table_runs_its_write_as_of_each_past_day_through_the_runner(
     assert f"would send: INSERT OVERWRITE TABLE {NEW_DAILY_EVENTS}" in dry_run
     said = journey.run_workflow()
     assert "new_table: every step is done." in said
-    assert f"Seeded {NEW_DAILY_EVENTS}: 14 days loaded of 32." in said
+    assert (f"Seeded {NEW_DAILY_EVENTS}: 14 days loaded of 32, dt from 2026-09-11 to "
+            "2026-09-24." in said)
     _check_each_day_written(started.warehouse, NEW_DAILY_EVENTS, EVENT_DAYS)
     # Promoted, prod's Partitions are dev's.
     prod = _promote_through_the_runner(started, [NEW_DAILY_EVENTS])[0]

@@ -499,8 +499,9 @@ def test_a_pivot_filter_kept_is_checked_as_today(started: Path) -> None:
 
 
 def test_the_check_never_calls_query(started: Path) -> None:
-    """Every Hive convert sends to query is a DESCRIBE; the check reads no warehouse, and the
-    offline trap every test runs under refuses any lookup off this computer."""
+    """Every Hive convert sends to query is a DESCRIBE, or, since 8.10, a read of a table whose
+    Table reference it added, proposing its Key; the check reads no warehouse, and the offline
+    trap every test runs under refuses any lookup off this computer."""
     sent = []
 
     def query(hive: str) -> object:
@@ -511,4 +512,7 @@ def test_the_check_never_calls_query(started: Path) -> None:
     report = repr(project.convert("book", files=["runs.xlsx"], query=query, database="ops"))
     assert "The Workbook check of runs.xlsx ran " in report
     assert sent
-    assert all(hive.lstrip().upper().startswith("DESCRIBE") for hive in sent), sent
+    described = [hive.split()[-1] for hive in sent
+                 if hive.lstrip().upper().startswith("DESCRIBE")]
+    assert described
+    assert all(any(table in hive for table in described) for hive in sent), sent

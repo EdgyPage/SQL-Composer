@@ -25,10 +25,11 @@ Toolbox works on sqlglot 30.24.0 and later.
   promote refuses a table whose kind is open.
 - **No Seed runs, and every `seed()` and `SEED` is kept.** Your tables hold their Partitions
   already, so the Upgrade loads nothing, and sends nothing. A History table whose Table
-  reference has no `SEED`, as one converted before 8.10 whose write doesn't read itself, loads
-  the one month every History table is proposed, `{"months": 1}`, when its Seed runs, as in
-  prod after its next promote; to load others, add a `SEED` line above its Aliases, such as
-  `SEED = {"months": 3}`.
+  reference has no `SEED`, as one converted before 8.10 whose write doesn't read itself, is
+  asked for one: its `SEED` is an open Decision, proposed as `{"months": 1}`, the month up to
+  the newest Partition, and `admin/upgrade_8.10.md` names the table. Answer `"seed"` for it in
+  a decisions cell before you promote it, as promote waits on it: the decisions cell
+  `project.check()` prints holds the proposal, to keep or change.
 - **Every Workflow notebook is written again**, each name you gave, each step cell you wrote
   in and your answered decisions cell kept, the notebook as it was kept in `admin/removed/`:
   their write steps run the Seed, new_table's first step and convert's decisions step add a
@@ -55,14 +56,17 @@ Toolbox works on sqlglot 30.24.0 and later.
   running its own write as of each past day, oldest first, so each day writes the Partition
   folder a scheduled write writes. `"seed": {"months": N}` limits it to the N calendar months
   up to the newest Partition, proposed as 1; the value, range and list forms stay. Its report
-  lists each day not loaded, with the warehouse's error, and each with no rows, and a rerun
+  lists the days loaded, each run of days in a row as one range, each day not loaded, with
+  the warehouse's error, and each with no rows, and a rerun
   loads nothing twice. In prod, a table with no original copies the days you checked in dev.
   `project.check(query=query)` warns while a History table lacks days its Seed loads. The
   how-to "Load a History table's past days" shows it.
 - **Table references added for you.** new_table with `QUERIES`, `project.new_run_value(...)`
   and the `"sources"` Decision add the Table reference of a table they read that has none,
   from its DESCRIBE through your query, as convert does, saying what they added, where 8.9
-  sent you to the references Workflow first.
+  sent you to the references Workflow first. Each has its Key proposed, to accept, convert's
+  too; a dry run of `project.run_workflow` says the DESCRIBE it would send, and writes
+  nothing.
 - **Compares that never stop you.** A query alone with Script tags, Hivevars or Run values is
   compared once each is filled with the value its dev table was written with; one whose value
   only your program knows is listed as not compared, and why. No compare result stops the

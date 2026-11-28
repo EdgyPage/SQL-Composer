@@ -42,7 +42,7 @@ from .describe import printed_answer
 from .project_files import REFERENCE, table_stem
 from .refusals import callers_frame
 from .run_values import HIVE_DEFAULT_PARTITION, listed_text
-from .shared import counted, in_words, singular_or_plural
+from .shared import counted, in_words, number_read_from, singular_or_plural
 from .tables import Table, type_family
 from .unchecked import (
     SessionSettings,
@@ -62,31 +62,37 @@ if TYPE_CHECKING:  # project.py imports this file, so its names are for the hint
     from .project import TableLogic
 
 
+# The Project action that sends a Seed, as each refusal and line of the Admin log names it.
+SEED_ACTION = "project.seed_tables(...)"
+
+
 @dataclass
 class SeedRun:
     """What one table's Seed needs and says: the table, its Table reference, your query and
-    execute (None for a dry run, which sends nothing), its report's lines so far, and the
-    Project action it runs in, which check() reads it from too."""
+    execute (None for a dry run, which sends nothing), the Project action it runs in,
+    SEED_ACTION, or CHECK_ACTION for check(), which reads its days too, and its report's
+    lines so far."""
 
     name: str
     table: Table
     query: Callable[[str], pd.DataFrame]
     execute: Callable[[str], None] | None
+    action: str
     lines: list[str] = field(default_factory=list)
-    action: str = "project.seed_tables(...)"
 
     @property
     def call(self) -> str:
         """The call each line of the Admin log, and each refusal, names for this Seed."""
         return f"{self.action} of {self.name}"
 
-    def send(self, hive: str, said: str) -> None:
+    def send(self, hive: str, heading: str) -> None:
         """Send one Statement of the Seed through your execute, its Admin log entry headed
-        `said`, and record it in admin/sent.csv; in a dry run, say it would send it."""
+        `heading`, such as "Seed", and record it in admin/sent.csv; in a dry run, say it would
+        send it."""
         if self.execute is None:
             self.lines += [f"would send: {line}" for line in hive.split("\n")]
             return
-        logged_run(said, self.call, hive, self.execute)
+        logged_run(heading, self.call, hive, self.execute)
         record_sent(SEED_SENT, hive, callers_frame())
 
     def send_settings(self, settings: SessionSettings) -> None:
@@ -117,17 +123,22 @@ def listed_partitions(query: Callable[[str], pd.DataFrame], name: str,
     return found
 
 
+def column_values(listed: list[dict[str, str]], column: str) -> list[str]:
+    """Each value of a partition column that `listed`, as listed_partitions gives them, holds,
+    in its order, Hive's Partition for no value passed over."""
+    return [partition[column] for partition in listed
+            if partition.get(column) not in (None, HIVE_DEFAULT_PARTITION)]
+
+
 def date_partitions(listed: list[dict[str, str]]) -> list[str]:
     """Each partition column whose every value `listed` gives reads as a date, 2026-09-24 or
     20260924, Hive's Partition for no value passed over; none when nothing is listed."""
     named: list[str] = []
     for partition in listed:
         named += list(partition)
-    columns = list(dict.fromkeys(named))
     found = []
-    for column in columns:
-        values = [partition.get(column, "") for partition in listed
-                  if partition.get(column) != HIVE_DEFAULT_PARTITION]
+    for column in dict.fromkeys(named):
+        values = column_values(listed, column)
         if values and all(day_written(value) is not None for value in values):
             found.append(column)
     return found
@@ -150,6 +161,37 @@ def written_like(day: datetime.date, like: str) -> str:
     return day.isoformat()
 
 
+def months_range(values: list[str], months: int) -> dict[str, str]:
+    """The months form, {"months": N}, as the range it loads on a column of dates whose values
+    are `values`: from N calendar months before the newest of them to that newest, both ends
+    included, each written as the newest is, such as {"from": "20260824", "to": "20260924"}.
+    The Seed's copy, the days it runs a write for, and check()'s count of the days it loads
+    each take it from here."""
+    newest = max(values, key=day_written)
+    start = months_before(day_written(newest), months)
+    return {"from": written_like(start, newest), "to": newest}
+
+
+def days_in_words(days: list[str]) -> str:
+    """Days, oldest first, as a report lists them: each run of days in a row as one range,
+    "from 2026-09-11 to 2026-09-14", a day alone as it is, in a list, such as "from
+    2026-09-11 to 2026-09-13, 2026-09-15 and from 2026-09-17 to 2026-09-18"."""
+    return in_words([run[0] if len(run) == 1 else f"from {run[0]} to {run[-1]}"
+                     for run in day_runs(days)])
+
+
+def day_runs(days: list[str]) -> list[list[str]]:
+    """Days, oldest first, as their runs of days in a row: ["2026-09-11", "2026-09-12",
+    "2026-09-15"] as [["2026-09-11", "2026-09-12"], ["2026-09-15"]]."""
+    runs: list[list[str]] = []
+    for day in days:
+        if runs and day_written(day) - day_written(runs[-1][-1]) == datetime.timedelta(days=1):
+            runs[-1].append(day)
+        else:
+            runs.append([day])
+    return runs
+
+
 def proposed_seed(query: Callable[[str], pd.DataFrame] | None, sources: list[str],
                   partitions: list[str], original: bool
                   ) -> tuple[dict[str, object] | None, str]:
@@ -168,15 +210,23 @@ def proposed_seed(query: Callable[[str], pd.DataFrame] | None, sources: list[str
     found, why = date_source(query, sources, "a seed limit's proposal")
     if found is None:
         return None, why
-    source, column, _ = found
-    return dict(decisions.PROPOSED_MONTHS), f"{column} holds dates in {source}"
+    return dict(decisions.PROPOSED_MONTHS), f"{found.column} holds dates in {found.table}"
+
+
+@dataclass(frozen=True)
+class ColumnOfDates:
+    """A table's partition column whose every value is a date: the table, by its name, the
+    column, and each of its values, as SHOW PARTITIONS lists them, such as "20260924"."""
+
+    table: str
+    column: str
+    values: list[str]
 
 
 def date_source(query: Callable[[str], pd.DataFrame], sources: list[str], call: str
-                ) -> tuple[tuple[str, str, list[str]] | None, str]:
-    """The first of `sources` with a column of dates: its name, the column, and each of its
-    values, as SHOW PARTITIONS lists them; or None, and why none is. A table that can't be
-    read, or isn't partitioned, is passed over."""
+                ) -> tuple[ColumnOfDates | None, str]:
+    """The column of dates of the first of `sources` that has one; or None, and why none is.
+    A table that can't be read, or isn't partitioned, is passed over."""
     why = f"no partition column of {in_words(sources) or 'what it reads'} holds dates alone"
     unread = []
     for source in sources:
@@ -193,9 +243,7 @@ def date_source(query: Callable[[str], pd.DataFrame], sources: list[str], call: 
         if len(columns) > 1:
             return None, f"{in_words(columns)} each hold dates alone in {source}"
         if columns:
-            values = [partition[columns[0]] for partition in listed
-                      if partition.get(columns[0]) not in (None, HIVE_DEFAULT_PARTITION)]
-            return (source, columns[0], values), ""
+            return ColumnOfDates(source, columns[0], column_values(listed, columns[0])), ""
         if not listed:
             why = f"{source} holds no Partition yet, so nothing says which column holds dates"
     return None, why
@@ -218,32 +266,33 @@ def seed_lines(root: Path, name: str, query: Callable[[str], pd.DataFrame],
     old_seed = hasattr(logic, "seed") and kind != decisions.TableKind.REBUILT
     if kind != decisions.TableKind.HISTORY and not old_seed:
         return [f"{name}: no Seed, as {_why_no_seed(kind)}."]
-    run = SeedRun(name, project.table_reference(name), query, execute)
+    run = SeedRun(name, project.table_reference(name), query, execute, SEED_ACTION)
     if _holds_rows(run):
         return [f"{name}: no Seed: it holds rows already, so it was seeded, or written, "
                 "before."]
     if old_seed:
-        return _old_seed_sent(run, logic)
+        return _send_old_seed(run, logic)
     if decisions.open_decisions(text, name, (decisions.SEED_LIMIT,)):
         return [f"{name}: no Seed: its SEED is still open. Answer \"seed\" in the decisions "
                 "cell, write the answers in, and run this step again."]
-    no_seed_line = []
+    first_lines = []
     limits = dict(decisions.PROPOSED_MONTHS)
     if decisions.seed_partitions(text) is None:
-        no_seed_line = [_no_seed_line_said(name, limits)]
+        first_lines = [_proposed_month_line(name, limits)]
     else:
         limits = project.run_logic(root, f"from references.{table_stem(name)} import SEED",
                                    "seed_limits")["SEED"]
-    source, said = source_to_copy(root, name)
+    source, described = source_to_copy(root, name)
     if source is not None:
-        return [*no_seed_line, *_copied(run, source, said, dict(limits))]
-    return [*no_seed_line, *_run_as_of_each_day(run, logic, dict(limits))]
+        return [*first_lines, *_send_copy(run, source, described, dict(limits))]
+    return [*first_lines, *_run_as_of_each_day(run, logic, dict(limits))]
 
 
-def _no_seed_line_said(name: str, limits: dict[str, object]) -> str:
-    """What the Seed of a History table whose Table reference has no SEED says first, as a
-    table converted before 8.10 whose write doesn't read itself has none: it loads the limit
-    every History table's Seed is proposed, one month."""
+def _proposed_month_line(name: str, limits: dict[str, object]) -> str:
+    """The line the Seed of a History table whose Table reference has no SEED starts with, as
+    a table converted before 8.10 whose write doesn't read itself has none until
+    project.upgrade() asks for it: it loads the limit every History table's Seed is proposed,
+    one month."""
     return (f"{name}: its Table reference has no SEED, as a table converted before 8.10 whose "
             "write doesn't read itself has none, so its Seed loads the limit proposed for "
             f"every History table, {decisions.seed_python(limits)}. To load others, add a "
@@ -272,9 +321,9 @@ def _holds_rows(run: SeedRun) -> bool:
         raise
 
 
-def _old_seed_sent(run: SeedRun, logic: TableLogic) -> list[str]:
-    """The seed() a table converted before 8.10 has in its logic, sent as it was, after the
-    Session setting its Partitions need."""
+def _send_old_seed(run: SeedRun, logic: TableLogic) -> list[str]:
+    """Send the seed() a table converted before 8.10 has in its logic, as it was, after the
+    Session setting its Partitions need: the lines saying so."""
     from .running import to_hive  # running imports what imports this
 
     run.lines.append(f"{run.name}: its Seed, its seed() as converted before 8.10:")
@@ -318,13 +367,15 @@ def _original_in_records(root: Path, table: str) -> str | None:
 # --- A Seed copied from an Original ----------------------------------------------------------
 
 
-def _copied(run: SeedRun, source: str, said: str, limits: dict[str, object]) -> list[str]:
-    """A Seed copied from `source`, what `said` says it is, limited by `limits`, the months
-    form worked out from its newest Partition: the lines saying what was loaded."""
+def _send_copy(run: SeedRun, source: str, described: str,
+               limits: dict[str, object]) -> list[str]:
+    """Send a Seed copied from `source`, which `described` names to the table, such as
+    "mart.x, its Original", limited by `limits`, the months form worked out from its newest
+    Partition: the lines saying what was loaded."""
     resolved, why = _with_months_worked_out(run, source, limits)
     if resolved is None:
         return [f"{run.name}: no Seed: {why}."]
-    run.lines.append(f"{run.name}: its Seed, copied from {said}:")
+    run.lines.append(f"{run.name}: its Seed, copied from {described}:")
     if run.table._partitioned_by:
         run.send_settings(hive_settings("dynamic_partitions"))
     try:
@@ -334,7 +385,7 @@ def _copied(run: SeedRun, source: str, said: str, limits: dict[str, object]) -> 
         run.lines.append(f"  Not loaded: {_error_first_line(error)}")
         return run.lines
     if run.execute is not None:
-        run.lines.append(_loaded_line(run, source, resolved))
+        run.lines.append(_loaded_line(run, source))
     return run.lines
 
 
@@ -351,25 +402,22 @@ def _with_months_worked_out(run: SeedRun, source: str, limits: dict[str, object]
     if found is None:
         return None, (f"its SEED's months form needs a partition column whose every value is "
                       f"a date, and {why}")
-    _, column, values = found
-    newest = max(values, key=day_written)
-    start = months_before(day_written(newest), int(months))
-    return {**limits, column: {"from": written_like(start, newest), "to": newest}}, ""
+    return {**limits, found.column: months_range(found.values, int(months))}, ""
 
 
-def _loaded_line(run: SeedRun, source: str, limits: dict[str, object]) -> str:
-    """What a copied Seed loaded: its Partitions, read back through your query, or every row
-    of a table with none."""
+def _loaded_line(run: SeedRun, source: str) -> str:
+    """What a copied Seed loaded, read back through your query: how many Partitions, and each
+    day of its column of dates they hold, a run of days in a row as one range; or every row of
+    `source`, for a table with no Partitions."""
     if not run.table._partitioned_by:
         return f"Seeded {run.name}: every row of {source}."
-    limited = [f"{column} from {limit['from']} to {limit['to']}"
-               for column, limit in limits.items() if isinstance(limit, dict)
-               and {"from", "to"} <= set(limit)]
     loaded = listed_partitions(run.query, run.name, run.call)
-    said = f"Seeded {run.name}: {counted(len(loaded), 'Partition')} loaded"
-    if limited:
-        said += f", {in_words(limited)}"
-    return said + "."
+    line = f"Seeded {run.name}: {counted(len(loaded), 'Partition')} loaded"
+    columns = date_partitions(loaded)
+    if len(columns) == 1:
+        days = sorted(set(column_values(loaded, columns[0])), key=day_written)
+        line += f", {columns[0]} {days_in_words(days)}"
+    return line + "."
 
 
 def _error_first_line(error: Exception) -> str:
@@ -408,7 +456,7 @@ def _run_as_of_each_day(run: SeedRun, logic: TableLogic, limits: dict[str, objec
     _send_settings(run, logic)
     failed = {}
     for written in days.written:
-        failed.update(_one_day_sent(run, written, days))
+        failed.update(_send_one_day(run, written, days))
     if run.execute is None:
         return run.lines
     return run.lines + _days_report(run, days, failed)
@@ -417,26 +465,25 @@ def _run_as_of_each_day(run: SeedRun, logic: TableLogic, limits: dict[str, objec
 def _days_to_run(run: SeedRun, limits: dict[str, object]) -> tuple[DaysToRun | None, str]:
     """The days `limits` picks for a Seed run as of each day, and how far after each its run is
     run as of; None, and why, where there are none to run."""
-    hive, reads = _write_as_of(run.name, today())
-    if not _reads_today(run.name, hive):
+    as_of_today = _write_as_of(run, today())
+    if not _reads_today(run, as_of_today):
         return None, ("its write reads no today, CURRENT_DATE or a Run value of today(), so "
                       "each day's run would write the same rows: its first write loads them")
     if not run.table._partitioned_by:
         return _days_up_to_today(limits)
-    found, why = date_source(run.query, [each for each in reads if each != run.name], run.call)
+    found, why = date_source(run.query, [each for each in as_of_today.reads
+                                         if each != run.name], run.call)
     if found is None:
         return None, f"nothing says which days to run its write for: {why}"
-    source, column, values = found
-    target = _target_column(run.table, column)
+    target = _target_column(run.table, found.column)
     if target is None:
         return None, (f"none of its partition columns, {in_words(run.table._partitioned_by)},"
-                      f" is {column}, the partition column of dates of {source}")
-    newest = max(values, key=day_written)
-    written = _days_limited(limits, target, newest, values)
+                      f" is {found.column}, the partition column of dates of {found.table}")
+    written = _days_limited(limits, target, found.values)
     if not written:
         return None, f"its SEED, {decisions.seed_python(limits)}, picks no day to run"
-    as_of = day_written(newest)
-    day = day_on_column(_write_as_of(run.name, as_of)[0], column)
+    as_of = day_written(max(found.values, key=day_written))
+    day = day_on_column(_write_as_of(run, as_of).hive, found.column)
     days_after = 0 if day is None else (as_of - day).days
     return DaysToRun(written, target, days_after), ""
 
@@ -465,31 +512,30 @@ def _target_column(table: Table, column: str) -> str | None:
     return None
 
 
-def _days_limited(limits: dict[str, object], column: str, newest: str,
-                  values: list[str]) -> list[str]:
-    """Each day a Seed run as of each day writes, oldest first, written as `newest` is: the
-    months form's, counted back from `newest`; a value's, from it to `newest`; a range's; a
-    list's; or, with no limit on `column`, each day the source holds."""
-    newest_day = day_written(newest)
+def _days_limited(limits: dict[str, object], column: str, values: list[str]) -> list[str]:
+    """Each day a Seed run as of each day writes, oldest first, written as the newest of
+    `values`, its source's days, is: the months form's, counted back from that newest; a
+    value's, from it to the newest; a range's; a list's; or, with no limit on `column`, each
+    day the source holds."""
+    newest = max(values, key=day_written)
     limit = limits.get(column)
     if decisions.MONTHS in limits:
-        start, end = months_before(newest_day, int(limits[decisions.MONTHS])), newest_day
-    elif isinstance(limit, dict):
-        start = day_written(str(limit.get("from", min(values, key=day_written))))
-        end = day_written(str(limit.get("to", newest)))
-    elif isinstance(limit, (list, tuple)):
-        return sorted(str(each) for each in limit)
-    elif limit is not None:
-        start, end = day_written(str(limit)), newest_day
-    else:
+        limit = months_range(values, int(limits[decisions.MONTHS]))
+    if limit is None:
         return sorted(set(values), key=day_written)
+    if isinstance(limit, (list, tuple)):
+        return sorted(_limit_text(each) for each in limit)
+    if not isinstance(limit, dict):
+        limit = {"from": limit}
+    start = day_written(_limit_text(limit.get("from", min(values, key=day_written))))
+    end = day_written(_limit_text(limit.get("to", newest)))
     if start is None or end is None:
         return []
     return [written_like(start + datetime.timedelta(days=each), newest)
             for each in range((end - start).days + 1)]
 
 
-def _writes_as_of(name: str, day: datetime.date
+def _writes_as_of(run: SeedRun, day: datetime.date
                   ) -> list[Statement | UncheckedStatement]:
     """What a table's write() gives as of `day`, its logic run again while today() gives that
     day, so a Run value its logic works out at its top, as a Template's READS does, is worked
@@ -497,37 +543,45 @@ def _writes_as_of(name: str, day: datetime.date
     from . import project  # project.py imports this file
 
     with run_as_of(day):
-        logic = project.load(name)
-        return [write for write in project.writes_of(name, logic, "project.seed_tables(...)")
+        logic = project.load(run.name)
+        return [write for write in project.writes_of(run.name, logic, run.action)
                 if kinds.kind(write) != kinds.PYTHON]
 
 
-def _write_as_of(name: str, day: datetime.date) -> tuple[str, list[str]]:
-    """The Hive of a table's write() as of `day`, its CURRENT_DATE written as that day, and
-    each table it reads, by its name."""
+@dataclass(frozen=True)
+class WriteAsOf:
+    """A table's write() as of one day: its Hive, each CURRENT_DATE in it written as that day;
+    whether its Hive held a CURRENT_DATE; and each table it reads, by its name."""
+
+    hive: str
+    holds_current_date: bool
+    reads: list[str]
+
+
+def _write_as_of(run: SeedRun, day: datetime.date) -> WriteAsOf:
+    """A table's write() as of `day`, its logic loaded once for it."""
     from .running import tables_read_by, to_hive  # running imports what imports this
 
-    hive, reads = [], []
-    for write in _writes_as_of(name, day):
-        hive.append(with_today(to_hive(write), day))
+    hive, reads, holds_current_date = [], [], False
+    for write in _writes_as_of(run, day):
+        raw = to_hive(write)
+        hive.append(with_today(raw, day))
+        holds_current_date = holds_current_date or hive[-1] != raw
         if kinds.kind(write) == kinds.UNCHECKED:
             reads += [table for table, how in tables_read_and_written(write._text)
                       if how == "reads"]
         else:
             reads += [table._name for table in tables_read_by(write)]
-    return "\n;\n".join(hive), list(dict.fromkeys(reads))
+    return WriteAsOf("\n;\n".join(hive), holds_current_date, list(dict.fromkeys(reads)))
 
 
-def _reads_today(name: str, hive: str) -> bool:
-    """Whether a table's write reads today: its Hive, `hive` as of today, holds CURRENT_DATE,
-    or it differs from its Hive as of the day before, as a Run value of today()'s makes it."""
-    from .running import to_hive  # running imports what imports this
-
-    day = today()
-    raw = [to_hive(write) for write in _writes_as_of(name, day)]
-    if any(with_today(each, day) != each for each in raw):
+def _reads_today(run: SeedRun, as_of_today: WriteAsOf) -> bool:
+    """Whether a table's write reads today: its write as of today, `as_of_today`, held
+    CURRENT_DATE, or its Hive differs from its Hive as of the day before, as a Run value of
+    today()'s makes it."""
+    if as_of_today.holds_current_date:
         return True
-    return hive != _write_as_of(name, day - datetime.timedelta(days=1))[0]
+    return as_of_today.hive != _write_as_of(run, today() - datetime.timedelta(days=1)).hive
 
 
 def with_today(hive: str, day: datetime.date) -> str:
@@ -553,14 +607,14 @@ def _send_settings(run: SeedRun, logic: TableLogic) -> None:
         run.send_settings(logic.session_settings())
 
 
-def _one_day_sent(run: SeedRun, written: str, days: DaysToRun) -> dict[str, str]:
+def _send_one_day(run: SeedRun, written: str, days: DaysToRun) -> dict[str, str]:
     """Run a table's write as of the day after `written`, by `days.days_after`, sending each
     Statement it gives: nothing, or the day and the warehouse's error where it failed."""
     from .running import hivevar_values, refuse_failed_run_values, statement_tree, to_hive
 
     as_of = day_written(written) + datetime.timedelta(days=days.days_after)
     try:
-        for write in _writes_as_of(run.name, as_of):
+        for write in _writes_as_of(run, as_of):
             if kinds.is_a_query(write):
                 refuse_failed_run_values(statement_tree(write))
             hive = with_today(_hivevars_written(to_hive(write), hivevar_values(write)), as_of)
@@ -582,20 +636,31 @@ def _hivevars_written(hive: str, values: dict[str, str]) -> str:
 
 
 def _days_report(run: SeedRun, days: DaysToRun, failed: dict[str, str]) -> list[str]:
-    """What a Seed run as of each day says once each day has run: how many days loaded, each
-    day not loaded with the warehouse's error, and each that wrote no rows, its empty Partition
-    kept."""
+    """What a Seed run as of each day says once each day has run: how many days loaded, and
+    which, each day not loaded with the warehouse's error, and each that wrote no rows, its
+    empty Partition kept; a run of days in a row, loaded or with no rows, as one range, so a
+    month of days reads in a line."""
     counts = {}
     if days.column is not None:
         counts = _rows_by_day(run, days.column, days.written)
     no_rows = [day for day in days.written if day not in failed and days.column is not None
                and not counts.get(day)]
-    loaded = len(days.written) - len(failed) - len(no_rows)
-    lines = [f"Seeded {run.name}: {counted(loaded, 'day')} loaded of "
-             f"{len(days.written)}."]
+    loaded = [day for day in days.written if day not in failed and day not in no_rows]
+    line = f"Seeded {run.name}: {counted(len(loaded), 'day')} loaded of {len(days.written)}"
+    if loaded:
+        which = days_in_words(loaded)
+        if days.column is not None:
+            which = f"{days.column} {which}"
+        line += f", {which}"
+    lines = [line + "."]
     lines += [f"  {days.column} = {day}: not loaded: {error}" for day, error in failed.items()]
-    lines += [f"  {days.column} = {day}: no rows, its empty Partition kept"
-              for day in no_rows]
+    for run_of_days in day_runs(no_rows):
+        if len(run_of_days) == 1:
+            lines.append(f"  {days.column} = {run_of_days[0]}: no rows, its empty Partition "
+                         "kept")
+        else:
+            lines.append(f"  {days.column} from {run_of_days[0]} to {run_of_days[-1]}: no "
+                         "rows, each empty Partition kept")
     return lines
 
 
@@ -627,7 +692,7 @@ def missing_days_lines(root: Path, names: list[str],
     your query couldn't read, with what it said. It blocks nothing. A table never written is
     passed over, as its Seed runs at its first write, and so is one whose days can't be told:
     no partition column of dates, or a write that reads no today."""
-    warnings, unread, query_said = [], [], ""
+    warnings, unread, query_error = [], [], ""
     for name in names:
         run = _history_table_to_check(root, name, query)
         if run is None:
@@ -638,7 +703,7 @@ def missing_days_lines(root: Path, names: list[str],
         # said once, below the Warnings: check() goes on, as it blocks nothing.
         except Exception as error:  # noqa: BLE001
             unread.append(name)
-            query_said = query_said or _error_first_line(error).removeprefix(
+            query_error = query_error or _error_first_line(error).removeprefix(
                 "What happened:").strip()
             continue
         if warning:
@@ -647,7 +712,7 @@ def missing_days_lines(root: Path, names: list[str],
         its = singular_or_plural(len(unread), "its", "their")
         warnings.append(f"Not checked for the days {its} Seed loads: {in_words(unread)}, as "
                         f"your query couldn't read {its} Partitions. Your query said: "
-                        f"{query_said}")
+                        f"{query_error}")
     return warnings
 
 
@@ -675,7 +740,7 @@ def _history_table_to_check(root: Path, name: str, query: Callable[[str], pd.Dat
         return None
     if not table._partitioned_by:
         return None
-    return SeedRun(name, table, query, None, action=CHECK_ACTION)
+    return SeedRun(name, table, query, None, CHECK_ACTION)
 
 
 def _missing_days_warning(root: Path, run: SeedRun) -> str | None:
@@ -735,13 +800,10 @@ def _days_copied_from(run: SeedRun, source: str, limits: dict[str, object]
     if len(columns) != 1 or columns[0] not in run.table._partitioned_by:
         return None
     column = columns[0]
-    values = [partition[column] for partition in listed
-              if partition.get(column) not in (None, HIVE_DEFAULT_PARTITION)]
+    values = column_values(listed, column)
     months = limits.pop(decisions.MONTHS, None)
     if months is not None:
-        newest = max(values, key=day_written)
-        start = months_before(day_written(newest), int(months))
-        limits[column] = {"from": written_like(start, newest), "to": newest}
+        limits[column] = months_range(values, int(months))
     days = set()
     for partition in listed:
         if partition.get(column) not in values:
@@ -771,22 +833,29 @@ def _is_kept_by(value: str | None, limit: object) -> bool:
 def _ordering(value: str, limit: object) -> int:
     """-1, 0 or 1 as `value` comes before `limit`, is the same, or comes after: as days where
     both are, 20260924 the same as 2026-09-24; as numbers where both are; else as text."""
-    if callable(limit):
-        limit = limit()
-    if isinstance(limit, datetime.date):
-        limit = limit.isoformat()
-    one, other = _comparable(value), _comparable(str(limit))
+    limit_text = _limit_text(limit)
+    one, other = _comparable(value), _comparable(limit_text)
     if type(one) is not type(other):
-        one, other = value, str(limit)
+        one, other = value, limit_text
     return (one > other) - (one < other)
 
 
+def _limit_text(limit: object) -> str:
+    """One value of a seed limit as SHOW PARTITIONS would list it: a Run value's function
+    called first, as seed_copy calls it, and a date written 2026-09-24."""
+    if callable(limit):
+        limit = limit()
+    if isinstance(limit, datetime.date):
+        return limit.isoformat()
+    return str(limit)
+
+
 def _comparable(text: str) -> datetime.date | float | str:
-    """A value as it is put in order: a day, a number, or text."""
+    """A value as it is put in order: a day, the number Hive reads it as, or text."""
     day = day_written(text.strip())
     if day is not None:
         return day
-    try:
-        return float(text)
-    except ValueError:
+    number = number_read_from(text)
+    if number is None:
         return text
+    return number

@@ -124,3 +124,82 @@ Built 2026-11-27.
   lines and refusals; the checklist's Seed note; the write steps' Goal and Action in all three
   Workflows, the decision step's "run steps 3, 5 and 6 again", PARTITIONS' "step 6"; the
   Seed's report; the docstrings of `seed_tables` and `reference_from_logic`; how-to 09.
+
+## Review
+
+The code review of the 8.10 branch (2026-11-27), its findings by number, each fixed or
+answered:
+
+1. **Fixed.** `seeding._comparable` reads a number with `shared.number_read_from`, the
+   standard's one function for it.
+2. **Fixed.** `_copied`, `_old_seed_sent` and `_one_day_sent` are `_send_copy`,
+   `_send_old_seed` and `_send_one_day`; `_no_seed_line_said` is `_proposed_month_line`, for
+   the line it returns; `SeedRun.send`'s `said` is `heading`, and the other `said` names in
+   seeding.py say what they hold (`described`, `line`, `query_error`).
+3. **Fixed.** `seeding.months_range(values, months)` is the months form as a range; the copy
+   (`_with_months_worked_out`), the days a write runs for (`_days_limited`) and check()'s
+   count (`_days_copied_from`) each take it, and
+   `test_the_months_form_is_one_range_from_the_newest_value` holds it.
+4. **Fixed.** `seeding.column_values(listed, column)` is the one filter of a column's values,
+   Hive's Partition for no value passed over, in `date_partitions`, `date_source` and
+   `_days_copied_from`.
+5. **Fixed in part, answered in part.** `date_source` gives a `ColumnOfDates` (table, column,
+   values), and a write as of a day is a `WriteAsOf` (hive, holds_current_date, reads), so no
+   triple travels. The seed limits stay `dict[str, object]`: they are the user's SEED as
+   given, any mix of a value, a range, a list or a Run value's function by partition column,
+   which `unchecked.seed_copy`, a function a user calls, takes and checks with its own
+   refusals. `decisions.py` has no type for them, and a class per form would be converted to
+   and from the user's dict at each of three readers, machinery to study for no rule it
+   holds ("Type hints": `object` for the user's value as given). The probes are fewer:
+   `_loaded_line` no longer reads the limits, as it lists the days the table holds (finding
+   8), and `_days_limited` and `_ordering` share `_limit_text`, which also calls a Run
+   value's function in a value or range, as seed_copy does.
+6. **Fixed, cheaply.** `SeedRun.action` has no default: `seeding.SEED_ACTION` is the one text
+   of the action, given by `seed_lines` and used by `project.seed_tables` and each
+   `writes_of(...)` refusal, and check() passes its `CHECK_ACTION`, so a refusal under check()
+   names check(), not seed_tables.
+7. **Fixed, cheaply.** `_write_as_of` gives a `WriteAsOf` that says whether its Hive held
+   CURRENT_DATE, so `_reads_today` loads the logic once more (as of yesterday) instead of
+   twice: three loads to find the days to run, not four.
+8. **Fixed.** A Seed run as of each day says `Seeded mart.x: 12 days loaded of 32, dt from
+   2026-09-11 to 2026-09-14, from 2026-09-16 to 2026-09-19 and from 2026-09-21 to
+   2026-09-24.`; a copied one, `Seeded mart.x: 14 Partitions loaded, dt from 2026-09-11 to
+   2026-09-24.`, the days its table holds once copied (before, the limit's ends). The choice:
+   every run of days in a row is written as one range, a day alone as it is
+   (`seeding.days_in_words`), and the "no rows" days the same, `dt from 2026-08-24 to
+   2026-09-10: no rows, each empty Partition kept`, so a month reads in a line; each day not
+   loaded keeps a line of its own, for its error. A copy with no column of dates still says
+   only its count of Partitions. How-to 34 and `seed_tables`' docstring say so; the journeys
+   hold it.
+9. **Fixed.** Copilot source 06 is 8.9's again, `project.load` restored to its names (still a
+   public name), with R11 one line: `Kind (file 14): "history" if a write keeps the rows
+   there, else "rebuilt".` 8.9's text plus that line comes to 9,110 characters, so three of
+   8.10's cuts stay, to fit (8,819): the Objective's two lines, R10's shorter wording and W2's
+   heading. Source 15's cut is left. The Copilot files are written again.
+10. **Answered: nothing to fix.** At sqlglot 30.34.0, `ARRAY_SORT(x)` read as Hive, as the
+    Toolbox reads every script, is an `ArraySort` with no `nulls_first` at all, and sqlglot
+    writes it `SORT_ARRAY(x)` with no unsupported message (checked at
+    `unsupported_level=RAISE`): its sentence about NULLs first comes only for a sort read as
+    Spark, which the Toolbox never does, or for `SORT_ARRAY(x, FALSE)`, which the converter
+    writes as text with 8.7's own finding. So clearing `nulls_first` hides no sentence; it
+    clears only what Hive's own `SORT_ARRAY` reads with. Story 6 can't be met without a
+    finding of the Toolbox's own, which the user ruled out ("only plan for sqlglot");
+    `test_array_sort_becomes_sort_array_as_sqlglot_writes_it` holds the same findings as
+    `SORT_ARRAY(x)`'s. `tests/test_converting.py` passes at 30.23.0 and 30.34.0 (134 each).
+11. **Fixed.** `to_8_10` asks each History table with no SEED and no seed() for its Seed
+    (`upgrades._ask_seed_limit`): `SEED = {"months": 1}  # TODO: proposed: ...`, an open
+    Decision proposed as one month (`decisions.asked_seed_block`), above its Aliases, named in
+    the upgrade note ("asked mart.x's Seed in ..."), and, for a converted table, in its
+    checklist, where it asks `seed: which past rows its Seed loads, proposed {"months": 1},
+    as ...: answer it to accept it, ...`; the decisions cell to paste holds the proposal.
+    Promote waits on it; no Seed runs, and no seed() or SEED line changes. The intermediate
+    Example project's mart.budget_overruns holds it, as the Upgrade writes it. The fallback to
+    one month when a SEED is still missing at run time stays, with its line.
+12. **Fixed, both.** A dry run of `project.run_workflow` no longer runs a step that would add
+    a Table reference (new_table's first step, convert's answers step): it says `would send:
+    DESCRIBE ops.x` and the file it would add, sends no DESCRIBE and writes nothing, so the
+    file steps after it are only named, as the spec's story 13 asks
+    (`project.references_new_table_adds`, `project.references_write_decisions_adds`, neither
+    a public name). convert's own added references have their Key proposed, as the references
+    Workflow and the three places propose one (`_write_proposals_of_added`), and its report
+    says each.

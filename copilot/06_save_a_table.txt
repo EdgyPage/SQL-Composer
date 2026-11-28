@@ -23,8 +23,8 @@ the user saves rows into their own table, a day of it or more, or writes a logic
 
 ## Terms
 
-- **Saved table**: a table of the user's that a Statement writes, described by its Table
-  reference (file 02).
+- **Saved table**: a table of the user's that a Statement writes; its Table reference (file
+  02) lists its columns, Partitions, Key and location.
 - **Partition**: the rows sharing one value of each partition column. **Key**: the columns
   whose values name one row.
 - **Table notebook**: tables/<db>__<table>/<db>__<table>.ipynb; its **logic cell**, first
@@ -40,27 +40,25 @@ the user saves rows into their own table, a day of it or more, or writes a logic
   there: INSERT_INTO; a rerun adds them twice.
 - **R3** One named Partition: `INSERT_OVERWRITE(t, partition={"dt": day})`, its column left
   out of SELECT.
-- **R4** A table with a Key gets one row per Key, by GROUP_BY over it or SELECT_DISTINCT,
-  or the write is refused. `unproven_key=True` only if the user says why.
+- **R4** A table with a Key gets one row per Key, by GROUP_BY over the Key or
+  SELECT_DISTINCT, or the write is refused. `unproven_key=True` only if the user says why.
 - **R5** The logic cell has W2's shape, `PARTITIONED_BY = []` for none, and calls no
   run_query or run_execute.
-- **R6** Asked for `rows(day)`: rows takes `day`, its read `equals(t.dt, day)`, under a
-  constant `DAY = "2026-09-24"`; `preview()` is `statement(*rows(DAY))`, `write()`
-  `statement(INSERT_OVERWRITE(t), *rows(DAY))`.
+- **R6** Asked for `rows(day)`: rows takes `day` and bounds its read with
+  `equals(t.dt, day)`; a constant `DAY = "2026-09-24"` sits above; `preview()` returns
+  `statement(*rows(DAY))` and `write()` `statement(INSERT_OVERWRITE(t), *rows(DAY))`.
 - **R7** Several days a run, or a Scheduled run's period (file 18):
   `rows(first_day, last_day)` bounds its read with `between(...)`;
   `write_days(first_day, last_day)` is `statement(INSERT_OVERWRITE(t), *rows(first_day,
   last_day))`; `write()` takes nothing and returns `write_days(...)` with its own days.
-- **R8** Sent by hand: `run_execute(create(), execute)`, then
+- **R8** Sent by hand: `run_execute(create(), execute)` once, then
   `run_execute(hive_settings("dynamic_partitions"), execute)`, then
   `run_execute(write(), execute)`.
 - **R9** Otherwise the next cell runs `show_hive([create(), write()])` and
   `run_query(preview(), query)`; `project.run_tables(execute=execute)` sends the writes.
 - **R10** `project.new_table(...)` (file 14) makes the notebook; its `export_hive()` cell
   writes its .hql beside it.
-- **R11** Its kind is a Decision (file 14): `"kind": "history"` if each write keeps the
-  rows there (R2's INSERT_INTO, R3); `"rebuilt"` if it replaces the table; `"proposed"`
-  accepts it.
+- **R11** Kind (file 14): `"history"` if a write keeps the rows there, else `"rebuilt"`.
 
 ## Always: rules A1 to A11
 
@@ -99,6 +97,7 @@ the user saves rows into their own table, a day of it or more, or writes a logic
 ## Names for this objective, with their arguments
 
 - project.new_table(name, template='saved_table', queries=None, *, query=None)
+- project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
 - INSERT_OVERWRITE(table, unproven_key=False, partition=None)
@@ -170,7 +169,7 @@ def write() -> Statement:
 
 ## Output
 
-One ```python block to paste into a notebook cell, then a few plain sentences.
+One ```python block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Self-check
 

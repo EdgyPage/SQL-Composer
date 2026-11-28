@@ -2482,7 +2482,9 @@ def to_8_10(upgrade: Upgrade) -> None:
     and written in as answered, since the table is written already; one with nothing proposed,
     such as a write filling dt from its rows' own values, is left open, KIND = None, and named
     in the checklist, a Decision promote waits on. Every seed() and SEED is kept as
-    it is, and no Seed runs: the tables hold their Partitions already. Each converted table's
+    it is, and no Seed runs: the tables hold their Partitions already. A History table with
+    neither is asked for its SEED, an open Decision proposed as {"months": 1}, the month every
+    History table's Seed is proposed, named in the checklist. Each converted table's
     checklist.md is written again as the view of its Decisions, its kind among them. Each
     Workflow notebook is written again, each name given, each step cell you wrote in and an
     answered decisions cell kept: their steps add a Table reference a table read lacks, a
@@ -2497,6 +2499,7 @@ def to_8_10(upgrade: Upgrade) -> None:
     promoted = _promoted_code_hashes(upgrade.root)
     for name in _saved_tables_with_references(upgrade.root):
         _write_kind(upgrade, name)
+        _ask_seed_limit(upgrade, name)
     _write_checklists_again(upgrade)
     _write_workflow_notebooks_again(upgrade)
     _write_check_project_as_8_10(upgrade)
@@ -2551,6 +2554,40 @@ def _write_kind(upgrade: Upgrade, name: str) -> None:
     if kind is not None:
         said = KIND_WRITTEN_8_10.format(table=name, kind=kind, reference=relative, why=why)
     upgrade.rewrite(relative, _text_with_block(text, block), said)
+
+
+# What 8.10's step writes on the SEED line it asks for, after "proposed: ", and what the
+# checklist says of it (ticket 05's story 14: a History table is always asked about its Seed).
+SEED_ASKED_WHY_8_10 = ("every History table's Seed is proposed the month up to its newest "
+                       "Partition, and project.upgrade() reads no Partitions to check it")
+SEED_ASKED_8_10 = ("asked {table}'s Seed in {reference}: a History table written before 8.10 "
+                   "has no SEED, so its seed limits are an open Decision, proposed as "
+                   '{{"months": 1}}. Answer "seed" for it in the decisions cell of a Workflow '
+                   "notebook naming it, such as promote's, which waits on it. No Seed ran: "
+                   "the table holds its Partitions already")
+
+
+def _ask_seed_limit(upgrade: Upgrade, name: str) -> None:
+    """Write a History table's SEED as 8.10 asks for it, where its Table reference has none
+    and its logic no seed() of 8.4's: an open Decision, proposed as {"months": 1}, above its
+    Aliases. Nothing for any other table, and no Seed runs."""
+    # Each of these imports this file, or what imports it, so each is read here.
+    from . import decisions
+    from .project_files import REFERENCE, table_notebook
+
+    stem = name.replace(".", "__", 1)
+    path = REFERENCE.path(upgrade.root, stem)
+    text = path.read_text(encoding="utf-8")
+    if (decisions.table_kind(text) != decisions.TableKind.HISTORY
+            or decisions.seed_partitions(text) is not None):
+        return
+    cells = read_cells_if_readable(upgrade.root / table_notebook(stem)) or []
+    if any("def seed(" in cell for kind, cell in cells if kind == "code"):
+        return  # its seed() of 8.4's is its Seed, sent as it was
+    block = decisions.asked_seed_block(dict(decisions.PROPOSED_MONTHS), SEED_ASKED_WHY_8_10)
+    relative = path.relative_to(upgrade.root).as_posix()
+    upgrade.rewrite(relative, _text_with_block(text, block),
+                    SEED_ASKED_8_10.format(table=name, reference=relative))
 
 
 def _text_with_block(text: str, block: list[str]) -> str:
